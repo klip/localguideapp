@@ -1,0 +1,13 @@
+// Global stylesheet entry point, imported once from src/main.ts.
+//
+// Order matters: Pico first, then our tokens override its theme variables,
+// then element defaults, layout scaffolding and utilities.
+//
+// Component-specific rules deliberately do NOT live here — they sit in each
+// component's scoped <style lang="scss"> block and read the --rg-* tokens.
+
+@use 'pico';
+@use 'tokens';
+@use 'base';
+@use 'layout';
+@use 'utilities';

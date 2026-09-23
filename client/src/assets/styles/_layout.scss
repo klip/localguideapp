@@ -1,0 +1,71 @@
+@use 'breakpoints' as bp;
+
+// Page-level scaffolding shared by every route.
+
+.shell {
+  max-width: var(--rg-shell-width);
+  margin-inline: auto;
+  padding-inline: 1rem;
+  width: 100%;
+}
+
+.section {
+  padding-block: 3rem;
+
+  @include bp.lg {
+    padding-block: 4.5rem;
+  }
+}
+
+// The app chrome is a sticky header, a growing main, and a footer pinned to the
+// bottom on short pages.
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-shell > main {
+  flex: 1;
+}
+
+// --- Reusable grids ---------------------------------------------------------
+
+.grid-3 {
+  display: grid;
+  gap: 1rem;
+
+  @include bp.md {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.grid-2 {
+  display: grid;
+  gap: 1.25rem;
+
+  @include bp.md {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+// Discovery pages: filter rail, card column, shortlist rail. Collapses to a
+// single column below `lg`, which is the mobile-first swipe view.
+.discovery-layout {
+  display: grid;
+  gap: 1rem;
+
+  @include bp.lg {
+    grid-template-columns: 250px 1fr 290px;
+    align-items: start;
+  }
+}
+
+// Below `lg` the side rails are stacked; hide them behind a details toggle
+// instead of pushing the card off-screen.
+.rail {
+  @include bp.lg {
+    position: sticky;
+    top: 5rem;
+  }
+}

@@ -1,0 +1,25 @@
+# Dependencies — 725M across these two, installed via yarn/corepack
+node_modules/
+client/node_modules/
+.yarn/cache/
+.yarn/install-state.gz
+
+# Build output
+dist/
+client/dist/
+
+# Local environment overrides. `client/.env.development` IS committed: it
+# holds only the API base URL, no secrets.
+.env.local
+.env.*.local
+
+# Test artifacts
+client/coverage/
+client/cypress/screenshots/
+client/cypress/videos/
+
+# macOS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp

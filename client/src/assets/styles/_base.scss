@@ -1,0 +1,36 @@
+// Element-level defaults layered on top of Pico.
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  color: var(--rg-ink);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(255, 224, 201, 0.75), transparent 30%),
+    linear-gradient(180deg, var(--rg-cream), #fff 45%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--pico-primary);
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.04em;
+}
+
+// Pico gives form controls generous bottom margins; inside our compact panels
+// the label wrapper already provides the rhythm.
+label > input,
+label > select {
+  margin-bottom: 0;
+}

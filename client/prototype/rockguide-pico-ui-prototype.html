@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RockGuide — Gibraltar local guide matching</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    :root {
+      --pico-font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --pico-primary: #d97745;
+      --pico-primary-hover: #c86432;
+      --pico-primary-focus: rgba(217, 119, 69, .18);
+      --pico-primary-background: #d97745;
+      --pico-primary-border: #d97745;
+      --pico-border-radius: 1rem;
+
+      --ink: #332720;
+      --muted: #7c6b61;
+      --cream: #fffaf6;
+      --surface: #fffdfb;
+      --orange-50: #fff5ed;
+      --orange-100: #ffe6d4;
+      --orange-200: #ffd1b3;
+      --orange-300: #f4ae7f;
+      --orange-500: #d97745;
+      --green-soft: #eaf5ef;
+      --green: #31785a;
+      --red-soft: #fff0ee;
+      --red: #b45b50;
+      --line: #eadfd8;
+      --shadow: 0 18px 50px rgba(100, 63, 39, .10);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(255, 224, 201, .75), transparent 30%),
+        linear-gradient(180deg, var(--cream), #fff 45%);
+    }
+    a { color: var(--pico-primary); }
+    .shell { max-width: 1180px; margin: auto; padding-inline: 1rem; }
+    .topbar {
+      position: sticky; top: 0; z-index: 30;
+      backdrop-filter: blur(14px);
+      background: rgba(255,250,246,.82);
+      border-bottom: 1px solid rgba(234,223,216,.8);
+    }
+    .topbar nav { padding-block: .6rem; }
+    .brand { font-weight: 800; letter-spacing: -.03em; color: var(--ink); }
+    .brand span { color: var(--orange-500); }
+    .pill {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .35rem .7rem; border-radius: 999px;
+      background: var(--orange-100); color: #8d4d27;
+      font-size: .78rem; font-weight: 700;
+    }
+    .hero { padding: 3.5rem 0 2.2rem; }
+    .hero-grid { display: grid; gap: 2rem; align-items: center; }
+    h1 { font-size: clamp(2.55rem, 7vw, 5.4rem); line-height: .95; letter-spacing: -.055em; max-width: 11ch; margin-bottom: 1.1rem; }
+    .lead { font-size: 1.05rem; color: var(--muted); max-width: 52ch; }
+    .cta-row { display: flex; gap: .7rem; flex-wrap: wrap; margin: 1.2rem 0; }
+    .soft-btn {
+      background: white; border: 1px solid var(--line); color: var(--ink);
+    }
+    .trust-row { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1rem; }
+    .phone {
+      width: min(100%, 370px); margin: auto;
+      background: #171310; border-radius: 2rem; padding: .65rem;
+      box-shadow: var(--shadow);
+    }
+    .phone-screen { background: var(--surface); border-radius: 1.55rem; overflow: hidden; }
+    .phone-head { padding: 1rem 1rem .6rem; display:flex; justify-content:space-between; align-items:center; }
+    .mini-card { margin: .5rem; border-radius: 1.25rem; overflow:hidden; background:white; border:1px solid var(--line); }
+    .mini-img {
+      min-height: 320px;
+      background:
+        linear-gradient(to top, rgba(31,18,12,.55), rgba(31,18,12,0) 60%),
+        linear-gradient(135deg,#e8b38f,#8e7c71 52%,#e4d3c6);
+      position: relative;
+    }
+    .mini-img .overlay { position:absolute; left:1rem; right:1rem; bottom:1rem; color:white; }
+    .mini-actions { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; padding:.85rem; }
+    .section { padding: 3rem 0; }
+    .section-title { max-width: 700px; margin-bottom: 1.5rem; }
+    .section-title h2 { letter-spacing: -.04em; }
+    .grid-3 { display:grid; gap:1rem; }
+    .feature { background:rgba(255,255,255,.75); border:1px solid var(--line); border-radius:1.2rem; padding:1.15rem; }
+    .price-box {
+      background: linear-gradient(145deg,#fff7ef,#ffe5d2);
+      border: 1px solid #f5ccb0; border-radius:1.35rem; padding:1.4rem;
+    }
+    .price { font-size: 3rem; line-height:1; font-weight:800; }
+    .muted { color:var(--muted); }
+    .screens { display:grid; gap:1.25rem; }
+    .mock {
+      background: rgba(255,255,255,.9); border:1px solid var(--line);
+      border-radius:1.35rem; box-shadow:var(--shadow); overflow:hidden;
+    }
+    .mock header { padding:1rem 1.1rem .4rem; }
+    .mock main { padding: .7rem 1rem 1rem; }
+    .auth-wrap { max-width: 480px; margin:auto; }
+    .tiny { font-size:.8rem; }
+    .filters { display:flex; gap:.5rem; overflow:auto; padding-bottom:.25rem; scrollbar-width:none; }
+    .chip {
+      white-space:nowrap; border:1px solid var(--line); border-radius:999px;
+      padding:.45rem .75rem; font-size:.82rem; background:white;
+    }
+    .chip.active { background:var(--orange-100); border-color:#efbf9f; color:#8f4f2b; }
+    .profile-card {
+      border:1px solid var(--line); border-radius:1.25rem; overflow:hidden; background:white;
+    }
+    .profile-photo {
+      aspect-ratio: 4 / 4.35;
+      background:
+        linear-gradient(to top, rgba(41,30,24,.70), rgba(41,30,24,0) 52%),
+        linear-gradient(135deg,#f0c19e,#ad9381 48%,#d7c8bd);
+      position:relative;
+    }
+    .photo-copy { position:absolute; inset:auto 1rem 1rem; color:white; }
+    .profile-body { padding:1rem; }
+    .profile-meta { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; }
+    .services { display:flex; flex-wrap:wrap; gap:.4rem; margin:.75rem 0; }
+    .tag { background:var(--orange-50); color:#8d5330; border-radius:999px; padding:.3rem .55rem; font-size:.76rem; }
+    .decision-row { display:grid; grid-template-columns:1fr 1fr; gap:.65rem; margin-top:.85rem; }
+    .reject { background:var(--red-soft); border-color:#f2ccc6; color:var(--red); }
+    .accept { background:var(--green-soft); border-color:#cae6d8; color:var(--green); }
+    .counter {
+      display:flex; justify-content:space-between; align-items:center; padding:.75rem .85rem;
+      background:var(--orange-50); border-radius:1rem; margin:.85rem 0;
+    }
+    .desktop-frame { display:none; }
+    footer { padding: 2.5rem 0 3rem; color:var(--muted); }
+
+    @media (min-width: 760px) {
+      .hero { padding-top: 5rem; }
+      .hero-grid { grid-template-columns: 1.15fr .85fr; }
+      .grid-3 { grid-template-columns: repeat(3,1fr); }
+      .screens { grid-template-columns: 1fr 1fr; }
+      .desktop-frame { display:block; }
+      .mobile-only-label { display:none; }
+    }
+
+    @media (min-width: 1024px) {
+      .section { padding:4.5rem 0; }
+      .screens { grid-template-columns: repeat(3,1fr); }
+      .mock.wide { grid-column: span 2; }
+      .desktop-layout { display:grid; grid-template-columns: 250px 1fr 290px; gap:1rem; }
+      .desktop-layout .profile-photo { aspect-ratio: 16 / 10; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell">
+      <nav>
+        <ul><li><a class="brand" href="#home">Rock<span>Guide</span></a></li></ul>
+        <ul>
+          <li><a href="#how">How it works</a></li>
+          <li><a role="button" href="#auth">Get started</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="home">
+    <section class="hero shell">
+      <div class="hero-grid">
+        <div>
+          <span class="pill">⚓ Made for Gibraltar cruise days</span>
+          <h1>Find your local. Skip the tourist shuffle.</h1>
+          <p class="lead">Match with independent Gibraltar guides based on your language, interests, pace and budget. Choose up to five guides for a one-time £5 access fee.</p>
+          <div class="cta-row">
+            <a href="#auth" role="button">Find my guide · £5</a>
+            <a href="#guide-flow" role="button" class="soft-btn">I’m a guide</a>
+          </div>
+          <div class="trust-row">
+            <span class="pill">5 guide selections included</span>
+            <span class="pill">+5 more for £5</span>
+            <span class="pill">Direct contact after match</span>
+          </div>
+        </div>
+
+        <div class="phone" aria-label="mobile match preview">
+          <div class="phone-screen">
+            <div class="phone-head"><strong>Discover</strong><span class="tiny muted">2 / 5 selected</span></div>
+            <div class="mini-card">
+              <div class="mini-img">
+                <div class="overlay">
+                  <strong style="font-size:1.5rem">Sofia, 31</strong><br>
+                  <span>History · Food · Scenic walks</span>
+                </div>
+              </div>
+              <div style="padding:.85rem">
+                <strong>£95 / 6 hours</strong>
+                <p class="tiny muted" style="margin:.25rem 0 0">Includes private walking tour, Upper Rock route planning and café stop.</p>
+              </div>
+              <div class="mini-actions">
+                <button class="reject">Pass</button>
+                <button class="accept">Interested</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="section shell">
+      <div class="section-title">
+        <span class="pill">Simple by design</span>
+        <h2>Three taps between “we’ve docked” and “we’ve got a plan.”</h2>
+      </div>
+      <div class="grid-3">
+        <article class="feature"><strong>1. Unlock</strong><p class="muted">Pay £5 once to select up to five guides. Need more options? Unlock another five for £5.</p></article>
+        <article class="feature"><strong>2. Filter & swipe</strong><p class="muted">Filter by language, age, gender and activity type. Save only guides you genuinely want to hear from.</p></article>
+        <article class="feature"><strong>3. Match & arrange</strong><p class="muted">Guides browse compatible visitors too. Once interest is mutual, contact details become available.</p></article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="price-box">
+        <div class="grid-3" style="align-items:center">
+          <div>
+            <span class="pill">Visitor access</span>
+            <div class="price">£5</div>
+            <div class="muted">one-time selection fee</div>
+          </div>
+          <div>
+            <strong>Includes 5 guide selections</strong>
+            <p class="muted" style="margin-bottom:0">No subscription. No marketplace clutter. Just a focused shortlist.</p>
+          </div>
+          <div><a href="#auth" role="button" style="width:100%">Start matching</a></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="auth" class="section shell">
+      <div class="section-title"><span class="pill">Screen 01</span><h2>Minimal registration / login</h2></div>
+      <div class="screens">
+        <article class="mock">
+          <header><strong>Create your visitor account</strong><p class="tiny muted">Takes less than a minute.</p></header>
+          <main>
+            <label>Email<input type="email" placeholder="you@example.com"></label>
+            <label>Password<input type="password" placeholder="••••••••"></label>
+            <button style="width:100%">Continue</button>
+            <button class="soft-btn" style="width:100%">Continue with Apple</button>
+            <p class="tiny muted" style="text-align:center">Already registered? <a href="#">Log in</a></p>
+          </main>
+        </article>
+
+        <article class="mock">
+          <header><strong>Unlock your shortlist</strong><p class="tiny muted">Choose up to 5 guides.</p></header>
+          <main>
+            <div class="price-box" style="margin-bottom:1rem">
+              <div style="display:flex;justify-content:space-between;align-items:end">
+                <div><span class="tiny muted">ONE-TIME FEE</span><div class="price">£5</div></div>
+                <span class="pill">5 picks</span>
+              </div>
+            </div>
+            <button style="width:100%">Pay £5 securely</button>
+            <p class="tiny muted">You can add 5 more guide selections later for another £5.</p>
+          </main>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-title"><span class="pill">Screen 02</span><h2>Short visitor configuration</h2></div>
+      <article class="mock auth-wrap">
+        <header><strong>Tell guides how to reach you</strong><p class="tiny muted">Only matched guides will see your contact details.</p></header>
+        <main>
+          <label>Name or nickname<input placeholder="Igor"></label>
+          <label>Preferred contact
+            <select><option>WhatsApp</option><option>Phone</option><option>Email</option></select>
+          </label>
+          <label>Contact detail<input placeholder="+350 … / email"></label>
+          <label>Profile photo<input type="file"></label>
+          <button style="width:100%">Save & start exploring</button>
+        </main>
+      </article>
+    </section>
+
+    <section class="section shell">
+      <div class="section-title"><span class="pill">Screen 03</span><h2>Visitor discovery: Tinder rhythm, travel context</h2></div>
+      <div class="screens">
+        <article class="mock wide">
+          <header>
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center">
+              <div><strong>Guides for you</strong><div class="tiny muted">Friday · cruise day</div></div>
+              <span class="pill">2 / 5 picked</span>
+            </div>
+          </header>
+          <main>
+            <div class="filters">
+              <span class="chip active">English</span><span class="chip">Spanish</span><span class="chip">Food</span><span class="chip">History</span><span class="chip">Nature</span><span class="chip">Age 25–45</span>
+            </div>
+            <div class="counter"><span><strong>3 selections left</strong><br><span class="tiny muted">before your current pack is used</span></span><a href="#" class="tiny">Get +5</a></div>
+
+            <div class="profile-card">
+              <div class="profile-photo">
+                <div class="photo-copy">
+                  <strong style="font-size:1.65rem">Sofia, 31</strong><br>
+                  <span>★★★★★ 4.9 · 47 tours</span>
+                </div>
+              </div>
+              <div class="profile-body">
+                <div class="profile-meta">
+                  <div><strong>£95 / 6 hours</strong><div class="tiny muted">Private day route</div></div>
+                  <a class="tiny" href="#">Full profile →</a>
+                </div>
+                <p>I’m a local history nerd who prefers hidden lanes, good coffee and viewpoints without the coach-bus queue.</p>
+                <div class="services"><span class="tag">Upper Rock</span><span class="tag">Old Town</span><span class="tag">Food</span><span class="tag">Photography</span></div>
+                <p class="tiny muted"><strong>Includes:</strong> route planning, private guiding, attraction coordination and café stop. Tickets not included.</p>
+                <div class="decision-row"><button class="reject">✕ Reject</button><button class="accept">♥ Interested</button></div>
+              </div>
+            </div>
+          </main>
+        </article>
+
+        <article class="mock">
+          <header><strong>Filters</strong><p class="tiny muted">Keep them light and optional.</p></header>
+          <main>
+            <label>Language<select><option>Any</option><option>English</option><option>Spanish</option></select></label>
+            <label>Guide gender<select><option>No preference</option><option>Woman</option><option>Man</option></select></label>
+            <label>Age range<input type="range" min="18" max="70" value="42"></label>
+            <fieldset>
+              <legend>Activities</legend>
+              <label><input type="checkbox"> History</label>
+              <label><input type="checkbox"> Food & drink</label>
+              <label><input type="checkbox"> Nature</label>
+              <label><input type="checkbox"> Family-friendly</label>
+            </fieldset>
+            <button style="width:100%">Show matches</button>
+          </main>
+        </article>
+      </div>
+    </section>
+
+    <section id="guide-flow" class="section shell">
+      <div class="section-title"><span class="pill">Screen 04</span><h2>Guide-side matching</h2><p class="muted">The same interaction model, but the card emphasizes party needs, schedule and requested experience.</p></div>
+      <div class="screens">
+        <article class="mock">
+          <header>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div><strong>Visitors</strong><div class="tiny muted">Matching your availability</div></div>
+              <span class="pill">Tomorrow</span>
+            </div>
+          </header>
+          <main>
+            <div class="filters"><span class="chip active">English</span><span class="chip">4–6 hrs</span><span class="chip">History</span></div>
+            <div class="profile-card">
+              <div class="profile-photo" style="background:linear-gradient(to top,rgba(41,30,24,.7),transparent 52%),linear-gradient(135deg,#d9c7b9,#8ba3a8 48%,#d9d6ce)">
+                <div class="photo-copy"><strong style="font-size:1.65rem">Mark, 42</strong><br><span>2 adults · Aurora Vista cruise</span></div>
+              </div>
+              <div class="profile-body">
+                <p>First time in Gibraltar. We’d like a relaxed private tour with history, scenic viewpoints and a proper local lunch.</p>
+                <div class="services"><span class="tag">10:00–16:00</span><span class="tag">English</span><span class="tag">History</span><span class="tag">Food</span></div>
+                <div class="decision-row"><button class="reject">✕ Pass</button><button class="accept">♥ Interested</button></div>
+              </div>
+            </div>
+          </main>
+        </article>
+
+        <article class="mock desktop-frame wide">
+          <header><strong>Desktop discovery layout</strong><p class="tiny muted">Same product, more breathing room rather than a completely different UX.</p></header>
+          <main class="desktop-layout">
+            <aside>
+              <strong>Filters</strong>
+              <hr>
+              <label class="tiny">Language<select><option>English</option></select></label>
+              <label class="tiny">Activity<select><option>History + food</option></select></label>
+              <label class="tiny">Age<select><option>Any age</option></select></label>
+              <button style="width:100%">Apply</button>
+            </aside>
+            <section style="padding:0">
+              <div class="profile-card">
+                <div class="profile-photo"><div class="photo-copy"><strong style="font-size:1.7rem">Sofia, 31</strong><br><span>★★★★★ 4.9</span></div></div>
+                <div class="profile-body">
+                  <div class="profile-meta"><strong>£95 / 6 hours</strong><a class="tiny" href="#">Full profile →</a></div>
+                  <p>Local history, food and quiet scenic spots.</p>
+                  <div class="decision-row"><button class="reject">Reject</button><button class="accept">Interested</button></div>
+                </div>
+              </div>
+            </section>
+            <aside>
+              <div class="counter"><span><strong>2 / 5</strong><br><span class="tiny muted">selected</span></span></div>
+              <strong>Your shortlist</strong>
+              <p class="tiny muted">Sofia<br>Daniel</p>
+              <button class="soft-btn" style="width:100%">View shortlist</button>
+              <button style="width:100%">Unlock +5 · £5</button>
+            </aside>
+          </main>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="shell">
+    <hr>
+    <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+      <span class="brand">Rock<span>Guide</span></span>
+      <span class="tiny">Concept UI · Mobile first · Pico CSS</span>
+    </div>
+  </footer>
+</body>
+</html>

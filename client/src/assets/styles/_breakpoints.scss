@@ -1,0 +1,17 @@
+// Shared responsive breakpoints. Emits no CSS, so component <style> blocks can
+// `@use "breakpoints" as bp` freely without duplicating output.
+
+$md: 760px;
+$lg: 1024px;
+
+@mixin md {
+  @media (min-width: $md) {
+    @content;
+  }
+}
+
+@mixin lg {
+  @media (min-width: $lg) {
+    @content;
+  }
+}

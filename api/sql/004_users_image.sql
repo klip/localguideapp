@@ -1,0 +1,15 @@
+-- Additive migration (see 002's header for the pattern).
+--
+--   docker exec -i lemp-mysql mysql -u localguideapp -p'…' guideapp < api/sql/004_users_image.sql
+--
+-- Stores a profile photo as a data URI (`data:image/jpeg;base64,...`) — the
+-- output of the client-side crop tool (`ImageCropper.vue`), not a file path.
+-- No upload directory or static file serving is wired up for this app, so a
+-- self-contained column is the simplest thing that works. MEDIUMTEXT (16MB)
+-- comfortably covers a cropped ~480x480 JPEG (tens of KB); RequestProcessor
+-- also caps the accepted length server-side.
+--
+-- Not `IF NOT EXISTS` (MySQL 8.4 rejects that on ADD COLUMN, unlike MariaDB)
+-- — rerunning this after it's applied errors safely rather than doing
+-- anything silent.
+ALTER TABLE `users` ADD COLUMN `image` MEDIUMTEXT NULL AFTER `name`;
