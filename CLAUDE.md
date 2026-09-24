@@ -28,19 +28,28 @@ a mobile slide-in burger menu (`AppHeader.vue`).
 
 **Deliberately fake / not wired to anything real:** `Payments.php` just
 inserts a `status = 'paid'` row on `unlockPack` — there is no payment
-gateway; `users.two_factor_method` is a stored preference with no OTP
-delivery behind it; the "pay the guide's fee" step
-`GuideDiscoverPage.vue` mentions on a match is copy only, not a flow;
+gateway; the guide's fee (`Bookings::pay()`) and its refund
+(`Bookings::cancelByGuide()`) are recorded the same way, no money moves —
+see "Guide fees & bookings" below; `users.two_factor_method` is a stored
+preference with no OTP delivery behind it;
 `admin/` and the `cms_users` table are placeholders for a CMS that doesn't
 exist yet (no `cms_creds` table either, so nothing could log into it if it
-did).
+did). **Email, on the other hand, is real** (`Mailer.php`, Gmail SMTP) once
+the `SMTP_*` server params are set — see "Email" under Docker environment.
 
 **Known gaps / inconsistencies** (worth knowing about, not urgent):
-- **A guide still gets no *push* notification for a match the visitor
-  completed** — `GuideDiscoverPage.vue`'s "it's a match" toast fires only
-  on the guide's own `decide()`. The match does now show up on `/matches`
-  (`MatchesPage.vue`), but only when the guide goes there; there's no nav
-  badge/count yet.
+- **A guide who charges a fee isn't notified when a visitor completes the
+  match** — only when that visitor then pays (`booking_paid`), or, for a
+  free guide, on the match itself (`booking_free`). See "In-app
+  notifications" below. The match does show up on `/matches` either way;
+  there's no nav badge/count yet.
+- **A guest can't walk away from a booking they paid for** — `Selections::
+  revoke()` refuses it and the Matches page hides "Unmatch"; only the guide
+  can cancel (which refunds them). There's no guest-side cancel/refund
+  policy yet.
+- **Meeting times are free-form**: the guest picks any future date-time
+  when paying (up to a year ahead); nothing checks it against the guide's
+  working hours (`hour_of_day`), and the guide can't propose another.
 ## Layout
 
 - `client/` — Vue 3 frontend (the actual app). Run all frontend commands from
@@ -417,7 +426,7 @@ sorts every pair into four tabs:
 
 | Tab | Condition | Actions |
 | --- | --- | --- |
-| Matched | `active = 1` | email/phone shown (`mailto:`/`tel:`), **Unmatch** → `revokeSelection` |
+| Matched | `active = 1` | email/phone shown (`mailto:`/`tel:`) **once booked**; guest: **Pay £X** → `payGuideFee`; guide: **Cancel booking** → `cancelBooking`; **Unmatch** → `revokeSelection` where allowed — see "Guide fees & bookings" |
 | Likes you | they're `interested`, you haven't decided | **Accept** → `decide('interested')`, **Pass** → `decide('pass')` |
 | Awaiting reply | you're `interested`, not active | **Withdraw** → `revokeSelection` (gives a guest their pick back) |
 | Passed | you passed | **Reconsider** → `decide('interested')` |
@@ -429,7 +438,8 @@ sorts every pair into four tabs:
 - **What the server hides:** `their_decision` is only ever `'interested'`
   or `null`, so a pass from the other side looks like "no answer yet". A
   pair where they passed and you never decided isn't returned at all.
-  `email`/`phone` are `null` unless `active = 1`.
+  `email`/`phone` are `null` unless `active = 1` **and** the pair has a
+  confirmed booking — for both sides.
 - Guests: Accept and Reconsider each cost a pick (enforced server-side by
   `Selections::decide()`). With `selectionsLeft === 0` those buttons turn
   into "Unlock…" links to `/unlock`. Every guest action is mirrored into
@@ -438,6 +448,59 @@ sorts every pair into four tabs:
 - This is where a guide finds a match the visitor completed (see the gap
   under "Progress so far"). `ShortlistPage.vue`'s "Confirmed matches" panel
   still exists and now links here.
+
+### Guide fees & bookings
+
+Contact details are what a guide sells, so a match alone no longer reveals
+them — to **either** side. A **booking** (`bookings`, `Bookings.php`) does:
+
+- **Guide with a fee** (`user_profiles.price_amount > 0`): on the Matched
+  tab the guest sees "Pay £X", picks a meeting date-time in an inline form
+  (`<input type="datetime-local">`, sent as UTC ISO) and confirms →
+  `api.payGuideFee()`. Success toast: "Payment of £X confirmed — …'s contact
+  details are unlocked." The guide gets an in-app notification plus an
+  email with the visitor's contact details. Nothing is charged (same as
+  pack purchases).
+- **Free guide** (price 0 or unset — the default): the booking opens by
+  itself the moment the match forms (`Selections::syncActive()` →
+  `Bookings::onMatched()`), `amount = 0`, `payment_status = 'none'`, no
+  meeting time; the guide is notified. Matches made before bookings existed
+  (or a guide who drops their fee to 0 later) are backfilled silently by
+  `Bookings::ensureFreeBookingsFor()`, run at the top of `getOverview()`/
+  `getActiveMatches()`.
+- **The guide can cancel any time** ("Cancel booking" → an inline confirm
+  that states the exact refund and takes an optional ≤256-char reason) →
+  `api.cancelBooking()` → `Bookings::cancelByGuide()`: booking `cancelled`,
+  a paid fee `refunded` with `refund_amount` recorded, **both** decisions
+  cleared (which is what returns the guest's pick — `getPicksUsed()` counts
+  `guest_decision = 'interested'`), and the guest gets an in-app
+  notification plus an email with the reason and the refund.
+- **Late-cancellation extra** (`Bookings::refundAmount()`): the refund is
+  the fee **plus 5%** when the meeting is less than 24 hours away — or less
+  than **2** hours away if the match itself is under a day old
+  (`selections.matched_at`), so a same-day booking isn't automatically
+  "late". `getOverview()` pre-computes it for the guide as
+  `refund_if_cancelled`, which is what the confirm step shows.
+- **Unmatching a booked pair**: the guide can't (`revoke()` throws — cancel
+  instead); the guest can drop a *free* booking (the guide is told) but
+  not a paid one.
+- Emails and notification copy live in `Bookings.php`; meeting times in
+  emails are written in UTC ("… UTC"), in the UI in the viewer's zone.
+- `trip_status` (`pending`/`started`/`finished`) is on the booking for the
+  upcoming trip-progress feature (guide-only). A finished trip closes the
+  booking (the `open_pair` generated column only covers unfinished
+  confirmed bookings), so the pair can book again. Reviews key off it.
+
+### In-app notifications
+
+`notifications` rows (`Notifications::notify()`, which also sends the
+email) are what a user hears about while they weren't looking — currently
+`booking_paid`, `booking_free`, `booking_cancelled`. There's no push
+channel: `App.vue` pulls them (`api.notifications()`) at boot and on every
+route change, throttled to once per 15s, and shows each as a 10s info toast;
+the server marks them read in the same call, so each shows once. The
+contact channel is **email only for now** — `Notifications::deliver()` is
+the one place to branch on a preferred channel when SMS/WhatsApp exist.
 
 ### Real guide/visitor cards, filtered server-side
 
@@ -532,10 +595,9 @@ client-side `matchesFilters()`) is gone; don't recreate it.
   (`SelectionRow`, `active: 0 | 1`); `active === 1` means this decision was
   the one that completed a mutual `'interested'` (see
   `Selections::decide()`/`syncActive()` under Backend), and triggers
-  `messages.success(...)` telling the guide the next step is the visitor
-  paying the guide's fee before contact details are exchanged — this app
-  has no real payment-for-contact flow, so that's purely informational
-  copy, not a new gate. This only fires on the decision that *completes*
+  `messages.success(...)` telling the guide contact details appear on
+  `/matches` once the visitor has paid their fee (straight away for a free
+  guide) — see "Guide fees & bookings". This only fires on the decision that *completes*
   the match; if the guest is the one who completes it (already had this
   guide's `'interested'` recorded, then the guest swipes right), the guide
   gets no toast — they'll only see it on `/matches` (`MatchesPage.vue`).
@@ -870,10 +932,9 @@ category a user invented on their profile page five minutes ago.
 - Server-side, a guest/guide pair becomes an active **match** when both
   sides have independently recorded `'interested'` — see `selections` under
   Database state. `GuideDiscoverPage.vue`'s `accept()` surfaces this the
-  moment it happens on the guide's own decision (see the note above) with a
-  toast about the visitor needing to pay the guide's fee next — informational
-  copy only, since no such payment flow actually exists yet. Either side can
-  revoke; revoking only clears *their own* side and deactivates the pair, it
+  moment it happens on the guide's own decision (see the note above).
+  Contact details then wait on a booking — see "Guide fees & bookings".
+  Either side can revoke (a booked pair has extra rules, same section); revoking only clears *their own* side and deactivates the pair, it
   doesn't touch the other side's decision or delete the row, so the pair can
   re-activate later and the revoking user is immediately free to be matched
   by/with someone else.
@@ -986,6 +1047,37 @@ repo, at `../../docker-compose.yaml` relative to here — i.e.
 - `node` / `lemp-node` — where `client/` commands (`yarn dev`, etc.) actually
   run; same `/var/www` mount.
 
+### Email
+
+`Mailer.php` reads these from the server environment — add them next to
+`PEPPER`/`DB_*` in **both** server blocks of
+`nginx/conf.d/api.rockguide.com.conf`, then `docker exec lemp-nginx nginx -s reload`.
+Never commit them.
+
+```nginx
+fastcgi_param SMTP_HOST "smtp.gmail.com";
+fastcgi_param SMTP_PORT "587";
+fastcgi_param SMTP_USER "<the sending Gmail address>";
+fastcgi_param SMTP_PASS "<16-char Google App Password>";
+fastcgi_param MAIL_FROM_NAME "RockGuide";
+fastcgi_param MAIL_REDIRECT_TO "<your inbox>";   # development only
+```
+
+- Gmail rejects the normal account password over SMTP. It needs an **App
+  Password**: turn on 2-Step Verification for the account, then create one
+  at myaccount.google.com/apppasswords. Gmail allows roughly 500 emails a
+  day, and `From` must be that Gmail address (`MAIL_FROM` defaults to
+  `SMTP_USER`).
+- `MAIL_REDIRECT_TO` sends every email to that one address instead, noting
+  the real recipient at the top of the body — set it in development, where
+  test accounts have made-up addresses; remove it in production.
+- With no `SMTP_*` set, nothing is sent and each attempt is logged to
+  `/tmp/db_error_<date>.log` in `lemp-php` (`db::writeLog()`); SMTP failures
+  land there too.
+- The SMTP conversation was verified against smtp.gmail.com up to AUTH
+  (bogus credentials → `535 BadCredentials`) — a real App Password is the
+  only missing piece.
+
 ## API reference
 
 Every action `RequestProcessor::handle()` dispatches (`api/classes/
@@ -1016,8 +1108,11 @@ unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 | `paymentState` | **yes** | `api.paymentState()` | — | `PaymentState` | `paymentStateFor()` |
 | `decide` | **yes** | `api.decide(payload)` | `targetId, decision` (`'interested' \| 'pass'`) | `SelectionRow` (`id, guest_id, guide_id, guest_decision, guide_decision, active, created_at, updated_at`) | `Selections::decide()` |
 | `revokeSelection` | **yes** | `api.revokeSelection(payload)` | `targetId` | `SelectionRow` | `Selections::revoke()` |
-| `matches` | **yes** | `api.matches()` | — | `{ matches: MatchRow[] }` (`id, counterpart_id, name, email`) | `Selections::getActiveMatches()` |
-| `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, updated_at, name, image, email, phone, age, headline, price_label, party, duration_hours` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active) | `Selections::getOverview()` |
+| `matches` | **yes** | `api.matches()` | — | `{ matches: MatchRow[] }` (`id, counterpart_id, name, email` — `email` `null` until booked) | `Selections::getActiveMatches()` |
+| `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, email, phone, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
+| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year) | `Booking` | `actionPayGuideFee()` → `Bookings::pay()` |
+| `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
+| `notifications` | **yes** | `api.notifications()` | — | `{ notifications: AppNotification[] }` (`id, kind, message, created_at`) — marked read by this call | `Notifications::takeUnread()` |
 | `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
 | `session` | **yes** | `api.session()` | — | `AuthResult` (same shape as `register`/`login`, unrotated `sessionHash`) | `actionSession()` |
 
@@ -1127,6 +1222,21 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   `getActiveMatches()` lists a user's active matches with the counterpart's
   basic info; `getOverview()` lists every pair the user is part of for
   `MatchesPage.vue`, with the masking described under "Match management"; `getPicksUsed()` feeds `RequestProcessor::paymentStateFor()`.
+- `api/classes/Bookings.php` — `bookings`: `pay()`, `cancelByGuide()`,
+  `cancelFreeByGuest()`, `onMatched()`/`ensureFreeBookingsFor()` (free
+  guides), `refundAmount()` (the late-cancellation rule), `openFor()`. Owns
+  the booking emails' wording. See "Guide fees & bookings".
+- `api/classes/Notifications.php` — `notify()` (a `notifications` row +
+  an email to the user) and `takeUnread()` (fetch-and-mark-read).
+- `api/classes/Mailer.php` — plain-text email over SMTP with STARTTLS +
+  AUTH LOGIN, no Composer/PHPMailer. `send()` never throws: a missing config
+  or SMTP error is written to `db::writeLog()` and returns `false`, so a
+  flaky mail server can't fail a payment. Header-injection-safe (CR/LF
+  stripped), RFC 2047 subjects, base64 bodies. See "Email" below for config.
+- `Selections.php` also takes `Bookings` now: `syncActive()` stamps
+  `matched_at` and calls `Bookings::onMatched()` on the flip to active;
+  `revoke()` enforces the booked-pair rules; `getOverview()`/
+  `getActiveMatches()` mask contact details with `CONTACT_UNLOCKED`.
 - `api/classes/Session.php` — server-side sessions backed by the
   `sessions` table (see `009_sessions.sql`): `create(userId)` mints a
   random 64-hex-char hash; `resolve(hash)` looks it up, checks
@@ -1258,6 +1368,11 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
 - `api/sql/011_drop_user_specialties.sql` — drops `user_specialties`
   (applied 2026-09-24, after its pre-check confirmed all 9 rows had a
   matching `interests` value).
+- `api/sql/012_bookings.sql` — `bookings`, `notifications`, and
+  `selections.matched_at` (backfilled from `updated_at` for active rows);
+  applied 2026-09-24. `bookings` has no FKs on `guest_id`/`guide_id`:
+  MySQL refuses a cascading FK on a base column of a stored generated
+  column (`open_pair`), so user deletion cascades through `selection_id`.
 
 There is no test setup, linter, or formatter configured for `api/` yet;
 `docker exec lemp-php php -l <file>` is the only current check.
@@ -1333,6 +1448,15 @@ There is no test setup, linter, or formatter configured for `api/` yet;
   which is all that now distinguishes a guide's specialities from a
   guest's interests. **Every** category is filterable — nothing is
   special-cased by key any more.
+- `bookings` (id, selection_id, guest_id, guide_id, amount, meeting_at,
+  status `confirmed|cancelled`, payment_status `none|paid|refunded`,
+  refund_amount, cancel_reason, cancelled_at, trip_status
+  `pending|started|finished`, created_at, updated_at, generated
+  `open_pair`) — at most one open (confirmed, unfinished) booking per pair,
+  enforced by a UNIQUE index on `open_pair`. Date-times are UTC (MySQL,
+  PHP and the containers all run in UTC).
+- `notifications` (id, user_id, kind, message, read_at, created_at).
+- `selections.matched_at` — when the pair last became active (UTC).
 - `sessions` (id, `session_hash` unique, user_id, created_at,
   last_active_at) — one row per active login, deleted on logout or the
   next time `Session::resolve()` finds it past its 5-minute inactivity

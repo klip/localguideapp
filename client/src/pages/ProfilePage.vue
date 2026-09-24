@@ -515,7 +515,17 @@ async function changePassword() {
             <template v-if="isGuide">
               <label>
                 Price amount (£)
-                <input v-model.number="priceAmount" type="number" min="0" step="0.01" />
+                <input
+                  v-model.number="priceAmount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  aria-describedby="price-amount-hint"
+                />
+                <small id="price-amount-hint" class="muted">
+                  The fee a visitor pays to get your contact details. Leave it at 0 to guide for free — you'll swap
+                  contact details as soon as you match.
+                </small>
               </label>
               <label>
                 Price label
