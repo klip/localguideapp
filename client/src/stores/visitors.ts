@@ -7,7 +7,7 @@ import type { DiscoveryFilters, Visitor } from '@/types'
 function toVisitorCard(account: ProfileAccount): Visitor {
   return {
     id: String(account.id),
-    name: account.name || account.email,
+    name: account.name || 'RockGuide visitor',
     age: account.age ?? 0,
     party: account.party || 'New visitor',
     bio: account.bio || 'No trip details yet.',

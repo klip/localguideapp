@@ -70,7 +70,8 @@ export interface BasicAccount {
  * category the client has never heard of arrives here just the same.
  * Any scalar field can be `null` — plenty of accounts have a partial profile.
  */
-export interface ProfileAccount extends BasicAccount {
+/** No `email`: contact details only ever come through a booking (`Selections::getOverview()`), never a deck card. */
+export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   age: number | null
   gender: Gender | null
   headline: string | null

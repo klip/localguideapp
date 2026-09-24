@@ -16,7 +16,7 @@ export function toGuideCard(account: ProfileAccount | PublicProfile): Guide {
   return {
     id: String(account.id),
     // A public profile carries no email, so it has no fallback beyond this.
-    name: account.name || ('email' in account ? account.email : '') || 'RockGuide guide',
+    name: account.name || 'RockGuide guide',
     age: account.age ?? 0,
     headline: account.headline || 'New on RockGuide',
     ratingAverage: account.rating_average ?? 0,

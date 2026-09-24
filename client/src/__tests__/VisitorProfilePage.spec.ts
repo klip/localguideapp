@@ -30,6 +30,9 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     session: vi.fn<Api['session']>(),
     unlockPack: vi.fn<Api['unlockPack']>(),
     paymentState: vi.fn<Api['paymentState']>(),
+    payGuideFee: vi.fn<Api['payGuideFee']>(),
+    cancelBooking: vi.fn<Api['cancelBooking']>(),
+    notifications: vi.fn<Api['notifications']>(),
     decide: vi.fn<Api['decide']>(),
     revokeSelection: vi.fn<Api['revokeSelection']>(),
     matches: vi.fn<Api['matches']>(),
@@ -153,7 +156,7 @@ describe('VisitorProfilePage', () => {
 
 describe('GuideDiscoverPage', () => {
   it("links each visitor card to the visitor's full profile", async () => {
-    const account: ProfileAccount = { ...guest, email: 'maya@example.com' }
+    const account: ProfileAccount = { ...guest }
     const api = fakeApi({
       visitors: vi.fn<Api['visitors']>().mockResolvedValue({ visitors: [account] }),
     })

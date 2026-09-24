@@ -507,6 +507,10 @@ them — to **either** side. A **booking** (`bookings`, `Bookings.php`) does:
   (`selections.matched_at`), so a same-day booking isn't automatically
   "late". `getOverview()` pre-computes it for the guide as
   `refund_if_cancelled`, which is what the confirm step shows.
+- **Nothing else hands out contact details**: deck cards
+  (`Users::searchByRole()`, `ProfileAccount`) and public profiles carry no
+  `email`/`phone` — the deck used to include `email` as a name fallback,
+  which would have let anyone skip the fee.
 - **Unmatching a booked pair**: the guide can't (`revoke()` throws — cancel
   instead); the guest can drop a *free* booking (the guide is told) but
   not a paid one.

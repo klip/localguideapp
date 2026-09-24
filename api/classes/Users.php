@@ -263,7 +263,7 @@ class Users
         }
 
         $rows = $this->db->db_GetArray(
-            'SELECT u.`email`, ' . self::PROFILE_COLUMNS . '
+            'SELECT ' . self::PROFILE_COLUMNS . '
              FROM `users` u
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . self::REVIEW_SUMMARY_JOIN . '
@@ -323,8 +323,8 @@ class Users
 
     /**
      * What `searchByRole()` and `getPublicProfile()` both show about a
-     * person — never contact details (`searchByRole()` adds `email` itself,
-     * as the card's name fallback). `rating_average`/`review_count` come from
+     * person — never contact details: those are what a booking unlocks (see
+     * `Bookings`), so the deck mustn't hand them out. `rating_average`/`review_count` come from
      * `REVIEW_SUMMARY_JOIN`, not from `user_profiles.rating`/`tours`, which
      * users used to be able to set themselves and are no longer read.
      */
