@@ -66,7 +66,7 @@ async function revokeMatch(match: MatchRow, event: MouseEvent) {
     await api.revokeSelection({ targetId: match.counterpart_id })
     matches.value = matches.value.filter((item) => item.id !== match.id)
     messages.success(
-      `Unmatched from ${match.name || match.email}. You're free to be matched by someone else.`,
+      `Unmatched from ${match.name || match.email || 'your match'}. You're free to be matched by someone else.`,
       rowPlacement,
     )
   } catch (err) {
@@ -145,7 +145,7 @@ onMounted(() => {
 
       <ul v-else-if="matches.length" class="picked">
         <li v-for="match in matches" :key="match.id" class="row-between">
-          <span>{{ match.name || match.email }}</span>
+          <span>{{ match.name || match.email || 'Your match' }}</span>
           <button
             type="button"
             class="soft-btn"

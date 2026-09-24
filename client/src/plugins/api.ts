@@ -223,6 +223,42 @@ export interface PaymentState {
 
 export type SelectionDecision = 'interested' | 'pass'
 
+export type BookingStatus = 'confirmed' | 'cancelled'
+/** `none` is a free guide's booking — nothing was charged, so nothing is refunded. */
+export type BookingPaymentStatus = 'none' | 'paid' | 'refunded'
+/** Advanced by the guide (a later feature); reviews open up once it's `finished`. */
+export type TripStatus = 'pending' | 'started' | 'finished'
+
+/**
+ * One `bookings` row (see `Bookings.php`) — what a match turns into once
+ * contact details are unlocked: the guest paid the guide's fee, or the guide
+ * is free. Date-times are UTC `YYYY-MM-DD HH:MM:SS` strings.
+ */
+export interface Booking {
+  id: number
+  selection_id: number
+  guest_id: number
+  guide_id: number
+  amount: number
+  meeting_at: string | null
+  status: BookingStatus
+  payment_status: BookingPaymentStatus
+  refund_amount: number | null
+  cancel_reason: string | null
+  cancelled_at: string | null
+  trip_status: TripStatus
+  created_at: string
+  updated_at: string
+}
+
+/** An in-app notification (`Notifications::takeUnread()`) — shown once as a toast by `App.vue`, then it's read. */
+export interface AppNotification {
+  id: number
+  kind: string
+  message: string
+  created_at: string
+}
+
 /** One `selections` row — a (guest, guide) pair with each side's decision. */
 export interface SelectionRow {
   id: number
@@ -235,12 +271,12 @@ export interface SelectionRow {
   updated_at: string
 }
 
-/** One active (mutual) match, from the calling user's point of view. */
+/** One active (mutual) match, from the calling user's point of view. `email` is `null` until the pair has a booking. */
 export interface MatchRow {
   id: number
   counterpart_id: number
   name: string | null
-  email: string
+  email: string | null
 }
 
 /**
@@ -248,7 +284,9 @@ export interface MatchRow {
  * the calling user's point of view — what `MatchesPage.vue` groups into
  * matched / likes-you / awaiting / passed. `their_decision` never reads
  * `'pass'` (masked server-side, a rejection is never revealed), and
- * `email`/`phone` are `null` unless `active === 1`.
+ * `email`/`phone` are `null` unless `active === 1` *and* the pair has a
+ * confirmed booking — hidden from both sides until the guest pays the
+ * guide's fee (or straight away, for a free guide).
  */
 export interface MatchOverviewRow {
   id: number
@@ -268,6 +306,20 @@ export interface MatchOverviewRow {
   /** Visitor-side fields — only filled when the counterpart is a visitor. */
   party: string | null
   duration_hours: number | null
+  /** When the pair last became an active match (UTC). */
+  matched_at: string | null
+  /** The guide's current fee — 0 means a free guide, no payment step. */
+  fee_amount: number
+  /** The pair's latest booking, flattened; all `null` when there's never been one. */
+  booking_id: number | null
+  booking_status: BookingStatus | null
+  payment_status: BookingPaymentStatus | null
+  booking_amount: number | null
+  meeting_at: string | null
+  refund_amount: number | null
+  trip_status: TripStatus | null
+  /** Guide only: what cancelling the open paid booking would refund right now (includes any late-cancellation extra). */
+  refund_if_cancelled: number | null
 }
 
 /** Mirrors `AGE_CATEGORY_KEY` in `stores/categories.ts`; duplicated so the api layer doesn't import a store. */
@@ -395,6 +447,12 @@ export const api = {
 
   unlockPack: () => call<PaymentState>('unlockPack'),
   paymentState: () => call<PaymentState>('paymentState'),
+  /** Guest pays a matched guide's fee; `meetingAt` is an ISO date-time. Unlocks both sides' contact details. */
+  payGuideFee: (payload: { targetId: number; meetingAt: string }) => call<Booking>('payGuideFee', payload),
+  /** Guide cancels the booking with a visitor — they're refunded (plus 5% if late) and get their pick back. */
+  cancelBooking: (payload: { targetId: number; reason?: string }) => call<Booking>('cancelBooking', payload),
+  /** Unread in-app notifications, marked read by this same call. */
+  notifications: () => call<{ notifications: AppNotification[] }>('notifications'),
 
   decide: (payload: { targetId: number; decision: SelectionDecision }) => call<SelectionRow>('decide', payload),
   revokeSelection: (payload: { targetId: number }) => call<SelectionRow>('revokeSelection', payload),

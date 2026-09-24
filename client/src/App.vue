@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import AppFooter from '@/components/AppFooter.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import MessageToaster from '@/components/MessageToaster.vue'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
+import { useMessagesStore } from '@/stores/messages'
 import { useShortlistStore } from '@/stores/shortlist'
 
 /**
@@ -24,6 +26,35 @@ import { useShortlistStore } from '@/stores/shortlist'
 const api = useApi()
 const auth = useAuthStore()
 const shortlist = useShortlistStore()
+const messages = useMessagesStore()
+const route = useRoute()
+
+/**
+ * In-app notifications (`Notifications.php`) are things that happened while
+ * the user wasn't looking — a guide hearing their fee was paid, a visitor
+ * hearing their booking was cancelled. There's no push channel, so they're
+ * pulled: at boot and on every navigation, throttled so clicking around
+ * doesn't turn into a request per click. The server marks them read as it
+ * returns them, so each shows exactly once.
+ */
+const NOTIFICATION_PULL_INTERVAL_MS = 15_000
+const NOTIFICATION_TOAST_MS = 10_000
+let lastNotificationPull = 0
+
+async function pullNotifications() {
+  if (!auth.isAuthenticated) return
+  if (Date.now() - lastNotificationPull < NOTIFICATION_PULL_INTERVAL_MS) return
+  lastNotificationPull = Date.now()
+
+  try {
+    const { notifications } = await api.notifications()
+    for (const note of notifications) messages.info(note.message, undefined, NOTIFICATION_TOAST_MS)
+  } catch {
+    // Best-effort: they stay unread server-side and come back next time.
+  }
+}
+
+watch(() => route.fullPath, pullNotifications)
 
 onMounted(async () => {
   if (!auth.isAuthenticated) return
@@ -37,6 +68,8 @@ onMounted(async () => {
     // the optimistic cached session in place rather than logging the user
     // out over it.
   }
+
+  await pullNotifications()
 
   // `stores/shortlist.ts` is in-memory only (unlike `auth`, which persists to
   // localStorage), so a plain refresh dropped a paid-up visitor back to "0

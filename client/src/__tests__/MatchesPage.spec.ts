@@ -34,6 +34,9 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     session: vi.fn<Api['session']>(),
     unlockPack: vi.fn<Api['unlockPack']>(),
     paymentState: vi.fn<Api['paymentState']>(),
+    payGuideFee: vi.fn<Api['payGuideFee']>(),
+    cancelBooking: vi.fn<Api['cancelBooking']>(),
+    notifications: vi.fn<Api['notifications']>(),
     decide: vi.fn<Api['decide']>(),
     revokeSelection: vi.fn<Api['revokeSelection']>(),
     matches: vi.fn<Api['matches']>(),
@@ -59,10 +62,32 @@ function row(overrides: Partial<MatchOverviewRow>): MatchOverviewRow {
     price_label: null,
     party: null,
     duration_hours: null,
+    matched_at: null,
+    fee_amount: 0,
+    booking_id: null,
+    booking_status: null,
+    payment_status: null,
+    booking_amount: null,
+    meeting_at: null,
+    refund_amount: null,
+    trip_status: null,
+    refund_if_cancelled: null,
     ...overrides,
   }
 }
 
+/** The booking fields of a paid, confirmed, not-yet-happened booking. */
+const paidBooking: Partial<MatchOverviewRow> = {
+  fee_amount: 50,
+  booking_id: 11,
+  booking_status: 'confirmed',
+  payment_status: 'paid',
+  booking_amount: 50,
+  meeting_at: '2030-01-02 10:00:00',
+  trip_status: 'pending',
+}
+
+// Contact details only ever arrive with a booking (see Selections::getOverview()).
 const matched = row({
   id: 1,
   counterpart_id: 7,
@@ -72,6 +97,18 @@ const matched = row({
   active: 1,
   email: 'igor@example.com',
   phone: '+350 56002731',
+  ...paidBooking,
+  refund_if_cancelled: 50,
+})
+/** Matched with a guide who charges £50, nobody has paid: contact still hidden. */
+const unpaid = row({
+  id: 5,
+  counterpart_id: 18,
+  name: 'Gil',
+  my_decision: 'interested',
+  their_decision: 'interested',
+  active: 1,
+  fee_amount: 50,
 })
 const incoming = row({ id: 2, counterpart_id: 8, name: 'Ana', their_decision: 'interested' })
 const awaiting = row({ id: 3, counterpart_id: 9, name: 'Ben', my_decision: 'interested' })
@@ -230,6 +267,133 @@ describe('MatchesPage', () => {
 
     expect(revokeSelection).toHaveBeenCalledWith({ targetId: 9 })
     expect(tab(wrapper, 'Awaiting reply').find('.tab-count').text()).toBe('0')
+  })
+
+  it('hides contact details until a guest pays, then unlocks them and confirms the payment', async () => {
+    const payGuideFee = vi.fn<Api['payGuideFee']>().mockResolvedValue({
+      id: 11,
+      selection_id: 5,
+      guest_id: 1,
+      guide_id: 18,
+      amount: 50,
+      meeting_at: '2030-01-02 10:00:00',
+      status: 'confirmed',
+      payment_status: 'paid',
+      refund_amount: null,
+      cancel_reason: null,
+      cancelled_at: null,
+      trip_status: 'pending',
+      created_at: '',
+      updated_at: '',
+    })
+    const api = fakeApi({
+      matchOverview: vi
+        .fn<Api['matchOverview']>()
+        .mockResolvedValueOnce({ selections: [unpaid] })
+        .mockResolvedValueOnce({ selections: [{ ...unpaid, ...paidBooking, email: 'gil@example.com' }] }),
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
+      payGuideFee,
+    })
+    const wrapper = await mountPage(api, 'guest')
+
+    expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Pay Gil’s £50.00 fee to unlock their contact details')
+
+    await button(wrapper, 'Pay £50.00').trigger('click')
+    await wrapper.find('form.inline-form input[type="datetime-local"]').setValue('2030-01-02T10:00')
+    await wrapper.find('form.inline-form').trigger('submit')
+    await flushPromises()
+
+    expect(payGuideFee).toHaveBeenCalledWith({
+      targetId: 18,
+      meetingAt: new Date('2030-01-02T10:00').toISOString(),
+    })
+    expect(useMessagesStore().items.map((item) => item.text).join(' ')).toContain(
+      'Payment of £50.00 confirmed — Gil’s contact details are unlocked.',
+    )
+    expect(wrapper.find('a[href="mailto:gil@example.com"]').exists()).toBe(true)
+    expect(wrapper.find('form.inline-form').exists()).toBe(false)
+  })
+
+  it('does not pay without a meeting time', async () => {
+    const api = fakeApi({
+      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [unpaid] }),
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
+    })
+    const wrapper = await mountPage(api, 'guest')
+
+    await button(wrapper, 'Pay £50.00').trigger('click')
+    await wrapper.find('form.inline-form').trigger('submit')
+    await flushPromises()
+
+    expect(api.payGuideFee).not.toHaveBeenCalled()
+    expect(useMessagesStore().items.map((item) => item.text)).toContain('Choose when you’d like to meet.')
+  })
+
+  it('does not let a guest unmatch a booking they paid for', async () => {
+    const api = fakeApi({
+      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [matched] }),
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
+    })
+    const wrapper = await mountPage(api, 'guest')
+
+    expect(wrapper.findAll('.actions button').some((candidate) => candidate.text().includes('Unmatch'))).toBe(false)
+    expect(wrapper.text()).toContain('Only Igor can cancel this booking')
+    expect(wrapper.find('.booking-line').text()).toContain('Paid £50.00')
+  })
+
+  it('lets a guide cancel a booking, showing the late-cancellation refund first', async () => {
+    const late = { ...matched, refund_if_cancelled: 52.5 }
+    const cancelBooking = vi.fn<Api['cancelBooking']>().mockResolvedValue({
+      id: 11,
+      selection_id: 1,
+      guest_id: 7,
+      guide_id: 1,
+      amount: 50,
+      meeting_at: '2030-01-02 10:00:00',
+      status: 'cancelled',
+      payment_status: 'refunded',
+      refund_amount: 52.5,
+      cancel_reason: 'Ill',
+      cancelled_at: '',
+      trip_status: 'pending',
+      created_at: '',
+      updated_at: '',
+    })
+    const api = fakeApi({
+      matchOverview: vi
+        .fn<Api['matchOverview']>()
+        .mockResolvedValueOnce({ selections: [late] })
+        .mockResolvedValueOnce({ selections: [] }),
+      cancelBooking,
+    })
+    const wrapper = await mountPage(api, 'guide')
+
+    // A booked pair is cancelled, not unmatched.
+    expect(wrapper.findAll('.actions button').some((candidate) => candidate.text().includes('Unmatch'))).toBe(false)
+    await button(wrapper, 'Cancel booking').trigger('click')
+
+    const form = wrapper.find('form.inline-form')
+    expect(form.text()).toContain('Igor will be refunded £52.50')
+    expect(form.text()).toContain('includes 5% for cancelling at short notice')
+
+    await form.find('textarea').setValue('  Ill  ')
+    await form.trigger('submit')
+    await flushPromises()
+
+    expect(cancelBooking).toHaveBeenCalledWith({ targetId: 7, reason: 'Ill' })
+    expect(useMessagesStore().items.map((item) => item.text).join(' ')).toContain('Igor has been refunded £52.50')
+  })
+
+  it('tells a guide that contact details wait on the visitor paying', async () => {
+    const api = fakeApi({
+      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [unpaid] }),
+    })
+    const wrapper = await mountPage(api, 'guide')
+
+    expect(wrapper.text()).toContain('Contact details unlock once the visitor pays your £50.00 fee.')
+    expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
+    expect(button(wrapper, 'Unmatch').exists()).toBe(true)
   })
 
   it('asks a signed-out visitor to log in without calling the API', async () => {

@@ -13,7 +13,8 @@ import { reportApiError } from '@/utils/reportApiError'
  * Match management for both sides — every pair the signed-in user is part
  * of (`api.matchOverview()` → `Selections::getOverview()`), grouped into:
  *
- *   matched   — mutual interest; contact details unlocked, can unmatch
+ *   matched   — mutual interest; contact details unlock once there's a
+ *               booking (guest pays the guide's fee, or the guide is free)
  *   incoming  — they're interested, you haven't answered; accept or pass
  *   awaiting  — you're interested, no answer yet; can withdraw
  *   passed    — you passed; can reconsider
@@ -21,6 +22,11 @@ import { reportApiError } from '@/utils/reportApiError'
  * Unlike `ShortlistPage.vue`'s picks grid this is entirely server-backed,
  * so it's also how a guide finds out about a match the visitor completed
  * (the deck's "it's a match" toast only fires on the guide's own decision).
+ *
+ * On a match with a paid guide, the guest pays here (picking when to meet),
+ * and the guide can cancel the booking here — refunding the guest, plus 5% if
+ * it's late (`Bookings::refundAmount()`). The row's `refund_if_cancelled`
+ * already has that worked out, so the confirm step can state the amount.
  */
 type Group = 'matched' | 'incoming' | 'awaiting' | 'passed'
 type Action = SelectionDecision | 'revoke'
@@ -143,6 +149,108 @@ const SUCCESS_COPY: Record<Group, Partial<Record<Action, (name: string) => strin
   },
 }
 
+function money(amount: number) {
+  return `£${amount.toFixed(2)}`
+}
+
+/** The server's UTC `YYYY-MM-DD HH:MM:SS`, shown in the viewer's own time zone. */
+function meetingLabel(row: MatchOverviewRow) {
+  if (!row.meeting_at) return null
+  const date = new Date(`${row.meeting_at.replace(' ', 'T')}Z`)
+  return Number.isNaN(date.getTime())
+    ? null
+    : date.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function hasOpenBooking(row: MatchOverviewRow) {
+  return row.booking_status === 'confirmed' && row.trip_status !== 'finished'
+}
+
+function isPaidBooking(row: MatchOverviewRow) {
+  return hasOpenBooking(row) && row.payment_status === 'paid'
+}
+
+/** Matched with a guide who charges, and nobody has paid yet — contact details are still hidden. */
+function awaitingPayment(row: MatchOverviewRow) {
+  return row.active === 1 && !hasOpenBooking(row) && row.fee_amount > 0
+}
+
+/** Cancelling now would cost the guide the late-cancellation extra. */
+function lateCancel(row: MatchOverviewRow) {
+  return row.refund_if_cancelled !== null && row.refund_if_cancelled > (row.booking_amount ?? 0)
+}
+
+/** At most one inline form (pay or cancel) is open at a time. */
+const openForm = ref<{ rowId: number; kind: 'pay' | 'cancel' } | null>(null)
+const meetingAt = ref('')
+const cancelReason = ref('')
+
+function showForm(row: MatchOverviewRow, kind: 'pay' | 'cancel') {
+  openForm.value = { rowId: row.id, kind }
+  meetingAt.value = ''
+  cancelReason.value = ''
+}
+
+function isFormOpen(row: MatchOverviewRow, kind: 'pay' | 'cancel') {
+  return openForm.value?.rowId === row.id && openForm.value.kind === kind
+}
+
+/** `<input type="datetime-local">` wants local time without a zone. */
+function localInputValue(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+const minMeeting = computed(() => localInputValue(new Date()))
+
+async function pay(row: MatchOverviewRow, event: Event) {
+  if (busyId.value !== null) return
+
+  const placement = anchorTo('element', (event.currentTarget as HTMLElement | null)?.closest('li'))
+  const when = new Date(meetingAt.value)
+  if (!meetingAt.value || Number.isNaN(when.getTime())) {
+    messages.error('Choose when you’d like to meet.', placement)
+    return
+  }
+
+  const name = displayName(row)
+  busyId.value = row.id
+  try {
+    const booking = await api.payGuideFee({ targetId: row.counterpart_id, meetingAt: when.toISOString() })
+    openForm.value = null
+    await load()
+    messages.success(`Payment of ${money(booking.amount)} confirmed — ${name}’s contact details are unlocked.`, placement)
+  } catch (err) {
+    reportApiError(err, 'The payment didn’t go through.', placement)
+  } finally {
+    busyId.value = null
+  }
+}
+
+async function cancelBooking(row: MatchOverviewRow, event: Event) {
+  if (busyId.value !== null) return
+
+  const placement = anchorTo('element', (event.currentTarget as HTMLElement | null)?.closest('li'))
+  const name = displayName(row)
+  const reason = cancelReason.value.trim()
+
+  busyId.value = row.id
+  try {
+    const booking = await api.cancelBooking({ targetId: row.counterpart_id, ...(reason ? { reason } : {}) })
+    openForm.value = null
+    await load()
+    messages.success(
+      booking.refund_amount !== null
+        ? `Booking cancelled — ${name} has been refunded ${money(booking.refund_amount)}.`
+        : `Booking cancelled — ${name} has been told.`,
+      placement,
+    )
+  } catch (err) {
+    reportApiError(err, 'Could not cancel this booking.', placement)
+  } finally {
+    busyId.value = null
+  }
+}
+
 async function act(row: MatchOverviewRow, action: Action, event: MouseEvent) {
   if (busyId.value !== null) return
 
@@ -174,7 +282,7 @@ async function act(row: MatchOverviewRow, action: Action, event: MouseEvent) {
 }
 
 const EMPTY_COPY = computed<Record<Group, string>>(() => ({
-  matched: `No mutual matches yet. When a ${counterpartNoun.value} you like likes you back, their contact details appear here.`,
+  matched: `No mutual matches yet. When a ${counterpartNoun.value} you like likes you back, they appear here.`,
   incoming: `Nobody's waiting on an answer from you right now.`,
   awaiting: `You're not waiting on anyone. Mark ${counterpartNoun.value}s as interested from the deck.`,
   passed: `You haven't passed on anyone.`,
@@ -249,7 +357,15 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
               <div v-if="subline(row)" class="tiny muted">{{ subline(row) }}</div>
               <div class="tiny muted">Since {{ since(row) }}</div>
 
-              <dl v-if="activeTab === 'matched'" class="contact">
+              <p v-if="activeTab === 'matched' && isPaidBooking(row)" class="booking-line">
+                <PillBadge>Paid {{ money(row.booking_amount ?? 0) }}</PillBadge>
+                <span v-if="meetingLabel(row)" class="tiny muted">Meeting {{ meetingLabel(row) }}</span>
+              </p>
+              <p v-else-if="activeTab === 'matched' && hasOpenBooking(row)" class="booking-line">
+                <PillBadge tone="neutral">Free guide</PillBadge>
+              </p>
+
+              <dl v-if="activeTab === 'matched' && (row.email || row.phone)" class="contact">
                 <div v-if="row.email">
                   <dt>Email</dt>
                   <dd><a :href="`mailto:${row.email}`">{{ row.email }}</a></dd>
@@ -259,9 +375,18 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                   <dd><a :href="`tel:${row.phone.replace(/\s+/g, '')}`">{{ row.phone }}</a></dd>
                 </div>
               </dl>
-              <p v-if="activeTab === 'matched' && !isGuest" class="tiny muted note">
-                Next step: the visitor pays your fee, then you arrange the tour.
-              </p>
+              <template v-if="activeTab === 'matched'">
+                <p v-if="awaitingPayment(row) && isGuest" class="tiny muted note">
+                  Pay {{ displayName(row) }}’s {{ money(row.fee_amount) }} fee to unlock their contact details — and
+                  yours for them.
+                </p>
+                <p v-else-if="awaitingPayment(row)" class="tiny muted note">
+                  Contact details unlock once the visitor pays your {{ money(row.fee_amount) }} fee.
+                </p>
+                <p v-else-if="isPaidBooking(row) && isGuest" class="tiny muted note">
+                  Only {{ displayName(row) }} can cancel this booking — you’d be refunded in full.
+                </p>
+              </template>
               <p v-if="activeTab === 'incoming' && isGuest" class="tiny muted note">
                 Accepting uses one of your selections.
               </p>
@@ -270,6 +395,25 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
             <div class="actions">
               <template v-if="activeTab === 'matched'">
                 <button
+                  v-if="isGuest && awaitingPayment(row) && !isFormOpen(row, 'pay')"
+                  type="button"
+                  class="accept"
+                  :disabled="busyId !== null"
+                  @click="showForm(row, 'pay')"
+                >
+                  Pay {{ money(row.fee_amount) }}
+                </button>
+                <button
+                  v-if="!isGuest && hasOpenBooking(row) && !isFormOpen(row, 'cancel')"
+                  type="button"
+                  class="reject"
+                  :disabled="busyId !== null"
+                  @click="showForm(row, 'cancel')"
+                >
+                  Cancel booking
+                </button>
+                <button
+                  v-if="isGuest ? !isPaidBooking(row) : !hasOpenBooking(row)"
                   type="button"
                   class="soft-btn"
                   :aria-busy="busyId === row.id"
@@ -332,6 +476,59 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                 </button>
               </template>
             </div>
+
+            <form
+              v-if="activeTab === 'matched' && isFormOpen(row, 'pay')"
+              class="inline-form"
+              :aria-label="`Pay ${displayName(row)}’s fee`"
+              @submit.prevent="pay(row, $event)"
+            >
+              <label>
+                When would you like to meet?
+                <input v-model="meetingAt" type="datetime-local" :min="minMeeting" required />
+              </label>
+              <p class="tiny muted">
+                You’ll pay {{ money(row.fee_amount) }}. If {{ displayName(row) }} cancels, you’re refunded in full — plus
+                5% if they cancel at short notice.
+              </p>
+              <div class="form-actions">
+                <button type="submit" class="accept" :aria-busy="busyId === row.id" :disabled="busyId !== null">
+                  Confirm payment
+                </button>
+                <button type="button" class="soft-btn" :disabled="busyId !== null" @click="openForm = null">
+                  Not now
+                </button>
+              </div>
+            </form>
+
+            <form
+              v-if="activeTab === 'matched' && isFormOpen(row, 'cancel')"
+              class="inline-form"
+              :aria-label="`Cancel the booking with ${displayName(row)}`"
+              @submit.prevent="cancelBooking(row, $event)"
+            >
+              <p class="cancel-summary">
+                <template v-if="row.payment_status === 'paid'">
+                  {{ displayName(row) }} will be refunded
+                  <strong>{{ money(row.refund_if_cancelled ?? row.booking_amount ?? 0) }}</strong
+                  ><template v-if="lateCancel(row)"> — that includes 5% for cancelling at short notice</template>.
+                </template>
+                <template v-else>{{ displayName(row) }} will be told the booking is off.</template>
+                They get their pick back and a message by email.
+              </p>
+              <label>
+                Reason <span class="muted">(optional, shared with them)</span>
+                <textarea v-model="cancelReason" rows="2" maxlength="256" />
+              </label>
+              <div class="form-actions">
+                <button type="submit" class="reject" :aria-busy="busyId === row.id" :disabled="busyId !== null">
+                  Cancel booking
+                </button>
+                <button type="button" class="soft-btn" :disabled="busyId !== null" @click="openForm = null">
+                  Keep booking
+                </button>
+              </div>
+            </form>
           </li>
         </ul>
       </PanelCard>
@@ -497,6 +694,56 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
 
 .note {
   margin: 0.35rem 0 0;
+}
+
+.booking-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin: 0.4rem 0 0;
+}
+
+// Full width under the row, whatever the breakpoint.
+.inline-form {
+  grid-column: 1 / -1;
+  margin: 0.25rem 0 0;
+  padding: 0.9rem;
+  border: 1px solid var(--rg-line);
+  border-radius: 0.75rem;
+  background: var(--rg-orange-50);
+
+  label {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  input,
+  textarea {
+    margin: 0.35rem 0 0.5rem;
+    font-weight: 400;
+  }
+
+  p {
+    margin: 0 0 0.6rem;
+  }
+}
+
+.cancel-summary {
+  font-size: 0.95rem;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  > * {
+    width: auto;
+    margin: 0;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.9rem;
+  }
 }
 
 // Same soft green/red pair as DecisionRow.vue, so accepting here reads like the deck.

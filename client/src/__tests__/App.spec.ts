@@ -7,6 +7,7 @@ import App from '../App.vue'
 import HomePage from '../pages/HomePage.vue'
 import { API_KEY, type Api, type AuthResult, type PaymentState } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
+import { useMessagesStore } from '@/stores/messages'
 import { useShortlistStore } from '@/stores/shortlist'
 
 function testRouter() {
@@ -35,6 +36,9 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     session: vi.fn<Api['session']>(),
     unlockPack: vi.fn<Api['unlockPack']>(),
     paymentState: vi.fn<Api['paymentState']>(),
+    payGuideFee: vi.fn<Api['payGuideFee']>(),
+    cancelBooking: vi.fn<Api['cancelBooking']>(),
+    notifications: vi.fn<Api['notifications']>(),
     decide: vi.fn<Api['decide']>(),
     revokeSelection: vi.fn<Api['revokeSelection']>(),
     matches: vi.fn<Api['matches']>(),
@@ -125,5 +129,45 @@ describe('App', () => {
 
     expect(api.paymentState).not.toHaveBeenCalled()
     localStorage.clear()
+  })
+
+  it('shows unread notifications as toasts on boot', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const session: AuthResult = { id: 18, email: 'guide@example.com', role: 'guide', sessionHash: 'hash' }
+    useAuthStore().setUser(session)
+
+    const api = fakeApi({
+      session: vi.fn<Api['session']>().mockResolvedValue(session),
+      notifications: vi.fn<Api['notifications']>().mockResolvedValue({
+        notifications: [
+          { id: 1, kind: 'booking_paid', message: 'Ana paid your £50.00 fee.', created_at: '2026-09-24 10:00:00' },
+        ],
+      }),
+    })
+
+    const router = testRouter()
+    router.push('/')
+    await router.isReady()
+
+    mount(App, { global: { plugins: [pinia, router], provide: { [API_KEY]: api } } })
+    await flushPromises()
+
+    expect(api.notifications).toHaveBeenCalledTimes(1)
+    expect(useMessagesStore().items.map((item) => item.text)).toContain('Ana paid your £50.00 fee.')
+    localStorage.clear()
+  })
+
+  it('does not ask for notifications when signed out', async () => {
+    const api = fakeApi()
+    const router = testRouter()
+    router.push('/')
+    await router.isReady()
+
+    mount(App, { global: { plugins: [createPinia(), router], provide: { [API_KEY]: api } } })
+    await flushPromises()
+
+    expect(api.notifications).not.toHaveBeenCalled()
   })
 })
