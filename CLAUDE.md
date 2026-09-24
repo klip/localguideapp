@@ -6,7 +6,7 @@ selections, and unlock contact once matched. Working name in code/prototype
 files is "RockGuide"; the directory and package are named
 `localguideapp`, and the GitHub repo is `localguide`.
 
-Not currently a git repository.
+Git repository, branch `main`.
 
 ## Progress so far
 
@@ -36,40 +36,11 @@ exist yet (no `cms_creds` table either, so nothing could log into it if it
 did).
 
 **Known gaps / inconsistencies** (worth knowing about, not urgent):
-- **`OnboardingPage.vue` (`/onboarding`) is vestigial** — its form
-  (name/preferred contact method/contact detail/a decorative, unwired
-  `<input type="file">`) never calls any API; `save()` just routes to
-  `/discover`. The real equivalent of what it collects is
-  `ProfilePage.vue`'s "Personal & contact info" section. `UnlockPage.vue`
-  still routes a first-time visitor through `/onboarding` right after
-  paying, so this dead form is still reachable from the main flow — a
-  first-time visitor fills it in, and none of it is saved anywhere.
-- **`GuideProfilePage.vue`'s accept/reject don't call `api.decide()`** —
-  unlike `DiscoverPage.vue`'s deck (the "Full profile →" link on a
-  `ProfileCard` leads here), this page's `DecisionRow` only calls
-  `shortlist.pick()`/`.pass()`, so a decision made from a full profile page
-  is never persisted server-side, only in the same client-only `shortlist`
-  state the deck itself uses.
 - **A guide still gets no *push* notification for a match the visitor
   completed** — `GuideDiscoverPage.vue`'s "it's a match" toast fires only
   on the guide's own `decide()`. The match does now show up on `/matches`
   (`MatchesPage.vue`), but only when the guide goes there; there's no nav
   badge/count yet.
-- **`Selections::decide()`/`revoke()` return `active` as a string (`"0"`/
-  `"1"`) unless that call changed it** (raw mysqli row; `syncActive()` only
-  writes an int back when the value flips). `GuideDiscoverPage.vue`'s
-  `row?.active === 1` works because it only cares about the flip;
-  `MatchesPage.vue` compares with `Number(result.active)`. `getOverview()`
-  casts its ints properly.
-- **`src/stores/counter.ts` is unused `yarn create vue` scaffold** —
-  nothing imports `useCounterStore`; safe to delete whenever someone's next
-  touching `stores/`.
-- **`src/components/Receiver.vue` is an empty placeholder**
-  (`<template></template>`, no script) that fails `eslint`'s
-  `vue/multi-word-component-names`/`vue/valid-template-root` rules on every
-  `yarn lint` run — pre-existing, unrelated to any work described in this
-  file; needs either real content or deletion.
-
 ## Layout
 
 - `client/` — Vue 3 frontend (the actual app). Run all frontend commands from
@@ -130,7 +101,7 @@ into the next test's fresh `Pinia` instance.
 ### Structure
 
 - `src/pages/` — one component per route (Home, Register, Login, Unlock,
-  Onboarding, Discover, GuideProfile, Shortlist, GuideDiscover, Matches,
+  Discover, GuideProfile, Shortlist, GuideDiscover, Matches,
   Profile, NotFound).
 - `src/router/index.ts` — documents the mapping from the original static
   prototype's scroll sections to routes; read the comment there before adding
@@ -139,16 +110,29 @@ into the next test's fresh `Pinia` instance.
   category rather than by named field — see "Discovery filters" below),
   `categories` (the attribute taxonomy, fetched once and shared by the
   filter bar, the profile editor and every card that labels a tag), `shortlist` (paid selection pack:
-  `packsUnlocked`, `picks`, `passed` — this one still resets on reload,
-  unlike `auth`), `auth` (the signed-in user + session hash, set by
+  `packsUnlocked`, `picks`, `passed` — in-memory, so a reload drops it;
+  `App.vue` re-fetches `packsUnlocked` at boot for guests, but `picks`/
+  `passed` genuinely start empty again — see below), `auth` (the signed-in user + session hash, set by
   `RegisterPage`/`LoginPage` and persisted to `localStorage` — see
   "Sessions" below), `messages` (global toast queue — see below),
   `guides`/`visitors` (real discovery-deck data — see "Real guide/visitor
   cards" below). Because `shortlist` doesn't survive a reload the way
-  `auth` now does, `LoginPage.vue` calls `api.paymentState()` right after
-  `api.login()` and syncs the result into `shortlist.setPacksUnlocked()`,
-  so a returning guest sees their real DB-backed pack capacity immediately
-  rather than a fresh (empty) `shortlist`. Best-effort and non-blocking:
+  `auth` now does, two places re-sync it from the server: `App.vue` on every
+  boot (for a signed-in guest, right after its `api.session()` check — this
+  is what makes a purchased pack survive a plain refresh; without it the deck
+  showed the paywall and the header read "0 / 0 picked" despite the payments
+  existing in the DB), and `LoginPage.vue` right after `api.login()`, so the
+  capacity is correct before the first render of `/discover`. Both call
+  `api.paymentState()` and feed `shortlist.setPacksUnlocked()`.
+  **Picks are restored as well as the pack count**: `paymentState` returns
+  `pickedIds`/`passedIds` (guide ids, from `Selections::getDecisionIdsFor()`)
+  alongside the counts, and `shortlist.applyPaymentState()` seeds `picks`/
+  `passed` from them — so a refresh lands on "2 / 10 picked", not "0 / 10".
+  The ids ride on `paymentState` rather than coming from
+  `api.matchOverview()` because that endpoint's rows carry the counterpart's
+  photo, which is far too much payload for every page load. The store seeds
+  the arrays directly rather than through `pick()`/`pass()`, whose capacity
+  gate would drop decisions the server has already accepted. Best-effort and non-blocking:
   wrapped in its own try/catch so a failure there doesn't stop the login
   itself or need a toast of its own — worst case the user briefly sees "0
   unlocked" and can revisit `/unlock`. Register never needs the
@@ -190,11 +174,9 @@ path/name table) and the shared `src/components/` each is built from:
   the API" below).
 - **`UnlockPage.vue`** (`/unlock`) — the pack-purchase simulation:
   `PanelCard` + `PriceBox` (`compact`) + `PillBadge`; posts to
-  `api.unlockPack()` and routes to `/onboarding` (first pack) or
-  `/discover` (a top-up).
-- **`OnboardingPage.vue`** (`/onboarding`) — vestigial contact-detail form
-  (see "Progress so far" above); `PanelCard` + `SectionTitle`, no API call
-  at all.
+  `api.unlockPack()` and routes to `/profile` (first pack, to add contact
+  details) or `/discover` (a top-up). `/onboarding` — the prototype's
+  never-wired contact form — is now just a router redirect to `/profile`.
 - **`DiscoverPage.vue`** (`/discover`, visitor browsing guides) /
   **`GuideDiscoverPage.vue`** (`/guide/discover`, guide browsing visitors)
   — the two discovery decks, deliberately built from the same pieces:
@@ -207,8 +189,9 @@ path/name table) and the shared `src/components/` each is built from:
   pages pull their deck from `stores/guides.ts`/`stores/visitors.ts`.
 - **`GuideProfilePage.vue`** (`/guides/:id`) — the "Full profile →"
   destination linked from a `ProfileCard`; reuses `PanelCard`, `TagList`,
-  `PillBadge`, `DecisionRow` at full width instead of a swipe card (see
-  "Progress so far" for a gap in this page's `DecisionRow` wiring).
+  `PillBadge`, `DecisionRow` at full width instead of a swipe card. Its
+  accept/reject mirror `DiscoverPage.vue`'s: local `shortlist` first, then
+  a best-effort `api.decide()` (skipped when signed out).
 - **`ShortlistPage.vue`** (`/shortlist`) — a visitor's local picks
   (`PanelCard` × N, `TagList`, `PillBadge`) plus the real,
   server-confirmed "Confirmed matches" panel (`api.matches()`/
@@ -272,7 +255,6 @@ own — every one just takes props/emits):
   interactive.
 - `MessageToaster.vue` — renders `stores/messages.ts`'s queue (see
   "Talking to the API" below); mounted once, in `App.vue`.
-- `Receiver.vue` — empty placeholder, see "Progress so far" above.
 
 ### Talking to the API
 
@@ -1271,8 +1253,11 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   category; `user_specialties`' 9 live rows are folded into `interests`
   (labels matched case-insensitively against the existing slugs, the typo
   "hicking" normalised to "hiking" first) and the table left in place,
-  no longer read — drop it in a later migration; `user_profiles.gender`
+  no longer read — 011 dropped it; `user_profiles.gender`
   becomes `enum('male','female')`, verified NULL for every row first.
+- `api/sql/011_drop_user_specialties.sql` — drops `user_specialties`
+  (applied 2026-09-24, after its pre-check confirmed all 9 rows had a
+  matching `interests` value).
 
 There is no test setup, linter, or formatter configured for `api/` yet;
 `docker exec lemp-php php -l <file>` is the only current check.
@@ -1348,9 +1333,6 @@ There is no test setup, linter, or formatter configured for `api/` yet;
   which is all that now distinguishes a guide's specialities from a
   guest's interests. **Every** category is filterable — nothing is
   special-cased by key any more.
-- `user_specialties` (id, user_id, label) — **no longer read or written.**
-  010 folded its 9 rows into `interests`; the table is left in place as a
-  fallback and should be dropped in a later migration.
 - `sessions` (id, `session_hash` unique, user_id, created_at,
   last_active_at) — one row per active login, deleted on logout or the
   next time `Session::resolve()` finds it past its 5-minute inactivity

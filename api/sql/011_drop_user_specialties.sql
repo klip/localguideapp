@@ -1,0 +1,24 @@
+-- Drops `user_specialties` (2026-09-24).
+--
+-- 010 folded every row of it into the `interests` category (a guide's
+-- "Specialities" are the same options, shown under `provider_label`) and left
+-- the table in place as a fallback. Nothing in `api/` has read or written it
+-- since, so it can go.
+--
+-- Before running, check that every specialty has a matching interest (same
+-- match 010 used). Rows here mean either the fold missed something or the
+-- user has since removed that interest on their profile page — the latter is
+-- fine:
+--
+--   SELECT s.user_id, s.label
+--   FROM `user_specialties` s
+--   WHERE NOT EXISTS (
+--     SELECT 1
+--     FROM `user_attribute_values` v
+--     JOIN `attribute_options` o ON o.id = v.option_id
+--     JOIN `attribute_categories` c ON c.id = o.category_id AND c.`key` = 'interests'
+--     WHERE v.user_id = s.user_id
+--       AND o.value = LOWER(TRIM(s.label))
+--   );
+
+DROP TABLE IF EXISTS `user_specialties`;

@@ -10,7 +10,7 @@ import HomePage from '@/pages/HomePage.vue'
  *   hero + how it works + pricing  →  /
  *   Screen 01 (registration)       →  /register  (+ /login for returning users)
  *   Screen 01 (unlock panel)       →  /unlock
- *   Screen 02 (visitor config)     →  /onboarding
+ *   Screen 02 (visitor config)     →  /profile   (/onboarding redirects there)
  *   Screen 03 (visitor discovery)  →  /discover
  *   Screen 04 (guide-side deck)    →  /guide/discover
  *
@@ -41,9 +41,11 @@ const router = createRouter({
       component: () => import('@/pages/UnlockPage.vue'),
     },
     {
+      // The prototype's contact form never saved anything; ProfilePage.vue's
+      // "Personal & contact info" is the real version. Kept as a redirect so
+      // old links still land somewhere useful.
       path: '/onboarding',
-      name: 'onboarding',
-      component: () => import('@/pages/OnboardingPage.vue'),
+      redirect: '/profile',
     },
     {
       path: '/discover',

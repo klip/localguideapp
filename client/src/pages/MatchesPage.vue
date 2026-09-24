@@ -84,7 +84,7 @@ async function load() {
     ])
     rows.value = overview.selections
     payment.value = paymentState
-    if (paymentState) shortlist.setPacksUnlocked(paymentState.packsUnlocked)
+    if (paymentState) shortlist.applyPaymentState(paymentState)
   } catch (err) {
     reportApiError(err, 'Could not load your matches.')
   } finally {
@@ -162,7 +162,7 @@ async function act(row: MatchOverviewRow, action: Action, event: MouseEvent) {
 
     // Reconsidering someone who'd already said yes completes a match too.
     const copy =
-      Number(result.active) === 1 && group !== 'matched'
+      result.active === 1 && group !== 'matched'
         ? SUCCESS_COPY.incoming.interested
         : SUCCESS_COPY[group][action]
     if (copy) messages.success(copy(name), placement)

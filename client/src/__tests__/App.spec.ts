@@ -1,11 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
 
-import { mount } from '@vue/test-utils'
-import { createPinia } from 'pinia'
+import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from '../App.vue'
 import HomePage from '../pages/HomePage.vue'
-import { API_KEY, type Api } from '@/plugins/api'
+import { API_KEY, type Api, type AuthResult, type PaymentState } from '@/plugins/api'
+import { useAuthStore } from '@/stores/auth'
+import { useShortlistStore } from '@/stores/shortlist'
 
 function testRouter() {
   return createRouter({
@@ -57,5 +59,71 @@ describe('App', () => {
     expect(wrapper.find('.app-shell').exists()).toBe(true)
     expect(wrapper.text()).toContain('RockGuide')
     expect(wrapper.text()).toContain('Find your local. Skip the tourist shuffle.')
+  })
+
+  /**
+   * A paid-up visitor used to come back from a refresh with `packsUnlocked`
+   * at 0 — the store is in-memory, and only LoginPage/UnlockPage re-synced
+   * it, so F5 showed the paywall despite the packs existing server-side.
+   */
+  it('restores a guest\'s purchased packs on boot', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const session: AuthResult = { id: 7, email: 'guest@example.com', role: 'guest', sessionHash: 'hash' }
+    useAuthStore().setUser(session)
+
+    const state: PaymentState = {
+      packsUnlocked: 2,
+      capacity: 10,
+      picksUsed: 2,
+      selectionsLeft: 8,
+      pickedIds: [18, 42],
+      passedIds: [7],
+    }
+    const api = fakeApi({
+      session: vi.fn<Api['session']>().mockResolvedValue(session),
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(state),
+    })
+
+    const router = testRouter()
+    router.push('/')
+    await router.isReady()
+
+    mount(App, { global: { plugins: [pinia, router], provide: { [API_KEY]: api } } })
+    await flushPromises()
+
+    expect(api.paymentState).toHaveBeenCalled()
+    const shortlist = useShortlistStore()
+    expect(shortlist.packsUnlocked).toBe(2)
+    expect(shortlist.hasAccess).toBe(true)
+    // Picks come back too, so the header reads "2 / 10 picked" rather than
+    // "0 / 10" for a visitor who has already spent some of the pack.
+    expect(shortlist.picks).toEqual(['18', '42'])
+    expect(shortlist.passed).toEqual(['7'])
+    expect(shortlist.isPicked('18')).toBe(true)
+    expect(shortlist.isDecided('7')).toBe(true)
+    expect(shortlist.selectionsLeft).toBe(8)
+    localStorage.clear()
+  })
+
+  it('does not ask for payment state as a guide', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+
+    const session: AuthResult = { id: 18, email: 'guide@example.com', role: 'guide', sessionHash: 'hash' }
+    useAuthStore().setUser(session)
+
+    const api = fakeApi({ session: vi.fn<Api['session']>().mockResolvedValue(session) })
+
+    const router = testRouter()
+    router.push('/')
+    await router.isReady()
+
+    mount(App, { global: { plugins: [pinia, router], provide: { [API_KEY]: api } } })
+    await flushPromises()
+
+    expect(api.paymentState).not.toHaveBeenCalled()
+    localStorage.clear()
   })
 })

@@ -37,7 +37,7 @@ async function submit() {
     // worst case they see "0 unlocked" and can revisit /unlock.
     try {
       const state = await api.paymentState()
-      shortlist.setPacksUnlocked(state.packsUnlocked)
+      shortlist.applyPaymentState(state)
     } catch {
       // non-fatal — see comment above
     }

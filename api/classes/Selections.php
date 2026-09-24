@@ -152,6 +152,32 @@ class Selections
         return $rows;
     }
 
+    /**
+     * A guest's own decisions as counterpart ids, split by which way they
+     * went. `stores/shortlist.ts` is in-memory, so this is what the client
+     * seeds it from after a reload — without it a refresh reports "0 picked"
+     * for someone who has spent half their pack.
+     *
+     * Returns empty lists for a guide: the column is the *guest's* decision,
+     * and guides don't spend picks.
+     *
+     * @return array{picked: int[], passed: int[]}
+     */
+    public function getDecisionIdsFor(int $guestId): array
+    {
+        $result = ['picked' => [], 'passed' => []];
+
+        foreach ($this->db->db_GetArray(
+            'SELECT `guide_id`, `guest_decision` FROM `selections`
+             WHERE `guest_id` = ' . $guestId . ' AND `guest_decision` IS NOT NULL'
+        ) as $row) {
+            $key = $row['guest_decision'] === 'interested' ? 'picked' : 'passed';
+            $result[$key][] = (int) $row['guide_id'];
+        }
+
+        return $result;
+    }
+
     /** How many of a guest's paid picks are currently spent (an 'interested' decision on their side). */
     public function getPicksUsed(int $guestId): int
     {
@@ -183,8 +209,15 @@ class Selections
         $active = ($row['guest_decision'] === 'interested' && $row['guide_decision'] === 'interested') ? 1 : 0;
         if ((int) $row['active'] !== $active) {
             $this->db->db_Execute('UPDATE `selections` SET `active` = ' . $active . ' WHERE `id` = ' . (int) $row['id']);
-            $row['active'] = $active;
         }
+
+        // mysqli hands back every column as a string; cast the ints so the
+        // client's `SelectionRow` (`active: 0 | 1`) holds whether or not this
+        // call flipped anything.
+        $row['id'] = (int) $row['id'];
+        $row['guest_id'] = (int) $row['guest_id'];
+        $row['guide_id'] = (int) $row['guide_id'];
+        $row['active'] = $active;
 
         return $row;
     }

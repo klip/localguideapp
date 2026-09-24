@@ -71,6 +71,23 @@ const currentMeta = computed(() =>
 
 const pickedGuides = computed(() => picks.value.map(guidesStore.find).filter((guide) => !!guide))
 
+/**
+ * A pick restored after a reload (see `App.vue`'s boot fetch) names a guide
+ * the deck fetch deliberately leaves out, since the server hides cards this
+ * visitor has already decided on — so the rail could show "1 / 5 selected"
+ * directly above "Nothing picked yet". Pull those guides into the store's id
+ * cache when, and only when, one fails to resolve: during normal swiping the
+ * guide is already cached, so this costs one request after a reload rather
+ * than on every mount.
+ */
+watch(
+  picks,
+  (ids) => {
+    if (ids.some((id) => !guidesStore.find(id))) void guidesStore.hydrateDecided()
+  },
+  { immediate: true },
+)
+
 const counterHeadline = computed(() =>
   selectionsLeft.value > 0
     ? `${selectionsLeft.value} selection${selectionsLeft.value === 1 ? '' : 's'} left`

@@ -84,9 +84,28 @@ export const useGuidesStore = defineStore('guides', () => {
     }
   }
 
+  /**
+   * Pulls guides this visitor has already decided on into the id cache,
+   * leaving `currentIds` — and therefore the deck — untouched.
+   *
+   * The deck fetch deliberately omits them (see `Users::searchByRole()`), so
+   * once picks are restored after a reload (`App.vue`'s boot call) their ids
+   * resolve to nothing and a rail can end up claiming "1 / 5 selected" above
+   * "Nothing picked yet". Best-effort: this only fills in display names, so a
+   * failure leaves the counts correct rather than breaking the page.
+   */
+  async function hydrateDecided() {
+    try {
+      const result = await api.guides(undefined, true)
+      for (const guide of result.guides.map(toGuideCard)) byId.value.set(guide.id, guide)
+    } catch {
+      // Cosmetic only — callers fire and forget.
+    }
+  }
+
   function find(id: string): Guide | undefined {
     return byId.value.get(id)
   }
 
-  return { items, loading, load, find }
+  return { items, loading, load, hydrateDecided, find }
 })

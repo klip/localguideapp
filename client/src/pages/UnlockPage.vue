@@ -24,8 +24,8 @@ const panelRef = ref<HTMLElement | null>(null)
 
 // Stands in for the payment provider callback — calling api.unlockPack() *is*
 // the payment (see api/classes/Payments.php, no real gateway wired up yet).
-// First purchase sends the visitor through profile setup; a top-up pack
-// returns them to the deck they left.
+// First purchase sends the visitor to their profile, to add the contact
+// details a match unlocks; a top-up pack returns them to the deck they left.
 async function pay() {
   if (paying.value) return
 
@@ -38,8 +38,8 @@ async function pay() {
   try {
     const isTopUp = hasAccess.value
     const state = await api.unlockPack()
-    shortlist.setPacksUnlocked(state.packsUnlocked)
-    router.push(isTopUp ? '/discover' : '/onboarding')
+    shortlist.applyPaymentState(state)
+    router.push(isTopUp ? '/discover' : '/profile')
   } catch (err) {
     reportApiError(err, 'Could not complete payment.', anchorTo('element', panelRef.value))
   } finally {

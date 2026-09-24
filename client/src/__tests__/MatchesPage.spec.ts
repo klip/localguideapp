@@ -92,7 +92,14 @@ function selectionRow(overrides: Partial<SelectionRow> = {}): SelectionRow {
 }
 
 function paymentState(selectionsLeft: number): PaymentState {
-  return { packsUnlocked: 1, capacity: 5, picksUsed: 5 - selectionsLeft, selectionsLeft }
+  return {
+    packsUnlocked: 1,
+    capacity: 5,
+    picksUsed: 5 - selectionsLeft,
+    selectionsLeft,
+    pickedIds: [],
+    passedIds: [],
+  }
 }
 
 async function mountPage(api: Api, role: 'guest' | 'guide' | null) {
@@ -174,7 +181,14 @@ describe('MatchesPage', () => {
     const api = fakeApi({
       matchOverview,
       decide,
-      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
+      // The reload after accepting must see the pick the server has just
+      // recorded — the real endpoint returns the accepted guide in
+      // `pickedIds`, and `applyPaymentState()` replaces the local arrays with
+      // that view. A static empty fixture would "un-pick" it.
+      paymentState: vi
+        .fn<Api['paymentState']>()
+        .mockResolvedValueOnce(paymentState(3))
+        .mockResolvedValueOnce({ ...paymentState(2), pickedIds: [8] }),
     })
     const wrapper = await mountPage(api, 'guest')
 

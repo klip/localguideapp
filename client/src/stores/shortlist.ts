@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import type { PaymentState } from '@/plugins/api'
 
 /** Selections granted per £5 pack, per the pricing in the prototype. */
 export const PACK_SIZE = 5
@@ -23,6 +24,22 @@ export const useShortlistStore = defineStore('shortlist', () => {
   /** Set from the server's authoritative count after `api.unlockPack()` — see UnlockPage.vue. */
   function setPacksUnlocked(n: number) {
     packsUnlocked.value = n
+  }
+
+  /**
+   * Replaces the whole client-side pack state with the server's view: packs
+   * bought, plus which guides this visitor has already kept or dismissed.
+   *
+   * This store is in-memory, so this is what makes a refresh land on
+   * "3 / 10 picked" rather than "0 / 10" — see `App.vue`'s boot call. The
+   * arrays are seeded directly rather than through `pick()`/`pass()`, which
+   * gate on remaining capacity: these decisions are already recorded in
+   * `selections`, so re-applying that gate would drop them.
+   */
+  function applyPaymentState(state: PaymentState) {
+    packsUnlocked.value = state.packsUnlocked
+    picks.value = (state.pickedIds ?? []).map(String)
+    passed.value = (state.passedIds ?? []).map(String)
   }
 
   function pick(id: string) {
@@ -68,6 +85,7 @@ export const useShortlistStore = defineStore('shortlist', () => {
     canPick,
     isEmpty,
     setPacksUnlocked,
+    applyPaymentState,
     pick,
     pass,
     remove,

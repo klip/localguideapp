@@ -279,12 +279,17 @@ class RequestProcessor
     {
         $capacity = $this->payments->getCapacity($userId);
         $picksUsed = $this->selections->getPicksUsed($userId);
+        // The ids as well as the count: the client's shortlist store is
+        // in-memory, so this is what it re-seeds from after a page reload.
+        $decisions = $this->selections->getDecisionIdsFor($userId);
 
         return [
             'packsUnlocked' => Payments::PACK_SIZE > 0 ? intdiv($capacity, Payments::PACK_SIZE) : 0,
             'capacity' => $capacity,
             'picksUsed' => $picksUsed,
             'selectionsLeft' => max(0, $capacity - $picksUsed),
+            'pickedIds' => $decisions['picked'],
+            'passedIds' => $decisions['passed'],
         ];
     }
 

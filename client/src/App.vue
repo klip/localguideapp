@@ -5,6 +5,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import MessageToaster from '@/components/MessageToaster.vue'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
+import { useShortlistStore } from '@/stores/shortlist'
 
 /**
  * `stores/auth.ts` restores `user` from localStorage optimistically on
@@ -22,6 +23,7 @@ import { useAuthStore } from '@/stores/auth'
  */
 const api = useApi()
 const auth = useAuthStore()
+const shortlist = useShortlistStore()
 
 onMounted(async () => {
   if (!auth.isAuthenticated) return
@@ -34,6 +36,23 @@ onMounted(async () => {
     // nothing left to do. Any other failure (a network hiccup, say) leaves
     // the optimistic cached session in place rather than logging the user
     // out over it.
+  }
+
+  // `stores/shortlist.ts` is in-memory only (unlike `auth`, which persists to
+  // localStorage), so a plain refresh dropped a paid-up visitor back to "0
+  // packs": the deck showed the paywall and the header read "0 / 0 picked"
+  // even though the purchases were recorded server-side. Only LoginPage and
+  // UnlockPage re-synced it, so nothing covered F5 — and this is the one
+  // place every page passes through. Guests only: guides never buy packs.
+  if (auth.user?.role !== 'guest') return
+
+  try {
+    const state = await api.paymentState()
+    shortlist.applyPaymentState(state)
+  } catch {
+    // Best-effort, exactly like LoginPage's equivalent: worst case the user
+    // briefly sees "0 unlocked" and can revisit /unlock. A 401 has already
+    // been surfaced centrally by call().
   }
 })
 </script>

@@ -210,6 +210,15 @@ export interface PaymentState {
   capacity: number
   picksUsed: number
   selectionsLeft: number
+  /**
+   * Guide ids this visitor has already kept / dismissed. The counts above
+   * aren't enough to rebuild `stores/shortlist.ts` after a reload — it needs
+   * the ids themselves — and they're cheap here (one indexed read of
+   * `selections`) compared with pulling `matchOverview()`, whose rows carry
+   * the counterpart's photo.
+   */
+  pickedIds: number[]
+  passedIds: number[]
 }
 
 export type SelectionDecision = 'interested' | 'pass'

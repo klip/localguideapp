@@ -5,10 +5,13 @@ import DecisionRow from '@/components/DecisionRow.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import TagList from '@/components/TagList.vue'
+import { useApi } from '@/plugins/api'
+import { useAuthStore } from '@/stores/auth'
 import { useCategoriesStore } from '@/stores/categories'
 import { useGuidesStore } from '@/stores/guides'
 import { useShortlistStore } from '@/stores/shortlist'
 import { formatRange, rangeFormatFor } from '@/utils/formatRange'
+import { reportApiError } from '@/utils/reportApiError'
 
 /**
  * The destination of the "Full profile →" link on a discovery card. The
@@ -17,6 +20,8 @@ import { formatRange, rangeFormatFor } from '@/utils/formatRange'
  */
 const props = defineProps<{ id: string }>()
 
+const api = useApi()
+const auth = useAuthStore()
 const shortlist = useShortlistStore()
 const { canPick } = storeToRefs(shortlist)
 
@@ -31,6 +36,33 @@ onMounted(() => {
 
 const guide = computed(() => guidesStore.find(props.id))
 const isPicked = computed(() => shortlist.isPicked(props.id))
+
+/**
+ * Same contract as DiscoverPage.vue's accept()/reject(): the local shortlist
+ * gates capacity and drives the UI, and the server copy is recorded
+ * best-effort behind it. Without this a decision made here vanished on the
+ * next reload. Signed-out viewers can still browse this page, so nothing is
+ * sent without a session (it would only 401).
+ */
+async function persistDecision(guideId: string, decision: 'interested' | 'pass') {
+  if (!auth.isAuthenticated) return
+  try {
+    await api.decide({ targetId: Number(guideId), decision })
+  } catch (err) {
+    reportApiError(err, 'Could not record your decision.')
+  }
+}
+
+function accept(id: string) {
+  shortlist.pick(id)
+  // pick() no-ops when the pack is spent; don't persist what it didn't record.
+  if (shortlist.isPicked(id)) void persistDecision(id, 'interested')
+}
+
+function reject(id: string) {
+  shortlist.pass(id)
+  void persistDecision(id, 'pass')
+}
 </script>
 
 <template>
@@ -80,8 +112,8 @@ const isPicked = computed(() => shortlist.isPicked(props.id))
             <DecisionRow
               v-else
               :disabled="!canPick"
-              @accept="shortlist.pick(guide.id)"
-              @reject="shortlist.pass(guide.id)"
+              @accept="accept(guide.id)"
+              @reject="reject(guide.id)"
             />
             <p v-if="!isPicked && !canPick" class="tiny muted">
               No selections left in your pack. <RouterLink to="/unlock">Unlock +5 · £5</RouterLink>
