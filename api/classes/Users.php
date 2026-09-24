@@ -157,9 +157,9 @@ class Users
      * everyone, as before.
      *
      * `$filters['includeDecided']` turns that exclusion off (the caller
-     * themselves is still dropped): `ShortlistPage`/`GuideProfilePage`
-     * render cards the visitor has by definition already decided on and
-     * resolve them out of the same fetch, so for those the deck rule would
+     * themselves is still dropped): `ShortlistPage`
+     * renders cards the visitor has by definition already decided on and
+     * resolves them out of the same fetch, so there the deck rule would
      * empty the page.
      *
      * $filters (every key optional, absent never excludes):

@@ -78,10 +78,14 @@ export interface ProfileAccount extends BasicAccount {
   price_label: string | null
   price_note: string | null
   includes: string | null
-  rating: number | null
-  tours: number | null
   party: string | null
   duration_hours: number | null
+  /**
+   * Mean of this person's reviews to one decimal, `null` with none — from
+   * `reviews`, never self-reported (see `Users::REVIEW_SUMMARY_JOIN`).
+   */
+  rating_average: number | null
+  review_count: number
   attributes: AttributeMap
   ranges: RangeMap
 }
@@ -97,8 +101,6 @@ export interface ProfileUpdatePayload {
   priceLabel?: string
   priceNote?: string
   includes?: string
-  rating?: number
-  tours?: number
   party?: string
   durationHours?: number
   /** One entry per dynamic category (see `AttributeCategory`) — replaces that category's full selection. */
@@ -179,8 +181,6 @@ export interface MyProfile {
   price_label: string | null
   price_note: string | null
   includes: string | null
-  rating: number | null
-  tours: number | null
   party: string | null
   duration_hours: number | null
   role: string | null
@@ -269,6 +269,64 @@ export interface MatchOverviewRow {
   party: string | null
   duration_hours: number | null
 }
+
+/**
+ * Reviews and public profiles (`Reviews.php`, 013_reviews.sql).
+ *
+ * `PublicProfile` is what `api.publicProfile()` returns: the same fields a
+ * deck card gets, plus `role`, minus every contact detail — it's what anyone,
+ * signed in or not, may see about a guest or guide.
+ */
+export interface PublicProfile extends Omit<ProfileAccount, 'email'> {
+  role: 'guest' | 'guide'
+}
+
+/** One review, with its author's public face (name and photo only). */
+export interface Review {
+  id: number
+  booking_id: number
+  author_id: number
+  subject_id: number
+  /** A whole number, 1–5. */
+  rating: number
+  /** Up to 256 characters; `null` when the author left only a grade. */
+  comment: string | null
+  /** ISO 8601, UTC (`2026-09-24T10:00:00Z`). */
+  created_at: string
+  updated_at: string
+  author_name: string
+  author_image: string | null
+}
+
+/** Count of reviews per grade, every grade present (zeros included). */
+export type ReviewHistogram = Record<'1' | '2' | '3' | '4' | '5', number>
+
+/** Whether the caller may review the profile being viewed — always "no" signed out. */
+export interface ReviewViewerState {
+  canReview: boolean
+  /** The finished booking a review would attach to (see `Reviews::eligibleBookingId()`). */
+  bookingId: number | null
+  /** The caller's existing review on that booking — present means "Edit your review". */
+  myReview: Review | null
+}
+
+/** What `api.reviews()` returns: one page, newest first, plus the summary header. */
+export interface ReviewsPage {
+  reviews: Review[]
+  total: number
+  average: number | null
+  histogram: ReviewHistogram
+  viewer: ReviewViewerState
+}
+
+export interface SubmitReviewPayload {
+  subjectId: number
+  rating: number
+  comment?: string
+}
+
+/** The server's cap on one `api.reviews()` page — the "Show all" modal's page size. */
+export const REVIEWS_PAGE_SIZE = 20
 
 /** Mirrors `AGE_CATEGORY_KEY` in `stores/categories.ts`; duplicated so the api layer doesn't import a store. */
 const AGE_FILTER_KEY = 'age'
@@ -370,7 +428,7 @@ export const api = {
    * For a signed-in caller the server also drops anyone they've already
    * decided on, so the deck doesn't re-serve matched/passed cards after a
    * reload. `includeDecided` opts out of *that* part: pages which resolve a
-   * specific, already-picked card by id (`ShortlistPage`, `GuideProfilePage`)
+   * specific, already-picked card by id (`ShortlistPage`)
    * need those rows back. Filters still apply either way.
    */
   guides: (filters?: DiscoveryFilters, includeDecided = false) =>
@@ -401,6 +459,14 @@ export const api = {
   matches: () => call<{ matches: MatchRow[] }>('matches'),
   /** Every pair the caller is part of (matched, pending either way, passed) — see `MatchOverviewRow`. */
   matchOverview: () => call<{ selections: MatchOverviewRow[] }>('matchOverview'),
+
+  /** One guest or guide by id, never with contact details — both public profile pages. */
+  publicProfile: (userId: number) => call<PublicProfile>('publicProfile', { userId }),
+  /** A page of someone's reviews (`limit` ≤ `REVIEWS_PAGE_SIZE`) with the summary and the caller's `viewer` state. */
+  reviews: (payload: { userId: number; limit?: number; offset?: number }) => call<ReviewsPage>('reviews', payload),
+  /** Creates or edits the caller's review of `subjectId` — only after a finished trip together. */
+  submitReview: (payload: SubmitReviewPayload) => call<Review>('submitReview', payload),
+  deleteReview: (payload: { reviewId: number }) => call<{ ok: true }>('deleteReview', payload),
 }
 
 export type Api = typeof api

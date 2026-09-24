@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { useApi, type ProfileAccount } from '@/plugins/api'
+import { useApi, type ProfileAccount, type PublicProfile } from '@/plugins/api'
 import type { DiscoveryFilters, Guide } from '@/types'
 
 /**
@@ -12,14 +12,15 @@ import type { DiscoveryFilters, Guide } from '@/types'
  * across untouched — there's no fixed list of categories to map onto any
  * more, so nothing here needs changing when a new one appears.
  */
-function toGuideCard(account: ProfileAccount): Guide {
+export function toGuideCard(account: ProfileAccount | PublicProfile): Guide {
   return {
     id: String(account.id),
-    name: account.name || account.email,
+    // A public profile carries no email, so it has no fallback beyond this.
+    name: account.name || ('email' in account ? account.email : '') || 'RockGuide guide',
     age: account.age ?? 0,
     headline: account.headline || 'New on RockGuide',
-    rating: account.rating ?? 0,
-    tours: account.tours ?? 0,
+    ratingAverage: account.rating_average ?? 0,
+    reviewCount: account.review_count ?? 0,
     priceLabel: account.price_label || 'Contact for pricing',
     priceNote: account.price_note ?? '',
     bio: account.bio || 'This guide hasn’t added a bio yet.',
@@ -68,9 +69,9 @@ export const useGuidesStore = defineStore('guides', () => {
   /**
    * `options.includeDecided` keeps guides this visitor has already picked
    * or passed in the result. The deck wants them gone (that's the default,
-   * enforced server-side); `ShortlistPage`/`GuideProfilePage` want them,
-   * since they render cards the visitor has by definition already decided
-   * on — without it their `find(id)` lookups come back empty after a reload.
+   * enforced server-side); `ShortlistPage` wants them,
+   * since it renders cards the visitor has by definition already decided
+   * on — without it its `find(id)` lookups come back empty after a reload.
    */
   async function load(filters?: DiscoveryFilters, options?: { includeDecided?: boolean }) {
     loading.value = true

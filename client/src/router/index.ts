@@ -60,6 +60,14 @@ const router = createRouter({
       props: true,
     },
     {
+      // Not from the prototype: the guest-side counterpart of /guides/:id,
+      // linked from the guide deck's "Full profile →" (VisitorProfilePage.vue).
+      path: '/visitors/:id',
+      name: 'visitor-profile',
+      component: () => import('@/pages/VisitorProfilePage.vue'),
+      props: true,
+    },
+    {
       path: '/shortlist',
       name: 'shortlist',
       component: () => import('@/pages/ShortlistPage.vue'),
