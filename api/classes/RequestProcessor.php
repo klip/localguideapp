@@ -16,6 +16,10 @@ class RequestProcessor
     private $payments;
     /** @var Selections */
     private $selections;
+    /** @var Bookings */
+    private $bookings;
+    /** @var Notifications */
+    private $notifications;
     /** @var Profiles */
     private $profiles;
     /** @var Session */
@@ -28,7 +32,9 @@ class RequestProcessor
         $this->db = $db;
         $this->users = new Users($db);
         $this->payments = new Payments($db);
-        $this->selections = new Selections($db, $this->users, $this->payments);
+        $this->notifications = new Notifications($db, new Mailer($db));
+        $this->bookings = new Bookings($db, $this->notifications);
+        $this->selections = new Selections($db, $this->users, $this->payments, $this->bookings);
         $this->profiles = new Profiles($db);
         $this->sessions = new Session($db);
     }
@@ -97,6 +103,18 @@ class RequestProcessor
 
                 case 'matchOverview':
                     $this->respond(['selections' => $this->selections->getOverview($this->requireUserId())]);
+                    break;
+
+                case 'payGuideFee':
+                    $this->respond($this->actionPayGuideFee());
+                    break;
+
+                case 'cancelBooking':
+                    $this->respond($this->actionCancelBooking());
+                    break;
+
+                case 'notifications':
+                    $this->respond(['notifications' => $this->notifications->takeUnread($this->requireUserId())]);
                     break;
 
                 case 'logout':
@@ -318,6 +336,43 @@ class RequestProcessor
         }
 
         return $this->selections->revoke($userId, $targetId);
+    }
+
+    /**
+     * The guest pays the fee of a guide they're matched with, choosing when
+     * to meet — see `Bookings::pay()`. Unlocks both sides' contact details.
+     */
+    private function actionPayGuideFee(): array
+    {
+        $input = $this->readInput();
+        $userId = $this->requireUserId();
+        $guideId = (int) ($input['targetId'] ?? 0);
+
+        if (!$guideId) {
+            throw new RuntimeException('targetId is required.');
+        }
+        if ($this->users->getRoleName($userId) !== 'guest' || $this->users->getRoleName($guideId) !== 'guide') {
+            throw new RuntimeException('Only a visitor can pay a guide’s fee.');
+        }
+
+        return $this->bookings->pay($userId, $guideId, (string) ($input['meetingAt'] ?? ''));
+    }
+
+    /** The guide cancels their booking with a visitor, refunding them — see `Bookings::cancelByGuide()`. */
+    private function actionCancelBooking(): array
+    {
+        $input = $this->readInput();
+        $userId = $this->requireUserId();
+        $guestId = (int) ($input['targetId'] ?? 0);
+
+        if (!$guestId) {
+            throw new RuntimeException('targetId is required.');
+        }
+        if ($this->users->getRoleName($userId) !== 'guide') {
+            throw new RuntimeException('Only the guide can cancel a booking.');
+        }
+
+        return $this->bookings->cancelByGuide($userId, $guestId, (string) ($input['reason'] ?? ''));
     }
 
     /**
