@@ -14,6 +14,7 @@ import { useFiltersStore } from '@/stores/filters'
 import { useGuidesStore } from '@/stores/guides'
 import { PACK_SIZE, useShortlistStore } from '@/stores/shortlist'
 import { debounce } from '@/utils/debounce'
+import { formatRating } from '@/utils/reviews'
 import { reportApiError } from '@/utils/reportApiError'
 import type { DiscoveryFilters } from '@/types'
 
@@ -64,9 +65,11 @@ watch(filters, (next) => debouncedLoad(next), { deep: true })
 const deck = computed(() => guides.value.filter((guide) => !shortlist.isDecided(guide.id)))
 const current = computed(() => deck.value[0])
 
-/** Real accounts don't have a rating/tour count yet — omit the line rather than show "★★★★★ 0 · 0 tours". */
+/** From real reviews — omitted until a guide has at least one, rather than showing "★ 0 · 0 reviews". */
 const currentMeta = computed(() =>
-  current.value && current.value.rating > 0 ? `★★★★★ ${current.value.rating} · ${current.value.tours} tours` : undefined,
+  current.value && current.value.reviewCount > 0
+    ? formatRating(current.value.ratingAverage, current.value.reviewCount)
+    : undefined,
 )
 
 const pickedGuides = computed(() => picks.value.map(guidesStore.find).filter((guide) => !!guide))

@@ -24,6 +24,8 @@ class RequestProcessor
     private $profiles;
     /** @var Session */
     private $sessions;
+    /** @var Reviews */
+    private $reviews;
     /** @var array|null memoized parsed request body */
     private $input;
 
@@ -37,6 +39,7 @@ class RequestProcessor
         $this->selections = new Selections($db, $this->users, $this->payments, $this->bookings);
         $this->profiles = new Profiles($db);
         $this->sessions = new Session($db);
+        $this->reviews = new Reviews($db);
     }
 
     public function handle(): void
@@ -123,6 +126,23 @@ class RequestProcessor
 
                 case 'session':
                     $this->respond($this->actionSession());
+                    break;
+
+                // Reviews and public profiles (see `Reviews`, 013_reviews.sql).
+                case 'publicProfile':
+                    $this->respond($this->actionPublicProfile());
+                    break;
+
+                case 'reviews':
+                    $this->respond($this->actionReviews());
+                    break;
+
+                case 'submitReview':
+                    $this->respond($this->actionSubmitReview());
+                    break;
+
+                case 'deleteReview':
+                    $this->respond($this->actionDeleteReview());
                     break;
 
                 default:
@@ -405,8 +425,6 @@ class RequestProcessor
             'priceLabel' => 'price_label',
             'priceNote' => 'price_note',
             'includes' => 'includes',
-            'rating' => 'rating',
-            'tours' => 'tours',
             'party' => 'party',
             'durationHours' => 'duration_hours',
         ];
@@ -531,6 +549,76 @@ class RequestProcessor
         }
 
         $this->users->setPassword($userId, $newPassword);
+
+        return ['ok' => true];
+    }
+
+    /**
+     * One guest or guide by id, without contact details — what both public
+     * profile pages load (see `Users::getPublicProfile()`). Works signed out.
+     */
+    private function actionPublicProfile(): array
+    {
+        $userId = (int) ($this->readInput()['userId'] ?? 0);
+        $profile = $userId > 0 ? $this->users->getPublicProfile($userId, $this->profiles) : null;
+        if (!$profile) {
+            throw new RuntimeException('Profile not found.');
+        }
+
+        return $profile;
+    }
+
+    /**
+     * A page of `userId`'s reviews with the summary header (see
+     * `Reviews::listFor()`), plus `viewer`: whether the caller may review
+     * this person and their existing review if so. Works signed out (`viewer`
+     * then says no). `limit` defaults to 20 and is capped there — the "Show
+     * all" modal pages through by `offset`.
+     */
+    private function actionReviews(): array
+    {
+        $input = $this->readInput();
+        $subjectId = (int) ($input['userId'] ?? 0);
+        if ($subjectId <= 0) {
+            throw new RuntimeException('userId is required.');
+        }
+
+        $limit = (int) ($input['limit'] ?? Reviews::MAX_PAGE_SIZE);
+        $offset = (int) ($input['offset'] ?? 0);
+
+        return $this->reviews->listFor($subjectId, $limit, $offset) + [
+            'viewer' => $this->reviews->viewerStateFor($this->optionalUserId(), $subjectId),
+        ];
+    }
+
+    /** Creates or updates the caller's review of `subjectId` — every rule lives in `Reviews::submit()`. */
+    private function actionSubmitReview(): array
+    {
+        $input = $this->readInput();
+        $authorId = $this->requireUserId();
+        $subjectId = (int) ($input['subjectId'] ?? 0);
+        if ($subjectId <= 0) {
+            throw new RuntimeException('subjectId is required.');
+        }
+
+        $comment = $input['comment'] ?? null;
+        if ($comment !== null && !is_string($comment)) {
+            throw new RuntimeException('Comment must be text.');
+        }
+
+        return $this->reviews->submit($authorId, $subjectId, $input['rating'] ?? null, $comment);
+    }
+
+    /** Deletes one of the caller's own reviews. */
+    private function actionDeleteReview(): array
+    {
+        $authorId = $this->requireUserId();
+        $reviewId = (int) ($this->readInput()['reviewId'] ?? 0);
+        if ($reviewId <= 0) {
+            throw new RuntimeException('reviewId is required.');
+        }
+
+        $this->reviews->delete($authorId, $reviewId);
 
         return ['ok' => true];
     }

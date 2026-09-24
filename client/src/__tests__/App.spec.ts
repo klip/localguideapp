@@ -43,6 +43,10 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     revokeSelection: vi.fn<Api['revokeSelection']>(),
     matches: vi.fn<Api['matches']>(),
     matchOverview: vi.fn<Api['matchOverview']>(),
+    publicProfile: vi.fn<Api['publicProfile']>(),
+    reviews: vi.fn<Api['reviews']>(),
+    submitReview: vi.fn<Api['submitReview']>(),
+    deleteReview: vi.fn<Api['deleteReview']>(),
     ...overrides,
   }
 }

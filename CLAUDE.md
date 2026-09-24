@@ -24,7 +24,9 @@ notification on the guide's side); a payment-flow *simulation* that
 unlocks selection packs and actually gates a visitor's remaining picks;
 revoke-a-match on `ShortlistPage.vue`; a full match-management page for
 both roles (`MatchesPage.vue`, `/matches` — see "Match management" below);
-a mobile slide-in burger menu (`AppHeader.vue`).
+a mobile slide-in burger menu (`AppHeader.vue`); public profile pages for
+both roles (`/guides/:id`, `/visitors/:id`) with Google-Maps-style reviews
+that are the only source of a profile's ★ rating (see "Reviews" below).
 
 **Deliberately fake / not wired to anything real:** `Payments.php` just
 inserts a `status = 'paid'` row on `unlockPack` — there is no payment
@@ -50,6 +52,13 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
 - **Meeting times are free-form**: the guest picks any future date-time
   when paying (up to a year ahead); nothing checks it against the guide's
   working hours (`hour_of_day`), and the guide can't propose another.
+- **Nothing sets `bookings.trip_status` to `finished` yet** — the trip
+  start/finish UI is a later task, so until then review eligibility (see
+  "Reviews") can only be produced by hand in SQL.
+- **`user_profiles.rating`/`tours` are dead columns** — nothing reads or
+  writes them since 013 (ratings come from `reviews`); drop them in a later
+  migration.
+
 ## Layout
 
 - `client/` — Vue 3 frontend (the actual app). Run all frontend commands from
@@ -86,7 +95,9 @@ otherwise harmless-looking mocks fail lint.
 (`App.spec.ts`, `AppHeader.spec.ts` — the mobile drawer's open/close/focus
 behavior, `RegisterPage.spec.ts`, `ProfilePage.spec.ts`,
 `MatchesPage.spec.ts`, `FilterPanel.spec.ts` — the generic filter store and
-the category-then-values bar built on it) plus one
+the category-then-values bar built on it, `Reviews.spec.ts` — the review
+section, its "Show all" modal and the write/edit form,
+`VisitorProfilePage.spec.ts`) plus one
 plain-module test, `api.spec.ts`, for `plugins/api.ts`'s `call()` itself
 (session-hash attachment, 401-triggered auto-logout — see "Sessions"
 above; it mocks `fetch` via `vi.stubGlobal` rather than going through a
@@ -110,8 +121,8 @@ into the next test's fresh `Pinia` instance.
 ### Structure
 
 - `src/pages/` — one component per route (Home, Register, Login, Unlock,
-  Discover, GuideProfile, Shortlist, GuideDiscover, Matches,
-  Profile, NotFound).
+  Discover, GuideProfile, VisitorProfile, Shortlist, GuideDiscover,
+  Matches, Profile, NotFound).
 - `src/router/index.ts` — documents the mapping from the original static
   prototype's scroll sections to routes; read the comment there before adding
   routes.
@@ -155,8 +166,9 @@ into the next test's fresh `Pinia` instance.
   **Only `HomePage.vue`'s hero `PhonePreview` still uses these** (marketing
   decoration, deliberately static) — `DiscoverPage`/`GuideDiscoverPage`/
   `ShortlistPage`/`GuideProfilePage` were switched to real data from
-  `stores/guides.ts`/`stores/visitors.ts`; don't reintroduce the mock
-  import there.
+  `stores/guides.ts`/`stores/visitors.ts` (or `api.publicProfile()`);
+  don't reintroduce the mock import there. Their `ratingAverage`/
+  `reviewCount` are made-up numbers, which is fine for a marketing mock.
 - `src/data/countryCodes.ts` — a static (not DB-backed) list of country
   dial codes for `ProfilePage.vue`'s phone country-code picker — see
   "Self-service profile editing" below. Not exhaustive; add more entries
@@ -200,7 +212,15 @@ path/name table) and the shared `src/components/` each is built from:
   destination linked from a `ProfileCard`; reuses `PanelCard`, `TagList`,
   `PillBadge`, `DecisionRow` at full width instead of a swipe card. Its
   accept/reject mirror `DiscoverPage.vue`'s: local `shortlist` first, then
-  a best-effort `api.decide()` (skipped when signed out).
+  a best-effort `api.decide()` (skipped when signed out). Loads its one
+  guide with `api.publicProfile()` (mapped through `stores/guides.ts`'s
+  exported `toGuideCard()`), not the guide list, and ends with a
+  `ReviewsSection`. A guest's id here reads as "Guide not found".
+- **`VisitorProfilePage.vue`** (`/visitors/:id`) — the guest-side
+  counterpart, the "Full profile →" target on `GuideDiscoverPage.vue`'s
+  card: name, photo, age, gender, party, duration, bio, category tags —
+  never contact details — then a `ReviewsSection`. No accept/reject here;
+  a guide's id reads as "Visitor not found".
 - **`ShortlistPage.vue`** (`/shortlist`) — a visitor's local picks
   (`PanelCard` × N, `TagList`, `PillBadge`) plus the real,
   server-confirmed "Confirmed matches" panel (`api.matches()`/
@@ -264,6 +284,12 @@ own — every one just takes props/emits):
   interactive.
 - `MessageToaster.vue` — renders `stores/messages.ts`'s queue (see
   "Talking to the API" below); mounted once, in `App.vue`.
+- `StarRating.vue` (read-only stars, partial fill for averages, one
+  `role="img"` label), `ReviewSummary.vue` (average + 5→1 bars),
+  `ReviewItem.vue` (one review) — presentational. `ReviewsSection.vue`,
+  `ReviewsDialog.vue` and `ReviewForm.vue` are the exception to this list's
+  "no API access" rule: they call `useApi()` themselves so both profile
+  pages can drop in one `<ReviewsSection>`. See "Reviews" below.
 
 ### Talking to the API
 
@@ -526,8 +552,8 @@ client-side `matchesFilters()`) is gone; don't recreate it.
 - **These are the one place in the client that calls `useApi()` from
   inside a Pinia store** rather than a page component (every other store
   follows the page-calls-the-api pattern — see `RegisterPage.vue` below) —
-  because the fetched-and-mapped list is shared by `DiscoverPage`,
-  `ShortlistPage` and `GuideProfilePage`. The call is made **once,
+  because the fetched-and-mapped list is shared by `DiscoverPage`
+  and `ShortlistPage`. The call is made **once,
   synchronously, in the store's `defineStore(() => {...})` setup body**
   (`const api = useApi()` at the top), *not* inside `load()` itself: Vue's
   `inject()` only works while a component instance is "current", which
@@ -601,9 +627,13 @@ client-side `matchesFilters()`) is gone; don't recreate it.
   the match; if the guest is the one who completes it (already had this
   guide's `'interested'` recorded, then the guest swipes right), the guide
   gets no toast — they'll only see it on `/matches` (`MatchesPage.vue`).
-- Rating/tours (`GuideProfilePage`, `DiscoverPage`'s card meta line) are
-  shown only when `rating > 0`, to avoid rendering "★★★★★ 0 · 0 tours" for
-  every account with no profile filled in yet.
+- The ★ line (`GuideProfilePage`/`VisitorProfilePage` heroes,
+  `DiscoverPage`'s card meta line, all via `utils/reviews.ts`'s
+  `formatRating()`) is the real review average and count
+  (`ProfileAccount.rating_average`/`review_count` → `Guide.ratingAverage`/
+  `reviewCount`), shown only when `reviewCount > 0`. It used to read
+  `user_profiles.rating`/`tours`, which anyone could set on themselves
+  through `updateProfile` — see "Reviews".
 - A guide/visitor can now fill in their own profile — see "Self-service
   profile editing" below — so most fields on a `Guide`/`Visitor` card are
   no longer permanently placeholder text for accounts created through the
@@ -643,13 +673,13 @@ which doesn't survive one.
   decision removes a card.
 - **Anonymous callers see everyone**, exactly as before — the exclusion
   needs a session, and `guides`/`visitors` still work without one.
-- **`includeDecided: true` opts out**, because two pages render cards the
-  visitor has by definition already decided on and resolve them from the
-  same fetch: `ShortlistPage.vue` (the picks grid) and `GuideProfilePage.vue`
-  (the "Full profile →" target). They pass it through
-  `guidesStore.load(undefined, { includeDecided: true })`. Without it both
-  silently come up empty — the store's `find(id)` has nothing to find. Any
-  new page that resolves a specific known card by id needs the same.
+- **`includeDecided: true` opts out**, because `ShortlistPage.vue` (the
+  picks grid) renders cards the visitor has by definition already decided
+  on and resolves them from the same fetch, via
+  `guidesStore.load(undefined, { includeDecided: true })`. Without it the
+  page silently comes up empty — the store's `find(id)` has nothing to
+  find. A page that needs one specific person by id should use
+  `api.publicProfile()` instead, as both profile pages now do.
 - Filters still apply in both modes; `includeDecided` only governs the
   already-decided exclusion.
 - A passed card is gone from the deck for good now — "Reconsider" on
@@ -746,8 +776,9 @@ not just via a seeded API call.
   party/duration for visitors; date of birth/bio/categories for both — a
   guide sees each category's `provider_label` where it has one, so
   "Interests" reads as "Specialities") —
-  `rating`/`tours` are deliberately *not* editable here (they read as
-  trust signals a user shouldn't be able to self-report).
+  there's no rating field at all — a rating only comes from other
+  people's reviews (see "Reviews"); `updateProfile` no longer accepts
+  `rating`/`tours`.
 - Numeric/enum/date fields (`dateOfBirth`, `gender`, `priceAmount`,
   `durationHours`) are omitted from the `updateProfile` payload entirely
   when unset, rather than sent as `0`/`''` — same "omit to leave alone"
@@ -880,6 +911,54 @@ one themselves from `ProfilePage.vue`** — see below.
   guest picks what they want, from the same options. `user_specialties` was
   folded into `interests` by 010 and is no longer read; the guide side just
   renders the category's `provider_label`.
+
+### Reviews
+
+Google-Maps-style grades (1–5) with an optional comment of up to 256
+characters, which the guest and the guide of a **finished trip** leave
+about each other. Backed by `reviews` (013) and `Reviews.php`; replies are
+a later feature and would get their own table.
+
+- **Eligibility is a booking, not a match**: the author and the subject
+  must be the guest and guide (either way round) of a `bookings` row with
+  `status = 'confirmed'` and `trip_status = 'finished'`
+  (`Reviews::eligibleBookingId()`). One review per (booking, author);
+  with several finished trips the most recent unreviewed one is used, so
+  a second trip earns a second review, else the most recent one (whose
+  review is then edited). Nothing sets `trip_status` yet — see "Progress
+  so far".
+- **Every rule is enforced server-side in `Reviews::submit()`**: grade a
+  whole number 1–5 (JSON `true` is rejected, not read as 1), comment
+  trimmed, ≤256 by `mb_strlen` (an emoji is one character — the client's
+  counter uses `Array.from(text).length` for the same reason, and the
+  textarea has no `maxlength`, which would count UTF-16 units), empty →
+  `NULL`, no self-review, only the author edits/deletes (`delete()` scopes
+  by `author_id`, so someone else's id is just "not found").
+- **`ReviewsSection.vue`** sits at the foot of both profile pages: one
+  `api.reviews({ userId, limit: 3 })` feeds the `ReviewSummary` header,
+  the 3 newest `ReviewItem`s, "Show all N reviews" and — when
+  `viewer.canReview` — `ReviewForm`. A save or delete just refetches.
+- **`ReviewsDialog.vue`** is a native `<dialog>` opened with
+  `showModal()` (the browser supplies the focus trap and Escape), styled by
+  Pico's own `dialog > article` rules. It fetches 20 at a time
+  (`REVIEWS_PAGE_SIZE`, also the server's cap) and "Load more" asks for the
+  next page by offset. Every way of closing it ends in the native `close`
+  event, after which the section puts focus back on "Show all". jsdom's
+  `<dialog>` is partial, so `Reviews.spec.ts` stubs `showModal()`/`close()`.
+- **`ReviewForm.vue`**'s star picker is five native radios in a
+  `<fieldset>` — radio-group semantics and arrow keys for free, the stars
+  are only their labels. Comments are rendered as text everywhere (never
+  `v-html`).
+- **Timestamps** come back as ISO 8601 UTC (`2026-09-24T10:00:00Z`, built
+  from `UNIX_TIMESTAMP()` in PHP) so `utils/reviews.ts`'s `timeAgo()`
+  ("2 weeks ago") never has to guess a time zone.
+- **The ★ rating everywhere comes from here**: `Users::searchByRole()` and
+  `getPublicProfile()` join a per-subject `COUNT`/`AVG` derived table
+  (`REVIEW_SUMMARY_JOIN`) into the same query as the list — no per-card
+  lookup — as `rating_average` (one decimal, `null` with none) and
+  `review_count`.
+- **`db.php` connects as `utf8mb4`** (it was MySQL's 3-byte `utf8`) so a
+  comment can carry emoji; every table was already `utf8mb4`.
 
 ### Discovery filters
 
@@ -1101,7 +1180,7 @@ unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 | `visitors` | optional* | `api.visitors(filters?, includeDecided?)` | same filter shape as `guides` | `{ visitors: ProfileAccount[] }` | `Users::searchByRole('guest', ...)` |
 | `attributeCategories` | no | `api.attributeCategories()` | — | `{ categories: AttributeCategory[] }` | `Profiles::getCategories()` |
 | `myProfile` | **yes** | `api.myProfile()` | — | `MyProfile` | `Users::getFullAccount()` |
-| `updateProfile` | **yes** | `api.updateProfile(payload)` | `dateOfBirth?, gender?, headline?, bio?, priceAmount?, priceLabel?, priceNote?, includes?, rating?, tours?, party?, durationHours?, attributes?, newCategoryLabels?, ranges?` — every field independent | `{ ok: true }` | `actionUpdateProfile()` → `Profiles::setProfile()`/`setAttributeValues()`/`setRanges()` |
+| `updateProfile` | **yes** | `api.updateProfile(payload)` | `dateOfBirth?, gender?, headline?, bio?, priceAmount?, priceLabel?, priceNote?, includes?, party?, durationHours?, attributes?, newCategoryLabels?, ranges?` — every field independent (no `rating`/`tours` since 013) | `{ ok: true }` | `actionUpdateProfile()` → `Profiles::setProfile()`/`setAttributeValues()`/`setRanges()` |
 | `updateAccount` | **yes** | `api.updateAccount(payload)` | `name?, email?, phone?, twoFactorMethod?, image?` | `{ ok: true }` | `actionUpdateAccount()` → `Users::updateAccount()` (+ inline email/2FA validation) |
 | `changePassword` | **yes** | `api.changePassword(payload)` | `currentPassword, newPassword` | `{ ok: true }` | `actionChangePassword()` → `Users::verifyPasswordFor()`/`setPassword()` |
 | `unlockPack` | **yes** (guest only) | `api.unlockPack()` | — | `PaymentState` (`packsUnlocked, capacity, picksUsed, selectionsLeft`) | `actionUnlockPack()` → `Payments::recordPackPurchase()` |
@@ -1115,8 +1194,12 @@ unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 | `notifications` | **yes** | `api.notifications()` | — | `{ notifications: AppNotification[] }` (`id, kind, message, created_at`) — marked read by this call | `Notifications::takeUnread()` |
 | `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
 | `session` | **yes** | `api.session()` | — | `AuthResult` (same shape as `register`/`login`, unrotated `sessionHash`) | `actionSession()` |
+| `publicProfile` | optional | `api.publicProfile(userId)` | `userId` | `PublicProfile` (a `ProfileAccount` minus `email`, plus `role`; `400` "Profile not found." for an unknown id or a non-guest/guide) | `Users::getPublicProfile()` |
+| `reviews` | optional* | `api.reviews(payload)` | `userId, limit? (default/max 20), offset?` | `ReviewsPage` (`reviews: Review[]` newest first, `total, average, histogram` `{ "5": n, …, "1": n }`, `viewer: { canReview, bookingId, myReview }` — all no/null signed out) | `Reviews::listFor()`/`viewerStateFor()` |
+| `submitReview` | **yes** | `api.submitReview(payload)` | `subjectId, rating, comment?` | `Review` (`id, booking_id, author_id, subject_id, rating, comment, created_at, updated_at, author_name, author_image`) | `Reviews::submit()` (upsert) |
+| `deleteReview` | **yes** | `api.deleteReview(payload)` | `reviewId` | `{ ok: true }` | `Reviews::delete()` |
 
-\* `guides`/`visitors` work signed out, but personalise themselves when a
+\* `guides`/`visitors`/`reviews` work signed out, but personalise themselves when a
 session *is* sent: `RequestProcessor::optionalUserId()` returns the caller's
 id (`null` with no `sessionHash`), and a hash that's present but invalid
 still 401s rather than silently degrading to the anonymous view.
@@ -1185,11 +1268,16 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   returns the raw `date_of_birth`, not a computed age, since the edit
   form's calendar input needs the actual date; `updateAccount()`,
   `getPhone()`, `verifyPasswordFor()` and `setPassword()` back that page's
-  contact-info and change-password saves.
+  contact-info and change-password saves. `getPublicProfile(userId,
+  Profiles)` is the `publicProfile` action: one guest/guide in the
+  `searchByRole()` row shape plus `role`, minus `email` — both it and
+  `searchByRole()` read `rating_average`/`review_count` from `reviews`
+  (see "Reviews").
 - `api/classes/Profiles.php` — data access for the filterable profile
   tables: `setProfile()` (upserts whichever `user_profiles` scalar columns
-  are given — date_of_birth/gender/headline/bio/price*/includes/rating/
-  tours/party/duration_hours — via `db_InsertUpdate()`; a column absent
+  are given — date_of_birth/gender/headline/bio/price*/includes/party/
+  duration_hours (not `rating`/`tours` any more) — via
+  `db_InsertUpdate()`; a column absent
   from the input is left alone, there's no way to write a literal SQL
   `NULL` through `db`'s helpers, same tradeoff as `users.image`),
   `getCategories()` (every `attribute_categories` row with its
@@ -1237,6 +1325,10 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   `matched_at` and calls `Bookings::onMatched()` on the flip to active;
   `revoke()` enforces the booked-pair rules; `getOverview()`/
   `getActiveMatches()` mask contact details with `CONTACT_UNLOCKED`.
+- `api/classes/Reviews.php` — data access for `reviews`: `listFor()`
+  (a page, newest first, plus `summaryFor()`'s total/average/histogram),
+  `viewerStateFor()`, `eligibleBookingId()`, `submit()` (validates and
+  upserts), `delete()`. See "Reviews" above.
 - `api/classes/Session.php` — server-side sessions backed by the
   `sessions` table (see `009_sessions.sql`): `create(userId)` mints a
   random 64-hex-char hash; `resolve(hash)` looks it up, checks
@@ -1373,6 +1465,10 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   applied 2026-09-24. `bookings` has no FKs on `guest_id`/`guide_id`:
   MySQL refuses a cascading FK on a base column of a stored generated
   column (`open_pair`), so user deletion cascades through `selection_id`.
+- `api/sql/013_reviews.sql` — the `reviews` table (2026-09-24, applied):
+  one row per (booking, author), FK to `bookings` with `ON DELETE CASCADE`,
+  `rating` checked 1–5, `comment VARCHAR(256)` utf8mb4. See "Reviews".
+  Leaves `user_profiles.rating`/`tours` in place, unread — drop them later.
 
 There is no test setup, linter, or formatter configured for `api/` yet;
 `docker exec lemp-php php -l <file>` is the only current check.
@@ -1425,7 +1521,8 @@ There is no test setup, linter, or formatter configured for `api/` yet;
   number), `gender` (`enum('male','female')` since 010, nullable — a human
   constant, and the one `user_profiles` column the deck still filters on
   directly), `headline`, `bio`, `price_amount`/`price_label`/
-  `price_note`, `includes`, `rating`, `tours`, `party`, `duration_hours`.
+  `price_note`, `includes`, `rating`, `tours` (both dead since 013 — see
+  `reviews`), `party`, `duration_hours`.
   Guide- and visitor-only columns share the one
   table (like `users` itself already does) — only the columns relevant to
   that account's role get filled in practice. Every column nullable;
@@ -1457,6 +1554,9 @@ There is no test setup, linter, or formatter configured for `api/` yet;
   PHP and the containers all run in UTC).
 - `notifications` (id, user_id, kind, message, read_at, created_at).
 - `selections.matched_at` — when the pair last became active (UTC).
+- `reviews` (id, booking_id, author_id, subject_id, rating, comment,
+  created_at, updated_at) — unique on (booking_id, author_id); see
+  "Reviews" above.
 - `sessions` (id, `session_hash` unique, user_id, created_at,
   last_active_at) — one row per active login, deleted on logout or the
   next time `Session::resolve()` finds it past its 5-minute inactivity

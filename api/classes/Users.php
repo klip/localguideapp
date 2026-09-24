@@ -157,9 +157,9 @@ class Users
      * everyone, as before.
      *
      * `$filters['includeDecided']` turns that exclusion off (the caller
-     * themselves is still dropped): `ShortlistPage`/`GuideProfilePage`
-     * render cards the visitor has by definition already decided on and
-     * resolve them out of the same fetch, so for those the deck rule would
+     * themselves is still dropped): `ShortlistPage`
+     * renders cards the visitor has by definition already decided on and
+     * resolves them out of the same fetch, so there the deck rule would
      * empty the page.
      *
      * $filters (every key optional, absent never excludes):
@@ -263,12 +263,10 @@ class Users
         }
 
         $rows = $this->db->db_GetArray(
-            'SELECT u.`id`, u.`name`, u.`email`, u.`image`, u.`created_at`,
-                    TIMESTAMPDIFF(YEAR, p.`date_of_birth`, CURDATE()) AS `age`,
-                    p.`gender`, p.`headline`, p.`bio`, p.`price_label`, p.`price_note`,
-                    p.`includes`, p.`rating`, p.`tours`, p.`party`, p.`duration_hours`
+            'SELECT u.`email`, ' . self::PROFILE_COLUMNS . '
              FROM `users` u
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
+             ' . self::REVIEW_SUMMARY_JOIN . '
              WHERE ' . implode(' AND ', $where)
         );
 
@@ -276,6 +274,7 @@ class Users
         $attributes = $profiles->getAttributesFor($userIds);
 
         foreach ($rows as &$row) {
+            $row = $this->castReviewSummary($row);
             $id = (int) $row['id'];
             // Cast so an empty set encodes as a JSON object rather than `[]`
             // — the client types both of these as maps keyed by category.
@@ -285,6 +284,72 @@ class Users
         unset($row);
 
         return $rows;
+    }
+
+    /**
+     * The public face of one guest or guide, for `GuideProfilePage.vue` and
+     * `VisitorProfilePage.vue` (`publicProfile` action): the same shape
+     * `searchByRole()` returns per row, plus `role`, but with **no contact
+     * details** — no email, no phone. Anyone can load it, signed in or not,
+     * and it ignores every deck rule (decided-on or not, it resolves).
+     * `null` for an unknown id or an account that isn't a guest/guide.
+     */
+    public function getPublicProfile(int $userId, Profiles $profiles): ?array
+    {
+        $role = $this->getRoleName($userId);
+        if (!in_array($role, ['guest', 'guide'], true)) {
+            return null;
+        }
+
+        $row = $this->db->db_GetRow(
+            'SELECT ' . self::PROFILE_COLUMNS . '
+             FROM `users` u
+             LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
+             ' . self::REVIEW_SUMMARY_JOIN . '
+             WHERE u.`id` = ' . $userId
+        );
+        if (!$row) {
+            return null;
+        }
+
+        $attributes = $profiles->getAttributesFor([$userId]);
+        $row = $this->castReviewSummary($row);
+        $row['role'] = $role;
+        $row['attributes'] = (object) ($attributes['attributes'][$userId] ?? []);
+        $row['ranges'] = (object) ($attributes['ranges'][$userId] ?? []);
+
+        return $row;
+    }
+
+    /**
+     * What `searchByRole()` and `getPublicProfile()` both show about a
+     * person — never contact details (`searchByRole()` adds `email` itself,
+     * as the card's name fallback). `rating_average`/`review_count` come from
+     * `REVIEW_SUMMARY_JOIN`, not from `user_profiles.rating`/`tours`, which
+     * users used to be able to set themselves and are no longer read.
+     */
+    private const PROFILE_COLUMNS = 'u.`id`, u.`name`, u.`image`, u.`created_at`,
+                    TIMESTAMPDIFF(YEAR, p.`date_of_birth`, CURDATE()) AS `age`,
+                    p.`gender`, p.`headline`, p.`bio`, p.`price_label`, p.`price_note`,
+                    p.`includes`, p.`party`, p.`duration_hours`,
+                    rs.`rating_average`, COALESCE(rs.`review_count`, 0) AS `review_count`';
+
+    /**
+     * Every listed person's review count and average in the same query as
+     * the list itself, rather than one lookup per card — see `Reviews`.
+     */
+    private const REVIEW_SUMMARY_JOIN = 'LEFT JOIN (
+                SELECT `subject_id`, COUNT(*) AS `review_count`, ROUND(AVG(`rating`), 1) AS `rating_average`
+                FROM `reviews` GROUP BY `subject_id`
+             ) rs ON rs.`subject_id` = u.`id`';
+
+    /** mysqli returns strings; the client types these two as numbers. */
+    private function castReviewSummary(array $row): array
+    {
+        $row['review_count'] = (int) $row['review_count'];
+        $row['rating_average'] = $row['rating_average'] === null ? null : (float) $row['rating_average'];
+
+        return $row;
     }
 
     /**
@@ -325,7 +390,7 @@ class Users
         $row = $this->db->db_GetRow(
             'SELECT u.`id`, u.`name`, u.`email`, u.`phone`, u.`two_factor_method`, u.`image`, u.`created_at`,
                     p.`date_of_birth`, p.`gender`, p.`headline`, p.`bio`, p.`price_amount`, p.`price_label`, p.`price_note`,
-                    p.`includes`, p.`rating`, p.`tours`, p.`party`, p.`duration_hours`
+                    p.`includes`, p.`party`, p.`duration_hours`
              FROM `users` u
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              WHERE u.`id` = ' . $userId

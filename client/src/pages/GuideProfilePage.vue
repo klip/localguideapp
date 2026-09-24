@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import DecisionRow from '@/components/DecisionRow.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
+import ReviewsSection from '@/components/ReviewsSection.vue'
 import TagList from '@/components/TagList.vue'
-import { useApi } from '@/plugins/api'
+import { ApiError, useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCategoriesStore } from '@/stores/categories'
-import { useGuidesStore } from '@/stores/guides'
+import { toGuideCard } from '@/stores/guides'
 import { useShortlistStore } from '@/stores/shortlist'
 import { formatRange, rangeFormatFor } from '@/utils/formatRange'
 import { reportApiError } from '@/utils/reportApiError'
+import { formatRating } from '@/utils/reviews'
+import type { Guide } from '@/types'
 
 /**
  * The destination of the "Full profile →" link on a discovery card. The
@@ -26,15 +29,37 @@ const shortlist = useShortlistStore()
 const { canPick } = storeToRefs(shortlist)
 
 const categoriesStore = useCategoriesStore()
-const guidesStore = useGuidesStore()
-// `includeDecided` so a guide reached from the shortlist (already picked, so
-// filtered out of the deck) still resolves by id — see stores/guides.ts.
+
+/**
+ * Loaded on its own through `api.publicProfile()` — one guide by id, with no
+ * deck rules in the way (decided-on or not, it resolves) and no contact
+ * details. It used to fetch the whole guide list with `includeDecided` just
+ * to `find()` one entry in it.
+ */
+const guide = ref<Guide | null>(null)
+const loading = ref(true)
+
+async function loadGuide() {
+  loading.value = true
+  guide.value = null
+  try {
+    const profile = await api.publicProfile(Number(props.id))
+    // A guest's id under /guides/ is "not found", not a guide page for them.
+    guide.value = profile.role === 'guide' ? toGuideCard(profile) : null
+  } catch (err) {
+    // A 400 here is "Profile not found." — the not-found panel says so already.
+    if (!(err instanceof ApiError && err.status === 400)) reportApiError(err, 'Could not load this guide.')
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(() => {
-  guidesStore.load(undefined, { includeDecided: true })
+  void loadGuide()
   categoriesStore.load()
 })
+watch(() => props.id, loadGuide)
 
-const guide = computed(() => guidesStore.find(props.id))
 const isPicked = computed(() => shortlist.isPicked(props.id))
 
 /**
@@ -71,7 +96,7 @@ function reject(id: string) {
       <RouterLink to="/discover">← Back to discovery</RouterLink>
     </p>
 
-    <PanelCard v-if="guidesStore.loading" title="Loading…" />
+    <PanelCard v-if="loading" title="Loading…" />
 
     <template v-else-if="guide">
       <div class="profile-layout">
@@ -81,7 +106,7 @@ function reject(id: string) {
         >
           <div class="hero-copy">
             <strong class="hero-name">{{ guide.name }}, {{ guide.age }}</strong>
-            <span v-if="guide.rating > 0">★★★★★ {{ guide.rating }} · {{ guide.tours }} tours</span>
+            <span v-if="guide.reviewCount > 0">{{ formatRating(guide.ratingAverage, guide.reviewCount) }}</span>
           </div>
         </div>
 
@@ -121,6 +146,8 @@ function reject(id: string) {
           </template>
         </PanelCard>
       </div>
+
+      <ReviewsSection :user-id="Number(guide.id)" :subject-name="guide.name" />
     </template>
 
     <PanelCard v-else title="Guide not found">

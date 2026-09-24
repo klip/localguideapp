@@ -32,8 +32,12 @@ export interface Guide {
   age: number
   /** One-line summary under the name, e.g. "History · Food · Scenic walks". */
   headline: string
-  rating: number
-  tours: number
+  /**
+   * Mean review grade, 0 with no reviews yet — from `reviews`, never
+   * self-reported. Render it only when `reviewCount > 0`.
+   */
+  ratingAverage: number
+  reviewCount: number
   /** Display-ready price, e.g. "£95 / 6 hours". */
   priceLabel: string
   priceNote: string

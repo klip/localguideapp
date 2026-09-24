@@ -133,6 +133,7 @@ function reject(id: string) {
           :meta="current.party"
           :bio="current.bio"
           :tags="categoriesStore.tagsFor(current.attributes)"
+          :profile-link="{ name: 'visitor-profile', params: { id: current.id } }"
           @accept="accept(current.id)"
           @reject="reject(current.id)"
         />

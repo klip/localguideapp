@@ -30,6 +30,10 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     revokeSelection: vi.fn<Api['revokeSelection']>(),
     matches: vi.fn<Api['matches']>(),
     matchOverview: vi.fn<Api['matchOverview']>(),
+    publicProfile: vi.fn<Api['publicProfile']>(),
+    reviews: vi.fn<Api['reviews']>(),
+    submitReview: vi.fn<Api['submitReview']>(),
+    deleteReview: vi.fn<Api['deleteReview']>(),
     ...overrides,
   }
 }
@@ -50,8 +54,6 @@ const sampleProfile: MyProfile = {
   price_label: '£50/day',
   price_note: 'per group',
   includes: 'Water',
-  rating: 4.5,
-  tours: 12,
   party: null,
   duration_hours: null,
   role: 'guide',

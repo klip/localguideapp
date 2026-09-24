@@ -65,7 +65,9 @@ class db
             die('Connect Error (' . mysqli_connect_errno() . ') '
                 . mysqli_connect_error());
         }
-        mysqli_set_charset($this->dbLink, 'utf8');
+        // utf8mb4, not MySQL's 3-byte `utf8`: review comments (and names) can
+        // carry emoji, which utf8mb3 mangles to '?'.
+        mysqli_set_charset($this->dbLink, 'utf8mb4');
     }
 
     public function db_GetMemcached($sql, $dbug, $key)

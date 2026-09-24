@@ -10,6 +10,7 @@ require_once __DIR__.'/classes/Notifications.php';
 require_once __DIR__.'/classes/Bookings.php';
 require_once __DIR__.'/classes/Selections.php';
 require_once __DIR__.'/classes/Profiles.php';
+require_once __DIR__.'/classes/Reviews.php';
 require_once __DIR__.'/classes/RequestProcessor.php';
 
 $processor = new RequestProcessor(new db());
