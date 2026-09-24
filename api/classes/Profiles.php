@@ -31,9 +31,12 @@
  */
 class Profiles
 {
+    // No `rating`/`tours`: those columns still exist but are dead — a
+    // profile's rating comes from `reviews` now (see `Reviews`), and nobody
+    // gets to set their own.
     private const SCALAR_COLUMNS = [
         'date_of_birth', 'gender', 'headline', 'bio', 'price_amount', 'price_label',
-        'price_note', 'includes', 'rating', 'tours', 'party', 'duration_hours',
+        'price_note', 'includes', 'party', 'duration_hours',
     ];
 
     /** @var db */
