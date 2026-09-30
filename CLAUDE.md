@@ -45,16 +45,17 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
   free guide, on the match itself (`booking_free`). See "In-app
   notifications" below. The match does show up on `/matches` either way;
   there's no nav badge/count yet.
-- **A guest can't walk away from a booking they paid for** — `Selections::
-  revoke()` refuses it and the Matches page hides "Unmatch"; only the guide
-  can cancel (which refunds them). There's no guest-side cancel/refund
-  policy yet.
+- **No scheduler**: pending bookings expiring, trips starting and trips
+  finishing on their own all happen in `Bookings::sweep()`, which runs at
+  the start of every API request. On a quiet server a trip is marked
+  finished (and its notifications sent) on the next request after it ended,
+  not at the minute.
 - **Meeting times are free-form**: the guest picks any future date-time
   when paying (up to a year ahead); nothing checks it against the guide's
-  working hours (`hour_of_day`), and the guide can't propose another.
-- **Nothing sets `bookings.trip_status` to `finished` yet** — the trip
-  start/finish UI is a later task, so until then review eligibility (see
-  "Reviews") can only be produced by hand in SQL.
+  working hours (`hour_of_day`), and the guide can only accept or decline,
+  not propose another.
+- **Trip length is the guest's to set** (optional, when paying). The guide
+  sees it before accepting but can't change it.
 - **`user_profiles.rating`/`tours` are dead columns** — nothing reads or
   writes them since 013 (ratings come from `reviews`); drop them in a later
   migration.
@@ -267,6 +268,10 @@ own — every one just takes props/emits):
 - `FilterPanel.vue` — the filter form: pick a category, then values inside
   it (see "Discovery filters" below). Built from `stores/categories.ts`, so
   it names no category itself; writes straight to `stores/filters.ts`.
+- `BookingPanel.vue` — **not** purely presentational (calls the API
+  itself): the whole booking for one matched pair on `MatchesPage.vue` —
+  pay, accept/decline, cancel/request cancellation, finish the trip. See
+  "Guide fees & bookings".
 - `SelectionCounter.vue` — the "N selections left" strip with an optional
   unlock action; see `DiscoverPage.vue` above.
 - `AttributeCombobox.vue` — the generic type-ahead picker (see "Dynamic
@@ -452,7 +457,7 @@ sorts every pair into four tabs:
 
 | Tab | Condition | Actions |
 | --- | --- | --- |
-| Matched | `active = 1` | email/phone shown (`mailto:`/`tel:`) **once booked**; guest: **Pay £X** → `payGuideFee`; guide: **Cancel booking** → `cancelBooking`; **Unmatch** → `revokeSelection` where allowed — see "Guide fees & bookings" |
+| Matched | `active = 1` | email/phone shown (`mailto:`/`tel:`) **once a booking is confirmed**; everything about the booking is `BookingPanel.vue` (see "Guide fees & bookings"); **Unmatch** → `revokeSelection` only when nothing is booked (or a guest leaving a free guide) |
 | Likes you | they're `interested`, you haven't decided | **Accept** → `decide('interested')`, **Pass** → `decide('pass')` |
 | Awaiting reply | you're `interested`, not active | **Withdraw** → `revokeSelection` (gives a guest their pick back) |
 | Passed | you passed | **Reconsider** → `decide('interested')` |
@@ -478,54 +483,72 @@ sorts every pair into four tabs:
 ### Guide fees & bookings
 
 Contact details are what a guide sells, so a match alone no longer reveals
-them — to **either** side. A **booking** (`bookings`, `Bookings.php`) does:
+them — to **either** side. A **confirmed booking** (`bookings`,
+`Bookings.php`) does. All of it is driven from `BookingPanel.vue`, which sits
+under every row on `/matches`' Matched tab and emits `changed` after each
+step so the page re-fetches the overview.
 
-- **Guide with a fee** (`user_profiles.price_amount > 0`): on the Matched
-  tab the guest sees "Pay £X", picks a meeting date-time in an inline form
-  (`<input type="datetime-local">`, sent as UTC ISO) and confirms →
-  `api.payGuideFee()`. Success toast: "Payment of £X confirmed — …'s contact
-  details are unlocked." The guide gets an in-app notification plus an
-  email with the visitor's contact details. Nothing is charged (same as
-  pack purchases).
-- **Free guide** (price 0 or unset — the default): the booking opens by
-  itself the moment the match forms (`Selections::syncActive()` →
-  `Bookings::onMatched()`), `amount = 0`, `payment_status = 'none'`, no
-  meeting time; the guide is notified. Matches made before bookings existed
-  (or a guide who drops their fee to 0 later) are backfilled silently by
-  `Bookings::ensureFreeBookingsFor()`, run at the top of `getOverview()`/
-  `getActiveMatches()`.
-- **The guide can cancel any time** ("Cancel booking" → an inline confirm
-  that states the exact refund and takes an optional ≤256-char reason) →
-  `api.cancelBooking()` → `Bookings::cancelByGuide()`: booking `cancelled`,
-  a paid fee `refunded` with `refund_amount` recorded, **both** decisions
-  cleared (which is what returns the guest's pick — `getPicksUsed()` counts
-  `guest_decision = 'interested'`), and the guest gets an in-app
-  notification plus an email with the reason and the refund.
-- **Late-cancellation extra** (`Bookings::refundAmount()`): the refund is
-  the fee **plus 5%** when the meeting is less than 24 hours away — or less
-  than **2** hours away if the match itself is under a day old
-  (`selections.matched_at`), so a same-day booking isn't automatically
-  "late". `getOverview()` pre-computes it for the guide as
-  `refund_if_cancelled`, which is what the confirm step shows.
+**Lifecycle of a paid booking** (guide with `user_profiles.price_amount > 0`):
+
+| Status | How it gets there | What each side can do |
+| --- | --- | --- |
+| *(none)* | matched, nothing booked | guest: **Pay £X** — meeting date-time + optional trip length (0.5–24 h) → `payGuideFee` |
+| `pending` | guest paid | guide: **Accept** → `confirmed` (contact unlocks) or **Decline** (optional reason) → `declined`, full refund. Guest: **Withdraw payment** → `withdrawn`, full refund. Nobody answers before the meeting time → `sweep()` declines it, full refund. The match survives all of these, so the guest can try another time. |
+| `confirmed` | guide accepted | guide: **Cancel booking** → `cancelled`, fee refunded **+5% if late**. Guest: **Request cancellation** (reason required, only before the trip starts) → guide **Approves** → `cancelled`, refund **fee − 5%**; or **Refuses** → booking stands. Guest can withdraw their request. Either cancel dissolves the match on both sides, which returns the guest's pick. |
+| trip `started` | meeting time passed (`sweep()`) | a guide on a started trip is **hidden from the visitor deck** until the trip's end (or 12 h, if no length). |
+| trip `finished` | see below | both can review each other; contact stays visible; the guest can **Book again**. |
+
+- **Guide acceptance is the point**: the guide commits to a date *before*
+  contact details are exchanged, so a guide can't take a booking and drop
+  it at the last minute without it costing them (the late +5%).
+- **Late-cancellation extra** (`Bookings::refundAmount()`): the guide's
+  cancel refunds the fee **plus 5%** when the meeting is less than 24 hours
+  away — or less than **2** hours away if the match is under a day old
+  (`selections.matched_at`). `getOverview()` pre-computes it for the guide
+  as `refund_if_cancelled`; `refund_if_guest_cancels` is the guest-request
+  figure (fee − 5%). The confirm steps show those exact amounts.
+- **Finishing a trip**: with both a meeting time and a trip length
+  (`auto_finish`), `sweep()` finishes it once `meeting_at + duration_hours`
+  has passed and tells both sides to leave a review. Otherwise — a free
+  booking, or no length given — either side presses **Mark trip finished**
+  and the other **Confirms** (or says **Not yet**, which clears it and tells
+  the asker; the asker can **Undo**). Both asking counts as confirming.
+- **Free guide** (price 0 or unset — the default): a `confirmed` booking
+  opens by itself when the match forms (`Selections::syncActive()` →
+  `Bookings::onMatched()`), no payment, no acceptance, no meeting time, so
+  it always finishes through the two-sided button. Matches made before
+  bookings existed are backfilled silently by
+  `Bookings::ensureFreeBookingsFor()`. The guest can unmatch a free booking
+  (the guide is told).
+- **Unmatching a booked pair** is otherwise refused by `Selections::revoke()`
+  — decline/withdraw a pending one, cancel a confirmed one. `BookingPanel`
+  and `MatchesPage`'s `canUnmatch()` mirror those rules so the buttons
+  don't offer what the server would refuse.
+- **One endpoint for every step but paying and the guide's cancel**:
+  `api.bookingAction({ targetId, op, reason? })`, `op` one of
+  `accept | decline | withdraw | requestCancellation | withdrawCancellation |
+  approveCancellation | refuseCancellation | requestFinish | confirmFinish |
+  dismissFinish`. `RequestProcessor::actionBooking()` checks the caller's
+  role per op; `Bookings` checks the booking's state.
+- **`Bookings::sweep()`** runs at the start of every request
+  (`RequestProcessor::sweepBookings()`, never allowed to fail the request):
+  expires unanswered pending bookings, starts trips, finishes trips.
 - **Nothing else hands out contact details**: deck cards
   (`Users::searchByRole()`, `ProfileAccount`) and public profiles carry no
   `email`/`phone` — the deck used to include `email` as a name fallback,
   which would have let anyone skip the fee.
-- **Unmatching a booked pair**: the guide can't (`revoke()` throws — cancel
-  instead); the guest can drop a *free* booking (the guide is told) but
-  not a paid one.
-- Emails and notification copy live in `Bookings.php`; meeting times in
-  emails are written in UTC ("… UTC"), in the UI in the viewer's zone.
-- `trip_status` (`pending`/`started`/`finished`) is on the booking for the
-  upcoming trip-progress feature (guide-only). A finished trip closes the
-  booking (the `open_pair` generated column only covers unfinished
-  confirmed bookings), so the pair can book again. Reviews key off it.
+- Nothing is charged or refunded for real (same as pack purchases). Emails
+  and notification copy live in `Bookings.php`; times in emails are UTC
+  ("… UTC"), in the UI the viewer's own zone.
 
 ### In-app notifications
 
 `notifications` rows (`Notifications::notify()`, which also sends the
 email) are what a user hears about while they weren't looking — currently
-`booking_paid`, `booking_free`, `booking_cancelled`. There's no push
+`booking_requested`, `booking_accepted`, `booking_declined`,
+`booking_withdrawn`, `booking_expired`, `booking_free`, `booking_cancelled`,
+`cancel_requested`, `cancel_request_withdrawn`, `cancel_approved`,
+`cancel_refused`, `finish_requested`, `finish_refused`, `trip_finished`. There's no push
 channel: `App.vue` pulls them (`api.notifications()`) at boot and on every
 route change, throttled to once per 15s, and shows each as a 10s info toast;
 the server marks them read in the same call, so each shows once. The
@@ -1193,7 +1216,8 @@ unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 | `revokeSelection` | **yes** | `api.revokeSelection(payload)` | `targetId` | `SelectionRow` | `Selections::revoke()` |
 | `matches` | **yes** | `api.matches()` | — | `{ matches: MatchRow[] }` (`id, counterpart_id, name, email` — `email` `null` until booked) | `Selections::getActiveMatches()` |
 | `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, email, phone, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
-| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year) | `Booking` | `actionPayGuideFee()` → `Bookings::pay()` |
+| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year), `durationHours?` (0.5–24) | `Booking` (`status: 'pending'` — waits for the guide) | `actionPayGuideFee()` → `Bookings::pay()` |
+| `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/…` |
 | `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
 | `notifications` | **yes** | `api.notifications()` | — | `{ notifications: AppNotification[] }` (`id, kind, message, created_at`) — marked read by this call | `Notifications::takeUnread()` |
 | `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
@@ -1314,10 +1338,15 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   `getActiveMatches()` lists a user's active matches with the counterpart's
   basic info; `getOverview()` lists every pair the user is part of for
   `MatchesPage.vue`, with the masking described under "Match management"; `getPicksUsed()` feeds `RequestProcessor::paymentStateFor()`.
-- `api/classes/Bookings.php` — `bookings`: `pay()`, `cancelByGuide()`,
+- `api/classes/Bookings.php` — `bookings`: `pay()` → `accept()`/
+  `decline()`/`withdraw()`; `cancelByGuide()`; `requestCancellation()`/
+  `withdrawCancellationRequest()`/`approveCancellation()`/
+  `refuseCancellation()`; `requestFinish()`/`confirmFinish()`/
+  `dismissFinish()`; `sweep()` (the clock-driven transitions);
   `cancelFreeByGuest()`, `onMatched()`/`ensureFreeBookingsFor()` (free
-  guides), `refundAmount()` (the late-cancellation rule), `openFor()`. Owns
-  the booking emails' wording. See "Guide fees & bookings".
+  guides); `refundAmount()` (guide cancel, +5% late) and
+  `guestCancelRefund()` (fee − 5%); `openFor()`. Owns the booking emails'
+  wording. See "Guide fees & bookings".
 - `api/classes/Notifications.php` — `notify()` (a `notifications` row +
   an email to the user) and `takeUnread()` (fetch-and-mark-read).
 - `api/classes/Mailer.php` — plain-text email over SMTP with STARTTLS +
@@ -1473,6 +1502,12 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   one row per (booking, author), FK to `bookings` with `ON DELETE CASCADE`,
   `rating` checked 1–5, `comment VARCHAR(256)` utf8mb4. See "Reviews".
   Leaves `user_profiles.rating`/`tours` in place, unread — drop them later.
+- `api/sql/014_booking_lifecycle.sql` — booking statuses `pending`/
+  `declined`/`withdrawn`, plus `duration_hours`, `accepted_at`, the guest's
+  cancellation request (`cancel_requested_at`, `cancel_request_reason`) and
+  the two-sided finish (`finish_requested_by`, `finish_requested_at`,
+  `finished_at`); `open_pair` rebuilt so a pending booking counts as open.
+  Applied 2026-09-30. Not re-runnable.
 
 There is no test setup, linter, or formatter configured for `api/` yet;
 `docker exec lemp-php php -l <file>` is the only current check.
@@ -1550,10 +1585,12 @@ There is no test setup, linter, or formatter configured for `api/` yet;
   guest's interests. **Every** category is filterable — nothing is
   special-cased by key any more.
 - `bookings` (id, selection_id, guest_id, guide_id, amount, meeting_at,
-  status `confirmed|cancelled`, payment_status `none|paid|refunded`,
-  refund_amount, cancel_reason, cancelled_at, trip_status
-  `pending|started|finished`, created_at, updated_at, generated
-  `open_pair`) — at most one open (confirmed, unfinished) booking per pair,
+  duration_hours, status `pending|confirmed|declined|withdrawn|cancelled`,
+  payment_status `none|paid|refunded`, accepted_at, refund_amount,
+  cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason,
+  trip_status `pending|started|finished`, finish_requested_by,
+  finish_requested_at, finished_at, created_at, updated_at, generated
+  `open_pair`) — at most one open (pending, or confirmed and unfinished) booking per pair,
   enforced by a UNIQUE index on `open_pair`. Date-times are UTC (MySQL,
   PHP and the containers all run in UTC).
 - `notifications` (id, user_id, kind, message, read_at, created_at).
