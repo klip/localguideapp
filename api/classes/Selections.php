@@ -81,10 +81,15 @@ class Selections
         $booking = $this->bookings->openFor($guestId, $guideId);
         if ($booking) {
             if (!$actingIsGuest) {
-                throw new RuntimeException('This visitor has a booking with you — cancel the booking instead.');
+                throw new RuntimeException($booking['status'] === 'pending'
+                    ? 'This visitor is waiting on your answer — decline the booking instead.'
+                    : 'This visitor has a booking with you — cancel the booking instead.');
+            }
+            if ($booking['status'] === 'pending') {
+                throw new RuntimeException('Withdraw your payment first — you’ll be refunded in full.');
             }
             if ($booking['payment_status'] === 'paid') {
-                throw new RuntimeException('You have paid for this booking, so only the guide can cancel it (you would be refunded in full).');
+                throw new RuntimeException('You have paid for this booking — ask the guide to cancel it instead.');
             }
             $this->bookings->cancelFreeByGuest($guestId, $guideId);
         }
@@ -152,7 +157,10 @@ class Selections
      *
      * Each row also carries the guide's current fee and the pair's latest
      * booking (`booking_*`), and for the guide, what cancelling it would
-     * refund right now (`refund_if_cancelled`).
+     * refund right now (`refund_if_cancelled`). The booking's lifecycle fields
+     * (acceptance, a guest's cancellation request, finishing the trip) come
+     * along too; `finish_requested_by` is reduced to `'me' | 'them' | null`
+     * and `auto_finish` says whether the trip ends on its own.
      */
     public function getOverview(int $userId): array
     {
@@ -179,7 +187,10 @@ class Selections
                     p.`headline`, p.`price_label`, p.`party`, p.`duration_hours`,
                     COALESCE(gp.`price_amount`, 0) AS `fee_amount`,
                     b.`id` AS `booking_id`, b.`status` AS `booking_status`, b.`payment_status`,
-                    b.`amount` AS `booking_amount`, b.`meeting_at`, b.`refund_amount`, b.`trip_status`
+                    b.`amount` AS `booking_amount`, b.`meeting_at`, b.`refund_amount`, b.`trip_status`,
+                    b.`duration_hours` AS `booking_duration_hours`, b.`accepted_at`,
+                    b.`cancel_requested_at`, b.`cancel_request_reason`,
+                    b.`finish_requested_by`, b.`finished_at`
              FROM `selections` s
              JOIN `users` u ON u.`id` = s.`' . $their . '_id`
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
@@ -201,9 +212,20 @@ class Selections
             $row['booking_amount'] = $row['booking_amount'] === null ? null : (float) $row['booking_amount'];
             $row['refund_amount'] = $row['refund_amount'] === null ? null : (float) $row['refund_amount'];
 
+            $row['booking_duration_hours'] = $row['booking_duration_hours'] === null ? null : (float) $row['booking_duration_hours'];
+            $row['finish_requested_by'] = $row['finish_requested_by'] === null
+                ? null
+                : ((int) $row['finish_requested_by'] === $userId ? 'me' : 'them');
+            $row['auto_finish'] = Bookings::finishesAutomatically(['meeting_at' => $row['meeting_at'], 'duration_hours' => $row['booking_duration_hours']]);
+
             $open = $row['booking_status'] === 'confirmed' && $row['trip_status'] !== 'finished';
-            $row['refund_if_cancelled'] = $own === 'guide' && $open && $row['payment_status'] === 'paid'
+            $paidAndOpen = $open && $row['payment_status'] === 'paid';
+            $row['refund_if_cancelled'] = $own === 'guide' && $paidAndOpen
                 ? $this->bookings->refundAmount(['amount' => $row['booking_amount'], 'meeting_at' => $row['meeting_at']], $row['matched_at'])
+                : null;
+            // What the guest gets back if the guide approves their cancellation request.
+            $row['refund_if_guest_cancels'] = $paidAndOpen
+                ? $this->bookings->guestCancelRefund(['amount' => $row['booking_amount']])
                 : null;
         }
         unset($row);

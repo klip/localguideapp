@@ -183,6 +183,17 @@ class Users
 
         $where = ['u.`role_id` = ' . intval($roleId)];
 
+        if ($roleName === 'guide') {
+            // A guide out on a trip isn't available: hidden until the trip's
+            // end, or for 12 hours when its length isn't known (so a trip
+            // nobody marks finished can't hide them for good).
+            $where[] = 'NOT EXISTS (
+                SELECT 1 FROM `bookings` tb
+                WHERE tb.`guide_id` = u.`id` AND tb.`status` = "confirmed" AND tb.`trip_status` = "started"
+                  AND tb.`meeting_at` + INTERVAL ROUND(COALESCE(tb.`duration_hours`, 12) * 60) MINUTE > UTC_TIMESTAMP()
+            )';
+        }
+
         if ($viewerId) {
             $where[] = 'u.`id` <> ' . $viewerId;
 

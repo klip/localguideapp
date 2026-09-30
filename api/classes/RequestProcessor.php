@@ -47,6 +47,8 @@ class RequestProcessor
         header('Content-Type: application/json; charset=utf-8');
 
         try {
+            $this->sweepBookings();
+
             switch ($this->resolveAction()) {
                 case 'register':
                     $this->respond($this->actionRegister());
@@ -114,6 +116,10 @@ class RequestProcessor
 
                 case 'cancelBooking':
                     $this->respond($this->actionCancelBooking());
+                    break;
+
+                case 'bookingAction':
+                    $this->respond($this->actionBooking());
                     break;
 
                 case 'notifications':
@@ -375,7 +381,85 @@ class RequestProcessor
             throw new RuntimeException('Only a visitor can pay a guide’s fee.');
         }
 
-        return $this->bookings->pay($userId, $guideId, (string) ($input['meetingAt'] ?? ''));
+        return $this->bookings->pay($userId, $guideId, (string) ($input['meetingAt'] ?? ''), $input['durationHours'] ?? null);
+    }
+
+    /**
+     * Every other step in a booking's life, one `op` per step — see
+     * `Bookings`. `targetId` is the other person on the booking; who may do
+     * what is checked here by role, the rest by `Bookings` itself.
+     */
+    private function actionBooking(): array
+    {
+        $input = $this->readInput();
+        $userId = $this->requireUserId();
+        $targetId = (int) ($input['targetId'] ?? 0);
+        $op = (string) ($input['op'] ?? '');
+        $reason = (string) ($input['reason'] ?? '');
+
+        if (!$targetId) {
+            throw new RuntimeException('targetId is required.');
+        }
+
+        $role = $this->users->getRoleName($userId);
+        $targetRole = $this->users->getRoleName($targetId);
+        if ($role === 'guest' && $targetRole === 'guide') {
+            [$guestId, $guideId] = [$userId, $targetId];
+        } elseif ($role === 'guide' && $targetRole === 'guest') {
+            [$guestId, $guideId] = [$targetId, $userId];
+        } else {
+            throw new RuntimeException('Bookings are between a visitor and a guide.');
+        }
+
+        $guestOps = ['withdraw', 'requestCancellation', 'withdrawCancellation'];
+        $guideOps = ['accept', 'decline', 'approveCancellation', 'refuseCancellation'];
+        $eitherOps = ['requestFinish', 'confirmFinish', 'dismissFinish'];
+        if (in_array($op, $guestOps, true) && $role !== 'guest') {
+            throw new RuntimeException('Only the visitor can do that.');
+        }
+        if (in_array($op, $guideOps, true) && $role !== 'guide') {
+            throw new RuntimeException('Only the guide can do that.');
+        }
+
+        switch ($op) {
+            case 'accept':
+                return $this->bookings->accept($guideId, $guestId);
+            case 'decline':
+                return $this->bookings->decline($guideId, $guestId, $reason);
+            case 'withdraw':
+                return $this->bookings->withdraw($guestId, $guideId);
+            case 'requestCancellation':
+                return $this->bookings->requestCancellation($guestId, $guideId, $reason);
+            case 'withdrawCancellation':
+                return $this->bookings->withdrawCancellationRequest($guestId, $guideId);
+            case 'approveCancellation':
+                return $this->bookings->approveCancellation($guideId, $guestId);
+            case 'refuseCancellation':
+                return $this->bookings->refuseCancellation($guideId, $guestId, $reason);
+            case 'requestFinish':
+                return $this->bookings->requestFinish($userId, $guestId, $guideId);
+            case 'confirmFinish':
+                return $this->bookings->confirmFinish($userId, $guestId, $guideId);
+            case 'dismissFinish':
+                return $this->bookings->dismissFinish($userId, $guestId, $guideId);
+        }
+
+        throw new RuntimeException('Unknown booking step "' . $op . '". Expected one of: '
+            . implode(', ', array_merge($guideOps, $guestOps, $eitherOps)) . '.');
+    }
+
+    /**
+     * Moves bookings along with the clock (`Bookings::sweep()`) — this app has
+     * no scheduler, so every request does it. Never allowed to fail the
+     * request it rides on.
+     */
+    private function sweepBookings(): void
+    {
+        try {
+            $this->bookings->sweep();
+        } catch (Throwable $e) {
+            $this->db->writeLog('Bookings::sweep() failed: ' . $e->getMessage());
+        }
     }
 
     /** The guide cancels their booking with a visitor, refunding them — see `Bookings::cancelByGuide()`. */
