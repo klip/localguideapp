@@ -35,6 +35,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     unlockPack: vi.fn<Api['unlockPack']>(),
     paymentState: vi.fn<Api['paymentState']>(),
     payGuideFee: vi.fn<Api['payGuideFee']>(),
+    bookingAction: vi.fn<Api['bookingAction']>(),
     cancelBooking: vi.fn<Api['cancelBooking']>(),
     notifications: vi.fn<Api['notifications']>(),
     decide: vi.fn<Api['decide']>(),
@@ -76,6 +77,14 @@ function row(overrides: Partial<MatchOverviewRow>): MatchOverviewRow {
     refund_amount: null,
     trip_status: null,
     refund_if_cancelled: null,
+    refund_if_guest_cancels: null,
+    booking_duration_hours: null,
+    accepted_at: null,
+    cancel_requested_at: null,
+    cancel_request_reason: null,
+    finish_requested_by: null,
+    finished_at: null,
+    auto_finish: false,
     ...overrides,
   }
 }
@@ -273,131 +282,49 @@ describe('MatchesPage', () => {
     expect(tab(wrapper, 'Awaiting reply').find('.tab-count').text()).toBe('0')
   })
 
-  it('hides contact details until a guest pays, then unlocks them and confirms the payment', async () => {
-    const payGuideFee = vi.fn<Api['payGuideFee']>().mockResolvedValue({
-      id: 11,
-      selection_id: 5,
-      guest_id: 1,
-      guide_id: 18,
-      amount: 50,
-      meeting_at: '2030-01-02 10:00:00',
-      status: 'confirmed',
-      payment_status: 'paid',
-      refund_amount: null,
-      cancel_reason: null,
-      cancelled_at: null,
-      trip_status: 'pending',
-      created_at: '',
-      updated_at: '',
-    })
-    const api = fakeApi({
-      matchOverview: vi
-        .fn<Api['matchOverview']>()
-        .mockResolvedValueOnce({ selections: [unpaid] })
-        .mockResolvedValueOnce({ selections: [{ ...unpaid, ...paidBooking, email: 'gil@example.com' }] }),
-      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
-      payGuideFee,
-    })
-    const wrapper = await mountPage(api, 'guest')
-
-    expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('Pay Gil’s £50.00 fee to unlock their contact details')
-
-    await button(wrapper, 'Pay £50.00').trigger('click')
-    await wrapper.find('form.inline-form input[type="datetime-local"]').setValue('2030-01-02T10:00')
-    await wrapper.find('form.inline-form').trigger('submit')
-    await flushPromises()
-
-    expect(payGuideFee).toHaveBeenCalledWith({
-      targetId: 18,
-      meetingAt: new Date('2030-01-02T10:00').toISOString(),
-    })
-    expect(useMessagesStore().items.map((item) => item.text).join(' ')).toContain(
-      'Payment of £50.00 confirmed — Gil’s contact details are unlocked.',
-    )
-    expect(wrapper.find('a[href="mailto:gil@example.com"]').exists()).toBe(true)
-    expect(wrapper.find('form.inline-form').exists()).toBe(false)
-  })
-
-  it('does not pay without a meeting time', async () => {
-    const api = fakeApi({
-      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [unpaid] }),
-      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
-    })
-    const wrapper = await mountPage(api, 'guest')
-
-    await button(wrapper, 'Pay £50.00').trigger('click')
-    await wrapper.find('form.inline-form').trigger('submit')
-    await flushPromises()
-
-    expect(api.payGuideFee).not.toHaveBeenCalled()
-    expect(useMessagesStore().items.map((item) => item.text)).toContain('Choose when you’d like to meet.')
-  })
-
-  it('does not let a guest unmatch a booking they paid for', async () => {
+  it('shows contact details and hides Unmatch on a paid, confirmed booking', async () => {
     const api = fakeApi({
       matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [matched] }),
       paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
     })
     const wrapper = await mountPage(api, 'guest')
 
+    expect(wrapper.find('a[href="mailto:igor@example.com"]').exists()).toBe(true)
     expect(wrapper.findAll('.actions button').some((candidate) => candidate.text().includes('Unmatch'))).toBe(false)
-    expect(wrapper.text()).toContain('Only Igor can cancel this booking')
-    expect(wrapper.find('.booking-line').text()).toContain('Paid £50.00')
+    // The booking itself is BookingPanel's job (see BookingPanel.spec.ts).
+    expect(wrapper.find('.booking').text()).toContain('Paid £50.00')
   })
 
-  it('lets a guide cancel a booking, showing the late-cancellation refund first', async () => {
-    const late = { ...matched, refund_if_cancelled: 52.5 }
-    const cancelBooking = vi.fn<Api['cancelBooking']>().mockResolvedValue({
-      id: 11,
-      selection_id: 1,
-      guest_id: 7,
-      guide_id: 1,
-      amount: 50,
-      meeting_at: '2030-01-02 10:00:00',
-      status: 'cancelled',
-      payment_status: 'refunded',
-      refund_amount: 52.5,
-      cancel_reason: 'Ill',
-      cancelled_at: '',
-      trip_status: 'pending',
-      created_at: '',
-      updated_at: '',
-    })
-    const api = fakeApi({
-      matchOverview: vi
-        .fn<Api['matchOverview']>()
-        .mockResolvedValueOnce({ selections: [late] })
-        .mockResolvedValueOnce({ selections: [] }),
-      cancelBooking,
-    })
+  it('keeps contact details hidden while a payment waits on the guide, then reloads once they accept', async () => {
+    const pending = { ...unpaid, booking_id: 12, booking_status: 'pending' as const, payment_status: 'paid' as const, booking_amount: 50, meeting_at: '2030-01-02 10:00:00', trip_status: 'pending' as const }
+    const matchOverview = vi
+      .fn<Api['matchOverview']>()
+      .mockResolvedValueOnce({ selections: [pending] })
+      .mockResolvedValueOnce({ selections: [{ ...pending, booking_status: 'confirmed', email: 'gil@example.com' }] })
+    const bookingAction = vi.fn<Api['bookingAction']>().mockResolvedValue({} as Awaited<ReturnType<Api['bookingAction']>>)
+    const api = fakeApi({ matchOverview, bookingAction })
     const wrapper = await mountPage(api, 'guide')
 
-    // A booked pair is cancelled, not unmatched.
+    expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
     expect(wrapper.findAll('.actions button').some((candidate) => candidate.text().includes('Unmatch'))).toBe(false)
-    await button(wrapper, 'Cancel booking').trigger('click')
 
-    const form = wrapper.find('form.inline-form')
-    expect(form.text()).toContain('Igor will be refunded £52.50')
-    expect(form.text()).toContain('includes 5% for cancelling at short notice')
-
-    await form.find('textarea').setValue('  Ill  ')
-    await form.trigger('submit')
+    const accept = wrapper.findAll('.booking button').find((candidate) => candidate.text().includes('Accept'))
+    await accept!.trigger('click')
     await flushPromises()
 
-    expect(cancelBooking).toHaveBeenCalledWith({ targetId: 7, reason: 'Ill' })
-    expect(useMessagesStore().items.map((item) => item.text).join(' ')).toContain('Igor has been refunded £52.50')
+    expect(bookingAction).toHaveBeenCalledWith({ targetId: 18, op: 'accept' })
+    expect(matchOverview).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('a[href="mailto:gil@example.com"]').exists()).toBe(true)
   })
 
-  it('tells a guide that contact details wait on the visitor paying', async () => {
+  it('links each name to that person’s public profile', async () => {
     const api = fakeApi({
-      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [unpaid] }),
+      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [matched] }),
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
     })
-    const wrapper = await mountPage(api, 'guide')
+    const wrapper = await mountPage(api, 'guest')
 
-    expect(wrapper.text()).toContain('Contact details unlock once the visitor pays your £50.00 fee.')
-    expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
-    expect(button(wrapper, 'Unmatch').exists()).toBe(true)
+    expect(wrapper.find('a.who-name').attributes('href')).toBe('/guides/7')
   })
 
   it('asks a signed-out visitor to log in without calling the API', async () => {

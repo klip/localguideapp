@@ -224,11 +224,29 @@ export interface PaymentState {
 
 export type SelectionDecision = 'interested' | 'pass'
 
-export type BookingStatus = 'confirmed' | 'cancelled'
+/**
+ * `pending` — paid, waiting for the guide to accept; `declined`/`withdrawn` —
+ * a pending booking the guide turned down (or let lapse) / the guest took back,
+ * both refunded in full; `cancelled` — a confirmed booking called off.
+ */
+export type BookingStatus = 'pending' | 'confirmed' | 'declined' | 'withdrawn' | 'cancelled'
 /** `none` is a free guide's booking — nothing was charged, so nothing is refunded. */
 export type BookingPaymentStatus = 'none' | 'paid' | 'refunded'
-/** Advanced by the guide (a later feature); reviews open up once it's `finished`. */
+/** `started` once the meeting time passes; `finished` on its own (time + length known) or by both sides agreeing. Reviews open up once it's `finished`. */
 export type TripStatus = 'pending' | 'started' | 'finished'
+
+/** Every step `api.bookingAction()` can take — see `RequestProcessor::actionBooking()` for who may take which. */
+export type BookingOp =
+  | 'accept'
+  | 'decline'
+  | 'withdraw'
+  | 'requestCancellation'
+  | 'withdrawCancellation'
+  | 'approveCancellation'
+  | 'refuseCancellation'
+  | 'requestFinish'
+  | 'confirmFinish'
+  | 'dismissFinish'
 
 /**
  * One `bookings` row (see `Bookings.php`) — what a match turns into once
@@ -242,12 +260,19 @@ export interface Booking {
   guide_id: number
   amount: number
   meeting_at: string | null
+  duration_hours: number | null
   status: BookingStatus
   payment_status: BookingPaymentStatus
+  accepted_at: string | null
   refund_amount: number | null
   cancel_reason: string | null
   cancelled_at: string | null
+  cancel_requested_at: string | null
+  cancel_request_reason: string | null
   trip_status: TripStatus
+  finish_requested_by: number | null
+  finish_requested_at: string | null
+  finished_at: string | null
   created_at: string
   updated_at: string
 }
@@ -321,6 +346,18 @@ export interface MatchOverviewRow {
   trip_status: TripStatus | null
   /** Guide only: what cancelling the open paid booking would refund right now (includes any late-cancellation extra). */
   refund_if_cancelled: number | null
+  /** What the guest gets back if the guide approves their cancellation request (the fee minus 5%). */
+  refund_if_guest_cancels: number | null
+  /** The booking's own trip length (not the visitor's profile `duration_hours`). */
+  booking_duration_hours: number | null
+  accepted_at: string | null
+  cancel_requested_at: string | null
+  cancel_request_reason: string | null
+  /** Who asked to mark the trip finished, from the caller's point of view. */
+  finish_requested_by: 'me' | 'them' | null
+  finished_at: string | null
+  /** The trip finishes on its own — meeting time and trip length are both known. */
+  auto_finish: boolean
 }
 
 /**
@@ -506,8 +543,11 @@ export const api = {
 
   unlockPack: () => call<PaymentState>('unlockPack'),
   paymentState: () => call<PaymentState>('paymentState'),
-  /** Guest pays a matched guide's fee; `meetingAt` is an ISO date-time. Unlocks both sides' contact details. */
-  payGuideFee: (payload: { targetId: number; meetingAt: string }) => call<Booking>('payGuideFee', payload),
+  /** Guest pays a matched guide's fee; `meetingAt` is an ISO date-time, `durationHours` optional. The booking then waits for the guide to accept. */
+  payGuideFee: (payload: { targetId: number; meetingAt: string; durationHours?: number }) =>
+    call<Booking>('payGuideFee', payload),
+  /** Every other booking step — accept/decline, withdraw, cancellation requests, finishing the trip. */
+  bookingAction: (payload: { targetId: number; op: BookingOp; reason?: string }) => call<Booking>('bookingAction', payload),
   /** Guide cancels the booking with a visitor — they're refunded (plus 5% if late) and get their pick back. */
   cancelBooking: (payload: { targetId: number; reason?: string }) => call<Booking>('cancelBooking', payload),
   /** Unread in-app notifications, marked read by this same call. */

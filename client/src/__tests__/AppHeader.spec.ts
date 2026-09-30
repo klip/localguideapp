@@ -30,6 +30,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     unlockPack: vi.fn<Api['unlockPack']>(),
     paymentState: vi.fn<Api['paymentState']>(),
     payGuideFee: vi.fn<Api['payGuideFee']>(),
+    bookingAction: vi.fn<Api['bookingAction']>(),
     cancelBooking: vi.fn<Api['cancelBooking']>(),
     notifications: vi.fn<Api['notifications']>(),
     decide: vi.fn<Api['decide']>(),
