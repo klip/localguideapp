@@ -51,6 +51,27 @@ export interface AuthResult {
   sessionHash: string
 }
 
+/**
+ * What `login` returns instead of an `AuthResult` when the account has
+ * two-factor on (see `AccountSecurity.php`): a code went to `destination`
+ * (a masked email), and `challengeToken` + that code go to
+ * `api.verifyTwoFactor()` to get the session.
+ */
+export interface TwoFactorChallenge {
+  twoFactorRequired: true
+  challengeToken: string
+  method: 'email'
+  destination: string
+  expiresInSeconds: number
+  resendAfterSeconds: number
+}
+
+export type LoginResult = AuthResult | TwoFactorChallenge
+
+export function isTwoFactorChallenge(result: LoginResult): result is TwoFactorChallenge {
+  return 'twoFactorRequired' in result && result.twoFactorRequired === true
+}
+
 /** The bare columns `users` itself has. */
 export interface BasicAccount {
   id: number
@@ -568,7 +589,18 @@ function deckRequest(filters?: DiscoveryFilters): Record<string, unknown> {
 /** The api "module": one client, backed by RequestProcessor's `action` dispatch. */
 export const api = {
   register: (payload: RegisterPayload) => call<AuthResult>('register', payload),
-  login: (payload: LoginPayload) => call<AuthResult>('login', payload),
+  /** An `AuthResult`, or a `TwoFactorChallenge` when the account needs an emailed code first. */
+  login: (payload: LoginPayload) => call<LoginResult>('login', payload),
+  verifyTwoFactor: (payload: { challengeToken: string; code: string }) =>
+    call<AuthResult>('verifyTwoFactor', payload),
+  /** Emails a fresh code for the same challenge; the previous code stops working. */
+  resendTwoFactor: (payload: { challengeToken: string }) =>
+    call<TwoFactorChallenge>('resendTwoFactor', payload),
+  /** Always `{ ok: true }` — never says whether the email has an account. */
+  requestPasswordReset: (payload: { email: string }) =>
+    call<{ ok: true }>('requestPasswordReset', payload),
+  resetPassword: (payload: { token: string; newPassword: string }) =>
+    call<{ ok: true }>('resetPassword', payload),
   /**
    * Filtered in SQL (`Users::searchByRole()`), not client-side — pass the
    * current `DiscoveryFilters` as-is, or omit for everyone.

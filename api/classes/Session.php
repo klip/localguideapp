@@ -76,4 +76,10 @@ class Session
     {
         $this->db->db_Execute('DELETE FROM `sessions` WHERE `session_hash` = "' . $this->db->db_Escape($hash) . '"');
     }
+
+    /** Signs a user out everywhere — after a password reset (see `AccountSecurity::resetPassword()`). */
+    public function destroyAllFor(int $userId): void
+    {
+        $this->db->db_Execute('DELETE FROM `sessions` WHERE `user_id` = ' . $userId);
+    }
 }

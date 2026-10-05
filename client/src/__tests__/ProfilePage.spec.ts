@@ -12,6 +12,10 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
   return {
     register: vi.fn<Api['register']>(),
     login: vi.fn<Api['login']>(),
+    verifyTwoFactor: vi.fn<Api['verifyTwoFactor']>(),
+    resendTwoFactor: vi.fn<Api['resendTwoFactor']>(),
+    requestPasswordReset: vi.fn<Api['requestPasswordReset']>(),
+    resetPassword: vi.fn<Api['resetPassword']>(),
     guides: vi.fn<Api['guides']>(),
     visitors: vi.fn<Api['visitors']>(),
     updateProfile: vi.fn<Api['updateProfile']>(),
@@ -45,7 +49,7 @@ const sampleProfile: MyProfile = {
   name: 'Sofia',
   email: 'sofia@example.com',
   phone: '+44 7700 900123',
-  two_factor_method: 'sms',
+  two_factor_method: 'email',
   image: null,
   created_at: '2026-01-01 00:00:00',
   date_of_birth: '1996-05-20',
@@ -178,7 +182,7 @@ describe('ProfilePage', () => {
       'United Kingdom (+44)',
     )
     expect((labelled(wrapper, 'Phone').find('input').element as HTMLInputElement).value).toBe('7700900123')
-    expect((labelled(wrapper, 'Two-factor').find('select').element as HTMLSelectElement).value).toBe('sms')
+    expect((labelled(wrapper, 'Two-factor').find('select').element as HTMLSelectElement).value).toBe('email')
 
     expect(wrapper.text()).toContain('English')
     expect(wrapper.text()).toContain('Nature')
@@ -199,6 +203,20 @@ describe('ProfilePage', () => {
     expect(Array.from(select.options).map((o) => o.value)).toEqual(['', 'email', 'sms', 'whatsapp'])
   })
 
+  it('offers only email for two-factor codes, and leaves a legacy SMS choice unselected', async () => {
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue({ ...sampleProfile, two_factor_method: 'sms' }),
+        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+      }),
+    )
+
+    const select = labelled(wrapper, 'Two-factor').find('select').element as HTMLSelectElement
+    expect(select.value).toBe('')
+    const enabled = Array.from(select.options).filter((o) => !o.disabled).map((o) => o.value)
+    expect(enabled).toEqual(['email'])
+  })
+
   it('saves personal & contact info, concatenating country code + number into one phone string', async () => {
     const updateAccount = vi.fn<Api['updateAccount']>().mockResolvedValue({ ok: true })
     const wrapper = await mountProfilePage(
@@ -217,7 +235,7 @@ describe('ProfilePage', () => {
       expect.objectContaining({
         email: 'new-sofia@example.com',
         phone: '+44 7700900123',
-        twoFactorMethod: 'sms',
+        twoFactorMethod: 'email',
       }),
     )
     const messages = useMessagesStore()

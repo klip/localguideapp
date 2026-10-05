@@ -41,6 +41,10 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
   return {
     register: vi.fn<Api['register']>(),
     login: vi.fn<Api['login']>(),
+    verifyTwoFactor: vi.fn<Api['verifyTwoFactor']>(),
+    resendTwoFactor: vi.fn<Api['resendTwoFactor']>(),
+    requestPasswordReset: vi.fn<Api['requestPasswordReset']>(),
+    resetPassword: vi.fn<Api['resetPassword']>(),
     guides: vi.fn<Api['guides']>(),
     visitors: vi.fn<Api['visitors']>(),
     updateProfile: vi.fn<Api['updateProfile']>(),

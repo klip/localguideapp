@@ -32,8 +32,9 @@ that are the only source of a profile's ★ rating (see "Reviews" below).
 inserts a `status = 'paid'` row on `unlockPack` — there is no payment
 gateway; the guide's fee (`Bookings::pay()`) and its refund
 (`Bookings::cancelByGuide()`) are recorded the same way, no money moves —
-see "Guide fees & bookings" below; `users.two_factor_method` is a stored
-preference with no OTP delivery behind it;
+see "Guide fees & bookings" below; SMS/WhatsApp two-factor (the options
+exist but are disabled — codes only go by email, see "Two-factor login &
+password reset");
 `admin/` and the `cms_users` table are placeholders for a CMS that doesn't
 exist yet (no `cms_creds` table either, so nothing could log into it if it
 did). **Email, on the other hand, is real** (`Mailer.php`, Gmail SMTP) once
@@ -98,7 +99,8 @@ behavior, `RegisterPage.spec.ts`, `ProfilePage.spec.ts`,
 `MatchesPage.spec.ts`, `TripsPage.spec.ts`, `BookingPanel.spec.ts`, `FilterPanel.spec.ts` — the generic filter store and
 the category-then-values bar built on it, `Reviews.spec.ts` — the review
 section, its "Show all" modal and the write/edit form,
-`VisitorProfilePage.spec.ts`) plus one
+`VisitorProfilePage.spec.ts`, `AccountSecurity.spec.ts` — the login code
+step and the forgot/reset password pages) plus one
 plain-module test, `api.spec.ts`, for `plugins/api.ts`'s `call()` itself
 (session-hash attachment, 401-triggered auto-logout — see "Sessions"
 above; it mocks `fetch` via `vi.stubGlobal` rather than going through a
@@ -123,7 +125,7 @@ into the next test's fresh `Pinia` instance.
 
 - `src/pages/` — one component per route (Home, Register, Login, Unlock,
   Discover, GuideProfile, VisitorProfile, Shortlist, GuideDiscover,
-  Matches, Trips, Profile, NotFound).
+  Matches, Trips, Profile, ForgotPassword, ResetPassword, NotFound).
 - `src/router/index.ts` — documents the mapping from the original static
   prototype's scroll sections to routes; read the comment there before adding
   routes.
@@ -828,7 +830,10 @@ not just via a seeded API call.
   see `008_profile_updates.sql`) loads with the select simply unselected
   rather than offering `'none'` as a choice, forcing a real pick on next
   save. `RequestProcessor::actionUpdateAccount()` enforces the same rule
-  server-side, and requires a phone on file for `sms`/`whatsapp`.
+  server-side. **Only email can be picked for now**: SMS/WhatsApp are
+  `disabled` "(coming soon)" options and the server rejects them; a stored
+  non-email value loads unselected. The choice is live — see "Two-factor
+  login & password reset".
 - **Gender is a dropdown, male/female (or blank for "prefer not to say")** —
   a human constant, so it stays a `user_profiles` column and a `<select>`
   rather than becoming a category. It's the only dropdown left in either
@@ -1166,7 +1171,52 @@ active user is never logged out mid-session, but an idle one is.
   clearing local state is what the click actually needs to accomplish;
   the session would otherwise still self-expire in 5 minutes anyway.
 - Nothing rotates a session's hash on use, including a password change —
-  changing your password doesn't require logging back in.
+  changing your password doesn't require logging back in (it does send a
+  "your password was changed" email). A password *reset* is different: it
+  deletes every session for the account (`Session::destroyAllFor()`).
+
+### Two-factor login & password reset
+
+Both by email, both in `api/classes/AccountSecurity.php`, backed by
+`auth_challenges` (016). A challenge has a 64-hex-char token (only its
+SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
+
+- **Who gets 2FA**: any account whose `two_factor_method` isn't `'none'` —
+  i.e. everyone who has saved the profile page's contact form (the select
+  is required). New registrations start at `'none'`, and registering itself
+  never asks for a code.
+- **Login, step 1** (`login`): a correct password for a 2FA account returns
+  a `TwoFactorChallenge` (`twoFactorRequired, challengeToken, method,
+  destination` — the masked email — `expiresInSeconds, resendAfterSeconds`)
+  instead of an `AuthResult`, and emails a 6-digit code (in the subject
+  too). No session exists yet. Starting a new login spends any older one.
+- **Step 2** (`verifyTwoFactor`): `challengeToken` + `code` (spaces
+  ignored) → the usual `AuthResult`. 10-minute lifetime, 5 wrong codes per
+  challenge (the 5th spends it), errors are `400`s — never `401`, which
+  `call()` would treat as a logout. `resendTwoFactor` emails a new code
+  (old one stops working) after a 30 s cooldown, at most 3 sends.
+- **If the email can't be sent** (no SMTP config, Gmail down) the login
+  fails with "We couldn't email your login code…" rather than letting the
+  user in — so a 2FA account can't log in on a server without `SMTP_*`.
+- **`LoginPage.vue`** swaps its password form for a code form on a
+  challenge (`isTwoFactorChallenge()`), with a resend countdown; an error
+  mentioning "log in again" sends it back to the password step.
+- **Reset** (`requestPasswordReset` → `ForgotPasswordPage.vue`,
+  `/forgot-password`): always answers `{ ok: true }`, whether or not the
+  email has an account; if it does, emails
+  `APP_URL/reset-password?token=…`, valid 30 minutes, newest link only,
+  at most 3 emails per account per hour (more are silently dropped).
+- **`resetPassword`** (`ResetPasswordPage.vue`, `/reset-password?token=`):
+  sets the password, spends every open challenge for the account, deletes
+  all its sessions, emails a "password was changed" notice. The page
+  clears the local session too and routes to `/login`.
+- **`APP_URL`** (fastcgi param, defaults to `http://localhost:5173`) is
+  where email links point. It's read from the server environment, never
+  from the request's Origin/Host — those are attacker-controlled and would
+  let someone point a victim's reset link at their own site. Set it for
+  production.
+- Codes and links are never logged. In development, `MAIL_REDIRECT_TO`
+  sends them to one inbox (see "Email").
 
 ## Docker environment
 
@@ -1253,7 +1303,11 @@ unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 | Action | Auth | Frontend call | Request fields (beyond `sessionHash`) | Response | Backend |
 | --- | --- | --- | --- | --- | --- |
 | `register` | no | `api.register(payload)` | `email, password, role, name?, image?` | `AuthResult` (`id, email, role, sessionHash`) | `actionRegister()` → `Users::register()`, `Session::create()` |
-| `login` | no | `api.login(payload)` | `email, password` | `AuthResult` (`id, email, name, role, sessionHash`) | `actionLogin()` → `Users::verifyCredentials()`/`getRoleName()`, `Session::create()` |
+| `login` | no | `api.login(payload)` | `email, password` | `AuthResult` (`id, email, name, role, sessionHash`), or a `TwoFactorChallenge` for a 2FA account | `actionLogin()` → `Users::verifyCredentials()`, then `AccountSecurity::startLogin()` or `signIn()` |
+| `verifyTwoFactor` | no | `api.verifyTwoFactor(payload)` | `challengeToken, code` | `AuthResult` | `AccountSecurity::verifyLogin()`, `signIn()` |
+| `resendTwoFactor` | no | `api.resendTwoFactor(payload)` | `challengeToken` | `TwoFactorChallenge` | `AccountSecurity::resendLoginCode()` |
+| `requestPasswordReset` | no | `api.requestPasswordReset(payload)` | `email` | `{ ok: true }` always | `AccountSecurity::requestPasswordReset()` |
+| `resetPassword` | no | `api.resetPassword(payload)` | `token, newPassword` (≥8) | `{ ok: true }` | `AccountSecurity::resetPassword()` |
 | `guides` | optional* | `api.guides(filters?, includeDecided?)` | `gender?, attributes?, ranges?, ageRanges?, includeDecided?` | `{ guides: ProfileAccount[] }` | `Users::searchByRole('guide', ...)` |
 | `visitors` | optional* | `api.visitors(filters?, includeDecided?)` | same filter shape as `guides` | `{ visitors: ProfileAccount[] }` | `Users::searchByRole('guest', ...)` |
 | `attributeCategories` | no | `api.attributeCategories()` | — | `{ categories: AttributeCategory[] }` | `Profiles::getCategories()` |
@@ -1415,6 +1469,8 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   (a page, newest first, plus `summaryFor()`'s total/average/histogram),
   `viewerStateFor()`, `eligibleBookingId()`, `submit()` (validates and
   upserts), `delete()`. See "Reviews" above.
+- `api/classes/AccountSecurity.php` — emailed 2FA login codes and password
+  reset links (`auth_challenges`); see "Two-factor login & password reset".
 - `api/classes/Session.php` — server-side sessions backed by the
   `sessions` table (see `009_sessions.sql`): `create(userId)` mints a
   random 64-hex-char hash; `resolve(hash)` looks it up, checks
@@ -1561,6 +1617,9 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   the two-sided finish (`finish_requested_by`, `finish_requested_at`,
   `finished_at`); `open_pair` rebuilt so a pending booking counts as open.
   Applied 2026-09-30. Not re-runnable.
+- `api/sql/016_auth_challenges.sql` — `auth_challenges`, and every
+  `two_factor_method` of `sms`/`whatsapp` set to `email`. Applied
+  2026-10-05. Re-runnable.
 - `api/sql/015_trip_location.sql` — `bookings.location` (VARCHAR(160),
   nullable), and `accepted_at = created_at` for bookings cancelled before
   014 (back then every booking was born confirmed), so `accepted_at IS NOT
@@ -1586,8 +1645,9 @@ There is no test setup, linter, or formatter configured for `api/` yet;
   "+350 56002731") — there's no separate country-code column, see
   "Self-service profile editing" above. `two_factor_method` is
   `enum('none','email','sms','whatsapp')` (widened 2026-09-05, see
-  `008_profile_updates.sql`) and is currently just a stored preference (no
-  OTP delivery is actually wired up); `'none'` is still the column's
+  `008_profile_updates.sql`); anything but `'none'` means login needs an
+  emailed code (016 moved every `sms`/`whatsapp` row to `email`, the only
+  channel that works); `'none'` is still the column's
   default for a brand-new registration (the register flow doesn't collect
   a 2FA choice) and can still appear on an account that hasn't visited the
   profile page yet, but is no longer an acceptable value going forward —
@@ -1655,6 +1715,9 @@ There is no test setup, linter, or formatter configured for `api/` yet;
 - `reviews` (id, booking_id, author_id, subject_id, rating, comment,
   created_at, updated_at) — unique on (booking_id, author_id); see
   "Reviews" above.
+- `auth_challenges` (id, user_id, purpose `login|reset`, token_hash unique,
+  code_hash, attempts, sends, last_sent_at, expires_at, used_at,
+  created_at) — see "Two-factor login & password reset".
 - `sessions` (id, `session_hash` unique, user_id, created_at,
   last_active_at) — one row per active login, deleted on logout or the
   next time `Session::resolve()` finds it past its 5-minute inactivity

@@ -36,6 +36,18 @@ const router = createRouter({
       component: () => import('@/pages/LoginPage.vue'),
     },
     {
+      // Not from the prototype: password reset by email (see AccountSecurity.php).
+      path: '/forgot-password',
+      name: 'forgot-password',
+      component: () => import('@/pages/ForgotPasswordPage.vue'),
+    },
+    {
+      // The page the reset email links to, with `?token=`.
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('@/pages/ResetPasswordPage.vue'),
+    },
+    {
       path: '/unlock',
       name: 'unlock',
       component: () => import('@/pages/UnlockPage.vue'),

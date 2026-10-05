@@ -26,6 +26,8 @@ class RequestProcessor
     private $sessions;
     /** @var Reviews */
     private $reviews;
+    /** @var AccountSecurity */
+    private $security;
     /** @var array|null memoized parsed request body */
     private $input;
 
@@ -34,12 +36,14 @@ class RequestProcessor
         $this->db = $db;
         $this->users = new Users($db);
         $this->payments = new Payments($db);
-        $this->notifications = new Notifications($db, new Mailer($db));
+        $mailer = new Mailer($db);
+        $this->notifications = new Notifications($db, $mailer);
         $this->bookings = new Bookings($db, $this->notifications);
         $this->selections = new Selections($db, $this->users, $this->payments, $this->bookings);
         $this->profiles = new Profiles($db);
         $this->sessions = new Session($db);
         $this->reviews = new Reviews($db);
+        $this->security = new AccountSecurity($db, $this->users, $mailer, $this->sessions);
     }
 
     public function handle(): void
@@ -138,6 +142,23 @@ class RequestProcessor
 
                 case 'session':
                     $this->respond($this->actionSession());
+                    break;
+
+                // Two-factor login and password reset (see `AccountSecurity`, 016_auth_challenges.sql).
+                case 'verifyTwoFactor':
+                    $this->respond($this->actionVerifyTwoFactor());
+                    break;
+
+                case 'resendTwoFactor':
+                    $this->respond($this->actionResendTwoFactor());
+                    break;
+
+                case 'requestPasswordReset':
+                    $this->respond($this->actionRequestPasswordReset());
+                    break;
+
+                case 'resetPassword':
+                    $this->respond($this->actionResetPassword());
                     break;
 
                 // Reviews and public profiles (see `Reviews`, 013_reviews.sql).
@@ -297,6 +318,18 @@ class RequestProcessor
             throw new RuntimeException('Invalid email or password.');
         }
 
+        // With two-factor on, the password only earns a challenge; the
+        // session waits for `verifyTwoFactor`.
+        if (AccountSecurity::requiresTwoFactor($user)) {
+            return $this->security->startLogin($user);
+        }
+
+        return $this->signIn($user);
+    }
+
+    /** Creates a session for `$user` (a `users` row) and returns the `AuthResult` shape. */
+    private function signIn(array $user): array
+    {
         $sessionHash = $this->sessions->create((int) $user['id']);
 
         return [
@@ -306,6 +339,49 @@ class RequestProcessor
             'role' => $this->users->getRoleName((int) $user['id']),
             'sessionHash' => $sessionHash,
         ];
+    }
+
+    /** Second login step: the emailed code for a challenge from `login` — see `AccountSecurity::verifyLogin()`. */
+    private function actionVerifyTwoFactor(): array
+    {
+        $input = $this->readInput();
+        $userId = $this->security->verifyLogin(
+            (string) ($input['challengeToken'] ?? ''),
+            (string) ($input['code'] ?? '')
+        );
+
+        $user = $this->users->findById($userId);
+        if (!$user) {
+            throw new RuntimeException('This code has expired. Log in again to get a new one.');
+        }
+
+        return $this->signIn($user);
+    }
+
+    private function actionResendTwoFactor(): array
+    {
+        return $this->security->resendLoginCode((string) ($this->readInput()['challengeToken'] ?? ''));
+    }
+
+    /** Always `ok` — whether the email has an account is never revealed. */
+    private function actionRequestPasswordReset(): array
+    {
+        $email = trim((string) ($this->readInput()['email'] ?? ''));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('A valid email is required.');
+        }
+
+        $this->security->requestPasswordReset($email);
+
+        return ['ok' => true];
+    }
+
+    private function actionResetPassword(): array
+    {
+        $input = $this->readInput();
+        $this->security->resetPassword((string) ($input['token'] ?? ''), (string) ($input['newPassword'] ?? ''));
+
+        return ['ok' => true];
     }
 
     private function actionUnlockPack(): array
@@ -612,14 +688,13 @@ class RequestProcessor
             // haven't picked a channel yet — see 008_profile_updates.sql)
             // but is deliberately not an acceptable *choice* here: two-factor
             // delivery is a required field on `ProfilePage.vue` going forward,
-            // not an optional one.
-            if (!in_array($method, ['email', 'sms', 'whatsapp'], true)) {
-                throw new RuntimeException('twoFactorMethod must be "email", "sms" or "whatsapp".');
+            // not an optional one. SMS/WhatsApp stay in the enum for later,
+            // but `AccountSecurity` can only send codes by email for now.
+            if (in_array($method, ['sms', 'whatsapp'], true)) {
+                throw new RuntimeException('Two-factor codes can only be sent by email for now.');
             }
-
-            $phoneOnFile = $fields['phone'] ?? $this->users->getPhone($userId);
-            if (in_array($method, ['sms', 'whatsapp'], true) && empty($phoneOnFile)) {
-                throw new RuntimeException('Add a phone number before enabling SMS or WhatsApp two-factor.');
+            if ($method !== 'email') {
+                throw new RuntimeException('twoFactorMethod must be "email".');
             }
 
             $fields['two_factor_method'] = $method;
@@ -647,6 +722,10 @@ class RequestProcessor
         }
 
         $this->users->setPassword($userId, $newPassword);
+        $user = $this->users->findById($userId);
+        if ($user) {
+            $this->security->notifyPasswordChanged($user);
+        }
 
         return ['ok' => true];
     }

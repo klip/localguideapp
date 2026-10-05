@@ -260,7 +260,9 @@ function applyProfile(data: MyProfile) {
   phoneCountryQuery.value = countryCodeSuggestions.find((s) => s.value === code)?.label ?? ''
   phoneNumber.value = number
 
-  twoFactorMethod.value = data.two_factor_method === 'none' ? '' : data.two_factor_method
+  // Only email can be chosen for now; anything else loads unselected so the
+  // next save forces a real pick (see the select's disabled options).
+  twoFactorMethod.value = data.two_factor_method === 'email' ? 'email' : ''
 
   dateOfBirth.value = data.date_of_birth ?? ''
   gender.value = data.gender ?? ''
@@ -462,9 +464,13 @@ async function changePassword() {
               <select v-model="twoFactorMethod" required>
                 <option value="" disabled>Choose a method</option>
                 <option value="email">Email</option>
-                <option value="sms">SMS</option>
-                <option value="whatsapp">WhatsApp</option>
+                <!-- Not wired to a provider yet — AccountSecurity.php only sends by email. -->
+                <option value="sms" disabled>SMS (coming soon)</option>
+                <option value="whatsapp" disabled>WhatsApp (coming soon)</option>
               </select>
+              <small class="tiny muted">
+                Each time you log in, we’ll email you a 6-digit code to enter after your password.
+              </small>
             </label>
 
             <div v-if="profile?.image" class="current-photo">

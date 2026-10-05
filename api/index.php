@@ -7,6 +7,7 @@ require_once __DIR__.'/classes/Users.php';
 require_once __DIR__.'/classes/Payments.php';
 require_once __DIR__.'/classes/Mailer.php';
 require_once __DIR__.'/classes/Notifications.php';
+require_once __DIR__.'/classes/AccountSecurity.php';
 require_once __DIR__.'/classes/Bookings.php';
 require_once __DIR__.'/classes/Selections.php';
 require_once __DIR__.'/classes/Profiles.php';
