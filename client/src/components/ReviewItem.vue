@@ -42,7 +42,6 @@ const edited = computed(() => props.review.updated_at !== props.review.created_a
 
 <style scoped lang="scss">
 .review {
-  padding: 0.85rem 0;
   border-top: 1px solid var(--rg-line);
 }
 
