@@ -4,7 +4,12 @@ import BookingPanel from '@/components/BookingPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
-import { useApi, type MatchOverviewRow, type PaymentState, type SelectionDecision } from '@/plugins/api'
+import {
+  useApi,
+  type MatchOverviewRow,
+  type PaymentState,
+  type SelectionDecision,
+} from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { useShortlistStore } from '@/stores/shortlist'
@@ -14,8 +19,10 @@ import { reportApiError } from '@/utils/reportApiError'
  * Match management for both sides — every pair the signed-in user is part
  * of (`api.matchOverview()` → `Selections::getOverview()`), grouped into:
  *
- *   matched   — mutual interest; contact details unlock once there's a
- *               booking (guest pays the guide's fee, or the guide is free)
+ *   matched   — mutual interest, no confirmed trip: nothing booked yet, or
+ *               a payment waiting on the guide. Once the guide confirms it
+ *               (or straight away, for a free guide) the pair moves to
+ *               `TripsPage.vue` and drops out of this page entirely
  *   incoming  — they're interested, you haven't answered; accept or pass
  *   awaiting  — you're interested, no answer yet; can withdraw
  *   passed    — you passed; can reconsider
@@ -24,8 +31,9 @@ import { reportApiError } from '@/utils/reportApiError'
  * so it's also how a guide finds out about a match the visitor completed
  * (the deck's "it's a match" toast only fires on the guide's own decision).
  *
- * Each matched row carries a `BookingPanel` — paying the guide's fee, the
- * guide accepting it, cancelling, and finishing the trip all happen there.
+ * Each matched row carries a `BookingPanel` — paying the guide's fee and the
+ * guide accepting or declining it happen there; everything after that lives
+ * on the trip card.
  */
 type Group = 'matched' | 'incoming' | 'awaiting' | 'passed'
 type Action = SelectionDecision | 'revoke'
@@ -44,6 +52,11 @@ const loading = ref(false)
 const loaded = ref(false)
 const busyId = ref<number | null>(null)
 
+/** A matched pair whose latest booking is confirmed is a trip — shown on `/trips`, not here. */
+function isTrip(row: MatchOverviewRow) {
+  return row.active === 1 && row.booking_status === 'confirmed'
+}
+
 function groupOf(row: MatchOverviewRow): Group {
   if (row.active === 1) return 'matched'
   if (row.my_decision === 'interested') return 'awaiting'
@@ -52,8 +65,13 @@ function groupOf(row: MatchOverviewRow): Group {
 }
 
 const grouped = computed(() => {
-  const out: Record<Group, MatchOverviewRow[]> = { matched: [], incoming: [], awaiting: [], passed: [] }
-  for (const row of rows.value) out[groupOf(row)].push(row)
+  const out: Record<Group, MatchOverviewRow[]> = {
+    matched: [],
+    incoming: [],
+    awaiting: [],
+    passed: [],
+  }
+  for (const row of rows.value) if (!isTrip(row)) out[groupOf(row)].push(row)
   return out
 })
 
@@ -73,6 +91,7 @@ const activeTab = computed<Group>(() => {
   return 'matched'
 })
 const visibleRows = computed(() => grouped.value[activeTab.value])
+const tripCount = computed(() => rows.value.filter(isTrip).length)
 
 /** Server-authoritative for guests (the local `shortlist` count can drift) — null for guides, who never pay. */
 const selectionsLeft = computed(() => (isGuest.value ? (payment.value?.selectionsLeft ?? 0) : null))
@@ -139,7 +158,7 @@ function syncShortlist(row: MatchOverviewRow, action: Action) {
 const SUCCESS_COPY: Record<Group, Partial<Record<Action, (name: string) => string>>> = {
   matched: { revoke: (name) => `Unmatched from ${name}.` },
   incoming: {
-    interested: (name) => `You're now matched with ${name} — their contact details are under Matched.`,
+    interested: (name) => `You're now matched with ${name}.`,
     pass: (name) => `Passed on ${name}.`,
   },
   awaiting: { revoke: (name) => `Withdrew your interest in ${name}.` },
@@ -149,14 +168,12 @@ const SUCCESS_COPY: Record<Group, Partial<Record<Action, (name: string) => strin
 }
 
 /**
- * Unmatching is only for a pair with nothing booked (or a guest leaving a free
- * guide): a pending booking is withdrawn/declined, a paid one cancelled — all
- * in `BookingPanel`. Mirrors `Selections::revoke()`.
+ * Confirmed trips aren't on this page, so the only booking that can block
+ * unmatching here is a pending one — withdrawn or declined in `BookingPanel`
+ * first. Mirrors `Selections::revoke()`.
  */
 function canUnmatch(row: MatchOverviewRow) {
-  const open = row.booking_status === 'pending' || (row.booking_status === 'confirmed' && row.trip_status !== 'finished')
-  if (!open) return true
-  return isGuest.value && row.booking_status === 'confirmed' && row.payment_status !== 'paid'
+  return row.booking_status !== 'pending'
 }
 
 function profileLink(row: MatchOverviewRow) {
@@ -194,7 +211,7 @@ async function act(row: MatchOverviewRow, action: Action, event: MouseEvent) {
 }
 
 const EMPTY_COPY = computed<Record<Group, string>>(() => ({
-  matched: `No mutual matches yet. When a ${counterpartNoun.value} you like likes you back, they appear here.`,
+  matched: `No matches waiting on a booking. When a ${counterpartNoun.value} you like likes you back, they appear here; confirmed trips are in My trips.`,
   incoming: `Nobody's waiting on an answer from you right now.`,
   awaiting: `You're not waiting on anyone. Mark ${counterpartNoun.value}s as interested from the deck.`,
   passed: `You haven't passed on anyone.`,
@@ -237,6 +254,10 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
           </button>
         </div>
 
+        <p v-if="tripCount" class="tiny muted picks-left">
+          {{ tripCount }} confirmed trip{{ tripCount === 1 ? '' : 's' }} ·
+          <RouterLink to="/trips">My trips</RouterLink>
+        </p>
         <p v-if="selectionsLeft !== null" class="tiny muted picks-left">
           {{ selectionsLeft }} selection{{ selectionsLeft === 1 ? '' : 's' }} left ·
           <RouterLink to="/unlock">Unlock more</RouterLink>
@@ -262,11 +283,16 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
             <div class="who">
               <div class="who-line">
                 <RouterLink :to="profileLink(row)" class="who-name"
-                  ><strong>{{ displayName(row) }}<template v-if="row.age">, {{ row.age }}</template></strong></RouterLink
+                  ><strong
+                    >{{ displayName(row)
+                    }}<template v-if="row.age">, {{ row.age }}</template></strong
+                  ></RouterLink
                 >
                 <PillBadge v-if="activeTab === 'matched'">Matched</PillBadge>
                 <PillBadge v-else-if="row.their_decision === 'interested'">Likes you</PillBadge>
-                <PillBadge v-else-if="activeTab === 'awaiting'" tone="neutral">Awaiting reply</PillBadge>
+                <PillBadge v-else-if="activeTab === 'awaiting'" tone="neutral"
+                  >Awaiting reply</PillBadge
+                >
               </div>
               <div v-if="subline(row)" class="tiny muted">{{ subline(row) }}</div>
               <div class="tiny muted">Since {{ since(row) }}</div>
@@ -274,11 +300,15 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
               <dl v-if="activeTab === 'matched' && (row.email || row.phone)" class="contact">
                 <div v-if="row.email">
                   <dt>Email</dt>
-                  <dd><a :href="`mailto:${row.email}`">{{ row.email }}</a></dd>
+                  <dd>
+                    <a :href="`mailto:${row.email}`">{{ row.email }}</a>
+                  </dd>
                 </div>
                 <div v-if="row.phone">
                   <dt>Phone</dt>
-                  <dd><a :href="`tel:${row.phone.replace(/\s+/g, '')}`">{{ row.phone }}</a></dd>
+                  <dd>
+                    <a :href="`tel:${row.phone.replace(/\s+/g, '')}`">{{ row.phone }}</a>
+                  </dd>
                 </div>
               </dl>
               <p v-if="activeTab === 'incoming' && isGuest" class="tiny muted note">

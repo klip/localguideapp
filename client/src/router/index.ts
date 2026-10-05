@@ -84,6 +84,12 @@ const router = createRouter({
       component: () => import('@/pages/MatchesPage.vue'),
     },
     {
+      // Confirmed trips, both roles — where a match goes once it's booked (see TripsPage.vue).
+      path: '/trips',
+      name: 'trips',
+      component: () => import('@/pages/TripsPage.vue'),
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/pages/ProfilePage.vue'),

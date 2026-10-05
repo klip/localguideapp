@@ -85,7 +85,7 @@ async function accept(id: string) {
   const row = await decide(id, 'interested')
   if (row?.active === 1) {
     messages.success(
-      `You matched with ${visitor?.name ?? 'this visitor'}! Once they've paid your fee (straight away, if you don't charge one), you'll both see each other's contact details on your Matches page.`,
+      `You matched with ${visitor?.name ?? 'this visitor'}! Once they've paid your fee and you've confirmed the date (straight away, if you don't charge one), the trip and their contact details are on your My trips page.`,
     )
   }
 }

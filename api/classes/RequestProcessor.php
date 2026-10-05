@@ -110,6 +110,12 @@ class RequestProcessor
                     $this->respond(['selections' => $this->selections->getOverview($this->requireUserId())]);
                     break;
 
+                // Confirmed trips — scheduled, current and past (see `Bookings::tripsFor()`).
+                case 'trips':
+                    $userId = $this->requireUserId();
+                    $this->respond(['trips' => $this->bookings->tripsFor($userId, $this->users->getRoleName($userId))]);
+                    break;
+
                 case 'payGuideFee':
                     $this->respond($this->actionPayGuideFee());
                     break;
@@ -381,7 +387,13 @@ class RequestProcessor
             throw new RuntimeException('Only a visitor can pay a guide’s fee.');
         }
 
-        return $this->bookings->pay($userId, $guideId, (string) ($input['meetingAt'] ?? ''), $input['durationHours'] ?? null);
+        return $this->bookings->pay(
+            $userId,
+            $guideId,
+            (string) ($input['meetingAt'] ?? ''),
+            $input['durationHours'] ?? null,
+            (string) ($input['location'] ?? '')
+        );
     }
 
     /**
@@ -413,7 +425,7 @@ class RequestProcessor
 
         $guestOps = ['withdraw', 'requestCancellation', 'withdrawCancellation'];
         $guideOps = ['accept', 'decline', 'approveCancellation', 'refuseCancellation'];
-        $eitherOps = ['requestFinish', 'confirmFinish', 'dismissFinish'];
+        $eitherOps = ['requestFinish', 'confirmFinish', 'dismissFinish', 'setLocation'];
         if (in_array($op, $guestOps, true) && $role !== 'guest') {
             throw new RuntimeException('Only the visitor can do that.');
         }
@@ -442,6 +454,8 @@ class RequestProcessor
                 return $this->bookings->confirmFinish($userId, $guestId, $guideId);
             case 'dismissFinish':
                 return $this->bookings->dismissFinish($userId, $guestId, $guideId);
+            case 'setLocation':
+                return $this->bookings->setLocation($userId, $guestId, $guideId, (string) ($input['location'] ?? ''));
         }
 
         throw new RuntimeException('Unknown booking step "' . $op . '". Expected one of: '

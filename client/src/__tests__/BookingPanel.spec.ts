@@ -29,6 +29,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     revokeSelection: vi.fn<Api['revokeSelection']>(),
     matches: vi.fn<Api['matches']>(),
     matchOverview: vi.fn<Api['matchOverview']>(),
+    trips: vi.fn<Api['trips']>(),
     publicProfile: vi.fn<Api['publicProfile']>(),
     reviews: vi.fn<Api['reviews']>(),
     submitReview: vi.fn<Api['submitReview']>(),
@@ -46,6 +47,7 @@ function booking(overrides: Partial<Booking> = {}): Booking {
     amount: 50,
     meeting_at: '2030-01-02 10:00:00',
     duration_hours: null,
+    location: null,
     status: 'pending',
     payment_status: 'paid',
     accepted_at: null,
@@ -100,6 +102,7 @@ function row(overrides: Partial<MatchOverviewRow> = {}): MatchOverviewRow {
     finish_requested_by: null,
     finished_at: null,
     auto_finish: false,
+    location: null,
     ...overrides,
   }
 }
@@ -375,5 +378,101 @@ describe('BookingPanel — finishing the trip', () => {
     expect(wrapper.text()).toContain('Trip finished')
     expect(wrapper.findComponent(RouterLinkStub).props('to')).toBe('/guides/7')
     expect(hasButton(wrapper, 'Book again £50.00')).toBe(true)
+  })
+})
+
+describe('BookingPanel — meeting place', () => {
+  it('sends the meeting place along with the payment', async () => {
+    const api = fakeApi()
+    const wrapper = mountPanel(api, {}, true)
+
+    await button(wrapper, 'Pay £50.00').trigger('click')
+    await wrapper.find('input[type="datetime-local"]').setValue('2030-01-02T10:00')
+    await wrapper.find('input[type="text"]').setValue('  Casemates Square  ')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(api.payGuideFee).toHaveBeenCalledWith({
+      targetId: 7,
+      meetingAt: new Date('2030-01-02T10:00').toISOString(),
+      location: 'Casemates Square',
+    })
+  })
+
+  it('lets either side change the meeting place of an open booking', async () => {
+    const api = fakeApi()
+    const wrapper = mountPanel(api, { ...confirmedBooking, location: 'Old Town' }, false)
+
+    expect(hasButton(wrapper, 'Set meeting place')).toBe(false)
+    await button(wrapper, 'Change meeting place').trigger('click')
+    const input = wrapper.find('input[type="text"]')
+    expect((input.element as HTMLInputElement).value).toBe('Old Town')
+    await input.setValue('Cable car, top station')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(api.bookingAction).toHaveBeenCalledWith({
+      targetId: 7,
+      op: 'setLocation',
+      location: 'Cable car, top station',
+    })
+    expect(toasts()).toContain('Meeting place saved — Igor has been told.')
+  })
+
+  it('offers no meeting place once the trip is finished', () => {
+    const wrapper = mountPanel(fakeApi(), { ...confirmedBooking, trip_status: 'finished' }, true)
+
+    expect(hasButton(wrapper, 'meeting place')).toBe(false)
+  })
+})
+
+describe('BookingPanel — on a trip card', () => {
+  function mountWith(
+    props: Partial<MatchOverviewRow>,
+    extra: { allowBooking?: boolean; summary?: boolean },
+  ) {
+    setActivePinia(createPinia())
+    return mount(BookingPanel, {
+      props: { row: row(props), isGuest: true, name: 'Igor', ...extra },
+      global: { provide: { [API_KEY]: fakeApi() }, stubs: { RouterLink: RouterLinkStub } },
+    })
+  }
+
+  it('lets a guest cancel a free trip, which unmatches them', async () => {
+    const api = fakeApi()
+    const wrapper = mountPanel(
+      api,
+      {
+        ...confirmedBooking,
+        fee_amount: 0,
+        payment_status: 'none',
+        booking_amount: 0,
+        meeting_at: null,
+      },
+      true,
+    )
+
+    expect(hasButton(wrapper, 'Request cancellation')).toBe(false)
+    await button(wrapper, 'Cancel trip').trigger('click')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(api.revokeSelection).toHaveBeenCalledWith({ targetId: 7 })
+    expect(toasts()).toContain('Trip cancelled — Igor has been told.')
+    expect(wrapper.emitted('changed')).toHaveLength(1)
+  })
+
+  it('only offers "Book again" when allowed — the pair’s latest trip', () => {
+    const finished = { ...confirmedBooking, trip_status: 'finished' as const }
+
+    expect(hasButton(mountWith(finished, { allowBooking: true }), 'Book again')).toBe(true)
+    expect(hasButton(mountWith(finished, { allowBooking: false }), 'Book again')).toBe(false)
+  })
+
+  it('hides its summary line when the card shows it instead', () => {
+    const wrapper = mountWith(confirmedBooking, { summary: false })
+
+    expect(wrapper.text()).not.toContain('Paid £50.00')
+    expect(hasButton(wrapper, 'Request cancellation')).toBe(true)
   })
 })

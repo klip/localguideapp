@@ -1,30 +1,41 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import PillBadge from '@/components/PillBadge.vue'
-import { useApi, type BookingOp, type MatchOverviewRow } from '@/plugins/api'
+import { useApi, type BookingOp, type BookingView } from '@/plugins/api'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
+import { formatHours, formatMoney, formatWhen, tripEnd, utcDate } from '@/utils/bookingTime'
 import { reportApiError } from '@/utils/reportApiError'
 
 /**
- * Everything about the booking on one matched pair, for either side — see
- * `Bookings.php` for the rules. Lives under a row on `MatchesPage.vue`'s
- * Matched tab and emits `changed` after every successful step so the page
- * re-fetches the overview (contact details, badges and the next step all come
- * from the server).
+ * Everything about one booking, for either side — see `Bookings.php` for the
+ * rules. Lives under a row on `MatchesPage.vue`'s Matched tab (no booking yet,
+ * or a pending one) and under a trip card on `TripsPage.vue` (confirmed or
+ * finished), and emits `changed` after every successful step so the page
+ * re-fetches (contact details, badges and the next step all come from the
+ * server).
  *
- *   no booking yet  guest: Pay (meeting time + optional trip length)
+ *   no booking yet  guest: Pay (meeting time, optional trip length and place)
  *   pending         guest: Withdraw payment · guide: Accept / Decline
- *   confirmed       guest: Request cancellation (reason) · guide: Cancel booking,
- *                   or Approve / Refuse a guest's request
+ *   confirmed       guest: Request cancellation (reason), or Cancel trip if free
+ *                   guide: Cancel booking, or Approve / Refuse a guest's request
  *                   both: Mark trip finished → the other side confirms, unless
  *                   the trip finishes on its own (time + length known)
- *   finished        Leave a review; the guest can book again
+ *   finished        Leave a review; the guest can book again (`allowBooking`)
+ *
+ * While a booking is open, either side can set or change the meeting place.
  */
-const props = defineProps<{
-  row: MatchOverviewRow
-  isGuest: boolean
-  name: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    row: BookingView
+    isGuest: boolean
+    name: string
+    /** Offer Pay / Book again — `TripsPage.vue` only allows it on the pair's latest trip. */
+    allowBooking?: boolean
+    /** The "where things stand" line — off on a trip card, which shows the date and price itself. */
+    summary?: boolean
+  }>(),
+  { allowBooking: true, summary: true },
+)
 
 const emit = defineEmits<{ changed: [] }>()
 
@@ -34,11 +45,15 @@ const messages = useMessagesStore()
 const root = ref<HTMLElement | null>(null)
 const busy = ref(false)
 
-type FormKind = 'pay' | 'guideCancel' | 'decline' | 'requestCancel'
+type FormKind = 'pay' | 'guideCancel' | 'decline' | 'requestCancel' | 'freeCancel' | 'location'
 const openForm = ref<FormKind | null>(null)
 const meetingAt = ref('')
 const durationHours = ref<number | ''>('')
+const location = ref('')
 const reason = ref('')
+
+/** Matches `Bookings::MAX_LOCATION_LENGTH`. */
+const MAX_LOCATION = 160
 
 const pending = computed(() => props.row.booking_status === 'pending')
 const confirmed = computed(
@@ -48,10 +63,16 @@ const finished = computed(
   () => props.row.booking_status === 'confirmed' && props.row.trip_status === 'finished',
 )
 const paid = computed(() => confirmed.value && props.row.payment_status === 'paid')
+const free = computed(() => confirmed.value && props.row.payment_status !== 'paid')
 const started = computed(() => confirmed.value && props.row.trip_status === 'started')
 /** A guide who charges, and nothing booked right now — a first booking, or the next trip. */
 const needsBooking = computed(
-  () => props.row.active === 1 && !pending.value && !confirmed.value && props.row.fee_amount > 0,
+  () =>
+    props.allowBooking &&
+    props.row.active === 1 &&
+    !pending.value &&
+    !confirmed.value &&
+    props.row.fee_amount > 0,
 )
 const lastDeclined = computed(() => props.row.booking_status === 'declined')
 const cancelRequested = computed(() => paid.value && !!props.row.cancel_requested_at)
@@ -64,37 +85,13 @@ const reviewLink = computed(() =>
   props.isGuest ? `/guides/${props.row.counterpart_id}` : `/visitors/${props.row.counterpart_id}`,
 )
 
-function money(amount: number | null) {
-  return `£${(amount ?? 0).toFixed(2)}`
-}
+const money = formatMoney
 
-function utc(value: string | null) {
-  if (!value) return null
-  const date = new Date(`${value.replace(' ', 'T')}Z`)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function formatWhen(date: Date | null) {
-  return date
-    ? date.toLocaleString(undefined, {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : null
-}
-
-const meetingLabel = computed(() => formatWhen(utc(props.row.meeting_at)))
-const durationLabel = computed(() =>
-  props.row.booking_duration_hours ? `${props.row.booking_duration_hours} h` : null,
+const meetingLabel = computed(() => formatWhen(utcDate(props.row.meeting_at)))
+const durationLabel = computed(() => formatHours(props.row.booking_duration_hours))
+const endLabel = computed(() =>
+  formatWhen(tripEnd(utcDate(props.row.meeting_at), props.row.booking_duration_hours)),
 )
-const endLabel = computed(() => {
-  const start = utc(props.row.meeting_at)
-  const hours = props.row.booking_duration_hours
-  return start && hours ? formatWhen(new Date(start.getTime() + hours * 3600_000)) : null
-})
 
 /** `<input type="datetime-local">` wants local time without a zone. */
 function localInputValue(date: Date) {
@@ -107,6 +104,7 @@ function show(kind: FormKind) {
   openForm.value = kind
   meetingAt.value = ''
   durationHours.value = ''
+  location.value = kind === 'location' ? (props.row.location ?? '') : ''
   reason.value = ''
 }
 
@@ -148,15 +146,36 @@ function pay() {
     return
   }
   const hours = durationHours.value === '' ? undefined : Number(durationHours.value)
+  const place = location.value.trim()
   return run(
     () =>
       api.payGuideFee({
         targetId: props.row.counterpart_id,
         meetingAt: when.toISOString(),
         ...(hours !== undefined ? { durationHours: hours } : {}),
+        ...(place ? { location: place } : {}),
       }),
     `Payment of ${money(props.row.fee_amount)} received — ${props.name} will now confirm the date. Contact details unlock once they do.`,
     'The payment didn’t go through.',
+  )
+}
+
+function saveLocation() {
+  const place = location.value.trim()
+  return run(
+    () =>
+      api.bookingAction({ targetId: props.row.counterpart_id, op: 'setLocation', location: place }),
+    place ? `Meeting place saved — ${props.name} has been told.` : 'Meeting place removed.',
+    'Could not save the meeting place.',
+  )
+}
+
+/** A free trip has nothing to refund, so the guest simply unmatches — `Selections::revoke()` cancels it. */
+function freeCancel() {
+  return run(
+    () => api.revokeSelection({ targetId: props.row.counterpart_id }),
+    `Trip cancelled — ${props.name} has been told.`,
+    'Could not cancel this trip.',
   )
 }
 
@@ -187,29 +206,32 @@ function guideCancel() {
 <template>
   <div ref="root" class="booking">
     <!-- Where things stand -->
-    <p v-if="pending" class="booking-line">
-      <PillBadge tone="neutral">{{
-        isGuest ? `Waiting for ${name} to confirm` : 'Booking request'
-      }}</PillBadge>
-      <span class="tiny muted">
-        {{ money(row.booking_amount) }} paid · {{ meetingLabel
-        }}<template v-if="durationLabel"> · {{ durationLabel }}</template>
-      </span>
-    </p>
-    <p v-else-if="paid" class="booking-line">
-      <PillBadge>Paid {{ money(row.booking_amount) }}</PillBadge>
-      <PillBadge v-if="started" tone="neutral">Trip in progress</PillBadge>
-      <span v-if="meetingLabel" class="tiny muted">
-        {{ meetingLabel }}<template v-if="durationLabel"> · {{ durationLabel }}</template>
-      </span>
-    </p>
-    <p v-else-if="confirmed" class="booking-line">
-      <PillBadge tone="neutral">Free guide</PillBadge>
-    </p>
-    <p v-else-if="finished" class="booking-line">
-      <PillBadge tone="neutral">Trip finished</PillBadge>
-      <RouterLink :to="reviewLink" class="tiny">Leave {{ name }} a review →</RouterLink>
-    </p>
+    <template v-if="summary">
+      <p v-if="pending" class="booking-line">
+        <PillBadge tone="neutral">{{
+          isGuest ? `Waiting for ${name} to confirm` : 'Booking request'
+        }}</PillBadge>
+        <span class="tiny muted">
+          {{ money(row.booking_amount) }} paid · {{ meetingLabel
+          }}<template v-if="durationLabel"> · {{ durationLabel }}</template
+          ><template v-if="row.location"> · {{ row.location }}</template>
+        </span>
+      </p>
+      <p v-else-if="paid" class="booking-line">
+        <PillBadge>Paid {{ money(row.booking_amount) }}</PillBadge>
+        <PillBadge v-if="started" tone="neutral">Trip in progress</PillBadge>
+        <span v-if="meetingLabel" class="tiny muted">
+          {{ meetingLabel }}<template v-if="durationLabel"> · {{ durationLabel }}</template>
+        </span>
+      </p>
+      <p v-else-if="confirmed" class="booking-line">
+        <PillBadge tone="neutral">Free guide</PillBadge>
+      </p>
+      <p v-else-if="finished" class="booking-line">
+        <PillBadge tone="neutral">Trip finished</PillBadge>
+        <RouterLink :to="reviewLink" class="tiny">Leave {{ name }} a review →</RouterLink>
+      </p>
+    </template>
 
     <!-- What happens next -->
     <p v-if="needsBooking && isGuest" class="tiny muted note">
@@ -289,10 +311,7 @@ function guideCancel() {
           :aria-busy="busy"
           :disabled="busy"
           @click="
-            op(
-              'accept',
-              `Booking confirmed — you and ${name} can now see each other’s contact details.`,
-            )
+            op('accept', `Booking confirmed — it’s in My trips, with ${name}’s contact details.`)
           "
         >
           ✓ Accept
@@ -325,6 +344,15 @@ function guideCancel() {
           Request cancellation
         </button>
       </template>
+      <button
+        v-if="free && isGuest && openForm !== 'freeCancel'"
+        type="button"
+        class="reject"
+        :disabled="busy"
+        @click="show('freeCancel')"
+      >
+        Cancel trip
+      </button>
       <template v-if="confirmed && !isGuest">
         <template v-if="cancelRequested">
           <button
@@ -400,6 +428,16 @@ function guideCancel() {
           </button>
         </template>
       </template>
+
+      <button
+        v-if="(pending || confirmed) && openForm !== 'location'"
+        type="button"
+        class="soft-btn"
+        :disabled="busy"
+        @click="show('location')"
+      >
+        {{ row.location ? 'Change meeting place' : 'Set meeting place' }}
+      </button>
     </div>
 
     <!-- Forms -->
@@ -426,6 +464,15 @@ function guideCancel() {
           />
         </label>
       </div>
+      <label>
+        Where to meet <span class="muted">optional</span>
+        <input
+          v-model="location"
+          type="text"
+          :maxlength="MAX_LOCATION"
+          placeholder="e.g. Casemates Square, by the fountain"
+        />
+      </label>
       <p class="tiny muted">
         You’ll pay {{ money(row.fee_amount) }} now; {{ name }} then confirms the date. With a trip
         length the trip finishes by itself — otherwise you both mark it finished. If
@@ -488,6 +535,48 @@ function guideCancel() {
         </button>
         <button type="button" class="soft-btn" :disabled="busy" @click="openForm = null">
           Back
+        </button>
+      </div>
+    </form>
+
+    <form
+      v-if="openForm === 'location'"
+      class="inline-form"
+      :aria-label="`Meeting place for your trip with ${name}`"
+      @submit.prevent="saveLocation"
+    >
+      <label>
+        Where to meet
+        <input
+          v-model="location"
+          type="text"
+          :maxlength="MAX_LOCATION"
+          placeholder="e.g. Casemates Square, by the fountain"
+        />
+      </label>
+      <p class="tiny muted">{{ name }} is told when you change it. Leave it empty to remove it.</p>
+      <div class="form-actions">
+        <button type="submit" class="accept" :aria-busy="busy" :disabled="busy">Save</button>
+        <button type="button" class="soft-btn" :disabled="busy" @click="openForm = null">
+          Back
+        </button>
+      </div>
+    </form>
+
+    <form
+      v-if="openForm === 'freeCancel'"
+      class="inline-form"
+      :aria-label="`Cancel your trip with ${name}`"
+      @submit.prevent="freeCancel"
+    >
+      <p class="cancel-summary">
+        {{ name }} will be told the trip is off, and you’ll no longer be matched. You get your pick
+        back.
+      </p>
+      <div class="form-actions">
+        <button type="submit" class="reject" :aria-busy="busy" :disabled="busy">Cancel trip</button>
+        <button type="button" class="soft-btn" :disabled="busy" @click="openForm = null">
+          Keep trip
         </button>
       </div>
     </form>

@@ -3,7 +3,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import MatchesPage from '../pages/MatchesPage.vue'
-import { API_KEY, type Api, type MatchOverviewRow, type PaymentState, type SelectionRow } from '@/plugins/api'
+import {
+  API_KEY,
+  type Api,
+  type MatchOverviewRow,
+  type PaymentState,
+  type SelectionRow,
+} from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
 import { useShortlistStore } from '@/stores/shortlist'
@@ -42,6 +48,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     revokeSelection: vi.fn<Api['revokeSelection']>(),
     matches: vi.fn<Api['matches']>(),
     matchOverview: vi.fn<Api['matchOverview']>(),
+    trips: vi.fn<Api['trips']>(),
     publicProfile: vi.fn<Api['publicProfile']>(),
     reviews: vi.fn<Api['reviews']>(),
     submitReview: vi.fn<Api['submitReview']>(),
@@ -85,6 +92,7 @@ function row(overrides: Partial<MatchOverviewRow>): MatchOverviewRow {
     finish_requested_by: null,
     finished_at: null,
     auto_finish: false,
+    location: null,
     ...overrides,
   }
 }
@@ -175,7 +183,9 @@ function tab(wrapper: Awaited<ReturnType<typeof mountPage>>, label: string) {
 }
 
 function button(wrapper: Awaited<ReturnType<typeof mountPage>>, label: string) {
-  const found = wrapper.findAll('.actions button').find((candidate) => candidate.text().includes(label))
+  const found = wrapper
+    .findAll('.actions button')
+    .find((candidate) => candidate.text().includes(label))
   if (!found) throw new Error(`No button labelled ${label}`)
   return found
 }
@@ -185,15 +195,16 @@ afterEach(() => {
 })
 
 describe('MatchesPage', () => {
-  it('groups every pair into tabs and shows contact details only on the matched tab', async () => {
+  it('groups every pair into tabs and leaves confirmed trips to My trips', async () => {
     const api = fakeApi({
       matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({
-        selections: [matched, incoming, awaiting, passed],
+        selections: [matched, unpaid, incoming, awaiting, passed],
       }),
     })
     const wrapper = await mountPage(api, 'guide')
 
     expect(api.paymentState).not.toHaveBeenCalled() // guides never pay
+    // Igor has a confirmed booking, so he's a trip — only Gil is left under Matched.
     expect(tab(wrapper, 'Matched').find('.tab-count').text()).toBe('1')
     expect(tab(wrapper, 'Likes you').find('.tab-count').text()).toBe('1')
     expect(tab(wrapper, 'Awaiting reply').find('.tab-count').text()).toBe('1')
@@ -201,17 +212,21 @@ describe('MatchesPage', () => {
 
     // Opens on Matched when there's a match.
     expect(tab(wrapper, 'Matched').attributes('aria-pressed')).toBe('true')
-    expect(wrapper.find('a[href="mailto:igor@example.com"]').exists()).toBe(true)
-    expect(wrapper.find('a[href="tel:+35056002731"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Gil')
+    expect(wrapper.text()).not.toContain('Igor')
+    expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
+    expect(wrapper.find('a[href="/trips"]').text()).toBe('My trips')
+    expect(wrapper.text()).toContain('1 confirmed trip')
 
     await tab(wrapper, 'Likes you').trigger('click')
     expect(wrapper.text()).toContain('Ana')
-    expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
   })
 
   it('opens on "Likes you" when there are no matches yet but someone is waiting on an answer', async () => {
     const api = fakeApi({
-      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [incoming, awaiting] }),
+      matchOverview: vi
+        .fn<Api['matchOverview']>()
+        .mockResolvedValue({ selections: [incoming, awaiting] }),
     })
     const wrapper = await mountPage(api, 'guide')
 
@@ -223,11 +238,15 @@ describe('MatchesPage', () => {
       .fn<Api['matchOverview']>()
       .mockResolvedValueOnce({ selections: [incoming] })
       .mockResolvedValueOnce({
-        selections: [{ ...incoming, my_decision: 'interested', active: 1, email: 'ana@example.com' }],
+        selections: [
+          { ...incoming, my_decision: 'interested', active: 1, email: 'ana@example.com' },
+        ],
       })
     const decide = vi
       .fn<Api['decide']>()
-      .mockResolvedValue(selectionRow({ guest_decision: 'interested', guide_decision: 'interested', active: 1 }))
+      .mockResolvedValue(
+        selectionRow({ guest_decision: 'interested', guide_decision: 'interested', active: 1 }),
+      )
     const api = fakeApi({
       matchOverview,
       decide,
@@ -249,7 +268,11 @@ describe('MatchesPage', () => {
     expect(decide).toHaveBeenCalledWith({ targetId: 8, decision: 'interested' })
     expect(matchOverview).toHaveBeenCalledTimes(2)
     expect(useShortlistStore().isPicked('8')).toBe(true)
-    expect(useMessagesStore().items.map((item) => item.text).join(' ')).toContain('now matched with Ana')
+    expect(
+      useMessagesStore()
+        .items.map((item) => item.text)
+        .join(' '),
+    ).toContain('now matched with Ana')
   })
 
   it('offers an unlock link instead of Accept when a guest is out of selections', async () => {
@@ -259,7 +282,9 @@ describe('MatchesPage', () => {
     })
     const wrapper = await mountPage(api, 'guest')
 
-    expect(wrapper.findAll('.actions button').some((candidate) => candidate.text().includes('Accept'))).toBe(false)
+    expect(
+      wrapper.findAll('.actions button').some((candidate) => candidate.text().includes('Accept')),
+    ).toBe(false)
     expect(wrapper.find('.actions a[href="/unlock"]').text()).toContain('Unlock to accept')
   })
 
@@ -282,49 +307,87 @@ describe('MatchesPage', () => {
     expect(tab(wrapper, 'Awaiting reply').find('.tab-count').text()).toBe('0')
   })
 
-  it('shows contact details and hides Unmatch on a paid, confirmed booking', async () => {
+  it('moves a pair with a confirmed booking — upcoming or finished — off the page', async () => {
+    const finished = row({
+      ...matched,
+      id: 6,
+      counterpart_id: 19,
+      name: 'Fay',
+      trip_status: 'finished',
+    })
     const api = fakeApi({
-      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [matched] }),
+      matchOverview: vi
+        .fn<Api['matchOverview']>()
+        .mockResolvedValue({ selections: [matched, finished] }),
       paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
     })
     const wrapper = await mountPage(api, 'guest')
 
-    expect(wrapper.find('a[href="mailto:igor@example.com"]').exists()).toBe(true)
-    expect(wrapper.findAll('.actions button').some((candidate) => candidate.text().includes('Unmatch'))).toBe(false)
-    // The booking itself is BookingPanel's job (see BookingPanel.spec.ts).
-    expect(wrapper.find('.booking').text()).toContain('Paid £50.00')
+    expect(tab(wrapper, 'Matched').find('.tab-count').text()).toBe('0')
+    expect(wrapper.find('.match-list').exists()).toBe(false)
+    expect(wrapper.text()).toContain('2 confirmed trips')
+    expect(wrapper.find('a[href="/trips"]').exists()).toBe(true)
   })
 
-  it('keeps contact details hidden while a payment waits on the guide, then reloads once they accept', async () => {
-    const pending = { ...unpaid, booking_id: 12, booking_status: 'pending' as const, payment_status: 'paid' as const, booking_amount: 50, meeting_at: '2030-01-02 10:00:00', trip_status: 'pending' as const }
+  it('lets a matched pair with nothing booked unmatch', async () => {
+    const api = fakeApi({
+      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [unpaid] }),
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
+    })
+    const wrapper = await mountPage(api, 'guest')
+
+    expect(button(wrapper, 'Unmatch').exists()).toBe(true)
+    // Paying is BookingPanel's job (see BookingPanel.spec.ts).
+    expect(wrapper.find('.booking').text()).toContain('Pay £50.00')
+  })
+
+  it('keeps a payment waiting on the guide here, and hands it to My trips once they accept', async () => {
+    const pending = {
+      ...unpaid,
+      booking_id: 12,
+      booking_status: 'pending' as const,
+      payment_status: 'paid' as const,
+      booking_amount: 50,
+      meeting_at: '2030-01-02 10:00:00',
+      trip_status: 'pending' as const,
+    }
     const matchOverview = vi
       .fn<Api['matchOverview']>()
       .mockResolvedValueOnce({ selections: [pending] })
-      .mockResolvedValueOnce({ selections: [{ ...pending, booking_status: 'confirmed', email: 'gil@example.com' }] })
-    const bookingAction = vi.fn<Api['bookingAction']>().mockResolvedValue({} as Awaited<ReturnType<Api['bookingAction']>>)
+      .mockResolvedValueOnce({
+        selections: [{ ...pending, booking_status: 'confirmed', email: 'gil@example.com' }],
+      })
+    const bookingAction = vi
+      .fn<Api['bookingAction']>()
+      .mockResolvedValue({} as Awaited<ReturnType<Api['bookingAction']>>)
     const api = fakeApi({ matchOverview, bookingAction })
     const wrapper = await mountPage(api, 'guide')
 
     expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
-    expect(wrapper.findAll('.actions button').some((candidate) => candidate.text().includes('Unmatch'))).toBe(false)
+    expect(
+      wrapper.findAll('.actions button').some((candidate) => candidate.text().includes('Unmatch')),
+    ).toBe(false)
 
-    const accept = wrapper.findAll('.booking button').find((candidate) => candidate.text().includes('Accept'))
+    const accept = wrapper
+      .findAll('.booking button')
+      .find((candidate) => candidate.text().includes('Accept'))
     await accept!.trigger('click')
     await flushPromises()
 
     expect(bookingAction).toHaveBeenCalledWith({ targetId: 18, op: 'accept' })
     expect(matchOverview).toHaveBeenCalledTimes(2)
-    expect(wrapper.find('a[href="mailto:gil@example.com"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Gil')
+    expect(wrapper.find('a[href="/trips"]').exists()).toBe(true)
   })
 
   it('links each name to that person’s public profile', async () => {
     const api = fakeApi({
-      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [matched] }),
+      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [unpaid] }),
       paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
     })
     const wrapper = await mountPage(api, 'guest')
 
-    expect(wrapper.find('a.who-name').attributes('href')).toBe('/guides/7')
+    expect(wrapper.find('a.who-name').attributes('href')).toBe('/guides/18')
   })
 
   it('asks a signed-out visitor to log in without calling the API', async () => {

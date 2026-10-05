@@ -36,13 +36,14 @@ async function logout() {
 }
 
 /**
- * Mobile menu. Below `md` the same `.drawer` that sits inline on desktop
+ * Mobile menu. Below `lg` the same `.drawer` that sits inline on desktop
  * becomes an off-canvas panel sliding in from the right (pure CSS — see the
  * styles below), so the links are only written once. While open: page
  * scroll is locked, Tab cycles within the drawer, Escape / the backdrop /
  * the close button / following any link closes it.
  */
-const DESKTOP_QUERY = '(min-width: 760px)' // keep in sync with `bp.$md`
+// `lg`, not `md`: with "My trips" a guest's row is 7 items, too many for 760px.
+const DESKTOP_QUERY = '(min-width: 1024px)' // keep in sync with `bp.$lg`
 
 const menuOpen = ref(false)
 const burgerRef = ref<HTMLButtonElement | null>(null)
@@ -168,6 +169,7 @@ onBeforeUnmount(() => {
             <li v-if="!isAuthenticated"><RouterLink to="/#how" class="nav-link">How it works</RouterLink></li>
             <li><RouterLink :to="discoverTo" class="nav-link">Discover</RouterLink></li>
             <li v-if="isAuthenticated"><RouterLink to="/matches" class="nav-link">Matches</RouterLink></li>
+            <li v-if="isAuthenticated"><RouterLink to="/trips" class="nav-link">My trips</RouterLink></li>
             <li v-if="isAuthenticated"><RouterLink to="/profile" class="nav-link">Profile</RouterLink></li>
             <li v-if="hasAccess">
               <RouterLink to="/shortlist" class="nav-link">
@@ -398,7 +400,7 @@ nav .nav {
 
 // --- Desktop: inline nav ------------------------------------------------------
 
-@include bp.md {
+@include bp.lg {
   .burger,
   .drawer-head,
   .drawer-user,

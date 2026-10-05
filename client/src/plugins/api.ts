@@ -247,6 +247,7 @@ export type BookingOp =
   | 'requestFinish'
   | 'confirmFinish'
   | 'dismissFinish'
+  | 'setLocation'
 
 /**
  * One `bookings` row (see `Bookings.php`) — what a match turns into once
@@ -261,6 +262,8 @@ export interface Booking {
   amount: number
   meeting_at: string | null
   duration_hours: number | null
+  /** Short free-text meeting place; `null` until someone sets it. */
+  location: string | null
   status: BookingStatus
   payment_status: BookingPaymentStatus
   accepted_at: string | null
@@ -350,6 +353,8 @@ export interface MatchOverviewRow {
   refund_if_guest_cancels: number | null
   /** The booking's own trip length (not the visitor's profile `duration_hours`). */
   booking_duration_hours: number | null
+  /** Where the trip meets — short free text, either side can set it while the booking is open. */
+  location: string | null
   accepted_at: string | null
   cancel_requested_at: string | null
   cancel_request_reason: string | null
@@ -358,6 +363,59 @@ export interface MatchOverviewRow {
   finished_at: string | null
   /** The trip finishes on its own — meeting time and trip length are both known. */
   auto_finish: boolean
+}
+
+/**
+ * The booking fields `BookingPanel.vue` reads — common to a `MatchOverviewRow`
+ * (the pair's latest booking, on `/matches`) and a `TripRow` (one confirmed
+ * trip, on `/trips`).
+ */
+export type BookingView = Pick<
+  MatchOverviewRow,
+  | 'counterpart_id'
+  | 'active'
+  | 'fee_amount'
+  | 'booking_status'
+  | 'payment_status'
+  | 'booking_amount'
+  | 'meeting_at'
+  | 'booking_duration_hours'
+  | 'location'
+  | 'trip_status'
+  | 'refund_if_cancelled'
+  | 'refund_if_guest_cancels'
+  | 'cancel_requested_at'
+  | 'cancel_request_reason'
+  | 'finish_requested_by'
+  | 'auto_finish'
+>
+
+/** `scheduled` — confirmed, not started; `current` — started; `past` — finished or cancelled. */
+export type TripPhase = 'scheduled' | 'current' | 'past'
+
+/**
+ * One trip from `api.trips()` (`Bookings::tripsFor()`): a booking that was
+ * confirmed at some point, from the caller's point of view. `id` is the
+ * booking's. `email`/`phone` only while the trip is confirmed and the pair
+ * still matched; `is_latest` marks the pair's most recent booking.
+ */
+export interface TripRow extends BookingView {
+  id: number
+  selection_id: number
+  phase: TripPhase
+  is_latest: boolean
+  name: string | null
+  image: string | null
+  email: string | null
+  phone: string | null
+  booking_status: BookingStatus
+  booking_amount: number
+  refund_amount: number | null
+  accepted_at: string
+  cancel_reason: string | null
+  cancelled_at: string | null
+  finished_at: string | null
+  matched_at: string | null
 }
 
 /**
@@ -543,18 +601,32 @@ export const api = {
 
   unlockPack: () => call<PaymentState>('unlockPack'),
   paymentState: () => call<PaymentState>('paymentState'),
-  /** Guest pays a matched guide's fee; `meetingAt` is an ISO date-time, `durationHours` optional. The booking then waits for the guide to accept. */
-  payGuideFee: (payload: { targetId: number; meetingAt: string; durationHours?: number }) =>
-    call<Booking>('payGuideFee', payload),
-  /** Every other booking step — accept/decline, withdraw, cancellation requests, finishing the trip. */
-  bookingAction: (payload: { targetId: number; op: BookingOp; reason?: string }) => call<Booking>('bookingAction', payload),
+  /** Guest pays a matched guide's fee; `meetingAt` is an ISO date-time, `durationHours` and `location` optional. The booking then waits for the guide to accept. */
+  payGuideFee: (payload: {
+    targetId: number
+    meetingAt: string
+    durationHours?: number
+    location?: string
+  }) => call<Booking>('payGuideFee', payload),
+  /** Every other booking step — accept/decline, withdraw, cancellation requests, finishing the trip, the meeting place (`setLocation` + `location`). */
+  bookingAction: (payload: {
+    targetId: number
+    op: BookingOp
+    reason?: string
+    location?: string
+  }) => call<Booking>('bookingAction', payload),
+  /** Every confirmed trip the caller has had, newest first — see `TripRow`. */
+  trips: () => call<{ trips: TripRow[] }>('trips'),
   /** Guide cancels the booking with a visitor — they're refunded (plus 5% if late) and get their pick back. */
-  cancelBooking: (payload: { targetId: number; reason?: string }) => call<Booking>('cancelBooking', payload),
+  cancelBooking: (payload: { targetId: number; reason?: string }) =>
+    call<Booking>('cancelBooking', payload),
   /** Unread in-app notifications, marked read by this same call. */
   notifications: () => call<{ notifications: AppNotification[] }>('notifications'),
 
-  decide: (payload: { targetId: number; decision: SelectionDecision }) => call<SelectionRow>('decide', payload),
-  revokeSelection: (payload: { targetId: number }) => call<SelectionRow>('revokeSelection', payload),
+  decide: (payload: { targetId: number; decision: SelectionDecision }) =>
+    call<SelectionRow>('decide', payload),
+  revokeSelection: (payload: { targetId: number }) =>
+    call<SelectionRow>('revokeSelection', payload),
   matches: () => call<{ matches: MatchRow[] }>('matches'),
   /** Every pair the caller is part of (matched, pending either way, passed) — see `MatchOverviewRow`. */
   matchOverview: () => call<{ selections: MatchOverviewRow[] }>('matchOverview'),
@@ -562,7 +634,8 @@ export const api = {
   /** One guest or guide by id, never with contact details — both public profile pages. */
   publicProfile: (userId: number) => call<PublicProfile>('publicProfile', { userId }),
   /** A page of someone's reviews (`limit` ≤ `REVIEWS_PAGE_SIZE`) with the summary and the caller's `viewer` state. */
-  reviews: (payload: { userId: number; limit?: number; offset?: number }) => call<ReviewsPage>('reviews', payload),
+  reviews: (payload: { userId: number; limit?: number; offset?: number }) =>
+    call<ReviewsPage>('reviews', payload),
   /** Creates or edits the caller's review of `subjectId` — only after a finished trip together. */
   submitReview: (payload: SubmitReviewPayload) => call<Review>('submitReview', payload),
   deleteReview: (payload: { reviewId: number }) => call<{ ok: true }>('deleteReview', payload),

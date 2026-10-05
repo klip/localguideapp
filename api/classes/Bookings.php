@@ -26,6 +26,11 @@
  * (`sweep()`); a booking missing either needs one side to ask and the other to
  * confirm (`requestFinish()`/`confirmFinish()`).
  *
+ * A booking that was ever confirmed is a *trip* — `tripsFor()` lists them
+ * for `TripsPage.vue`, split into scheduled, current and past (finished or
+ * cancelled). Cancelling a confirmed trip, by either side, dissolves the
+ * match on both sides, so each reappears in the other's discovery deck.
+ *
  * All date-times are UTC.
  */
 class Bookings
@@ -42,6 +47,7 @@ class Bookings
     private const MAX_BOOKING_AHEAD_SECONDS = 366 * 24 * 3600;
     private const MIN_DURATION_HOURS = 0.5;
     private const MAX_DURATION_HOURS = 24;
+    private const MAX_LOCATION_LENGTH = 160;
 
     /** @var db */
     private $db;
@@ -97,12 +103,12 @@ class Bookings
             $this->notifications->notify(
                 (int) $guide['id'],
                 'booking_free',
-                "You matched with {$guestName}. Their contact details are on your Matches page.",
+                "You matched with {$guestName}. Your trip and their contact details are on your My trips page.",
                 "New match: {$guestName}",
                 self::greeting($guide)
                 . "You and {$guestName} are a match. You don't charge a fee, so your contact details have been shared with each other.\n\n"
                 . self::contactBlock($guest)
-                . "\nGet in touch to arrange the tour. When it's over, mark the trip finished on your Matches page.\n\nRockGuide"
+                . "\nGet in touch to arrange the tour. When it's over, mark the trip finished on your My trips page.\n\nRockGuide"
             );
         }
     }
@@ -138,10 +144,11 @@ class Bookings
     /**
      * The guest pays the guide's fee for an active match. `$meetingAt` is an
      * ISO 8601 date-time (the client sends UTC) in the future; `$durationHours`
-     * is optional — with it, the trip finishes on its own. The booking waits
-     * for the guide to accept it. Returns the new booking.
+     * is optional — with it, the trip finishes on its own; so is `$location`,
+     * a short description of where to meet. The booking waits for the guide
+     * to accept it. Returns the new booking.
      */
-    public function pay(int $guestId, int $guideId, string $meetingAt, $durationHours = null): array
+    public function pay(int $guestId, int $guideId, string $meetingAt, $durationHours = null, string $location = ''): array
     {
         $selection = $this->activeSelection($guestId, $guideId);
 
@@ -155,6 +162,7 @@ class Bookings
 
         $meeting = self::parseMeeting($meetingAt);
         $duration = self::parseDuration($durationHours);
+        $location = self::parseLocation($location);
 
         $fields = [
             'selection_id' => (int) $selection['id'],
@@ -167,6 +175,9 @@ class Bookings
         ];
         if ($duration !== null) {
             $fields['duration_hours'] = (string) $duration;
+        }
+        if ($location !== null) {
+            $fields['location'] = $location;
         }
 
         $id = $this->db->db_Insert('bookings', $fields);
@@ -187,7 +198,8 @@ class Bookings
             "{$guestName} wants to book you for {$when}",
             self::greeting($this->user($guideId))
             . "{$guestName} has paid your fee of {$amount} for a tour on {$when}"
-            . ($duration !== null ? " ({$duration} hours)" : '') . ".\n\n"
+            . ($duration !== null ? " ({$duration} hours)" : '') . ".\n"
+            . ($location !== null ? "Meeting place: {$location}\n" : '') . "\n"
             . "Accept it on your Matches page to confirm the date — you'll both see each other's contact details then. "
             . "If you can't make it, decline and they're refunded in full. If you don't answer before the meeting time, it's declined automatically.\n\nRockGuide"
         );
@@ -212,7 +224,7 @@ class Bookings
         $this->notifications->notify(
             $guestId,
             'booking_accepted',
-            "{$guideName} confirmed your booking for {$when}. Their contact details are on your Matches page.",
+            "{$guideName} confirmed your booking for {$when}. Their contact details are on your My trips page.",
             "{$guideName} confirmed your booking",
             self::greeting($this->user($guestId))
             . "{$guideName} has confirmed your tour on {$when}.\n\n"
@@ -262,6 +274,40 @@ class Bookings
             "{$guestName} withdrew their booking request",
             self::greeting($this->user($guideId))
             . "{$guestName} withdrew their booking request for " . self::formatMeeting($booking['meeting_at']) . ". Nothing more to do.\n\nRockGuide"
+        );
+
+        return $this->find($booking['id']);
+    }
+
+    /**
+     * Either side sets (or clears, with an empty string) where an open
+     * booking's trip meets. The other side is told.
+     */
+    public function setLocation(int $actingUserId, int $guestId, int $guideId, string $location): array
+    {
+        $booking = $this->openFor($guestId, $guideId);
+        if (!$booking) {
+            throw new RuntimeException('There is no upcoming trip to set a meeting place for.');
+        }
+        $location = self::parseLocation($location);
+
+        $this->db->db_Execute(
+            'UPDATE `bookings` SET `location` = '
+            . ($location === null ? 'NULL' : '"' . $this->db->db_Escape($location) . '"')
+            . ' WHERE `id` = ' . $booking['id']
+        );
+
+        $otherId = $actingUserId === $guestId ? $guideId : $guestId;
+        $actorName = self::nameOf($this->user($actingUserId), 'Your match');
+        $message = $location === null
+            ? "{$actorName} removed the meeting place for your trip on " . self::formatMeeting($booking['meeting_at']) . '.'
+            : "{$actorName} set the meeting place for your trip on " . self::formatMeeting($booking['meeting_at']) . ": {$location}";
+        $this->notifications->notify(
+            $otherId,
+            'trip_location',
+            $message,
+            "{$actorName} updated your trip's meeting place",
+            self::greeting($this->user($otherId)) . $message . "\n\nRockGuide"
         );
 
         return $this->find($booking['id']);
@@ -350,13 +396,13 @@ class Bookings
         $this->notifications->notify(
             $guideId,
             'cancel_requested',
-            "{$guestName} asked to cancel " . self::formatMeeting($booking['meeting_at']) . ". Approve or refuse it on your Matches page.",
+            "{$guestName} asked to cancel " . self::formatMeeting($booking['meeting_at']) . ". Approve or refuse it on your My trips page.",
             "{$guestName} asked to cancel their booking",
             self::greeting($this->user($guideId))
             . "{$guestName} has asked to cancel their tour on " . self::formatMeeting($booking['meeting_at']) . ".\n"
             . "Their reason: {$reason}\n\n"
             . "If you approve, they're refunded {$refund} (the fee minus " . self::percent(self::GUEST_CANCEL_FEE_RATE) . "). "
-            . "If you refuse, the booking stands. Answer on your Matches page.\n\nRockGuide"
+            . "If you refuse, the booking stands. Answer on your My trips page.\n\nRockGuide"
         );
 
         return $this->find($booking['id']);
@@ -434,7 +480,8 @@ class Bookings
 
     /**
      * The guest walks away from a *free* booking (they unmatched). A paid one
-     * can't be dropped this way — see `Selections::revoke()`. The guide is told.
+     * can't be dropped this way — see `Selections::revoke()`. Like any other
+     * cancelled trip, the match is dissolved on both sides; the guide is told.
      */
     public function cancelFreeByGuest(int $guestId, int $guideId): void
     {
@@ -444,6 +491,7 @@ class Bookings
         }
 
         $this->close($booking, 'cancelled', null, 'Cancelled by the visitor');
+        $this->dissolveMatch($booking);
 
         $guestName = self::nameOf($this->user($guestId), 'A visitor');
         $this->notifications->notify(
@@ -488,10 +536,10 @@ class Bookings
         $this->notifications->notify(
             $otherId,
             'finish_requested',
-            "{$actorName} marked your trip as finished. Confirm it on your Matches page.",
+            "{$actorName} marked your trip as finished. Confirm it on your My trips page.",
             "{$actorName} marked your trip as finished",
             self::greeting($this->user($otherId))
-            . "{$actorName} says your trip together is over. Confirm it on your Matches page — then you can both leave a review.\n\nRockGuide"
+            . "{$actorName} says your trip together is over. Confirm it on your My trips page — then you can both leave a review.\n\nRockGuide"
         );
 
         return $this->find($booking['id']);
@@ -535,7 +583,7 @@ class Bookings
                 "{$actorName} says your trip isn’t over yet.",
                 "{$actorName} says your trip isn't over yet",
                 self::greeting($this->user($requester))
-                . "{$actorName} didn't confirm that your trip is finished. Ask again from your Matches page once it is.\n\nRockGuide"
+                . "{$actorName} didn't confirm that your trip is finished. Ask again from your My trips page once it is.\n\nRockGuide"
             );
         }
 
@@ -601,6 +649,88 @@ class Bookings
             $this->markFinished($booking);
             $this->notifyFinished($booking);
         }
+    }
+
+    // ---------------------------------------------------------------- trips
+
+    /**
+     * Every trip `$userId` (a guest or guide, per `$role`) has had: bookings
+     * that were confirmed at some point — `confirmed` ones, and `cancelled`
+     * ones that had been accepted. Pending/declined/withdrawn requests aren't
+     * trips; they stay on the Matches page.
+     *
+     * Each row is tagged with a `phase`:
+     *   scheduled — confirmed, not started yet (a free trip with no meeting
+     *               time stays here until it's marked finished)
+     *   current   — confirmed, started
+     *   past      — finished, or cancelled
+     *
+     * Rows use the same field names as `Selections::getOverview()` for the
+     * booking (`booking_status`, `booking_amount`, …) so `BookingPanel.vue`
+     * can drive either. Contact details are only included while the trip is
+     * confirmed and the pair still matched. `is_latest` marks the pair's most
+     * recent booking — the only one that may offer "Book again".
+     */
+    public function tripsFor(int $userId, ?string $role): array
+    {
+        if ($role === 'guest') {
+            [$own, $their] = ['guest', 'guide'];
+        } elseif ($role === 'guide') {
+            [$own, $their] = ['guide', 'guest'];
+        } else {
+            return [];
+        }
+
+        $this->ensureFreeBookingsFor($userId);
+
+        $rows = $this->db->db_GetArray(
+            'SELECT b.`id`, b.`selection_id`, b.`' . $their . '_id` AS `counterpart_id`,
+                    b.`status` AS `booking_status`, b.`payment_status`, b.`amount` AS `booking_amount`,
+                    b.`meeting_at`, b.`duration_hours` AS `booking_duration_hours`, b.`location`,
+                    b.`refund_amount`, b.`trip_status`, b.`accepted_at`,
+                    b.`cancel_reason`, b.`cancelled_at`, b.`cancel_requested_at`, b.`cancel_request_reason`,
+                    b.`finish_requested_by`, b.`finished_at`,
+                    s.`active`, s.`matched_at`,
+                    u.`name`, u.`image`,
+                    IF(b.`status` = "confirmed" AND s.`active` = 1, u.`email`, NULL) AS `email`,
+                    IF(b.`status` = "confirmed" AND s.`active` = 1, u.`phone`, NULL) AS `phone`,
+                    COALESCE(gp.`price_amount`, 0) AS `fee_amount`,
+                    b.`id` = (SELECT MAX(bb.`id`) FROM `bookings` bb WHERE bb.`selection_id` = b.`selection_id`) AS `is_latest`
+             FROM `bookings` b
+             JOIN `selections` s ON s.`id` = b.`selection_id`
+             JOIN `users` u ON u.`id` = b.`' . $their . '_id`
+             LEFT JOIN `user_profiles` gp ON gp.`user_id` = b.`guide_id`
+             WHERE b.`' . $own . '_id` = ' . $userId . '
+               AND b.`accepted_at` IS NOT NULL AND b.`status` IN ("confirmed", "cancelled")
+             ORDER BY COALESCE(b.`meeting_at`, b.`accepted_at`) DESC, b.`id` DESC'
+        );
+
+        foreach ($rows as &$row) {
+            foreach (['id', 'selection_id', 'counterpart_id', 'active'] as $key) {
+                $row[$key] = (int) $row[$key];
+            }
+            $row['is_latest'] = (bool) $row['is_latest'];
+            $row['fee_amount'] = (float) $row['fee_amount'];
+            $row['booking_amount'] = (float) $row['booking_amount'];
+            $row['refund_amount'] = $row['refund_amount'] === null ? null : (float) $row['refund_amount'];
+            $row['booking_duration_hours'] = $row['booking_duration_hours'] === null ? null : (float) $row['booking_duration_hours'];
+            $row['finish_requested_by'] = $row['finish_requested_by'] === null
+                ? null
+                : ((int) $row['finish_requested_by'] === $userId ? 'me' : 'them');
+            $row['auto_finish'] = self::finishesAutomatically(['meeting_at' => $row['meeting_at'], 'duration_hours' => $row['booking_duration_hours']]);
+
+            $open = $row['booking_status'] === 'confirmed' && $row['trip_status'] !== 'finished';
+            $row['phase'] = !$open ? 'past' : ($row['trip_status'] === 'started' ? 'current' : 'scheduled');
+
+            $paidAndOpen = $open && $row['payment_status'] === 'paid';
+            $row['refund_if_cancelled'] = $own === 'guide' && $paidAndOpen
+                ? $this->refundAmount(['amount' => $row['booking_amount'], 'meeting_at' => $row['meeting_at']], $row['matched_at'])
+                : null;
+            $row['refund_if_guest_cancels'] = $paidAndOpen ? $this->guestCancelRefund(['amount' => $row['booking_amount']]) : null;
+        }
+        unset($row);
+
+        return $rows;
     }
 
     // ---------------------------------------------------------------- money
@@ -793,6 +923,20 @@ class Bookings
         }
 
         return $hours;
+    }
+
+    /** Trimmed, single-spaced, at most `MAX_LOCATION_LENGTH` characters; `null` when empty. */
+    private static function parseLocation(string $value): ?string
+    {
+        $value = trim((string) preg_replace('/\s+/u', ' ', $value));
+        if ($value === '') {
+            return null;
+        }
+        if (mb_strlen($value) > self::MAX_LOCATION_LENGTH) {
+            throw new RuntimeException('Keep the meeting place short — ' . self::MAX_LOCATION_LENGTH . ' characters at most.');
+        }
+
+        return $value;
     }
 
     private static function reason(string $reason): string

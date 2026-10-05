@@ -43,8 +43,8 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
 - **A guide who charges a fee isn't notified when a visitor completes the
   match** — only when that visitor then pays (`booking_paid`), or, for a
   free guide, on the match itself (`booking_free`). See "In-app
-  notifications" below. The match does show up on `/matches` either way;
-  there's no nav badge/count yet.
+  notifications" below. The match does show up on `/matches` (or, once
+  confirmed, `/trips`) either way; there's no nav badge/count yet.
 - **No scheduler**: pending bookings expiring, trips starting and trips
   finishing on their own all happen in `Bookings::sweep()`, which runs at
   the start of every API request. On a quiet server a trip is marked
@@ -95,7 +95,7 @@ otherwise harmless-looking mocks fail lint.
 `src/__tests__/` holds Vitest + `@vue/test-utils` component tests
 (`App.spec.ts`, `AppHeader.spec.ts` — the mobile drawer's open/close/focus
 behavior, `RegisterPage.spec.ts`, `ProfilePage.spec.ts`,
-`MatchesPage.spec.ts`, `FilterPanel.spec.ts` — the generic filter store and
+`MatchesPage.spec.ts`, `TripsPage.spec.ts`, `BookingPanel.spec.ts`, `FilterPanel.spec.ts` — the generic filter store and
 the category-then-values bar built on it, `Reviews.spec.ts` — the review
 section, its "Show all" modal and the write/edit form,
 `VisitorProfilePage.spec.ts`) plus one
@@ -123,7 +123,7 @@ into the next test's fresh `Pinia` instance.
 
 - `src/pages/` — one component per route (Home, Register, Login, Unlock,
   Discover, GuideProfile, VisitorProfile, Shortlist, GuideDiscover,
-  Matches, Profile, NotFound).
+  Matches, Trips, Profile, NotFound).
 - `src/router/index.ts` — documents the mapping from the original static
   prototype's scroll sections to routes; read the comment there before adding
   routes.
@@ -228,6 +228,9 @@ path/name table) and the shared `src/components/` each is built from:
   `revokeSelection()`).
 - **`MatchesPage.vue`** (`/matches`) — match management for both roles
   (see "Match management" below); `SectionTitle`, `PanelCard`, `PillBadge`.
+- **`TripsPage.vue`** (`/trips`) — confirmed trips for both roles,
+  scheduled / in progress / past (see "My trips" below); `SectionTitle`,
+  a `PanelCard` per trip, `PillBadge`, `BookingPanel`.
 - **`ProfilePage.vue`** (`/profile`) — the self-service account/profile
   editor (see "Self-service profile editing" below); `PanelCard` × 2,
   `AttributeCombobox` (the phone country-code field, and the whole dynamic
@@ -413,12 +416,13 @@ own — every one just takes props/emits):
 
 ### Mobile burger menu (`AppHeader.vue`)
 
-Below `md` (760px — `DESKTOP_QUERY` in the component must match
-`breakpoints.$md`) the nav collapses to the logo plus a burger button; the
+Below `lg` (1024px — `DESKTOP_QUERY` in the component must match
+`breakpoints.$lg`; it was `md`/760px until "My trips" made a guest's row 7
+items) the nav collapses to the logo plus a burger button; the
 links open in a drawer that slides in from the right over a dimmed
 backdrop. **It's one `.drawer` element styled two ways, not two copies of
 the nav:** mobile-first CSS makes it a `position: fixed` off-canvas panel,
-and `@include bp.md` resets it to the old inline row. Add new nav items
+and `@include bp.lg` resets it to the old inline row. Add new nav items
 once, inside `.drawer > ul.nav`.
 
 - **Log out's position is a requirement, not an accident**: it is always the
@@ -427,7 +431,7 @@ once, inside `.drawer > ul.nav`.
   The `account` class carries it: `margin-top: auto` plus `position: sticky;
   bottom: 0` (on the drawer's `--rg-surface` background) so it stays on
   screen even when the links overflow a short viewport, and `margin-left:
-  auto` with `position: static` in the `bp.md` block for the desktop row.
+  auto` with `position: static` in the `bp.lg` block for the desktop row.
   Keep the desktop block's `position`/`background` resets if you touch the
   mobile rule — without them the drawer's sticky/opaque styling leaks into
   the top bar.
@@ -441,12 +445,9 @@ once, inside `.drawer > ul.nav`.
 - While open: `body` scroll is locked, focus moves into the drawer and Tab
   cycles inside it. Escape or the ✕ closes it and puts focus back on the
   burger. The backdrop, any link click (even to the current route), a route
-  change, or widening past `md` also close it.
-- A "Signed in as …" line shows only in the drawer. A "Matches" link
-  (`/matches`) sits next to "Profile" whenever `isAuthenticated`.
-- At 760–800px the desktop row is tight for a guest (6 items including the
-  picks pill) but fits. Adding another item there probably needs the
-  breakpoint moved up.
+  change, or widening past `lg` also close it.
+- A "Signed in as …" line shows only in the drawer. "Matches" (`/matches`)
+  and "My trips" (`/trips`) sit before "Profile" whenever `isAuthenticated`.
 
 ### Match management (`MatchesPage.vue`, `/matches`)
 
@@ -457,7 +458,7 @@ sorts every pair into four tabs:
 
 | Tab | Condition | Actions |
 | --- | --- | --- |
-| Matched | `active = 1` | email/phone shown (`mailto:`/`tel:`) **once a booking is confirmed**; everything about the booking is `BookingPanel.vue` (see "Guide fees & bookings"); **Unmatch** → `revokeSelection` only when nothing is booked (or a guest leaving a free guide) |
+| Matched | `active = 1` and the latest booking isn't `confirmed` (nothing booked, or a payment waiting on the guide) | paying and accepting/declining are `BookingPanel.vue` (see "Guide fees & bookings"); **Unmatch** → `revokeSelection` unless a booking is pending |
 | Likes you | they're `interested`, you haven't decided | **Accept** → `decide('interested')`, **Pass** → `decide('pass')` |
 | Awaiting reply | you're `interested`, not active | **Withdraw** → `revokeSelection` (gives a guest their pick back) |
 | Passed | you passed | **Reconsider** → `decide('interested')` |
@@ -476,23 +477,66 @@ sorts every pair into four tabs:
   into "Unlock…" links to `/unlock`. Every guest action is mirrored into
   `shortlist` (`pick`/`pass`/`remove`), so the header's pick counter and
   the `/discover` deck stay consistent within the session.
+- **A pair whose latest booking is `confirmed` isn't on this page at all**
+  (`isTrip()`) — upcoming, under way or finished, it's a trip and lives on
+  `/trips`; the toolbar shows "N confirmed trips · My trips". A free guide's
+  match is confirmed the moment it forms, so it goes straight there. "Book
+  again" after a finished trip is on the trip card; the new payment brings
+  the pair back here as pending until the guide accepts.
 - This is where a guide finds a match the visitor completed (see the gap
   under "Progress so far"). `ShortlistPage.vue`'s "Confirmed matches" panel
   still exists and now links here.
+
+### My trips (`TripsPage.vue`, `/trips`)
+
+Every booking that was ever confirmed, for both roles (`api.trips()` →
+`Bookings::tripsFor()`: `confirmed`, or `cancelled` with `accepted_at` set —
+pending/declined/withdrawn requests aren't trips). Three tabs by the row's
+server-computed `phase`:
+
+| Tab | `phase` | Means |
+| --- | --- | --- |
+| Scheduled | `scheduled` | confirmed, `trip_status = 'pending'` (a free trip with no date stays here until finished) — soonest first |
+| In progress | `current` | confirmed, `trip_status = 'started'` |
+| Past | `past` | finished, or cancelled |
+
+- Opens on In progress, else Scheduled, else Past; a clicked tab sticks.
+- Each card: the counterpart's name linking to `/guides/:id` or
+  `/visitors/:id`, date, duration, location, price ("£X paid"/"£X fee",
+  "Free", "· £Y refunded"), contact details while confirmed and still
+  matched, the cancel reason on a cancelled trip, a review link on a
+  finished one. Missing values read "Date to be arranged" / "Length not set"
+  / "Meeting place not set yet".
+- Actions are the same `BookingPanel` as on Matches, with `:summary="false"`
+  (the card shows the date/price itself) and `:allow-booking="is_latest"`
+  (only the pair's most recent trip offers "Book again"). Cancelled trips
+  get no panel.
+- **Cancelling a trip dissolves the match on both sides** (both decisions
+  back to `NULL`) — guide cancel, an approved guest request, *and* a guest
+  cancelling a free trip (`Bookings::cancelFreeByGuest()`, which used to
+  clear only the guest's side). So each is back in the other's discovery
+  deck, gone from `/matches`, and the trip stays under Past. Every load also
+  re-syncs a guest's `shortlist` from `api.paymentState()`, since a cancel
+  hands the pick back.
+- `TripRow` reuses `MatchOverviewRow`'s booking field names
+  (`booking_status`, `booking_amount`, …) — the shared subset is the
+  `BookingView` type `BookingPanel` takes — but `id` is the *booking's*.
+- Date/money formatting for both is in `src/utils/bookingTime.ts`.
 
 ### Guide fees & bookings
 
 Contact details are what a guide sells, so a match alone no longer reveals
 them — to **either** side. A **confirmed booking** (`bookings`,
 `Bookings.php`) does. All of it is driven from `BookingPanel.vue`, which sits
-under every row on `/matches`' Matched tab and emits `changed` after each
-step so the page re-fetches the overview.
+under every row on `/matches`' Matched tab (until the booking is confirmed)
+and under every non-cancelled card on `/trips` (after), and emits `changed`
+after each step so the page re-fetches.
 
 **Lifecycle of a paid booking** (guide with `user_profiles.price_amount > 0`):
 
 | Status | How it gets there | What each side can do |
 | --- | --- | --- |
-| *(none)* | matched, nothing booked | guest: **Pay £X** — meeting date-time + optional trip length (0.5–24 h) → `payGuideFee` |
+| *(none)* | matched, nothing booked | guest: **Pay £X** — meeting date-time + optional trip length (0.5–24 h) + optional meeting place → `payGuideFee` |
 | `pending` | guest paid | guide: **Accept** → `confirmed` (contact unlocks) or **Decline** (optional reason) → `declined`, full refund. Guest: **Withdraw payment** → `withdrawn`, full refund. Nobody answers before the meeting time → `sweep()` declines it, full refund. The match survives all of these, so the guest can try another time. |
 | `confirmed` | guide accepted | guide: **Cancel booking** → `cancelled`, fee refunded **+5% if late**. Guest: **Request cancellation** (reason required, only before the trip starts) → guide **Approves** → `cancelled`, refund **fee − 5%**; or **Refuses** → booking stands. Guest can withdraw their request. Either cancel dissolves the match on both sides, which returns the guest's pick. |
 | trip `started` | meeting time passed (`sweep()`) | a guide on a started trip is **hidden from the visitor deck** until the trip's end (or 12 h, if no length). |
@@ -518,17 +562,22 @@ step so the page re-fetches the overview.
   `Bookings::onMatched()`), no payment, no acceptance, no meeting time, so
   it always finishes through the two-sided button. Matches made before
   bookings existed are backfilled silently by
-  `Bookings::ensureFreeBookingsFor()`. The guest can unmatch a free booking
-  (the guide is told).
+  `Bookings::ensureFreeBookingsFor()`. The guest can cancel a free trip
+  ("Cancel trip" on the trip card → `revokeSelection`); the guide is told
+  and the match dissolves on both sides.
+- **Meeting place** (`bookings.location`, ≤160 chars, free text): optional
+  when paying; either side can set, change or clear it while the booking is
+  open (`bookingAction` op `setLocation` + `location`), and the other side
+  is notified (`trip_location`).
 - **Unmatching a booked pair** is otherwise refused by `Selections::revoke()`
   — decline/withdraw a pending one, cancel a confirmed one. `BookingPanel`
   and `MatchesPage`'s `canUnmatch()` mirror those rules so the buttons
   don't offer what the server would refuse.
 - **One endpoint for every step but paying and the guide's cancel**:
-  `api.bookingAction({ targetId, op, reason? })`, `op` one of
+  `api.bookingAction({ targetId, op, reason?, location? })`, `op` one of
   `accept | decline | withdraw | requestCancellation | withdrawCancellation |
   approveCancellation | refuseCancellation | requestFinish | confirmFinish |
-  dismissFinish`. `RequestProcessor::actionBooking()` checks the caller's
+  dismissFinish | setLocation`. `RequestProcessor::actionBooking()` checks the caller's
   role per op; `Bookings` checks the booking's state.
 - **`Bookings::sweep()`** runs at the start of every request
   (`RequestProcessor::sweepBookings()`, never allowed to fail the request):
@@ -548,7 +597,9 @@ email) are what a user hears about while they weren't looking — currently
 `booking_requested`, `booking_accepted`, `booking_declined`,
 `booking_withdrawn`, `booking_expired`, `booking_free`, `booking_cancelled`,
 `cancel_requested`, `cancel_request_withdrawn`, `cancel_approved`,
-`cancel_refused`, `finish_requested`, `finish_refused`, `trip_finished`. There's no push
+`cancel_refused`, `finish_requested`, `finish_refused`, `trip_finished`,
+`trip_location`. Copy about a confirmed trip points to "My trips", copy
+about a pending request to "Matches". There's no push
 channel: `App.vue` pulls them (`api.notifications()`) at boot and on every
 route change, throttled to once per 15s, and shows each as a 10s info toast;
 the server marks them read in the same call, so each shows once. The
@@ -1215,9 +1266,10 @@ unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 | `decide` | **yes** | `api.decide(payload)` | `targetId, decision` (`'interested' \| 'pass'`) | `SelectionRow` (`id, guest_id, guide_id, guest_decision, guide_decision, active, created_at, updated_at`) | `Selections::decide()` |
 | `revokeSelection` | **yes** | `api.revokeSelection(payload)` | `targetId` | `SelectionRow` | `Selections::revoke()` |
 | `matches` | **yes** | `api.matches()` | — | `{ matches: MatchRow[] }` (`id, counterpart_id, name, email` — `email` `null` until booked) | `Selections::getActiveMatches()` |
-| `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, email, phone, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
-| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year), `durationHours?` (0.5–24) | `Booking` (`status: 'pending'` — waits for the guide) | `actionPayGuideFee()` → `Bookings::pay()` |
-| `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/…` |
+| `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, email, phone, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, location, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
+| `trips` | **yes** | `api.trips()` | — | `{ trips: TripRow[] }` (booking `id`, `selection_id, counterpart_id, phase, is_latest, name, image, email, phone, active, fee_amount, booking_status, payment_status, booking_amount, meeting_at, booking_duration_hours, location, refund_amount, trip_status, accepted_at, cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason, finish_requested_by, finished_at, matched_at, auto_finish, refund_if_cancelled, refund_if_guest_cancels` — newest first) | `Bookings::tripsFor()` |
+| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year), `durationHours?` (0.5–24), `location?` (≤160 chars) | `Booking` (`status: 'pending'` — waits for the guide) | `actionPayGuideFee()` → `Bookings::pay()` |
+| `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation), `location?` (setLocation; empty clears) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/setLocation()/…` |
 | `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
 | `notifications` | **yes** | `api.notifications()` | — | `{ notifications: AppNotification[] }` (`id, kind, message, created_at`) — marked read by this call | `Notifications::takeUnread()` |
 | `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
@@ -1345,7 +1397,8 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   `dismissFinish()`; `sweep()` (the clock-driven transitions);
   `cancelFreeByGuest()`, `onMatched()`/`ensureFreeBookingsFor()` (free
   guides); `refundAmount()` (guide cancel, +5% late) and
-  `guestCancelRefund()` (fee − 5%); `openFor()`. Owns the booking emails'
+  `guestCancelRefund()` (fee − 5%); `openFor()`; `setLocation()`;
+  `tripsFor()` (the `/trips` list — see "My trips"). Owns the booking emails'
   wording. See "Guide fees & bookings".
 - `api/classes/Notifications.php` — `notify()` (a `notifications` row +
   an email to the user) and `takeUnread()` (fetch-and-mark-read).
@@ -1508,6 +1561,10 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   the two-sided finish (`finish_requested_by`, `finish_requested_at`,
   `finished_at`); `open_pair` rebuilt so a pending booking counts as open.
   Applied 2026-09-30. Not re-runnable.
+- `api/sql/015_trip_location.sql` — `bookings.location` (VARCHAR(160),
+  nullable), and `accepted_at = created_at` for bookings cancelled before
+  014 (back then every booking was born confirmed), so `accepted_at IS NOT
+  NULL` identifies a trip. Applied 2026-10-05. Not re-runnable.
 
 There is no test setup, linter, or formatter configured for `api/` yet;
 `docker exec lemp-php php -l <file>` is the only current check.
@@ -1585,7 +1642,7 @@ There is no test setup, linter, or formatter configured for `api/` yet;
   guest's interests. **Every** category is filterable — nothing is
   special-cased by key any more.
 - `bookings` (id, selection_id, guest_id, guide_id, amount, meeting_at,
-  duration_hours, status `pending|confirmed|declined|withdrawn|cancelled`,
+  duration_hours, location, status `pending|confirmed|declined|withdrawn|cancelled`,
   payment_status `none|paid|refunded`, accepted_at, refund_amount,
   cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason,
   trip_status `pending|started|finished`, finish_requested_by,
