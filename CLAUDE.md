@@ -1208,8 +1208,23 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
   at most 3 emails per account per hour (more are silently dropped).
 - **`resetPassword`** (`ResetPasswordPage.vue`, `/reset-password?token=`):
   sets the password, spends every open challenge for the account, deletes
-  all its sessions, emails a "password was changed" notice. The page
-  clears the local session too and routes to `/login`.
+  all its sessions *and* trusted devices, emails a "password was changed"
+  notice. The page clears the local session too and routes to `/login`.
+- **Remembered devices** (`trusted_devices`, 017): the code step has a
+  "Don't ask for a code on this device for 30 days" checkbox
+  (`verifyTwoFactor` with `rememberDevice: true` → the `AuthResult` also
+  carries `deviceToken` + `trustedUntil`). The browser keeps the token per
+  email in `localStorage` (`rockguide.trustedDevices`,
+  `src/utils/trustedDevice.ts` — kept out of `rockguide.session`), and
+  `login` sends it as `deviceToken`. The server checks it only *after* the
+  password matched, and only for that account
+  (`AccountSecurity::isTrustedDevice()`), so it skips the code, never the
+  password. The 30 days are fixed from when it was ticked — using it
+  doesn't extend them. Max 10 devices per account (oldest dropped).
+  A login that sent a token but still gets a challenge drops the stale token
+  locally. `myProfile` returns `trusted_device_count`; the profile page shows
+  it with a "Forget all devices" button (`forgetTrustedDevices`). A
+  password *change* leaves devices trusted; a *reset* forgets them.
 - **`APP_URL`** (fastcgi param, defaults to `http://localhost:5173`) is
   where email links point. It's read from the server environment, never
   from the request's Origin/Host — those are attacker-controlled and would
@@ -1303,15 +1318,16 @@ unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 | Action | Auth | Frontend call | Request fields (beyond `sessionHash`) | Response | Backend |
 | --- | --- | --- | --- | --- | --- |
 | `register` | no | `api.register(payload)` | `email, password, role, name?, image?` | `AuthResult` (`id, email, role, sessionHash`) | `actionRegister()` → `Users::register()`, `Session::create()` |
-| `login` | no | `api.login(payload)` | `email, password` | `AuthResult` (`id, email, name, role, sessionHash`), or a `TwoFactorChallenge` for a 2FA account | `actionLogin()` → `Users::verifyCredentials()`, then `AccountSecurity::startLogin()` or `signIn()` |
-| `verifyTwoFactor` | no | `api.verifyTwoFactor(payload)` | `challengeToken, code` | `AuthResult` | `AccountSecurity::verifyLogin()`, `signIn()` |
+| `login` | no | `api.login(payload)` | `email, password, deviceToken?` | `AuthResult` (`id, email, name, role, sessionHash`), or a `TwoFactorChallenge` for a 2FA account | `actionLogin()` → `Users::verifyCredentials()`, then `AccountSecurity::startLogin()` or `signIn()` |
+| `verifyTwoFactor` | no | `api.verifyTwoFactor(payload)` | `challengeToken, code, rememberDevice?` | `AuthResult` (+ `deviceToken, trustedUntil` when remembering) | `AccountSecurity::verifyLogin()`, `signIn()`, `trustDevice()` |
+| `forgetTrustedDevices` | **yes** | `api.forgetTrustedDevices()` | — | `{ ok: true }` | `AccountSecurity::forgetTrustedDevices()` |
 | `resendTwoFactor` | no | `api.resendTwoFactor(payload)` | `challengeToken` | `TwoFactorChallenge` | `AccountSecurity::resendLoginCode()` |
 | `requestPasswordReset` | no | `api.requestPasswordReset(payload)` | `email` | `{ ok: true }` always | `AccountSecurity::requestPasswordReset()` |
 | `resetPassword` | no | `api.resetPassword(payload)` | `token, newPassword` (≥8) | `{ ok: true }` | `AccountSecurity::resetPassword()` |
 | `guides` | optional* | `api.guides(filters?, includeDecided?)` | `gender?, attributes?, ranges?, ageRanges?, includeDecided?` | `{ guides: ProfileAccount[] }` | `Users::searchByRole('guide', ...)` |
 | `visitors` | optional* | `api.visitors(filters?, includeDecided?)` | same filter shape as `guides` | `{ visitors: ProfileAccount[] }` | `Users::searchByRole('guest', ...)` |
 | `attributeCategories` | no | `api.attributeCategories()` | — | `{ categories: AttributeCategory[] }` | `Profiles::getCategories()` |
-| `myProfile` | **yes** | `api.myProfile()` | — | `MyProfile` | `Users::getFullAccount()` |
+| `myProfile` | **yes** | `api.myProfile()` | — | `MyProfile` (+ `trusted_device_count`) | `Users::getFullAccount()`, `AccountSecurity::trustedDeviceCount()` |
 | `updateProfile` | **yes** | `api.updateProfile(payload)` | `dateOfBirth?, gender?, headline?, bio?, priceAmount?, priceLabel?, priceNote?, includes?, party?, durationHours?, attributes?, newCategoryLabels?, ranges?` — every field independent (no `rating`/`tours` since 013) | `{ ok: true }` | `actionUpdateProfile()` → `Profiles::setProfile()`/`setAttributeValues()`/`setRanges()` |
 | `updateAccount` | **yes** | `api.updateAccount(payload)` | `name?, email?, phone?, twoFactorMethod?, image?` | `{ ok: true }` | `actionUpdateAccount()` → `Users::updateAccount()` (+ inline email/2FA validation) |
 | `changePassword` | **yes** | `api.changePassword(payload)` | `currentPassword, newPassword` | `{ ok: true }` | `actionChangePassword()` → `Users::verifyPasswordFor()`/`setPassword()` |
@@ -1617,6 +1633,8 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   the two-sided finish (`finish_requested_by`, `finish_requested_at`,
   `finished_at`); `open_pair` rebuilt so a pending booking counts as open.
   Applied 2026-09-30. Not re-runnable.
+- `api/sql/017_trusted_devices.sql` — `trusted_devices` ("remember this
+  device" for 2FA). Applied 2026-10-08. Re-runnable.
 - `api/sql/016_auth_challenges.sql` — `auth_challenges`, and every
   `two_factor_method` of `sms`/`whatsapp` set to `email`. Applied
   2026-10-05. Re-runnable.
@@ -1715,6 +1733,9 @@ There is no test setup, linter, or formatter configured for `api/` yet;
 - `reviews` (id, booking_id, author_id, subject_id, rating, comment,
   created_at, updated_at) — unique on (booking_id, author_id); see
   "Reviews" above.
+- `trusted_devices` (id, user_id, token_hash unique, user_agent,
+  created_at, expires_at, last_used_at) — remembered devices that skip the
+  2FA code; see "Two-factor login & password reset".
 - `auth_challenges` (id, user_id, purpose `login|reset`, token_hash unique,
   code_hash, attempts, sends, last_sent_at, expires_at, used_at,
   created_at) — see "Two-factor login & password reset".

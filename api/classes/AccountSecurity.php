@@ -11,6 +11,11 @@
  * only then does `RequestProcessor` create the session. SMS/WhatsApp aren't
  * wired to a provider yet, so every code goes by email whatever the setting.
  *
+ * Trusted devices: after a correct code the user can ask not to be asked
+ * again on that browser for `TRUSTED_DEVICE_DAYS` (`trustDevice()`); later
+ * logins that send the device token *and* the right password skip the code
+ * (`isTrustedDevice()`). See `017_trusted_devices.sql`.
+ *
  * Password reset: `requestPasswordReset()` emails a one-time link (to
  * `APP_URL`/reset-password?token=…) if — and only if — the address belongs
  * to an account, but its caller can't tell either way. `resetPassword()`
@@ -32,6 +37,10 @@ class AccountSecurity
     /** Reset emails per account per hour; more are silently dropped. */
     private const MAX_RESETS_PER_HOUR = 3;
     private const MIN_PASSWORD_LENGTH = 8;
+    /** How long "remember this device" skips the login code — fixed from when it was ticked. */
+    public const TRUSTED_DEVICE_DAYS = 30;
+    /** Oldest trusted devices beyond this many per account are dropped. */
+    private const MAX_TRUSTED_DEVICES = 10;
 
     /** @var db */
     private $db;
@@ -143,6 +152,81 @@ class AccountSecurity
         return $this->challengeResponse($token, (string) $user['email']);
     }
 
+    // ---------------------------------------------------------------- trusted devices
+
+    /**
+     * Whether `$deviceToken` is an unexpired trusted device *of this user*.
+     * Only ever asked after the password has matched, so a token on its own
+     * never signs anyone in. Bumps `last_used_at` when it is.
+     */
+    public function isTrustedDevice(int $userId, string $deviceToken): bool
+    {
+        if (!preg_match('/^[0-9a-f]{64}$/', $deviceToken)) {
+            return false;
+        }
+
+        $id = $this->db->db_GetFieldFromQuery(
+            'SELECT `id` FROM `trusted_devices`
+             WHERE `token_hash` = "' . hash('sha256', $deviceToken) . '" AND `user_id` = ' . $userId . '
+               AND `expires_at` > UTC_TIMESTAMP()',
+            'id'
+        );
+        if (!$id) {
+            return false;
+        }
+
+        $this->db->db_Execute('UPDATE `trusted_devices` SET `last_used_at` = UTC_TIMESTAMP() WHERE `id` = ' . (int) $id);
+
+        return true;
+    }
+
+    /**
+     * Remembers the device that just passed a login code, for
+     * `TRUSTED_DEVICE_DAYS`. Returns the token for the browser to keep and
+     * when it stops working (ISO 8601 UTC).
+     */
+    public function trustDevice(int $userId, string $userAgent): array
+    {
+        // Housekeeping: expired rows, then anything past the per-account cap.
+        $this->db->db_Execute('DELETE FROM `trusted_devices` WHERE `user_id` = ' . $userId . ' AND `expires_at` <= UTC_TIMESTAMP()');
+        $keep = self::MAX_TRUSTED_DEVICES - 1;
+        $this->db->db_Execute(
+            'DELETE FROM `trusted_devices` WHERE `user_id` = ' . $userId . ' AND `id` NOT IN (
+               SELECT `id` FROM (
+                 SELECT `id` FROM `trusted_devices` WHERE `user_id` = ' . $userId . ' ORDER BY `id` DESC LIMIT ' . $keep . '
+               ) newest
+             )'
+        );
+
+        $token = self::newToken();
+        $this->db->db_Execute(
+            'INSERT INTO `trusted_devices` (`user_id`, `token_hash`, `user_agent`, `created_at`, `expires_at`)
+             VALUES (' . $userId . ', "' . hash('sha256', $token) . '",
+                     "' . $this->db->db_Escape(mb_substr($userAgent, 0, 255)) . '",
+                     UTC_TIMESTAMP(), UTC_TIMESTAMP() + INTERVAL ' . self::TRUSTED_DEVICE_DAYS . ' DAY)'
+        );
+
+        return [
+            'deviceToken' => $token,
+            'trustedUntil' => gmdate('Y-m-d\TH:i:s\Z', time() + self::TRUSTED_DEVICE_DAYS * 86400),
+        ];
+    }
+
+    /** How many unexpired devices skip the code for this account — shown on the profile page. */
+    public function trustedDeviceCount(int $userId): int
+    {
+        return (int) $this->db->db_GetFieldFromQuery(
+            'SELECT COUNT(*) AS n FROM `trusted_devices` WHERE `user_id` = ' . $userId . ' AND `expires_at` > UTC_TIMESTAMP()',
+            'n'
+        );
+    }
+
+    /** Every device asks for a code again. */
+    public function forgetTrustedDevices(int $userId): void
+    {
+        $this->db->db_Execute('DELETE FROM `trusted_devices` WHERE `user_id` = ' . $userId);
+    }
+
     // ---------------------------------------------------------------- password reset
 
     /**
@@ -203,6 +287,7 @@ class AccountSecurity
         $this->spendOpen($userId, 'reset');
         $this->spendOpen($userId, 'login');
         $this->sessions->destroyAllFor($userId);
+        $this->forgetTrustedDevices($userId);
 
         $user = $this->users->findById($userId);
         if ($user) {

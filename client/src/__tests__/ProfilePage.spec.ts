@@ -16,6 +16,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     resendTwoFactor: vi.fn<Api['resendTwoFactor']>(),
     requestPasswordReset: vi.fn<Api['requestPasswordReset']>(),
     resetPassword: vi.fn<Api['resetPassword']>(),
+    forgetTrustedDevices: vi.fn<Api['forgetTrustedDevices']>(),
     guides: vi.fn<Api['guides']>(),
     visitors: vi.fn<Api['visitors']>(),
     updateProfile: vi.fn<Api['updateProfile']>(),
@@ -50,6 +51,7 @@ const sampleProfile: MyProfile = {
   email: 'sofia@example.com',
   phone: '+44 7700 900123',
   two_factor_method: 'email',
+  trusted_device_count: 0,
   image: null,
   created_at: '2026-01-01 00:00:00',
   date_of_birth: '1996-05-20',
@@ -201,6 +203,31 @@ describe('ProfilePage', () => {
     expect(select.value).toBe('')
     expect(Array.from(select.options).map((o) => o.value)).not.toContain('none')
     expect(Array.from(select.options).map((o) => o.value)).toEqual(['', 'email', 'sms', 'whatsapp'])
+  })
+
+  it('shows remembered devices and forgets them all', async () => {
+    const forgetTrustedDevices = vi.fn<Api['forgetTrustedDevices']>().mockResolvedValue({ ok: true })
+    localStorage.setItem(
+      'rockguide.trustedDevices',
+      JSON.stringify({ [sampleProfile.email]: { token: 'd'.repeat(64), until: '2099-01-01T00:00:00Z' } }),
+    )
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue({ ...sampleProfile, trusted_device_count: 2 }),
+        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        forgetTrustedDevices,
+      }),
+    )
+
+    expect(wrapper.text()).toContain('Codes are skipped on 2 remembered devices')
+    const forget = wrapper.findAll('button').find((b) => b.text() === 'Forget all devices')!
+    await forget.trigger('click')
+    await flushPromises()
+
+    expect(forgetTrustedDevices).toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('remembered device')
+    expect(localStorage.getItem('rockguide.trustedDevices')).toBeNull()
+    expect(useMessagesStore().items.map((item) => item.text).join()).toContain('every device will ask for a code')
   })
 
   it('offers only email for two-factor codes, and leaves a legacy SMS choice unselected', async () => {

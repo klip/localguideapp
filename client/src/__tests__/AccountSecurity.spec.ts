@@ -24,6 +24,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     resendTwoFactor: vi.fn<Api['resendTwoFactor']>(),
     requestPasswordReset: vi.fn<Api['requestPasswordReset']>().mockResolvedValue({ ok: true }),
     resetPassword: vi.fn<Api['resetPassword']>().mockResolvedValue({ ok: true }),
+    forgetTrustedDevices: vi.fn<Api['forgetTrustedDevices']>(),
     guides: vi.fn<Api['guides']>(),
     visitors: vi.fn<Api['visitors']>(),
     updateProfile: vi.fn<Api['updateProfile']>(),
@@ -208,6 +209,80 @@ describe('LoginPage — two-factor', () => {
     const { wrapper } = await mountAt('/login', LoginPage, fakeApi())
 
     expect(wrapper.find('a[href="/forgot-password"]').text()).toBe('Forgot password?')
+  })
+})
+
+describe('LoginPage — remembered device', () => {
+  const DEVICE = 'd'.repeat(64)
+  const until = () => new Date(Date.now() + 30 * 86_400_000).toISOString()
+
+  async function enterCode(wrapper: Awaited<ReturnType<typeof mountAt>>['wrapper'], remember: boolean) {
+    if (remember) await wrapper.find('input[type="checkbox"]').setValue(true)
+    await wrapper.find('input[autocomplete="one-time-code"]').setValue('123456')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+  }
+
+  it('remembers the device when ticked, and sends its token with the next login', async () => {
+    const verifyTwoFactor = vi
+      .fn<Api['verifyTwoFactor']>()
+      .mockResolvedValue({ ...guideUser, deviceToken: DEVICE, trustedUntil: until() })
+    const login = vi.fn<Api['login']>().mockResolvedValue(challenge)
+    const first = await mountAt('/login', LoginPage, fakeApi({ login, verifyTwoFactor }))
+    await logInWithPassword(first.wrapper)
+    await enterCode(first.wrapper, true)
+
+    expect(verifyTwoFactor).toHaveBeenCalledWith({ challengeToken: TOKEN, code: '123456', rememberDevice: true })
+    // The device token isn't part of the persisted session.
+    expect(localStorage.getItem('rockguide.session')).not.toContain(DEVICE)
+
+    login.mockResolvedValue(guideUser)
+    const second = await mountAt('/login', LoginPage, fakeApi({ login }))
+    await logInWithPassword(second.wrapper)
+
+    expect(login).toHaveBeenLastCalledWith({
+      email: 'sofia@example.com',
+      password: 'password123',
+      deviceToken: DEVICE,
+    })
+    expect(second.router.currentRoute.value.path).toBe('/guide/discover')
+  })
+
+  it('does not ask to remember the device unless ticked', async () => {
+    const verifyTwoFactor = vi.fn<Api['verifyTwoFactor']>().mockResolvedValue(guideUser)
+    const login = vi.fn<Api['login']>().mockResolvedValue(challenge)
+    const { wrapper } = await mountAt('/login', LoginPage, fakeApi({ login, verifyTwoFactor }))
+    await logInWithPassword(wrapper)
+    await enterCode(wrapper, false)
+
+    expect(verifyTwoFactor).toHaveBeenCalledWith({ challengeToken: TOKEN, code: '123456' })
+    expect(localStorage.getItem('rockguide.trustedDevices')).toBeNull()
+  })
+
+  it('drops a remembered token the server no longer accepts', async () => {
+    localStorage.setItem(
+      'rockguide.trustedDevices',
+      JSON.stringify({ 'sofia@example.com': { token: DEVICE, until: until() } }),
+    )
+    const login = vi.fn<Api['login']>().mockResolvedValue(challenge)
+    const { wrapper } = await mountAt('/login', LoginPage, fakeApi({ login }))
+    await logInWithPassword(wrapper)
+
+    expect(login).toHaveBeenCalledWith(expect.objectContaining({ deviceToken: DEVICE }))
+    expect(wrapper.text()).toContain('Check your email')
+    expect(localStorage.getItem('rockguide.trustedDevices')).toBeNull()
+  })
+
+  it('does not send a token that has expired locally', async () => {
+    localStorage.setItem(
+      'rockguide.trustedDevices',
+      JSON.stringify({ 'sofia@example.com': { token: DEVICE, until: '2020-01-01T00:00:00Z' } }),
+    )
+    const login = vi.fn<Api['login']>().mockResolvedValue(guideUser)
+    const { wrapper } = await mountAt('/login', LoginPage, fakeApi({ login }))
+    await logInWithPassword(wrapper)
+
+    expect(login).toHaveBeenCalledWith({ email: 'sofia@example.com', password: 'password123' })
   })
 })
 

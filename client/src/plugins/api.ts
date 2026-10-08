@@ -31,6 +31,15 @@ export interface RegisterPayload {
 export interface LoginPayload {
   email: string
   password: string
+  /** A remembered device's token (see `utils/trustedDevice.ts`) — skips the emailed code while it's valid. */
+  deviceToken?: string
+}
+
+/** `verifyTwoFactor` with `rememberDevice: true` adds these to the `AuthResult`. */
+export interface TrustedDeviceGrant {
+  deviceToken: string
+  /** ISO 8601 UTC — 30 days from now. */
+  trustedUntil: string
 }
 
 /** Shape returned by `register`, `login`, and `session`. */
@@ -192,6 +201,8 @@ export interface MyProfile {
   /** A single combined string (e.g. "+350 56002731") — country code and local number are a `ProfilePage.vue`-only split, not stored separately. */
   phone: string | null
   two_factor_method: TwoFactorMethod
+  /** Unexpired "remembered" devices that skip the login code. */
+  trusted_device_count: number
   image: string | null
   created_at: string
   /** ISO `YYYY-MM-DD`, or `null` if never set — the raw date, not a computed age (unlike `ProfileAccount.age`), so the edit form's calendar input can prefill exactly. */
@@ -591,8 +602,9 @@ export const api = {
   register: (payload: RegisterPayload) => call<AuthResult>('register', payload),
   /** An `AuthResult`, or a `TwoFactorChallenge` when the account needs an emailed code first. */
   login: (payload: LoginPayload) => call<LoginResult>('login', payload),
-  verifyTwoFactor: (payload: { challengeToken: string; code: string }) =>
-    call<AuthResult>('verifyTwoFactor', payload),
+  /** `rememberDevice` makes this browser skip the code for 30 days — the result then carries a `TrustedDeviceGrant`. */
+  verifyTwoFactor: (payload: { challengeToken: string; code: string; rememberDevice?: boolean }) =>
+    call<AuthResult & Partial<TrustedDeviceGrant>>('verifyTwoFactor', payload),
   /** Emails a fresh code for the same challenge; the previous code stops working. */
   resendTwoFactor: (payload: { challengeToken: string }) =>
     call<TwoFactorChallenge>('resendTwoFactor', payload),
@@ -601,6 +613,8 @@ export const api = {
     call<{ ok: true }>('requestPasswordReset', payload),
   resetPassword: (payload: { token: string; newPassword: string }) =>
     call<{ ok: true }>('resetPassword', payload),
+  /** Every remembered device asks for a login code again. */
+  forgetTrustedDevices: () => call<{ ok: true }>('forgetTrustedDevices'),
   /**
    * Filtered in SQL (`Users::searchByRole()`), not client-side — pass the
    * current `DiscoveryFilters` as-is, or omit for everyone.

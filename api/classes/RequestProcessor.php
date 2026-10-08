@@ -79,7 +79,9 @@ class RequestProcessor
                     break;
 
                 case 'myProfile':
-                    $this->respond($this->users->getFullAccount($this->requireUserId(), $this->profiles));
+                    $userId = $this->requireUserId();
+                    $this->respond($this->users->getFullAccount($userId, $this->profiles)
+                        + ['trusted_device_count' => $this->security->trustedDeviceCount($userId)]);
                     break;
 
                 case 'updateAccount':
@@ -159,6 +161,10 @@ class RequestProcessor
 
                 case 'resetPassword':
                     $this->respond($this->actionResetPassword());
+                    break;
+
+                case 'forgetTrustedDevices':
+                    $this->respond($this->actionForgetTrustedDevices());
                     break;
 
                 // Reviews and public profiles (see `Reviews`, 013_reviews.sql).
@@ -319,8 +325,13 @@ class RequestProcessor
         }
 
         // With two-factor on, the password only earns a challenge; the
-        // session waits for `verifyTwoFactor`.
-        if (AccountSecurity::requiresTwoFactor($user)) {
+        // session waits for `verifyTwoFactor` — unless this browser sent a
+        // device token the account trusted within the last 30 days.
+        $deviceToken = (string) ($input['deviceToken'] ?? '');
+        if (
+            AccountSecurity::requiresTwoFactor($user)
+            && !$this->security->isTrustedDevice((int) $user['id'], $deviceToken)
+        ) {
             return $this->security->startLogin($user);
         }
 
@@ -355,7 +366,21 @@ class RequestProcessor
             throw new RuntimeException('This code has expired. Log in again to get a new one.');
         }
 
-        return $this->signIn($user);
+        $result = $this->signIn($user);
+        // "Don't ask on this device for 30 days" — the token comes back once,
+        // here, for the browser to keep.
+        if (!empty($input['rememberDevice'])) {
+            $result += $this->security->trustDevice($userId, (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+        }
+
+        return $result;
+    }
+
+    private function actionForgetTrustedDevices(): array
+    {
+        $this->security->forgetTrustedDevices($this->requireUserId());
+
+        return ['ok' => true];
     }
 
     private function actionResendTwoFactor(): array

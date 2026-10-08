@@ -14,12 +14,19 @@ import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { useShortlistStore } from '@/stores/shortlist'
 import { formMessagePlacement } from '@/utils/formMessagePlacement'
+import {
+  forgetTrustedDevice,
+  rememberTrustedDevice,
+  trustedDeviceToken,
+} from '@/utils/trustedDevice'
 
 /**
  * Logging in is one step, or two when the account has two-factor on: the
  * password then earns a `TwoFactorChallenge` instead of a session, a 6-digit
  * code goes by email, and `api.verifyTwoFactor()` trades it for the session
- * (see `AccountSecurity.php`).
+ * (see `AccountSecurity.php`). Ticking "don't ask on this device" stores a
+ * device token for 30 days; later logins send it with the password and skip
+ * the code while the server still trusts it.
  */
 const router = useRouter()
 const api = useApi()
@@ -42,6 +49,8 @@ const resending = ref(false)
 const resendIn = ref(0)
 let resendTimer: ReturnType<typeof setInterval> | null = null
 
+/** "Don't ask for a code on this device for 30 days" — see `utils/trustedDevice.ts`. */
+const rememberDevice = ref(false)
 const codeComplete = computed(() => code.value.replace(/\D/g, '').length === 6)
 
 function startResendCountdown(seconds: number) {
@@ -85,8 +94,17 @@ async function submit() {
   submitting.value = true
 
   try {
-    const result = await api.login({ email: email.value, password: password.value })
+    const deviceToken = trustedDeviceToken(email.value)
+    const result = await api.login({
+      email: email.value,
+      password: password.value,
+      ...(deviceToken ? { deviceToken } : {}),
+    })
     if (isTwoFactorChallenge(result)) {
+      // A remembered device that still got asked has expired or been
+      // forgotten server-side — stop sending its token.
+      if (deviceToken) forgetTrustedDevice(email.value)
+      rememberDevice.value = false
       challenge.value = result
       code.value = ''
       startResendCountdown(result.resendAfterSeconds)
@@ -115,10 +133,13 @@ async function verify() {
   submitting.value = true
 
   try {
-    const user = await api.verifyTwoFactor({
+    const { deviceToken, trustedUntil, ...user } = await api.verifyTwoFactor({
       challengeToken: challenge.value.challengeToken,
       code: code.value,
+      ...(rememberDevice.value ? { rememberDevice: true } : {}),
     })
+    // Kept apart from the session (`auth.setUser()` persists what it's given).
+    if (deviceToken && trustedUntil) rememberTrustedDevice(email.value, deviceToken, trustedUntil)
     await finish(user)
   } catch (err) {
     const text = err instanceof ApiError ? err.message : 'Could not check that code.'
@@ -187,6 +208,11 @@ function backToPassword() {
             placeholder="123456"
             required
           />
+        </label>
+
+        <label class="remember">
+          <input v-model="rememberDevice" type="checkbox" />
+          Don’t ask for a code on this device for 30 days
         </label>
 
         <button
@@ -274,6 +300,17 @@ button {
   display: inline-block;
   margin-top: -0.4rem;
   font-weight: 400;
+}
+
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+
+  input {
+    margin: 0;
+  }
 }
 
 .code-input {

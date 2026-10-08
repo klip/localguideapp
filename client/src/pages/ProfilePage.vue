@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { reportApiError } from '@/utils/reportApiError'
 import { rangeFormatFor } from '@/utils/formatRange'
+import { forgetTrustedDevice } from '@/utils/trustedDevice'
 import type { Gender, NumericRange, RangeMap } from '@/types'
 
 /**
@@ -282,6 +283,26 @@ function applyProfile(data: MyProfile) {
   Object.assign(selectedRanges, data.ranges)
 }
 
+/** Devices that skip the login code (see `AccountSecurity::trustDevice()`). */
+const trustedDeviceCount = computed(() => profile.value?.trusted_device_count ?? 0)
+const forgettingDevices = ref(false)
+
+async function forgetDevices(event: MouseEvent) {
+  if (!profile.value || forgettingDevices.value) return
+  const placement = anchorTo('element', event.currentTarget as HTMLElement | null)
+  forgettingDevices.value = true
+  try {
+    await api.forgetTrustedDevices()
+    forgetTrustedDevice(profile.value.email)
+    profile.value = { ...profile.value, trusted_device_count: 0 }
+    messages.success('Done — every device will ask for a code at the next login.', placement)
+  } catch (err) {
+    reportApiError(err, 'Could not forget your devices.', placement)
+  } finally {
+    forgettingDevices.value = false
+  }
+}
+
 onMounted(async () => {
   if (!auth.user) {
     loading.value = false
@@ -472,6 +493,19 @@ async function changePassword() {
                 Each time you log in, we’ll email you a 6-digit code to enter after your password.
               </small>
             </label>
+            <p v-if="trustedDeviceCount > 0" class="tiny muted trusted-devices">
+              Codes are skipped on {{ trustedDeviceCount }} remembered
+              device{{ trustedDeviceCount === 1 ? '' : 's' }} for 30 days from when you ticked it.
+              <button
+                type="button"
+                class="link-btn"
+                :aria-busy="forgettingDevices"
+                :disabled="forgettingDevices"
+                @click="forgetDevices"
+              >
+                Forget all devices
+              </button>
+            </p>
 
             <div v-if="profile?.image" class="current-photo">
               <img :src="profile.image" alt="Current profile photo" />
@@ -635,6 +669,23 @@ async function changePassword() {
 
 <style scoped lang="scss">
 @use 'breakpoints' as bp;
+
+.trusted-devices {
+  margin: -0.5rem 0 1rem;
+}
+
+.link-btn {
+  display: inline;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pico-primary);
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
 
 .profile-grid {
   display: grid;
