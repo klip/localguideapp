@@ -203,7 +203,8 @@ path/name table) and the shared `src/components/` each is built from:
   **`GuideDiscoverPage.vue`** (`/guide/discover`, guide browsing visitors)
   — the two discovery decks, deliberately built from the same pieces:
   `PanelCard`, `FilterPanel` (the category-then-values filter form, in a
-  `<details>` rail that is closed by default on both decks), `ProfileCard` (the
+  `<details>` rail, open on desktop and collapsed on mobile — see "Discovery
+  filters"), `ProfileCard` (the
   swipeable card, which itself renders a `TagList` and a `DecisionRow` for
   its accept/reject buttons), `PillBadge` (the header counter/pill).
   `SelectionCounter` is `DiscoverPage.vue`-only (the pack-remaining strip
@@ -1042,8 +1043,11 @@ a later feature and would get their own table.
 
 The filter bar (`FilterPanel.vue`) is **gradual**: pick a category first,
 then the values inside it, which sit as tags under that category's own
-title with a rule between one group and the next. It's closed by default —
-a `<details>` on both decks — and built entirely from
+title with a rule between one group and the next. It sits in a `<details>`
+on both decks, open from `lg` (1024px) up — where its summary is a plain,
+unclickable heading — and closed by default below, where it's a normal
+toggle; crossing the breakpoint resets it (`useMediaQuery(LG_QUERY)` in
+`src/composables/useMediaQuery.ts`, bound to `:open`). It's built entirely from
 `stores/categories.ts`, so it offers whatever the server has, including a
 category a user invented on their profile page five minutes ago.
 

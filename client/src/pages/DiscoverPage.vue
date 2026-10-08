@@ -7,6 +7,7 @@ import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
 import SelectionCounter from '@/components/SelectionCounter.vue'
+import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCategoriesStore } from '@/stores/categories'
@@ -27,6 +28,19 @@ const shortlist = useShortlistStore()
 const guidesStore = useGuidesStore()
 
 const { filters } = storeToRefs(filtersStore)
+
+// The filters rail can't be collapsed on desktop (its summary is a plain
+// heading there — see `.filters-disclosure`), so it's open from `lg` up and
+// starts closed below. The user's own toggle on mobile sticks until the
+// viewport crosses the breakpoint.
+const isDesktop = useMediaQuery(LG_QUERY)
+const filtersOpen = ref(isDesktop.value)
+watch(isDesktop, (desktop) => {
+  filtersOpen.value = desktop
+})
+function onFiltersToggle(event: Event) {
+  filtersOpen.value = (event.target as HTMLDetailsElement).open
+}
 const { hasAccess, picks, capacity, selectionsLeft, canPick } = storeToRefs(shortlist)
 const { items: guides, loading: guidesLoading } = storeToRefs(guidesStore)
 
@@ -134,7 +148,7 @@ function reject(id: string) {
     <div class="discovery-layout">
       <!-- Filters: a side rail on desktop, a collapsed disclosure on mobile. -->
       <aside class="rail">
-        <details class="filters-disclosure">
+        <details class="filters-disclosure" :open="filtersOpen" @toggle="onFiltersToggle">
           <summary><strong>Filters</strong></summary>
           <p class="tiny muted">Keep them light and optional.</p>
           <FilterPanel />
