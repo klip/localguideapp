@@ -185,7 +185,7 @@ function backToPassword() {
 
 <template>
   <section class="section shell">
-    <SectionTitle eyebrow="Screen 01" heading="Welcome back" />
+    <SectionTitle eyebrow="Login" heading="Welcome back" />
 
     <PanelCard
       v-if="challenge"
