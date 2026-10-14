@@ -22,7 +22,7 @@ accept/reject decisions through `api.decide()` and able to produce a
 genuine mutual match (`selections.active = 1`, with a live "it's a match"
 notification on the guide's side); a payment-flow *simulation* that
 unlocks selection packs and actually gates a visitor's remaining picks;
-revoke-a-match on `ShortlistPage.vue`; a full match-management page for
+a full match-management page for
 both roles (`MatchesPage.vue`, `/matches` — see "Match management" below);
 a mobile slide-in burger menu (`AppHeader.vue`); public profile pages for
 both roles (`/guides/:id`, `/visitors/:id`) with Google-Maps-style reviews
@@ -41,16 +41,16 @@ did). **Email, on the other hand, is real** (`Mailer.php`, Gmail SMTP) once
 the `SMTP_*` server params are set — see "Email" under Docker environment.
 
 **Known gaps / inconsistencies** (worth knowing about, not urgent):
-- **A guide who charges a fee isn't notified when a visitor completes the
-  match** — only when that visitor then pays (`booking_paid`), or, for a
-  free guide, on the match itself (`booking_free`). See "In-app
-  notifications" below. The match does show up on `/matches` (or, once
-  confirmed, `/trips`) either way; there's no nav badge/count yet.
-- **No scheduler**: pending bookings expiring, trips starting and trips
-  finishing on their own all happen in `Bookings::sweep()`, which runs at
-  the start of every API request. On a quiet server a trip is marked
-  finished (and its notifications sent) on the next request after it ended,
-  not at the minute.
+- **One gateway process holds about 1,000 sockets** (`stream_select`'s
+  descriptor limit) — run more `ws` replicas beyond that. See
+  `docs/scaling.md` for this and the rest of the scaling plan.
+- **Clock-driven booking changes run every 30 s** (`Bookings::sweep()`, in
+  the scheduler service only), so a booking request expires, or a trip starts
+  or finishes, up to half a minute late — and a page loaded in that window
+  still shows the old state.
+- **Services share one database** — `users` in particular is read and
+  written by both auth and api. The plan for splitting it is in
+  `docs/scaling.md`.
 - **Meeting times are free-form**: the guest picks any future date-time
   when paying (up to a year ahead); nothing checks it against the guide's
   working hours (`hour_of_day`), and the guide can only accept or decline,
@@ -65,8 +65,17 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
 
 - `client/` — Vue 3 frontend (the actual app). Run all frontend commands from
   here, not the repo root.
-- `api/` — PHP backend. No framework, no Composer — plain scripts + a small
-  set of hand-rolled classes.
+- The PHP backend is a set of services (see "Services" below). No
+  framework, no Composer — plain scripts + small hand-rolled classes:
+  - `gateway/` — the WebSocket gateway every browser talks to.
+  - `auth/` — accounts, passwords, 2FA, sessions (Redis).
+  - `api/` — every other action, plus the scheduler (`api/bin/scheduler.php`).
+  - `mailer/` — the mail worker that sends the email outbox.
+  - `lib/` — shared by all of them: `db`, `Log`, `RedisClient`/`Resp`,
+    `MailQueue`, `ServiceHttp`, `ImageData`, `AuthenticationException`.
+- `deploy/` — config the docker-lemp stack mounts: `php/rockguide.ini`, and
+  `observability/` (Loki, Alloy, Grafana provisioning + dashboard).
+- `docs/scaling.md` — database load, scaling proposals, the GKE target.
 - `admin/` — empty placeholder, presumably a future admin panel.
 - Root `node_modules/` has no corresponding root `package.json`; ignore it,
   the real dependency tree lives in `client/`.
@@ -100,7 +109,9 @@ behavior, `RegisterPage.spec.ts`, `ProfilePage.spec.ts`,
 the category-then-values bar built on it, `Reviews.spec.ts` — the review
 section, its "Show all" modal and the write/edit form,
 `VisitorProfilePage.spec.ts`, `AccountSecurity.spec.ts` — the login code
-step and the forgot/reset password pages) plus one
+step and the forgot/reset password pages, `DiscoverPage.spec.ts` — the
+open deck and both modals, `pendingRejects.spec.ts`, `i18n.spec.ts` —
+interpolation, plural forms, the English fallback layers and RTL) plus one
 plain-module test, `api.spec.ts`, for `plugins/api.ts`'s `call()` itself
 (session-hash attachment, 401-triggered auto-logout — see "Sessions"
 above; it mocks `fetch` via `vi.stubGlobal` rather than going through a
@@ -124,7 +135,7 @@ into the next test's fresh `Pinia` instance.
 ### Structure
 
 - `src/pages/` — one component per route (Home, Register, Login, Unlock,
-  Discover, GuideProfile, VisitorProfile, Shortlist, GuideDiscover,
+  Discover, GuideProfile, VisitorProfile, GuideDiscover,
   Matches, Trips, Profile, ForgotPassword, ResetPassword, NotFound).
 - `src/router/index.ts` — documents the mapping from the original static
   prototype's scroll sections to routes; read the comment there before adding
@@ -132,24 +143,25 @@ into the next test's fresh `Pinia` instance.
 - `src/stores/` — Pinia stores: `filters` (discovery filter state, keyed by
   category rather than by named field — see "Discovery filters" below),
   `categories` (the attribute taxonomy, fetched once and shared by the
-  filter bar, the profile editor and every card that labels a tag), `shortlist` (paid selection pack:
+  filter bar, the profile editor and every card that labels a tag), `matches` (`stores/matches.ts`, `useMatchesStore()` — formerly
+  `shortlist`; the paid selection pack:
   `packsUnlocked`, `picks`, `passed` — in-memory, so a reload drops it;
   `App.vue` re-fetches `packsUnlocked` at boot for guests, but `picks`/
   `passed` genuinely start empty again — see below), `auth` (the signed-in user + session hash, set by
   `RegisterPage`/`LoginPage` and persisted to `localStorage` — see
   "Sessions" below), `messages` (global toast queue — see below),
   `guides`/`visitors` (real discovery-deck data — see "Real guide/visitor
-  cards" below). Because `shortlist` doesn't survive a reload the way
+  cards" below). Because `matches` doesn't survive a reload the way
   `auth` now does, two places re-sync it from the server: `App.vue` on every
   boot (for a signed-in guest, right after its `api.session()` check — this
   is what makes a purchased pack survive a plain refresh; without it the deck
   showed the paywall and the header read "0 / 0 picked" despite the payments
   existing in the DB), and `LoginPage.vue` right after `api.login()`, so the
   capacity is correct before the first render of `/discover`. Both call
-  `api.paymentState()` and feed `shortlist.setPacksUnlocked()`.
+  `api.paymentState()` and feed `matchesStore.setPacksUnlocked()`.
   **Picks are restored as well as the pack count**: `paymentState` returns
   `pickedIds`/`passedIds` (guide ids, from `Selections::getDecisionIdsFor()`)
-  alongside the counts, and `shortlist.applyPaymentState()` seeds `picks`/
+  alongside the counts, and `matchesStore.applyPaymentState()` seeds `picks`/
   `passed` from them — so a refresh lands on "2 / 10 picked", not "0 / 10".
   The ids ride on `paymentState` rather than coming from
   `api.matchOverview()` because that endpoint's rows carry the counterpart's
@@ -168,7 +180,7 @@ into the next test's fresh `Pinia` instance.
 - `src/data/guides.ts`, `src/data/visitors.ts` — hardcoded placeholder decks.
   **Only `HomePage.vue`'s hero `PhonePreview` still uses these** (marketing
   decoration, deliberately static) — `DiscoverPage`/`GuideDiscoverPage`/
-  `ShortlistPage`/`GuideProfilePage` were switched to real data from
+  `GuideProfilePage` were switched to real data from
   `stores/guides.ts`/`stores/visitors.ts` (or `api.publicProfile()`);
   don't reintroduce the mock import there. Their `ratingAverage`/
   `reviewCount` are made-up numbers, which is fine for a marketing mock.
@@ -185,7 +197,8 @@ into the next test's fresh `Pinia` instance.
 `src/pages/` (one per route — see `src/router/index.ts` for the exact
 path/name table) and the shared `src/components/` each is built from:
 
-- **`HomePage.vue`** (`/`) — marketing landing page. Hero (`PillBadge`,
+- **`HomePage.vue`** (`/about`) — marketing page; no longer the landing
+  page (`/` redirects to `/discover`, see "Open deck & first-pack modal"). Hero (`PillBadge`,
   `PhonePreview` showing the first hardcoded `data/guides.ts` entry — see
   above for why this is the one place still using mock data), a
   three-step "how it works" row (`SectionTitle` + `FeatureCard` × 3), and
@@ -215,7 +228,7 @@ path/name table) and the shared `src/components/` each is built from:
 - **`GuideProfilePage.vue`** (`/guides/:id`) — the "Full profile →"
   destination linked from a `ProfileCard`; reuses `PanelCard`, `TagList`,
   `PillBadge`, `DecisionRow` at full width instead of a swipe card. Its
-  accept/reject mirror `DiscoverPage.vue`'s: local `shortlist` first, then
+  accept/reject mirror `DiscoverPage.vue`'s: local `matchesStore` first, then
   a best-effort `api.decide()` (skipped when signed out). Loads its one
   guide with `api.publicProfile()` (mapped through `stores/guides.ts`'s
   exported `toGuideCard()`), not the guide list, and ends with a
@@ -225,10 +238,8 @@ path/name table) and the shared `src/components/` each is built from:
   card: name, photo, age, gender, party, duration, bio, category tags —
   never contact details — then a `ReviewsSection`. No accept/reject here;
   a guide's id reads as "Visitor not found".
-- **`ShortlistPage.vue`** (`/shortlist`) — a visitor's local picks
-  (`PanelCard` × N, `TagList`, `PillBadge`) plus the real,
-  server-confirmed "Confirmed matches" panel (`api.matches()`/
-  `revokeSelection()`).
+- There is **no `/shortlist` page any more** — it was removed; every
+  "View matches" link and the header's picks-pill go to `/matches`.
 - **`MatchesPage.vue`** (`/matches`) — match management for both roles
   (see "Match management" below); `SectionTitle`, `PanelCard`, `PillBadge`.
 - **`TripsPage.vue`** (`/trips`) — confirmed trips for both roles,
@@ -306,8 +317,9 @@ own — every one just takes props/emits):
 
 - `src/plugins/api.ts` — the request layer, installed as a Vue plugin
   (`app.use(apiPlugin)` in `main.ts`) providing `useApi()` via `inject`/
-  `provide` rather than a bare module import. POSTs
-  `{ action, ...payload }` as JSON to `VITE_API_BASE_URL` (see
+  `provide` rather than a bare module import. Sends
+  `{ action, ...payload }` over the API WebSocket (`plugins/socket.ts`, see
+  "Realtime" — not `fetch`) to `VITE_API_BASE_URL` + `/ws` (see
   `.env.development`; defaults to `https://api.rockguide.com` if unset) and
   matches `RequestProcessor`'s actions 1:1: `api.register()`, `api.login()`,
   `api.guides(filters?)`, `api.visitors(filters?)` (filtered server-side —
@@ -327,14 +339,12 @@ own — every one just takes props/emits):
   carries a `MessagePlacement`, passed as the second arg to `.error()`/
   `.success()`/`.info()` and defaulting to page-level (top-middle of the
   viewport) when omitted — the right default for general/API-level messages
-  with no specific subject (e.g. `ShortlistPage.vue`'s on-mount
-  `loadMatches()` failure). Build a non-default one with
+  with no specific subject (e.g. a page's on-mount load failure). Build a non-default one with
   `anchorTo('element' | 'input', el)`, which resolves `el`'s
   `getBoundingClientRect()` **eagerly** (call it right at the triggering
   action, not lazily inside a `.then()`/after a list mutation) since the
-  element may not still be around by the time the toast is actually pushed —
-  see `ShortlistPage.vue`'s `revokeMatch()`, which snapshots the clicked
-  row's anchor before the row can be filtered out of `matches`. `'element'`
+  element may not still be around by the time the toast is actually pushed
+  (e.g. a row that's filtered out of a list once its action succeeds). `'element'`
   centers the toast on the anchor's top-middle point (e.g. a submitted
   form); `'input'` places it left-aligned directly beneath the anchor,
   matching its width (e.g. a field-specific validation message).
@@ -357,7 +367,8 @@ own — every one just takes props/emits):
   `HomePage.vue`'s "I'm a guide" CTA, which is itself
   `v-if="!auth.isAuthenticated"` (hidden once logged in). A guide
   registration lands on `/guide/discover` instead of `/unlock` (guides
-  don't pay). `RegisterPage.vue` **doesn't offer a photo picker at all** —
+  don't pay); a visitor lands on `/discover`, whose payment modal asks
+  for the first pack. `RegisterPage.vue` **doesn't offer a photo picker at all** —
   no `ImageCropper` on this page — a new account is created with no photo,
   and `ImageCropper.vue` only ever runs on `ProfilePage.vue`, after the
   account already exists; don't reintroduce it here.
@@ -381,8 +392,8 @@ own — every one just takes props/emits):
   `guidesStore.load()` — covers a stale bookmark or browser back/forward
   landing a guide there directly, not just the two navigation paths.
 - **`AppHeader.vue`'s picks-pill and "Log out" are two independent `v-if`s,
-  not a `v-if`/`v-else-if` pair** — the picks-pill (link to `/shortlist`,
-  shown whenever `useShortlistStore().hasAccess`) and "Log out" (shown
+  not a `v-if`/`v-else-if` pair** — the picks-pill (link to `/matches`,
+  shown whenever `useMatchesStore().hasAccess`) and "Log out" (shown
   whenever `useAuthStore().isAuthenticated`, regardless of `hasAccess`) can
   and do render together for a visitor who's unlocked a pack. They used to
   be `v-else-if`'d, which meant **any authenticated visitor with
@@ -398,24 +409,101 @@ own — every one just takes props/emits):
   page itself. A "Profile" link to `/profile` is a separate, independent
   nav item shown whenever `isAuthenticated` — it doesn't participate in any
   of this, so it's visible alongside whichever combination of the above is
-  showing. **"How it works" (`/#how`) is the mirror image of those** — it
+  showing. **"How it works" (`/about#how`) is the mirror image of those** — it
   renders only while signed *out* (`v-if="!isAuthenticated"`), being
   marketing copy a signed-in user is already past; the `#how` section
   itself still exists on `HomePage.vue` for anyone who lands on `/`.
 - Payments/matching actions — `api.unlockPack()`, `api.paymentState()`,
-  `api.decide()`, `api.revokeSelection()`, `api.matches()` — no longer take
+  `api.decide()`, `api.revokeSelection()` — no longer take
   an explicit `userId`; the caller's identity comes from the session hash
   `call()` attaches automatically (see "Sessions" below). `UnlockPage.vue` calls `unlockPack()`
-  for real and syncs the result into `useShortlistStore().setPacksUnlocked()`.
-  `ShortlistPage.vue`'s "Confirmed matches" panel calls `matches()` on mount
-  and `revokeSelection()` per row — genuinely wired to the server, unlike
-  the mock picks grid above it on the same page (different guide-id spaces;
-  see the `data/guides.ts` note above). `decide()` **is** now called from
+  for real and syncs the result into `useMatchesStore().setPacksUnlocked()`.
+  (`api.matches()`/`Selections::getActiveMatches()` were removed with the
+  `/shortlist` page, their only caller — `/matches` uses `matchOverview()`.)
+  `decide()` **is** now called from
   both discovery decks — `DiscoverPage.vue`'s `accept()`/`reject()` and
   `GuideDiscoverPage.vue`'s `accept()`/`reject()` — now that both read real
   ids from `stores/guides.ts`/`stores/visitors.ts` rather than the old
   mock-id decks; see the Domain model section below for the mutual-match
   notification this unlocked.
+
+### Translations & language switcher (`src/i18n`)
+
+**No UI text is hardcoded** — every string is `t('{page}.{widget}.{key}')`
+(`discover.empty.nobody_new_title`, `common.booking_panel.pay`; `page` is the
+route's page or `common` for shared components/helpers, whose widget is the
+component). Values carry `{placeholders}`; plurals are separate keys with a
+CLDR suffix, picked by `tn(key, count)` via `Intl.PluralRules` (`_one`,
+`_other`, plus `_few`/`_many` for Russian and `_zero`/`_two`/`_few`/`_many`
+for Arabic; a missing form falls back to `_other`).
+
+- **The database is the source of truth, English included** (`translations`
+  table, 018 — so a future CMS can edit it). `api.translations(lang)` →
+  `Translations::forLanguage()`, no session needed. Lookup order: the
+  language's rows → the database's English → `src/i18n/en.json` (a bundled
+  copy of the English, used for tests, a slow/failed fetch, and untranslated
+  keys) → the key itself (with a dev-mode console warning).
+- **15 languages** (`LANGUAGES` in `src/i18n/index.ts`, must match
+  `Translations::LANGUAGES`): the top ten languages of international
+  travellers merged with the top ten languages of the most-visited
+  destinations (UN Tourism data), plus Portuguese and Ukrainian — en, es,
+  fr, de, zh, it, ja, ru, ko, ar, tr, pt, el, th, uk. All fully translated; country names come
+  from CLDR (`Intl.DisplayNames`). Arabic sets `<html dir="rtl">`.
+- **The language is the URL's first segment** (`/es/discover`) — it's the
+  router's *base* (`router/index.ts`, `createWebHistory('/es/')`), not a
+  route param, so routes and links stay language-free (`to="/matches"`
+  renders `/es/matches`) and active-link matching works. A URL naming a
+  supported language wins over localStorage (`rockguide.language`) and is
+  saved; one without is rewritten in place (saved choice → browser language →
+  English) before the router reads it. `main.ts` waits up to 1.5 s for the
+  language's strings before mounting.
+- **Switching language reloads** under the new prefix (`LanguageSwitcher.vue`
+  in the header, options labelled in their own language). A production host
+  must serve `index.html` for any `/<lang>/…` path (Vite dev already does).
+- `t()` state is module-level (not Pinia), so it works in templates, plain
+  helpers and stores with nothing to install. Anything built once at module
+  load (a constant array of labels, a prop default) won't follow a language
+  change — use a computed/getter (see `HomePage.vue`'s `steps`,
+  `AGE_CATEGORY.label`) or a template fallback (`rejectLabel ?? t(...)`).
+- **Adding a string**: add the key to `en.json` *and* a row per language to
+  the `translations` table (or a new migration); `en.json` alone renders but
+  isn't CMS-editable. Card placeholders (`toGuideCard()`) are resolved when a
+  deck is fetched, so they switch on the next fetch.
+- **Not translated** (data or server text, not UI strings): attribute
+  category/option labels (`attribute_categories`/`attribute_options` —
+  user-created), people's own profile text, API error messages, emails and
+  in-app notification copy (`Bookings.php`, `AccountSecurity.php`), and
+  `data/guides.ts`'s marketing mock.
+
+### Open deck & first-pack modal (`DiscoverPage.vue`)
+
+`/` redirects to `/discover`, so the deck is the landing page, and it's no
+longer behind a paywall — what's gated is "Interested":
+
+- **Signed out**: the first suggested card shows; Interested opens a modal
+  (`ModalDialog.vue`) with "Create account" / "Log in". Reject moves on and
+  queues the guide id in `localStorage` (`rockguide.pendingRejects`,
+  `src/utils/pendingRejects.ts`) — no `decide()` yet. `stores/matches.ts`
+  seeds `passed` from that queue and unions it into `applyPaymentState()`,
+  so neither a reload nor the login re-sync brings those cards back.
+- **Syncing the queue**: `App.vue` calls `syncPendingRejects()` in the
+  background whenever `auth.user.id` changes (register/login) and once at
+  boot after the session check (a retry). For a guest it sends each as
+  `decide('pass')` — skipping guides the account already decided on, so a
+  pick made elsewhere isn't overwritten — then clears the queue; a network/
+  5xx/401 failure keeps that id for next time, a 400 drops it. A guide
+  account just discards the queue; signed out, it's left alone. "Take
+  another look" (`resetPassed()`) clears it too.
+- **Signed-in guest**: `DiscoverPage` fetches `api.paymentState()` itself on
+  mount (alongside the deck — App.vue's boot sync may not have finished),
+  and with no pack opens the payment modal straight away. "Not now" closes
+  it; Interested reopens it and remembers that card, which is picked
+  (`decide('interested')`) as soon as the payment goes through. Payment is
+  the same `api.unlockPack()` simulation as `/unlock`, which stays for
+  top-ups.
+- `ModalDialog.vue` is the generic native-`<dialog>` wrapper (`open`,
+  `title`, `close-label`, emits `close`) — same mechanics as
+  `ReviewsDialog.vue`.
 
 ### Mobile burger menu (`AppHeader.vue`)
 
@@ -454,8 +542,7 @@ once, inside `.drawer > ul.nav`.
 
 ### Match management (`MatchesPage.vue`, `/matches`)
 
-One page for both roles, fully server-backed (unlike `ShortlistPage.vue`'s
-client-only picks grid). It loads `api.matchOverview()`
+One page for both roles, fully server-backed. It loads `api.matchOverview()`
 (`Selections::getOverview()`) and, for guests, `api.paymentState()`, then
 sorts every pair into four tabs:
 
@@ -478,7 +565,7 @@ sorts every pair into four tabs:
 - Guests: Accept and Reconsider each cost a pick (enforced server-side by
   `Selections::decide()`). With `selectionsLeft === 0` those buttons turn
   into "Unlock…" links to `/unlock`. Every guest action is mirrored into
-  `shortlist` (`pick`/`pass`/`remove`), so the header's pick counter and
+  `matchesStore` (`pick`/`pass`/`remove`), so the header's pick counter and
   the `/discover` deck stay consistent within the session.
 - **A pair whose latest booking is `confirmed` isn't on this page at all**
   (`isTrip()`) — upcoming, under way or finished, it's a trip and lives on
@@ -487,8 +574,8 @@ sorts every pair into four tabs:
   again" after a finished trip is on the trip card; the new payment brings
   the pair back here as pending until the guide accepts.
 - This is where a guide finds a match the visitor completed (see the gap
-  under "Progress so far"). `ShortlistPage.vue`'s "Confirmed matches" panel
-  still exists and now links here.
+  under "Progress so far"). The Discover page's "View matches" links and
+  the header's picks-pill lead here.
 
 ### My trips (`TripsPage.vue`, `/trips`)
 
@@ -519,7 +606,7 @@ server-computed `phase`:
   cancelling a free trip (`Bookings::cancelFreeByGuest()`, which used to
   clear only the guest's side). So each is back in the other's discovery
   deck, gone from `/matches`, and the trip stays under Past. Every load also
-  re-syncs a guest's `shortlist` from `api.paymentState()`, since a cancel
+  re-syncs a guest's `matchesStore` from `api.paymentState()`, since a cancel
   hands the pick back.
 - `TripRow` reuses `MatchOverviewRow`'s booking field names
   (`booking_status`, `booking_amount`, …) — the shared subset is the
@@ -582,9 +669,10 @@ after each step so the page re-fetches.
   approveCancellation | refuseCancellation | requestFinish | confirmFinish |
   dismissFinish | setLocation`. `RequestProcessor::actionBooking()` checks the caller's
   role per op; `Bookings` checks the booking's state.
-- **`Bookings::sweep()`** runs at the start of every request
-  (`RequestProcessor::sweepBookings()`, never allowed to fail the request):
-  expires unanswered pending bookings, starts trips, finishes trips.
+- **`Bookings::sweep()`** runs every 30 s in the scheduler service
+  (`api/bin/scheduler.php`, behind a Redis lock so only one runs at a
+  time): expires unanswered pending bookings, starts trips, finishes trips.
+  Requests no longer sweep.
 - **Nothing else hands out contact details**: deck cards
   (`Users::searchByRole()`, `ProfileAccount`) and public profiles carry no
   `email`/`phone` — the deck used to include `email` as a name fallback,
@@ -595,19 +683,69 @@ after each step so the page re-fetches.
 
 ### In-app notifications
 
-`notifications` rows (`Notifications::notify()`, which also sends the
+`notifications` rows (`Notifications::notify()`, which also queues the
 email) are what a user hears about while they weren't looking — currently
 `booking_requested`, `booking_accepted`, `booking_declined`,
 `booking_withdrawn`, `booking_expired`, `booking_free`, `booking_cancelled`,
 `cancel_requested`, `cancel_request_withdrawn`, `cancel_approved`,
 `cancel_refused`, `finish_requested`, `finish_refused`, `trip_finished`,
-`trip_location`. Copy about a confirmed trip points to "My trips", copy
-about a pending request to "Matches". There's no push
-channel: `App.vue` pulls them (`api.notifications()`) at boot and on every
-route change, throttled to once per 15s, and shows each as a 10s info toast;
-the server marks them read in the same call, so each shows once. The
-contact channel is **email only for now** — `Notifications::deliver()` is
-the one place to branch on a preferred channel when SMS/WhatsApp exist.
+`trip_location`, plus `match` (a new match with a paid guide, sent to the
+side that *didn't* make the completing decision — `Bookings::onMatched()`;
+for a free guide `booking_free` covers it, to both sides) and
+`profile_updated` (in-app only, no email — `Notifications::notifyInApp()`,
+sent to everyone actively matched with someone who saved their profile or
+contact details; an identical line unread or sent in the last 10 minutes
+isn't repeated). Copy about a confirmed trip points to "My trips", copy
+about a pending request to "Matches". Each row is **published to Redis**
+the moment it's written (`Push`, see "Realtime") and marked read if a
+gateway took it; a user who isn't connected gets their unread rows on their
+next sign-in (`pushState`). `App.vue` shows each
+as a 10 s info toast. The copy is English only (server text, not in
+`translations`). The contact channel is **email only for now** —
+`Notifications::deliver()` is the one place to branch on a preferred
+channel when SMS/WhatsApp exist.
+
+### Realtime: the API WebSocket
+
+**Every request goes over one WebSocket** to the gateway, and the same
+connection carries the server's pushes. The client protocol is unchanged
+from when one PHP process did everything; behind it are services (see
+"Services"):
+
+- **Requests**: `{ type: 'request', id, action, sessionHash?, ... }` →
+  `{ type: 'response', id, status, body }`. The gateway sends account
+  actions to auth as they are; for anything else it first asks auth to
+  `resolve` the `sessionHash` (sliding it), answers 401 itself if that
+  fails, and forwards the request to the API with `X-User-Id` — the API
+  never sees a hash. `status` is the service's HTTP status, so `call()`
+  handles 401s exactly as before; an unreachable service is a 503. Requests
+  run concurrently. A dropped connection fails in-flight requests with
+  status 0 (not retried); requests time out after 30 s (services after 25).
+- **Identity for pushes**: `{ type: 'auth', sessionHash }` binds the
+  connection to a user (`''` unbinds). `App.vue` sends it whenever
+  `auth.sessionHash` changes; the socket re-sends it on every reconnect
+  (backoff 1 s → 15 s, only while signed in or with requests waiting). The
+  gateway re-checks bound sessions every 20 s (`peekMany`, no sliding), so
+  an expired session stops getting pushes.
+- **Pushes** go through Redis pub/sub, channel `user:<id>`: the API
+  publishes `{ type: 'notification', notification }` as each row is written,
+  and `{ type: 'badges', matches, trips }` once per request for everyone it
+  touched (`Push::touch()`/`flush()`). Each gateway subscribes for the users
+  it holds sockets for and drops a counts message identical to the last.
+  On sign-in it fetches `pushState` (unread backlog + counts); after a Redis
+  outage it does that for everyone.
+- **Menu counters** (`Badges.php`, 020): red bubbles on "Matches" and "My
+  trips" in `AppHeader.vue` (beside the label in the mobile drawer, plus a
+  dot on the burger), from `stores/badges.ts`. A match counts while it's on
+  /matches' Matched tab and the user's `selections.*_seen_at` is older than
+  `matched_at`; once its booking is confirmed it leaves that count and
+  counts as a trip until `bookings.*_seen_at` passes `accepted_at`
+  (unfinished trips only). Opening the page clears it — `api.markSeen()`,
+  via `composables/useLiveSection.ts`, which also refetches the open page
+  whenever a notification is pushed or its counter goes up.
+- Tests: `socket.spec.ts` (the client socket), `api.spec.ts` (through a
+  stand-in `WebSocket`, `__tests__/fakeWebSocket.ts`), `App.spec.ts` mocks
+  `@/plugins/socket` to fire pushes.
 
 ### Real guide/visitor cards, filtered server-side
 
@@ -627,14 +765,14 @@ client-side `matchesFilters()`) is gone; don't recreate it.
   visitor ever fetched, for `find(id)`) plus `currentIds` (just the *last*
   filtered fetch, for `items` — what the deck actually shows) — kept
   separate so a guide picked under one filter stays resolvable by id
-  (`ShortlistPage`) even after a later, narrower fetch stops including them.
+  (the Discover matches rail) even after a later, narrower fetch stops including them.
   No `loaded` cache flag — every `load()` call is a real, current fetch;
   callers decide when to call it.
 - **These are the one place in the client that calls `useApi()` from
   inside a Pinia store** rather than a page component (every other store
   follows the page-calls-the-api pattern — see `RegisterPage.vue` below) —
-  because the fetched-and-mapped list is shared by `DiscoverPage`
-  and `ShortlistPage`. The call is made **once,
+  because the fetched-and-mapped list is shared by the deck and its
+  matches rail (`hydrateDecided()`). The call is made **once,
   synchronously, in the store's `defineStore(() => {...})` setup body**
   (`const api = useApi()` at the top), *not* inside `load()` itself: Vue's
   `inject()` only works while a component instance is "current", which
@@ -672,7 +810,7 @@ client-side `matchesFilters()`) is gone; don't recreate it.
   gate, no `SelectionCounter`/unlock CTA, since guides never pay and never
   run out of swipes. The header `PillBadge` instead reads
   `"{{ interested.length }} interested"`, and the right-hand rail mirrors
-  `DiscoverPage.vue`'s shortlist rail ("Interested in" / "Mutual interest
+  `DiscoverPage.vue`'s matches rail ("Interested in" / "Mutual interest
   reveals contact details.") — same shared three-column `.discovery-layout`
   both pages use. (An earlier version of this page was a multi-select grid
   with no accept/reject buttons at all — replaced because the visitor and
@@ -684,14 +822,14 @@ client-side `matchesFilters()`) is gone; don't recreate it.
   yet"), which is why this only became possible once both pages read real
   ids from `stores/guides.ts`/`stores/visitors.ts` instead of the old mock
   decks. `DiscoverPage.vue`'s `accept()` still gates through
-  `shortlist.pick()`/`canPick` first (the local, client-only pack state —
+  `matchesStore.pick()`/`canPick` first (the local, client-only pack state —
   see "Domain model" below) and only calls `decide()` if that local pick
-  actually went through (`shortlist.isPicked(id)`), so a guest out of picks
+  actually went through (`matchesStore.isPicked(id)`), so a guest out of picks
   never records a decision they didn't really make; `reject()` isn't gated
   (a pass never costs anything). Both pages treat a `decide()` failure as
   best-effort — a toast via `useMessagesStore()`, no rollback of the local
   swipe-past-this-card state — since the deck's own local
-  `interested`/`passed` (or `shortlist.picks`/`.passed`) arrays are what
+  `interested`/`passed` (or `matchesStore.picks`/`.passed`) arrays are what
   actually drive "what's left in the deck," not anything fetched back from
   the server. A reload still resets that in-memory list, but the deck no
   longer re-serves those cards: `Users::searchByRole()` drops anyone the
@@ -746,7 +884,7 @@ excludes every candidate that user has an existing decision on —
 `guest_decision`/`guide_decision` not null, so both `'interested'` and
 `'pass'` — plus the caller themselves. Before this, a matched or passed
 guide came straight back into `/discover` on the next reload, because the
-only record of "already seen" was the client-side `stores/shortlist.ts`,
+only record of "already seen" was the client-side `stores/matches.ts`,
 which doesn't survive one.
 
 - **Someone who liked *you* but whom you haven't answered is still shown**
@@ -754,12 +892,9 @@ which doesn't survive one.
   decision removes a card.
 - **Anonymous callers see everyone**, exactly as before — the exclusion
   needs a session, and `guides`/`visitors` still work without one.
-- **`includeDecided: true` opts out**, because `ShortlistPage.vue` (the
-  picks grid) renders cards the visitor has by definition already decided
-  on and resolves them from the same fetch, via
-  `guidesStore.load(undefined, { includeDecided: true })`. Without it the
-  page silently comes up empty — the store's `find(id)` has nothing to
-  find. A page that needs one specific person by id should use
+- **`includeDecided: true` opts out**, for `stores/guides.ts`'s
+  `hydrateDecided()`, which pulls already-picked guides into the id cache so
+  the Discover matches rail can name them after a reload. A page that needs one specific person by id should use
   `api.publicProfile()` instead, as both profile pages now do.
 - Filters still apply in both modes; `includeDecided` only governs the
   already-decided exclusion.
@@ -1086,11 +1221,11 @@ category a user invented on their profile page five minutes ago.
   `ProfileCard`/`DecisionRow` accept/reject — see `GuideDiscoverPage.vue`
   above). The one asymmetry left is payment: visitors pay per pack and are
   capped by it, guides don't pay and never run out of swipes.
-- Visitors pay per pack of 5 selections (`PACK_SIZE` in `stores/shortlist.ts`,
+- Visitors pay per pack of 5 selections (`PACK_SIZE` in `stores/matches.ts`,
   £5/pack per the prototype's pricing) rather than getting unlimited swipes.
 - A swipe produces a `Decision`: `'pass' | 'interested'`. Both sides now
   persist it via `api.decide()` (see "Real guide/visitor cards" above) —
-  `DiscoverPage.vue` alongside its local, client-only `shortlist.pick()`/
+  `DiscoverPage.vue` alongside its local, client-only `matchesStore.pick()`/
   `.pass()` (which is what actually gates a visitor's remaining picks and
   drives the deck), `GuideDiscoverPage.vue` alongside its own local
   `interested`/`.passed` arrays (no pack to gate, so no equivalent
@@ -1107,8 +1242,10 @@ category a user invented on their profile page five minutes ago.
 
 ### Sessions
 
-The app now has real server-side sessions (see `Session.php` under
-Backend) — the long-standing "there is no session/token auth yet, so
+The app has real server-side sessions, held in **Redis by the auth
+service** (`auth/classes/Session.php`: key `session:<sha256 of hash>` with a
+300 s TTL re-armed by `GETEX` on each use, plus a `user_sessions:<id>` set
+for signing out everywhere; MySQL's `sessions` table was dropped by 023) — the long-standing "there is no session/token auth yet, so
 anyone can act as any user id" gap noted throughout this file's history is
 closed. A session is a random hash, created by `register`/`login`, that
 expires after **5 minutes of inactivity** — a *sliding* window, not a
@@ -1181,7 +1318,7 @@ active user is never logged out mid-session, but an idle one is.
 
 ### Two-factor login & password reset
 
-Both by email, both in `api/classes/AccountSecurity.php`, backed by
+Both by email, both in `auth/classes/AccountSecurity.php`, backed by
 `auth_challenges` (016). A challenge has a 64-hex-char token (only its
 SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
 
@@ -1199,9 +1336,10 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
   challenge (the 5th spends it), errors are `400`s — never `401`, which
   `call()` would treat as a logout. `resendTwoFactor` emails a new code
   (old one stops working) after a 30 s cooldown, at most 3 sends.
-- **If the email can't be sent** (no SMTP config, Gmail down) the login
-  fails with "We couldn't email your login code…" rather than letting the
-  user in — so a 2FA account can't log in on a server without `SMTP_*`.
+- **The code email is queued, not sent inline** (high priority, so it
+  jumps the outbox). If it can't be delivered after its retries the login
+  still shows the code step; the user asks for another code. A 2FA account
+  can't log in while mail is broken.
 - **`LoginPage.vue`** swaps its password form for a code form on a
   challenge (`isTwoFactorChallenge()`), with a resend countdown; an error
   mentioning "log in again" sends it back to the password step.
@@ -1229,7 +1367,7 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
   locally. `myProfile` returns `trusted_device_count`; the profile page shows
   it with a "Forget all devices" button (`forgetTrustedDevices`). A
   password *change* leaves devices trusted; a *reset* forgets them.
-- **`APP_URL`** (fastcgi param, defaults to `http://localhost:5173`) is
+- **`APP_URL`** (env, defaults to `http://localhost:5173`) is
   where email links point. It's read from the server environment, never
   from the request's Origin/Host — those are attacker-controlled and would
   let someone point a victim's reset link at their own site. Set it for
@@ -1237,36 +1375,96 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
 - Codes and links are never logged. In development, `MAIL_REDIRECT_TO`
   sends them to one inbox (see "Email").
 
+## Services
+
+| Service | Code | Container | Talks to |
+| --- | --- | --- | --- |
+| gateway | `gateway/bin/gateway.php` | `lemp-ws` (port 8090) | auth + api over internal HTTP, Redis (subscribe) |
+| auth | `auth/index.php` (php-fpm) | `lemp-rg-auth`, via nginx `:8082` | MySQL, Redis (sessions), outbox |
+| api | `api/index.php` (php-fpm) | `lemp-rg-api`, via nginx `:8081` | MySQL, Redis (publish), outbox |
+| scheduler | `api/bin/scheduler.php` | `lemp-rg-scheduler` | MySQL, Redis |
+| mailer | `mailer/bin/mail-worker.php` | `lemp-rg-mailer` | MySQL (outbox), Redis (wake-ups), SMTP |
+
+- **Internal HTTP contract** (`lib/ServiceHttp.php`): `POST /` with the JSON
+  payload, `X-Internal-Token` (shared secret `INTERNAL_TOKEN`; missing or
+  wrong → 403, unset on the service → 503), `X-User-Id`, `X-Request-Id`,
+  `X-Client-User-Agent`; `GET /healthz` → 200. The gateway also answers
+  `GET /healthz`. Only `/ws` is public on `api.rockguide.com`; the service
+  ports aren't published.
+- **Gateway-only actions** — `resolve`, `peekMany` (auth) and `pushState`
+  (api) — the gateway refuses them from clients (404).
+- **Stateless**: nothing but the gateway's open sockets lives in a
+  process. Sessions are in Redis, everything else in MySQL, so every service
+  can run as several replicas (the scheduler's Redis lock and the mailer's
+  `SKIP LOCKED` claims make those two safe to duplicate too).
+- **Long-running PHP**: after changing code, restart what runs it —
+  `docker restart lemp-ws` (gateway/), `lemp-rg-scheduler` (api/),
+  `lemp-rg-mailer` (mailer/). php-fpm (`lemp-rg-api`, `lemp-rg-auth`)
+  picks changes up per request.
+
+### Email outbox
+
+Nothing sends SMTP inside a request. `MailQueue::enqueue()` writes a row to
+`email_outbox` (022) and pushes a wake-up on Redis `mail:wake`. The mail
+worker claims rows (`FOR UPDATE SKIP LOCKED`, highest `priority` first —
+login codes and reset links) and sends them. A failed send is retried **up
+to three times** (after 20 s, 60 s, 5 min); then the row is `failed` and an
+error is logged. A permanent failure (bad address, 5xx reply, no SMTP
+config) gives up at once. Subject and body are blanked once a row is done
+(they can hold codes/links), and finished rows are deleted after 30 days.
+
+### Logs: Loki + Alloy + Grafana
+
+Every service logs one JSON object per line to stderr (`lib/Log.php`:
+`ts, level, service, msg, request_id, action, user_id, …`); PHP warnings
+and uncaught exceptions are captured the same way, and SQL in database
+errors has its quoted values blanked. Grafana **Alloy** reads the
+containers labelled `rockguide.logs=true` through the Docker socket, turns
+`level`/`service` into labels and ships them to **Loki** (7-day
+retention). **Grafana** at http://localhost:3000 (anonymous admin, bound to
+localhost — development only) has Loki provisioned and a "RockGuide logs"
+dashboard: requests by status, p95 time per action, errors/warnings by
+service, email sent/retried/failed, and log streams. Example query:
+`{app="rockguide", service="gateway"} | json | msg="Request" | status >= 500`.
+Never log secrets, codes, links or session hashes; mask emails with
+`Log::maskEmail()`.
+
 ## Docker environment
 
 This app runs inside the `docker-lemp` compose stack (one level up from this
 repo, at `../../docker-compose.yaml` relative to here — i.e.
 `~/Docker/docker-lemp/docker-compose.yaml`). Relevant services/containers:
 
-- `php` / `lemp-php` — PHP 8.3-fpm (custom image: `mysqli`, `pdo_mysql`,
-  `memcache` extensions built in). No host-installed PHP — always run PHP
-  *through this container*:
+- The RockGuide services above (`ws`, `rg-api`, `rg-auth`, `rg-scheduler`,
+  `rg-mailer`), all built from `./php`, with `deploy/php/rockguide.ini`
+  (errors logged, never displayed) and `restart: unless-stopped`. Their
+  settings — DB_*, PEPPER, SMTP_*, MAIL_*, APP_URL, INTERNAL_TOKEN, REDIS_* —
+  come from `docker-lemp/php/localguideapp.env`, outside this repo. Never
+  commit it. `docker compose up -d ws rg-api rg-auth rg-scheduler rg-mailer`.
+- `redis` / `lemp-redis` — Redis 7.4 with AOF and a password
+  (`docker-lemp/php/redis.env`); not published to the host.
+- `loki`, `alloy`, `grafana` (`lemp-loki`, `lemp-alloy`, `lemp-grafana`) —
+  logs, configured from `deploy/observability/`.
+- `php` / `lemp-php` — the stack's shared PHP 8.3-fpm (custom image:
+  `mysqli`, `pdo_mysql`, `memcache`), used by the other sites; RockGuide no
+  longer runs on it, but it's still the handy place to lint (no
+  host-installed PHP):
   ```sh
   docker exec lemp-php php -l /var/www/localguideapp/api/classes/Users.php   # lint
   docker exec lemp-php php -v                                        # version
   ```
   The host repo root (`~/Docker/docker-lemp/www/`) is bind-mounted to
-  `/var/www` in this container (and in `nginx`/`node`), so this repo is at
-  `/var/www/localguideapp` inside it.
-- `nginx` / `lemp-nginx` — serves `api.rockguide.com` per
-  `../../nginx/conf.d/api.rockguide.com.conf`, doc root `/var/www/localguideapp/api`,
-  proxying `*.php` to `php:9000`. Both the plain-HTTP (80) and HTTPS (443)
-  server blocks set `fastcgi_param PEPPER "…"` (used by `Auth.php`) and CORS
-  headers (`Access-Control-Allow-Origin`, restricted by a regex to
-  `*.rockguide.com` / `*.localhost:5173` origins, plus bare `localhost:5173`;
-  `-Methods`/`-Headers`; `OPTIONS` short-circuits to `204`) — needed because
-  the frontend (`localhost:5173` in dev) and this API are always
-  cross-origin. Reload after editing: `docker exec lemp-nginx nginx -s reload`.
-  Requires `127.0.0.1 api.rockguide.com` in `/etc/hosts` on the host to be
-  reachable from a browser at all (nginx routes by `Host` header).
+  `/var/www` in every container, so this repo is at
+  `/var/www/localguideapp` inside them.
+- `nginx` / `lemp-nginx` — `../../nginx/conf.d/api.rockguide.com.conf`
+  (ports 80/443) now only proxies `/ws` to the gateway; everything else is
+  404. `../../nginx/conf.d/rockguide-internal.conf` serves the api (`:8081`)
+  and auth (`:8082`) services on the docker network only, with an 8 MB
+  body limit (a photo). Reload after editing:
+  `docker exec lemp-nginx nginx -s reload`. Requires
+  `127.0.0.1 api.rockguide.com` in `/etc/hosts` on the host.
 - `mysql` / `lemp-mysql` — MySQL 8.4. The `guideapp` database and
-  `localguideapp` user (both hardcoded in `db.php`) already exist on this
-  server, pre-dating this task:
+  `localguideapp` user already exist on this server, pre-dating this task:
   ```sh
   docker exec lemp-mysql mysql -u localguideapp -p'…' guideapp
   ```
@@ -1275,18 +1473,15 @@ repo, at `../../docker-compose.yaml` relative to here — i.e.
 
 ### Email
 
-`Mailer.php` reads these from the server environment — add them next to
-`PEPPER`/`DB_*` in **both** server blocks of
-`nginx/conf.d/api.rockguide.com.conf`, then `docker exec lemp-nginx nginx -s reload`.
-Never commit them.
+`Mailer.php` (mail worker only) reads these from the env file:
 
-```nginx
-fastcgi_param SMTP_HOST "smtp.gmail.com";
-fastcgi_param SMTP_PORT "587";
-fastcgi_param SMTP_USER "<the sending Gmail address>";
-fastcgi_param SMTP_PASS "<16-char Google App Password>";
-fastcgi_param MAIL_FROM_NAME "RockGuide";
-fastcgi_param MAIL_REDIRECT_TO "<your inbox>";   # development only
+```sh
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=<the sending Gmail address>
+SMTP_PASS=<16-char Google App Password>
+MAIL_FROM_NAME=RockGuide
+MAIL_REDIRECT_TO=<your inbox>   # development only
 ```
 
 - Gmail rejects the normal account password over SMTP. It needs an **App
@@ -1297,27 +1492,26 @@ fastcgi_param MAIL_REDIRECT_TO "<your inbox>";   # development only
 - `MAIL_REDIRECT_TO` sends every email to that one address instead, noting
   the real recipient at the top of the body — set it in development, where
   test accounts have made-up addresses; remove it in production.
-- With no `SMTP_*` set, nothing is sent and each attempt is logged to
-  `/tmp/db_error_<date>.log` in `lemp-php` (`db::writeLog()`); SMTP failures
-  land there too.
-- The SMTP conversation was verified against smtp.gmail.com up to AUTH
-  (bogus credentials → `535 BadCredentials`) — a real App Password is the
-  only missing piece.
+- Delivery problems are in the logs (`{service="mailer"}`) and in
+  `email_outbox.last_error`.
 
 ## API reference
 
-Every action `RequestProcessor::handle()` dispatches (`api/classes/
-RequestProcessor.php`'s `switch`), and the `src/plugins/api.ts` method that
-calls it — a 1:1 mapping, always POSTed as `{ action, sessionHash?,
-...payload }` JSON to `VITE_API_BASE_URL` (see `.env.development`; defaults
-to `https://api.rockguide.com`). "Auth" means the action calls
+Every action the services dispatch — `AuthProcessor` (auth/) for
+`register`, `login`, `verifyTwoFactor`, `resendTwoFactor`,
+`requestPasswordReset`, `resetPassword`, `forgetTrustedDevices`,
+`changePassword`, `logout`, `session`; `RequestProcessor` (api/) for the
+rest — and the `src/plugins/api.ts` method that calls it: a 1:1 mapping,
+always sent as `{ action, sessionHash?, ...payload }` over the WebSocket
+(see "Realtime"); the gateway routes it. "Auth" means the action calls
 `requireUserId()` and throws a `401` `AuthenticationException` (see
 "Sessions" below) without a valid `sessionHash` — everything else either
 takes no identity at all or reads one from the payload (`register`/`login`)
 directly. Every response is `200` with a JSON body on success; a thrown
 `RuntimeException` maps to `400`, `AuthenticationException` to `401`, an
 unknown `action` to `404`, anything else (a real bug) to `500` (logged via
-`db->writeLog()`, generic message to the client).
+`Log::exception()`, generic message to the client); an unreachable service
+is a `503` from the gateway.
 
 | Action | Auth | Frontend call | Request fields (beyond `sessionHash`) | Response | Backend |
 | --- | --- | --- | --- | --- | --- |
@@ -1339,19 +1533,19 @@ unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 | `paymentState` | **yes** | `api.paymentState()` | — | `PaymentState` | `paymentStateFor()` |
 | `decide` | **yes** | `api.decide(payload)` | `targetId, decision` (`'interested' \| 'pass'`) | `SelectionRow` (`id, guest_id, guide_id, guest_decision, guide_decision, active, created_at, updated_at`) | `Selections::decide()` |
 | `revokeSelection` | **yes** | `api.revokeSelection(payload)` | `targetId` | `SelectionRow` | `Selections::revoke()` |
-| `matches` | **yes** | `api.matches()` | — | `{ matches: MatchRow[] }` (`id, counterpart_id, name, email` — `email` `null` until booked) | `Selections::getActiveMatches()` |
 | `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, email, phone, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, location, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
 | `trips` | **yes** | `api.trips()` | — | `{ trips: TripRow[] }` (booking `id`, `selection_id, counterpart_id, phase, is_latest, name, image, email, phone, active, fee_amount, booking_status, payment_status, booking_amount, meeting_at, booking_duration_hours, location, refund_amount, trip_status, accepted_at, cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason, finish_requested_by, finished_at, matched_at, auto_finish, refund_if_cancelled, refund_if_guest_cancels` — newest first) | `Bookings::tripsFor()` |
 | `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year), `durationHours?` (0.5–24), `location?` (≤160 chars) | `Booking` (`status: 'pending'` — waits for the guide) | `actionPayGuideFee()` → `Bookings::pay()` |
 | `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation), `location?` (setLocation; empty clears) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/setLocation()/…` |
 | `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
-| `notifications` | **yes** | `api.notifications()` | — | `{ notifications: AppNotification[] }` (`id, kind, message, created_at`) — marked read by this call | `Notifications::takeUnread()` |
+| `markSeen` | **yes** | `api.markSeen(section)` | `section` (`'matches' \| 'trips'`) | `{ ok: true }` — the new counts arrive as a `badges` push | `Badges::markSeen()` |
 | `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
 | `session` | **yes** | `api.session()` | — | `AuthResult` (same shape as `register`/`login`, unrotated `sessionHash`) | `actionSession()` |
 | `publicProfile` | optional | `api.publicProfile(userId)` | `userId` | `PublicProfile` (a `ProfileAccount` minus `email`, plus `role`; `400` "Profile not found." for an unknown id or a non-guest/guide) | `Users::getPublicProfile()` |
 | `reviews` | optional* | `api.reviews(payload)` | `userId, limit? (default/max 20), offset?` | `ReviewsPage` (`reviews: Review[]` newest first, `total, average, histogram` `{ "5": n, …, "1": n }`, `viewer: { canReview, bookingId, myReview }` — all no/null signed out) | `Reviews::listFor()`/`viewerStateFor()` |
 | `submitReview` | **yes** | `api.submitReview(payload)` | `subjectId, rating, comment?` | `Review` (`id, booking_id, author_id, subject_id, rating, comment, created_at, updated_at, author_name, author_image`) | `Reviews::submit()` (upsert) |
 | `deleteReview` | **yes** | `api.deleteReview(payload)` | `reviewId` | `{ ok: true }` | `Reviews::delete()` |
+| `translations` | no | `api.translations(language)` | `language` (one of the 15 codes) | `{ language, strings: { key: value } }` (always an object; `400` "Unsupported language." otherwise) | `Translations::forLanguage()` |
 
 \* `guides`/`visitors`/`reviews` work signed out, but personalise themselves when a
 session *is* sent: `RequestProcessor::optionalUserId()` returns the caller's
@@ -1366,42 +1560,62 @@ There is no endpoint without a frontend caller and no `api.*()` method
 without a matching backend `case` — if you add one side, add the other in
 the same change.
 
-## Backend (`api/`)
+## Backend (services)
 
 Plain PHP, no framework, no Composer, no autoloading, no namespaces —
 classes are pulled in with `require_once` and match the style already
-established in `db.php`. Entry point is `api/index.php`, which just wires up
-`db` + `RequestProcessor` and calls `handle()`.
+established in `db.php`. Each service has a `bootstrap.php` that requires
+`lib/bootstrap.php` and its own classes. Entry points: `api/index.php`,
+`auth/index.php` (both `ServiceHttp::serve()`), `gateway/bin/gateway.php`,
+`api/bin/scheduler.php`, `mailer/bin/mail-worker.php`.
 
-- `api/classes/db.php` — a `db` class wrapping `mysqli` (connect, escape,
+Shared (`lib/`):
+- `lib/db.php` — a `db` class wrapping `mysqli` (connect, escape,
   select/insert/update/replace helpers, a basic `WHERE` builder). No
   prepared statements; escaping is manual via `mysqli_real_escape_string`.
   Every method is written against the pre-PHP-8.1 mysqli contract (a failed
   query returns `false`, check it yourself) — `db_Connect()` explicitly sets
-  `mysqli_report(MYSQLI_REPORT_OFF)` to restore that, since PHP 8.1+
-  otherwise throws `mysqli_sql_exception` on error, which (being a
-  `RuntimeException`) would otherwise get caught by `RequestProcessor` and
-  have its raw driver message (schema, table/column names) sent straight to
-  the client. DB credentials come from the server environment
-  (`DB_HOST`/`DB_USER`/`DB_PASS`/`DB_NAME`, read via a small `env()` helper
-  that checks `$_SERVER` then `getenv()`), set with `fastcgi_param` in
-  `nginx/conf.d/api.rockguide.com.conf` exactly like `PEPPER` — nothing
-  credential-shaped lives in the repo. `db_Connect()` throws if
-  `DB_USER`/`DB_PASS` are missing rather than attempting an anonymous
-  connection.
-- `api/classes/Auth.php` — password hashing. Combines the plaintext
-  password, a per-user salt, and a server-wide pepper (`$_SERVER['PEPPER']`,
-  never stored in the DB) via `hash_hmac()`, then runs that through
-  `password_hash()`/`password_verify()` (bcrypt). `PEPPER` must be set in
-  the web server/PHP-FPM environment or every hash/verify call throws.
-- `api/classes/Users.php` — data access for `users`/`roles`/`creds`/
-  `user_role`: `register()`, `verifyCredentials()`, `findByEmail()`,
-  `findById()` (backs `RequestProcessor::actionSession()`),
-  `getRoleName()`. `register()` sets `users.role_id` (the account's current
-  role) *and* inserts into `user_role` (a role-grant log — see
-  `003_user_role.sql`'s header for why both exist), and takes an optional
-  pre-validated `$image` data URI (`RequestProcessor::validateImage()` does
-  the validating — `Users` just stores whatever string it's given).
+  `mysqli_report(MYSQLI_REPORT_OFF)`. A failed connect throws a plain
+  `Exception` (→ logged 500), never prints. Credentials come from the
+  environment (`DB_HOST`/`DB_USER`/`DB_PASS`/`DB_NAME`). `writeLog()` now
+  goes to `Log::error()` with quoted SQL values blanked;
+  `ensureConnected()` is for long-running workers.
+- `lib/Log.php` — JSON-lines logging (see "Logs").
+- `lib/RedisClient.php` + `lib/Resp.php` — a blocking RESP2 client
+  (commands, pipelines, BRPOP) and the shared parser; no extension needed.
+  `RedisException` is deliberately not a `RuntimeException`, so its text is
+  never shown to users.
+- `lib/MailQueue.php` — the outbox producer (see "Email outbox").
+- `lib/ServiceHttp.php` — the internal HTTP contract (see "Services").
+- `lib/ImageData.php` — the `data:image/...` validator (register,
+  updateAccount).
+- `lib/AuthenticationException.php` — mapped to `401` by both processors.
+
+Auth service (`auth/classes/`):
+- `AuthProcessor.php` — the auth actions plus gateway-only `resolve`/
+  `peekMany`.
+- `Accounts.php` — `register()` (now refuses any role but guest/guide —
+  it used to accept `admin`), `verifyCredentials()`, `verifyPasswordFor()`,
+  `setPassword()`, `findById()`, `getRoleName()`.
+- `Auth.php` — password hashing. Combines the plaintext password, a
+  per-user salt, and a server-wide pepper (`PEPPER`, never stored in the DB)
+  via `hash_hmac()`, then bcrypt. Every hash/verify throws without `PEPPER`.
+- `AccountSecurity.php` — 2FA codes, trusted devices, password resets
+  (emails queued through `MailQueue`).
+- `Session.php` — Redis sessions (see "Sessions").
+
+Gateway (`gateway/classes/`): `WebSocketServer.php` (RFC 6455 + watchers +
+`/healthz`), `Gateway.php` (routing, binding, pushes), `HttpClient.php`
+(non-blocking HTTP/1.0 to the services), `RedisSubscriber.php`,
+`StreamWatcher.php`.
+
+Mailer (`mailer/classes/`): `Mailer.php` (SMTP, throws `MailerException`
+with a `permanent` flag), `MailWorker.php` (claims, retries, wipes).
+
+API service (`api/classes/`):
+- `api/classes/Users.php` — data access for `users`/`roles` as the API
+  needs them: `findByEmail()`, `getRoleName()`, `trustedDeviceCount()` (a
+  read of an auth-owned table, until the DB is split).
   `searchByRole(roleName, filters, Profiles $profiles, ?int $viewerId)` is
   the filtered guide/visitor listing (`$viewerId` also hides everyone that
   caller already decided on — see "Decided cards stay out of the deck"):
@@ -1461,8 +1675,7 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   one side's decision and re-syncs `active`; guards a guest's capacity
   against `Payments` (a *new* `'interested'` costs a pick, re-affirming an
   existing one doesn't); `revoke()` clears the acting side only;
-  `getActiveMatches()` lists a user's active matches with the counterpart's
-  basic info; `getOverview()` lists every pair the user is part of for
+  `getOverview()` lists every pair the user is part of for
   `MatchesPage.vue`, with the masking described under "Match management"; `getPicksUsed()` feeds `RequestProcessor::paymentStateFor()`.
 - `api/classes/Bookings.php` — `bookings`: `pay()` → `accept()`/
   `decline()`/`withdraw()`; `cancelByGuide()`; `requestCancellation()`/
@@ -1474,62 +1687,30 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   `guestCancelRefund()` (fee − 5%); `openFor()`; `setLocation()`;
   `tripsFor()` (the `/trips` list — see "My trips"). Owns the booking emails'
   wording. See "Guide fees & bookings".
-- `api/classes/Notifications.php` — `notify()` (a `notifications` row +
-  an email to the user) and `takeUnread()` (fetch-and-mark-read).
-- `api/classes/Mailer.php` — plain-text email over SMTP with STARTTLS +
-  AUTH LOGIN, no Composer/PHPMailer. `send()` never throws: a missing config
-  or SMTP error is written to `db::writeLog()` and returns `false`, so a
-  flaky mail server can't fail a payment. Header-injection-safe (CR/LF
-  stripped), RFC 2047 subjects, base64 bodies. See "Email" below for config.
+- `api/classes/Notifications.php` — `notify()` (a `notifications` row,
+  published through `Push`, + a queued email), `notifyInApp()`,
+  `takeUnreadFor()` (the `pushState` backlog).
+- `api/classes/Push.php` — Redis publishes to `user:<id>`; `touch()` +
+  `flush()` send each touched user's counters once per request.
 - `Selections.php` also takes `Bookings` now: `syncActive()` stamps
   `matched_at` and calls `Bookings::onMatched()` on the flip to active;
-  `revoke()` enforces the booked-pair rules; `getOverview()`/
-  `getActiveMatches()` mask contact details with `CONTACT_UNLOCKED`.
+  `revoke()` enforces the booked-pair rules; `getOverview()`
+  masks contact details with `CONTACT_UNLOCKED`.
 - `api/classes/Reviews.php` — data access for `reviews`: `listFor()`
   (a page, newest first, plus `summaryFor()`'s total/average/histogram),
   `viewerStateFor()`, `eligibleBookingId()`, `submit()` (validates and
   upserts), `delete()`. See "Reviews" above.
-- `api/classes/AccountSecurity.php` — emailed 2FA login codes and password
-  reset links (`auth_challenges`); see "Two-factor login & password reset".
-- `api/classes/Session.php` — server-side sessions backed by the
-  `sessions` table (see `009_sessions.sql`): `create(userId)` mints a
-  random 64-hex-char hash; `resolve(hash)` looks it up, checks
-  `last_active_at` against a 5-minute inactivity window, and — if still
-  valid — bumps `last_active_at` to now (a sliding expiry) before
-  returning the user id, or deletes the row and returns `null` if it had
-  expired; `destroy(hash)` is logout. See "Sessions" above for the full
-  picture, including the frontend half.
-- `api/classes/AuthenticationException.php` — a tiny `RuntimeException`
-  subclass thrown only by `RequestProcessor::requireUserId()`, mapped to
-  HTTP `401` (instead of the generic `400` every other validation failure
-  gets) so `plugins/api.ts`'s `call()` can tell "you're logged out" apart
-  from an ordinary bad-input error and react to it.
-- `api/classes/RequestProcessor.php` — the single front-to-back entry point.
-  Resolves an `action` from `$_GET['action']` or a JSON body, dispatches to
-  `register` / `login` / `guides` / `visitors` / `updateProfile` /
-  `attributeCategories` / `myProfile` / `updateAccount` / `changePassword` /
-  `logout` / `session` / `unlockPack` / `paymentState` / `decide` /
-  `revokeSelection` / `matches` / `matchOverview`, and writes a JSON response with an
-  appropriate HTTP status. Add new endpoints as new `case`s here rather
-  than adding more entry-point scripts. **`updateProfile` and everything
-  from `myProfile` down all resolve their caller's identity through
-  `requireUserId()`**, which now calls `Session::resolve()` against a
-  `sessionHash` in the request rather than trusting a client-supplied
-  `userId` directly — the fix for the gap this file used to flag here.
-  `register`/`login` call `Session::create()` and return the new
-  `sessionHash` alongside the rest of the response; `logout` calls
-  `Session::destroy()` (silently no-opping on a missing/unknown hash —
-  there's simply nothing to do); `session` re-validates the current
-  session (sliding its window forward) and returns the same `AuthResult`
-  shape `register`/`login` do, for `App.vue`'s boot-time check.
-  `actionRegister()` also runs any `image` field through `validateImage()`
-  before it ever reaches `Users`: must match
-  `data:image/(png|jpe?g|webp);base64,...` and stay under ~2MB of base64
-  text (nginx's own 1MB `client_max_body_size` default trips first for
-  anything that large in practice — confirmed by testing, not configured
-  here — so this cap is really defense-in-depth for a future config
-  change) — this is the one place guarding what lands in `users.image`
-  (`actionUpdateAccount()` reuses it for a photo change). `readFilters()`
+- `api/classes/RequestProcessor.php` — the API service's dispatcher:
+  `process($input, $context)` with the caller's id from the gateway
+  (`requireUserId()`/`optionalUserId()` read it — no session lookups here),
+  plus the gateway-only `pushState`. Add new endpoints as new `case`s in
+  `dispatch()` (or in `AuthProcessor` for account actions) and add the
+  action to the gateway's `AUTH_ACTIONS` if it belongs to auth. Account
+  actions moved to `AuthProcessor`; the paragraph below still describes the
+  remaining actions' validation. Photos (`image` on updateAccount, and
+  register in auth) go through `ImageData::validate()`: a
+  `data:image/(png|jpe?g|webp);base64,...` string under ~2 MB of base64.
+  `readFilters()`
   pulls the `Users::searchByRole()` filter shape (`gender`, plus the
   category-keyed `attributes`/`ranges`/`ageRanges` maps and the
   `includeDecided` opt-out) out of the
@@ -1637,6 +1818,23 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   the two-sided finish (`finish_requested_by`, `finish_requested_at`,
   `finished_at`); `open_pair` rebuilt so a pending booking counts as open.
   Applied 2026-09-30. Not re-runnable.
+- `api/sql/020_seen_markers.sql` — `selections.guest_seen_at`/
+  `guide_seen_at` and the same on `bookings`, for the menu counters
+  (`Badges.php`); everything existing marked seen. Applied 2026-10-14. Not
+  re-runnable.
+- `api/sql/021_translations_counters.sql` — `common.app_header.new_count`
+  in all 15 languages. Applied 2026-10-14. Re-runnable.
+- `api/sql/022_email_outbox.sql` — `email_outbox` (see "Email outbox").
+  Applied 2026-10-14. Re-runnable.
+- `api/sql/023_drop_sessions.sql` — drops `sessions` (now in Redis).
+  Applied 2026-10-14. Re-runnable.
+- `api/sql/018_translations.sql` — the `translations` table (language,
+  key, value; unique per language+key) and its seed: every UI string in all
+  14 languages (~9,000 rows), generated from `client/src/i18n/en.json` plus
+  the translation files. Applied 2026-10-13. Re-runnable, but the seed
+  upserts — re-running resets CMS edits to the file's text.
+- `api/sql/019_translations_uk.sql` — the Ukrainian rows (669), same
+  format as 018. Applied 2026-10-13. Re-runnable, but it upserts too.
 - `api/sql/017_trusted_devices.sql` — `trusted_devices` ("remember this
   device" for 2FA). Applied 2026-10-08. Re-runnable.
 - `api/sql/016_auth_challenges.sql` — `auth_challenges`, and every
@@ -1647,8 +1845,10 @@ established in `db.php`. Entry point is `api/index.php`, which just wires up
   014 (back then every booking was born confirmed), so `accepted_at IS NOT
   NULL` identifies a trip. Applied 2026-10-05. Not re-runnable.
 
-There is no test setup, linter, or formatter configured for `api/` yet;
-`docker exec lemp-php php -l <file>` is the only current check.
+There is no test setup, linter, or formatter configured for the PHP
+services yet; `docker exec lemp-php php -l <file>` is the only current
+check. The end-to-end check used for the service split drove real sockets
+against throwaway `@example.test` accounts with the mail worker stopped.
 
 ### Database state
 
@@ -1743,9 +1943,7 @@ There is no test setup, linter, or formatter configured for `api/` yet;
 - `auth_challenges` (id, user_id, purpose `login|reset`, token_hash unique,
   code_hash, attempts, sends, last_sent_at, expires_at, used_at,
   created_at) — see "Two-factor login & password reset".
-- `sessions` (id, `session_hash` unique, user_id, created_at,
-  last_active_at) — one row per active login, deleted on logout or the
-  next time `Session::resolve()` finds it past its 5-minute inactivity
-  window (see "Sessions" above). Never holds more than one live row per
-  concurrent login — logging in again from another browser/device just
-  creates a second row; nothing here limits sessions per user.
+- `email_outbox` (id, recipient, subject, body, tag, priority, status
+  `queued|sending|sent|failed`, attempts, next_attempt_at, locked_until,
+  last_error, created_at, sent_at) — see "Email outbox".
+- No `sessions` table any more (023): sessions live in Redis.

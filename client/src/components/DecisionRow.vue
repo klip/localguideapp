@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
 /** The two-up pass / interested control at the foot of every discovery card. */
 withDefaults(
   defineProps<{
@@ -6,7 +7,7 @@ withDefaults(
     acceptLabel?: string
     disabled?: boolean
   }>(),
-  { rejectLabel: '✕ Reject', acceptLabel: '♥ Interested', disabled: false },
+  { disabled: false },
 )
 
 const emit = defineEmits<{
@@ -18,10 +19,10 @@ const emit = defineEmits<{
 <template>
   <div class="decision-row">
     <button type="button" class="reject" :disabled="disabled" @click="emit('reject')">
-      {{ rejectLabel }}
+      {{ rejectLabel ?? t('common.decision_row.reject') }}
     </button>
     <button type="button" class="accept" :disabled="disabled" @click="emit('accept')">
-      {{ acceptLabel }}
+      {{ acceptLabel ?? t('common.decision_row.interested') }}
     </button>
   </div>
 </template>

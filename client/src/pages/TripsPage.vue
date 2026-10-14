@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import BookingPanel from '@/components/BookingPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import { useLiveSection } from '@/composables/useLiveSection'
+import { t } from '@/i18n'
 import { useApi, type TripPhase, type TripRow } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
-import { useShortlistStore } from '@/stores/shortlist'
+import { useMatchesStore } from '@/stores/matches'
 import { formatHours, formatMoney, formatWhen, utcDate } from '@/utils/bookingTime'
 import { reportApiError } from '@/utils/reportApiError'
 
@@ -29,10 +31,11 @@ import { reportApiError } from '@/utils/reportApiError'
  */
 const api = useApi()
 const auth = useAuthStore()
-const shortlist = useShortlistStore()
+const matchesStore = useMatchesStore()
 
 const isGuest = computed(() => auth.user?.role === 'guest')
-const counterpartNoun = computed(() => (isGuest.value ? 'guide' : 'visitor'))
+/** `guest`/`guide` — picks the role-specific wording for keys that differ by side. */
+const side = computed(() => (isGuest.value ? 'guest' : 'guide'))
 
 const trips = ref<TripRow[]>([])
 const loading = ref(false)
@@ -46,11 +49,8 @@ const grouped = computed(() => {
   return out
 })
 
-const tabs: { id: TripPhase; label: string }[] = [
-  { id: 'scheduled', label: 'Scheduled' },
-  { id: 'current', label: 'In progress' },
-  { id: 'past', label: 'Past' },
-]
+const TAB_IDS: TripPhase[] = ['scheduled', 'current', 'past']
+const tabs = computed(() => TAB_IDS.map((id) => ({ id, label: t(`trips.tabs.${id}`) })))
 
 /** Explicit choice wins; otherwise a trip under way, then the next one up, then history. */
 const chosenTab = ref<TripPhase | null>(null)
@@ -75,19 +75,19 @@ async function load() {
       isGuest.value ? api.paymentState() : Promise.resolve(null),
     ])
     trips.value = result.trips
-    if (paymentState) shortlist.applyPaymentState(paymentState)
+    if (paymentState) matchesStore.applyPaymentState(paymentState)
   } catch (err) {
-    reportApiError(err, 'Could not load your trips.')
+    reportApiError(err, t('trips.toast.load_failed'))
   } finally {
     loading.value = false
     loaded.value = true
   }
 }
 
-onMounted(load)
+useLiveSection('trips', load)
 
 function displayName(trip: TripRow) {
-  return trip.name || `Your ${counterpartNoun.value}`
+  return trip.name || t(`trips.card.unnamed_${side.value}`)
 }
 
 function profileLink(trip: TripRow) {
@@ -104,26 +104,28 @@ function initial(trip: TripRow) {
 }
 
 function dateLabel(trip: TripRow) {
-  return formatWhen(utcDate(trip.meeting_at)) ?? 'Date to be arranged'
+  return formatWhen(utcDate(trip.meeting_at)) ?? t('trips.card.date_tba')
 }
 
 function durationLabel(trip: TripRow) {
-  return formatHours(trip.booking_duration_hours) ?? 'Length not set'
+  return formatHours(trip.booking_duration_hours) ?? t('trips.card.length_not_set')
 }
 
 function priceLabel(trip: TripRow) {
-  if (trip.payment_status === 'none') return 'Free'
-  const paid = `${formatMoney(trip.booking_amount)} ${isGuest.value ? 'paid' : 'fee'}`
+  if (trip.payment_status === 'none') return t('trips.card.free')
+  const paid = t(isGuest.value ? 'trips.card.price_paid' : 'trips.card.price_fee', {
+    amount: formatMoney(trip.booking_amount),
+  })
   return trip.payment_status === 'refunded'
-    ? `${paid} · ${formatMoney(trip.refund_amount)} refunded`
+    ? t('trips.card.price_refunded', { price: paid, refund: formatMoney(trip.refund_amount) })
     : paid
 }
 
 function status(trip: TripRow): { label: string; tone?: 'neutral' } {
-  if (trip.booking_status === 'cancelled') return { label: 'Cancelled', tone: 'neutral' }
-  if (trip.phase === 'past') return { label: 'Finished', tone: 'neutral' }
-  if (trip.phase === 'current') return { label: 'In progress' }
-  return { label: 'Scheduled' }
+  if (trip.booking_status === 'cancelled') return { label: t('trips.status.cancelled'), tone: 'neutral' }
+  if (trip.phase === 'past') return { label: t('trips.status.finished'), tone: 'neutral' }
+  if (trip.phase === 'current') return { label: t('trips.status.in_progress') }
+  return { label: t('trips.status.scheduled') }
 }
 
 /** Cancelled trips have nothing left to do; finished ones keep the review link and "Book again". */
@@ -138,29 +140,27 @@ function reviewLink(trip: TripRow) {
 }
 
 const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
-  scheduled: isGuest.value
-    ? 'No upcoming trips. Once a guide you’ve matched with confirms your booking, it shows up here.'
-    : 'No upcoming trips. Once you confirm a visitor’s booking, it shows up here.',
-  current: 'No trip in progress right now.',
-  past: 'No finished or cancelled trips yet.',
+  scheduled: t(`trips.empty.scheduled_${side.value}`),
+  current: t('trips.empty.current'),
+  past: t('trips.empty.past'),
 }))
 </script>
 
 <template>
   <section class="section shell">
     <SectionTitle
-      eyebrow="Your trips"
-      heading="My trips"
-      :lead="
-        isGuest
-          ? 'Every tour you’ve booked — coming up, under way, and done.'
-          : 'Every tour you’ve confirmed — coming up, under way, and done.'
-      "
+      :eyebrow="t('trips.header.eyebrow')"
+      :heading="t('trips.header.heading')"
+      :lead="t(`trips.header.lead_${side}`)"
     />
 
-    <PanelCard v-if="!auth.isAuthenticated" class="narrow" title="Log in to see your trips">
-      <p class="muted">Trips are tied to your account.</p>
-      <RouterLink to="/login" role="button">Log in</RouterLink>
+    <PanelCard
+      v-if="!auth.isAuthenticated"
+      class="narrow"
+      :title="t('trips.signed_out.title')"
+    >
+      <p class="muted">{{ t('trips.signed_out.body') }}</p>
+      <RouterLink to="/login" role="button">{{ t('trips.signed_out.log_in') }}</RouterLink>
     </PanelCard>
 
     <template v-else>
@@ -182,14 +182,14 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
       </div>
 
       <PanelCard v-if="loading && !loaded">
-        <p class="muted empty">Loading your trips…</p>
+        <p class="muted empty">{{ t('trips.list.loading') }}</p>
       </PanelCard>
 
       <PanelCard v-else-if="!visibleTrips.length">
         <div class="empty">
           <p class="muted">{{ EMPTY_COPY[activeTab] }}</p>
           <RouterLink v-if="activeTab === 'scheduled'" to="/matches" class="soft-btn" role="button">
-            Go to Matches
+            {{ t('trips.empty.go_to_matches') }}
           </RouterLink>
         </div>
       </PanelCard>
@@ -211,34 +211,34 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
 
             <dl class="facts">
               <div>
-                <dt>Date</dt>
+                <dt>{{ t('trips.card.date') }}</dt>
                 <dd>{{ dateLabel(trip) }}</dd>
               </div>
               <div>
-                <dt>Duration</dt>
+                <dt>{{ t('trips.card.duration') }}</dt>
                 <dd>{{ durationLabel(trip) }}</dd>
               </div>
               <div class="wide">
-                <dt>Location</dt>
+                <dt>{{ t('trips.card.location') }}</dt>
                 <dd :class="{ muted: !trip.location }">
-                  {{ trip.location || 'Meeting place not set yet' }}
+                  {{ trip.location || t('trips.card.location_not_set') }}
                 </dd>
               </div>
               <div class="wide">
-                <dt>Price</dt>
+                <dt>{{ t('trips.card.price') }}</dt>
                 <dd>{{ priceLabel(trip) }}</dd>
               </div>
             </dl>
 
             <dl v-if="trip.email || trip.phone" class="contact">
               <div v-if="trip.email">
-                <dt>Email</dt>
+                <dt>{{ t('common.contact.email') }}</dt>
                 <dd>
                   <a :href="`mailto:${trip.email}`">{{ trip.email }}</a>
                 </dd>
               </div>
               <div v-if="trip.phone">
-                <dt>Phone</dt>
+                <dt>{{ t('common.contact.phone') }}</dt>
                 <dd>
                   <a :href="`tel:${trip.phone.replace(/\s+/g, '')}`">{{ trip.phone }}</a>
                 </dd>
@@ -253,7 +253,7 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
             </p>
             <p v-if="reviewLink(trip)" class="note">
               <RouterLink :to="reviewLink(trip)!" class="tiny"
-                >Leave {{ displayName(trip) }} a review →</RouterLink
+                >{{ t('trips.card.leave_review', { name: displayName(trip) }) }}</RouterLink
               >
             </p>
 

@@ -8,7 +8,22 @@ import HomePage from '../pages/HomePage.vue'
 import { API_KEY, type Api, type AuthResult, type PaymentState } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
-import { useShortlistStore } from '@/stores/shortlist'
+import { useMatchesStore } from '@/stores/matches'
+import { useBadgesStore } from '@/stores/badges'
+
+/** Stands in for the API socket: records `identify()` and lets a test fire pushes. */
+const fakeSocket = vi.hoisted(() => {
+  const handlers = new Map<string, (message: Record<string, unknown>) => void>()
+  return {
+    identify: vi.fn<(hash: string | null) => void>(),
+    on: (type: string, handler: (message: Record<string, unknown>) => void) => {
+      handlers.set(type, handler)
+      return () => handlers.delete(type)
+    },
+    push: (type: string, message: Record<string, unknown>) => handlers.get(type)?.({ type, ...message }),
+  }
+})
+vi.mock('@/plugins/socket', () => ({ socket: fakeSocket }))
 
 function testRouter() {
   return createRouter({
@@ -44,16 +59,16 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     payGuideFee: vi.fn<Api['payGuideFee']>(),
     bookingAction: vi.fn<Api['bookingAction']>(),
     cancelBooking: vi.fn<Api['cancelBooking']>(),
-    notifications: vi.fn<Api['notifications']>(),
+    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
     decide: vi.fn<Api['decide']>(),
     revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matches: vi.fn<Api['matches']>(),
     matchOverview: vi.fn<Api['matchOverview']>(),
     trips: vi.fn<Api['trips']>(),
     publicProfile: vi.fn<Api['publicProfile']>(),
     reviews: vi.fn<Api['reviews']>(),
     submitReview: vi.fn<Api['submitReview']>(),
     deleteReview: vi.fn<Api['deleteReview']>(),
+    translations: vi.fn<Api['translations']>(),
     ...overrides,
   }
 }
@@ -109,16 +124,16 @@ describe('App', () => {
     await flushPromises()
 
     expect(api.paymentState).toHaveBeenCalled()
-    const shortlist = useShortlistStore()
-    expect(shortlist.packsUnlocked).toBe(2)
-    expect(shortlist.hasAccess).toBe(true)
+    const matchesStore = useMatchesStore()
+    expect(matchesStore.packsUnlocked).toBe(2)
+    expect(matchesStore.hasAccess).toBe(true)
     // Picks come back too, so the header reads "2 / 10 picked" rather than
     // "0 / 10" for a visitor who has already spent some of the pack.
-    expect(shortlist.picks).toEqual(['18', '42'])
-    expect(shortlist.passed).toEqual(['7'])
-    expect(shortlist.isPicked('18')).toBe(true)
-    expect(shortlist.isDecided('7')).toBe(true)
-    expect(shortlist.selectionsLeft).toBe(8)
+    expect(matchesStore.picks).toEqual(['18', '42'])
+    expect(matchesStore.passed).toEqual(['7'])
+    expect(matchesStore.isPicked('18')).toBe(true)
+    expect(matchesStore.isDecided('7')).toBe(true)
+    expect(matchesStore.selectionsLeft).toBe(8)
     localStorage.clear()
   })
 
@@ -142,21 +157,13 @@ describe('App', () => {
     localStorage.clear()
   })
 
-  it('shows unread notifications as toasts on boot', async () => {
+  it('identifies the session to the socket and shows pushed notifications as toasts', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
 
     const session: AuthResult = { id: 18, email: 'guide@example.com', role: 'guide', sessionHash: 'hash' }
     useAuthStore().setUser(session)
-
-    const api = fakeApi({
-      session: vi.fn<Api['session']>().mockResolvedValue(session),
-      notifications: vi.fn<Api['notifications']>().mockResolvedValue({
-        notifications: [
-          { id: 1, kind: 'booking_paid', message: 'Ana paid your £50.00 fee.', created_at: '2026-09-24 10:00:00' },
-        ],
-      }),
-    })
+    const api = fakeApi({ session: vi.fn<Api['session']>().mockResolvedValue(session) })
 
     const router = testRouter()
     router.push('/')
@@ -165,20 +172,23 @@ describe('App', () => {
     mount(App, { global: { plugins: [pinia, router], provide: { [API_KEY]: api } } })
     await flushPromises()
 
-    expect(api.notifications).toHaveBeenCalledTimes(1)
+    expect(fakeSocket.identify).toHaveBeenLastCalledWith('hash')
+
+    fakeSocket.push('notification', {
+      notification: { id: 1, kind: 'booking_requested', message: 'Ana paid your £50.00 fee.', created_at: '2026-09-24 10:00:00' },
+    })
+    fakeSocket.push('badges', { matches: 2, trips: 1 })
+
     expect(useMessagesStore().items.map((item) => item.text)).toContain('Ana paid your £50.00 fee.')
-    localStorage.clear()
-  })
+    expect(useBadgesStore().matches).toBe(2)
+    expect(useBadgesStore().trips).toBe(1)
+    expect(useBadgesStore().revision).toBe(1)
 
-  it('does not ask for notifications when signed out', async () => {
-    const api = fakeApi()
-    const router = testRouter()
-    router.push('/')
-    await router.isReady()
-
-    mount(App, { global: { plugins: [createPinia(), router], provide: { [API_KEY]: api } } })
+    // Signing out tells the socket and clears the counters.
+    useAuthStore().clear()
     await flushPromises()
-
-    expect(api.notifications).not.toHaveBeenCalled()
+    expect(fakeSocket.identify).toHaveBeenLastCalledWith(null)
+    expect(useBadgesStore().matches).toBe(0)
+    localStorage.clear()
   })
 })

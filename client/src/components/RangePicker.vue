@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { t } from '@/i18n'
 import { formatRange, formatRangeValue, type RangeFormat } from '@/utils/formatRange'
 import type { NumericRange } from '@/types'
 
@@ -22,7 +23,7 @@ const props = withDefaults(
     format?: RangeFormat
     addLabel?: string
   }>(),
-  { format: 'number', addLabel: 'Add' },
+  { format: 'number' },
 )
 
 const emit = defineEmits<{
@@ -68,7 +69,7 @@ const isDuplicate = computed(() =>
         <button
           type="button"
           class="chip-remove"
-          :aria-label="`Remove ${formatRange(range, format)}`"
+          :aria-label="t('common.range_picker.remove', { range: formatRange(range, format) })"
           @click="emit('remove', index)"
         >
           ×
@@ -78,12 +79,12 @@ const isDuplicate = computed(() =>
 
     <div class="sliders">
       <label class="tiny">
-        <span class="slider-label">From <strong>{{ formatRangeValue(start, format) }}</strong></span>
+        <span class="slider-label">{{ t('common.range_picker.from') }} <strong>{{ formatRangeValue(start, format) }}</strong></span>
         <input v-model.number="start" type="range" :min="min" :max="max" @input="onStartInput" />
       </label>
 
       <label class="tiny">
-        <span class="slider-label">To <strong>{{ formatRangeValue(end, format) }}</strong></span>
+        <span class="slider-label">{{ t('common.range_picker.to') }} <strong>{{ formatRangeValue(end, format) }}</strong></span>
         <input v-model.number="end" type="range" :min="min" :max="max" @input="onEndInput" />
       </label>
     </div>
@@ -94,7 +95,14 @@ const isDuplicate = computed(() =>
       :disabled="isDuplicate"
       @click="emit('add', [start, end])"
     >
-      {{ isDuplicate ? 'Already added' : `${addLabel} ${preview}` }}
+      {{
+        isDuplicate
+          ? t('common.range_picker.already_added')
+          : t('common.range_picker.add_span', {
+              label: addLabel ?? t('common.range_picker.add'),
+              range: preview,
+            })
+      }}
     </button>
   </div>
 </template>

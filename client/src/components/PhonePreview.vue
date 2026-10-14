@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
 import type { Guide } from '@/types'
 
 /** Hero device mock showing a single card in the match rhythm. */
@@ -9,10 +10,10 @@ defineProps<{
 </script>
 
 <template>
-  <div class="phone" aria-label="Mobile match preview" role="img">
+  <div class="phone" :aria-label="t('common.phone_preview.label')" role="img">
     <div class="phone-screen">
       <div class="phone-head">
-        <strong>Discover</strong>
+        <strong>{{ t('common.phone_preview.discover') }}</strong>
         <span class="tiny muted">{{ progressLabel }}</span>
       </div>
 
@@ -30,8 +31,8 @@ defineProps<{
         </div>
 
         <div class="mini-actions">
-          <span class="reject">Pass</span>
-          <span class="accept">Interested</span>
+          <span class="reject">{{ t('common.phone_preview.pass') }}</span>
+          <span class="accept">{{ t('common.phone_preview.interested') }}</span>
         </div>
       </div>
     </div>

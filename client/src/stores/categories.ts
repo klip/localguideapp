@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { t } from '@/i18n'
 import { useApi, type AttributeCategory } from '@/plugins/api'
 import type { AttributeMap } from '@/types'
 
@@ -14,7 +15,10 @@ export const AGE_CATEGORY_KEY = 'age'
 
 export const AGE_CATEGORY: AttributeCategory = {
   key: AGE_CATEGORY_KEY,
-  label: 'Age',
+  // A getter, so the filter bar's label follows a language switch.
+  get label() {
+    return t('common.filters.age')
+  },
   kind: 'range',
   providerLabel: null,
   multi: true,
@@ -79,7 +83,7 @@ export const useCategoriesStore = defineStore('categories', () => {
 
   /**
    * Flattens a card's whole attribute map into display labels, for the chip
-   * rows on `ProfileCard`/`ShortlistPage`. Deliberately category-blind: it
+   * rows on `ProfileCard`. Deliberately category-blind: it
    * shows whatever the person picked, in category order, rather than
    * privileging two categories the way the old `languages`/`activities`
    * card fields did. `limit` keeps a well-filled profile from burying the

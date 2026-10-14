@@ -3,15 +3,18 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import BrandMark from './BrandMark.vue'
+import LanguageSwitcher from './LanguageSwitcher.vue'
 import PillBadge from './PillBadge.vue'
+import { t } from '@/i18n'
 import { useApi } from '@/plugins/api'
-import { useShortlistStore } from '@/stores/shortlist'
+import { useMatchesStore } from '@/stores/matches'
 import { useAuthStore } from '@/stores/auth'
+import { useBadgesStore } from '@/stores/badges'
 import { useMessagesStore } from '@/stores/messages'
 
 const api = useApi()
-const shortlist = useShortlistStore()
-const { hasAccess, picks, capacity } = storeToRefs(shortlist)
+const matchesStore = useMatchesStore()
+const { hasAccess, picks, capacity } = storeToRefs(matchesStore)
 
 const auth = useAuthStore()
 const { isAuthenticated, user } = storeToRefs(auth)
@@ -20,6 +23,15 @@ const router = useRouter()
 const route = useRoute()
 
 /** Guides never pay/browse guides — send them to their own deck instead of the visitor-side /discover (see DiscoverPage.vue's redirect guard). */
+/** Unseen matches and trips (pushed by the server, see `stores/badges.ts`), as the red counters on their menu items. */
+const badges = useBadgesStore()
+const { matches: newMatches, trips: newTrips } = storeToRefs(badges)
+const hasNews = computed(() => isAuthenticated.value && newMatches.value + newTrips.value > 0)
+
+function badgeText(count: number) {
+  return count > 99 ? '99+' : String(count)
+}
+
 const discoverTo = computed(() => (auth.user?.role === 'guide' ? '/guide/discover' : '/discover'))
 
 async function logout() {
@@ -31,7 +43,7 @@ async function logout() {
     // is what actually matters to the person clicking the button.
   }
   auth.clear()
-  messages.success('Logged out.')
+  messages.success(t('common.app_header.logged_out'))
   router.push('/')
 }
 
@@ -121,7 +133,7 @@ onBeforeUnmount(() => {
 <template>
   <header class="topbar">
     <div class="shell">
-      <nav aria-label="Main">
+      <nav :aria-label="t('common.app_header.nav_label')">
         <ul class="logo">
           <li><BrandMark /></li>
         </ul>
@@ -132,7 +144,7 @@ onBeforeUnmount(() => {
           class="burger"
           aria-controls="site-menu"
           :aria-expanded="menuOpen"
-          aria-label="Open menu"
+          :aria-label="t('common.app_header.open_menu')"
           @click="openMenu"
         >
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -140,6 +152,8 @@ onBeforeUnmount(() => {
             <line x1="4" y1="12" x2="20" y2="12" />
             <line x1="4" y1="17" x2="20" y2="17" />
           </svg>
+          <!-- The counters live inside the drawer; the dot says there's something to open it for. -->
+          <span v-if="hasNews" class="burger-dot" aria-hidden="true" />
         </button>
 
         <div
@@ -152,7 +166,7 @@ onBeforeUnmount(() => {
         >
           <div class="drawer-head">
             <BrandMark as="text" />
-            <button type="button" class="drawer-close" aria-label="Close menu" @click="closeMenu(true)">
+            <button type="button" class="drawer-close" :aria-label="t('common.app_header.close_menu')" @click="closeMenu(true)">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                 <line x1="6" y1="6" x2="18" y2="18" />
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -161,21 +175,40 @@ onBeforeUnmount(() => {
           </div>
 
           <p v-if="user" class="drawer-user tiny muted">
-            Signed in as <strong>{{ user.name || user.email }}</strong>
+            {{ t('common.app_header.signed_in_as', { name: user.name || user.email }) }}
           </p>
 
           <ul class="nav">
             <!-- Marketing copy for prospects only — a signed-in user is past it. -->
-            <li v-if="!isAuthenticated"><RouterLink to="/#how" class="nav-link">How it works</RouterLink></li>
-            <li><RouterLink :to="discoverTo" class="nav-link">Discover</RouterLink></li>
-            <li v-if="isAuthenticated"><RouterLink to="/matches" class="nav-link">Matches</RouterLink></li>
-            <li v-if="isAuthenticated"><RouterLink to="/trips" class="nav-link">My trips</RouterLink></li>
-            <li v-if="isAuthenticated"><RouterLink to="/profile" class="nav-link">Profile</RouterLink></li>
-            <li v-if="hasAccess">
-              <RouterLink to="/shortlist" class="nav-link">
-                <PillBadge>{{ picks.length }} / {{ capacity }} picked</PillBadge>
+            <li v-if="!isAuthenticated"><RouterLink to="/about#how" class="nav-link">{{ t('common.app_header.how_it_works') }}</RouterLink></li>
+            <li><RouterLink :to="discoverTo" class="nav-link">{{ t('common.app_header.discover') }}</RouterLink></li>
+            <li v-if="isAuthenticated">
+              <RouterLink to="/matches" class="nav-link nav-link--counted">
+                {{ t('common.app_header.matches')
+                }}<span v-if="newMatches" class="nav-count" data-test="matches-count"
+                  ><span aria-hidden="true">{{ badgeText(newMatches) }}</span
+                  ><span class="visually-hidden">{{ t('common.app_header.new_count', { count: newMatches }) }}</span></span
+                >
               </RouterLink>
             </li>
+            <li v-if="isAuthenticated">
+              <RouterLink to="/trips" class="nav-link nav-link--counted">
+                {{ t('common.app_header.my_trips')
+                }}<span v-if="newTrips" class="nav-count" data-test="trips-count"
+                  ><span aria-hidden="true">{{ badgeText(newTrips) }}</span
+                  ><span class="visually-hidden">{{ t('common.app_header.new_count', { count: newTrips }) }}</span></span
+                >
+              </RouterLink>
+            </li>
+            <li v-if="isAuthenticated"><RouterLink to="/profile" class="nav-link">{{ t('common.app_header.profile') }}</RouterLink></li>
+            <li v-if="hasAccess">
+              <RouterLink to="/matches" class="nav-link">
+                <PillBadge>{{
+                  t('common.app_header.picked', { picked: picks.length, capacity })
+                }}</PillBadge>
+              </RouterLink>
+            </li>
+            <li class="language"><LanguageSwitcher /></li>
             <li v-if="isAuthenticated" class="account">
               <button type="button" class="outline logout-btn" @click="logout">
                 <svg
@@ -194,12 +227,12 @@ onBeforeUnmount(() => {
                   <polyline points="16 17 21 12 16 7" />
                   <line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
-                Log out
+                {{ t('common.app_header.log_out') }}
               </button>
             </li>
             <template v-else>
-              <li class="account"><RouterLink to="/register" role="button">Get started</RouterLink></li>
-              <li><RouterLink to="/login" class="nav-link tiny">Log in</RouterLink></li>
+              <li class="account"><RouterLink to="/register" role="button">{{ t('common.app_header.get_started') }}</RouterLink></li>
+              <li><RouterLink to="/login" class="nav-link tiny">{{ t('common.app_header.log_in') }}</RouterLink></li>
             </template>
           </ul>
         </div>
@@ -252,6 +285,51 @@ nav {
 
 .logout-icon {
   flex-shrink: 0;
+}
+
+// The red unseen-count bubble: beside the label in the mobile drawer, over
+// the item's top-right corner in the desktop bar.
+.nav-link--counted {
+  position: relative;
+}
+
+.nav-count {
+  display: inline-block;
+  margin-inline-start: 0.5rem;
+  vertical-align: 0.1em;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #e5332a;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+  pointer-events: none;
+
+  @include bp.lg {
+    position: absolute;
+    top: -0.1rem;
+    inset-inline-end: -0.2rem;
+    margin: 0;
+  }
+}
+
+.burger {
+  position: relative;
+}
+
+.burger-dot {
+  position: absolute;
+  top: 0.35rem;
+  inset-inline-end: 0.35rem;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #e5332a;
+  box-shadow: 0 0 0 2px #fff;
 }
 
 // Pico marks the matched route link; keep it subtle in the top bar.

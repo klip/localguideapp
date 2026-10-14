@@ -8,7 +8,7 @@
  * — anything but 'none'), a correct password no longer creates a session.
  * `startLogin()` emails a 6-digit code and hands the client an opaque
  * `challengeToken`; `verifyLogin()` trades token + code for the user id, and
- * only then does `RequestProcessor` create the session. SMS/WhatsApp aren't
+ * only then does `AuthProcessor` create the session. SMS/WhatsApp aren't
  * wired to a provider yet, so every code goes by email whatever the setting.
  *
  * Trusted devices: after a correct code the user can ask not to be asked
@@ -44,18 +44,18 @@ class AccountSecurity
 
     /** @var db */
     private $db;
-    /** @var Users */
+    /** @var Accounts */
     private $users;
-    /** @var Mailer */
-    private $mailer;
+    /** @var MailQueue */
+    private $mail;
     /** @var Session */
     private $sessions;
 
-    public function __construct(db $db, Users $users, Mailer $mailer, Session $sessions)
+    public function __construct(db $db, Accounts $users, MailQueue $mail, Session $sessions)
     {
         $this->db = $db;
         $this->users = $users;
-        $this->mailer = $mailer;
+        $this->mail = $mail;
         $this->sessions = $sessions;
     }
 
@@ -248,7 +248,7 @@ class AccountSecurity
             'n'
         );
         if ($recent >= self::MAX_RESETS_PER_HOUR) {
-            $this->db->writeLog('AccountSecurity: reset email limit reached for user ' . $userId);
+            Log::warning('Password reset email limit reached', ['user_id' => $userId]);
             return;
         }
 
@@ -262,13 +262,15 @@ class AccountSecurity
 
         $link = self::appUrl() . '/reset-password?token=' . $token;
         $minutes = (int) (self::RESET_TTL_SECONDS / 60);
-        $this->mailer->send(
+        $this->mail->enqueue(
             (string) $user['email'],
             'Reset your RockGuide password',
             self::greeting($user)
             . "Someone (hopefully you) asked to reset the password for your RockGuide account.\n\n"
             . "Choose a new password here — the link works once, for the next {$minutes} minutes:\n{$link}\n\n"
-            . "If you didn't ask for this, ignore this email; your password stays as it is.\n\nRockGuide"
+            . "If you didn't ask for this, ignore this email; your password stays as it is.\n\nRockGuide",
+            'password_reset',
+            MailQueue::PRIORITY_HIGH
         );
     }
 
@@ -298,13 +300,14 @@ class AccountSecurity
     /** Lets the account owner know their password changed — a reset, or a change from the profile page. */
     public function notifyPasswordChanged(array $user): void
     {
-        $this->mailer->send(
+        $this->mail->enqueue(
             (string) $user['email'],
             'Your RockGuide password was changed',
             self::greeting($user)
             . "The password for your RockGuide account was just changed.\n\n"
             . "If that was you, there's nothing to do. If it wasn't, reset your password straight away:\n"
-            . self::appUrl() . "/forgot-password\n\nRockGuide"
+            . self::appUrl() . "/forgot-password\n\nRockGuide",
+            'password_changed'
         );
     }
 
@@ -349,20 +352,24 @@ class AccountSecurity
         );
     }
 
+    /**
+     * Queues the code at high priority. Sending is the mail worker's job now,
+     * so a failed send no longer fails the login: after its retries the code
+     * simply never arrives, and the user asks for another (`resendLoginCode()`).
+     */
     private function sendCode(array $user, string $code): void
     {
         $minutes = (int) (self::LOGIN_CODE_TTL_SECONDS / 60);
-        $sent = $this->mailer->send(
+        $this->mail->enqueue(
             (string) $user['email'],
             "Your RockGuide login code: {$code}",
             self::greeting($user)
             . "Your login code is:\n\n    {$code}\n\n"
             . "It works for {$minutes} minutes. If you didn't just try to log in, someone has your password — "
-            . "reset it at " . self::appUrl() . "/forgot-password\n\nRockGuide"
+            . "reset it at " . self::appUrl() . "/forgot-password\n\nRockGuide",
+            'login_code',
+            MailQueue::PRIORITY_HIGH
         );
-        if (!$sent) {
-            throw new RuntimeException('We couldn’t email your login code just now. Please try again in a minute.');
-        }
     }
 
     private function challengeResponse(string $token, string $email): array
@@ -402,7 +409,7 @@ class AccountSecurity
 
     /**
      * Where the web app lives, for links in emails. From the server
-     * environment (`fastcgi_param APP_URL`) — never from the request, whose
+     * environment (`APP_URL`) — never from the request, whose
      * Origin/Host an attacker controls and could point a victim's reset link
      * at their own site.
      */

@@ -1,30 +1,25 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import FeatureCard from '@/components/FeatureCard.vue'
 import PhonePreview from '@/components/PhonePreview.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import PriceBox from '@/components/PriceBox.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import { guides } from '@/data/guides'
+import { t } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
-import { PACK_SIZE } from '@/stores/shortlist'
+import { PACK_SIZE } from '@/stores/matches'
 
 const auth = useAuthStore()
 const heroGuide = guides[0]
 
-const steps = [
-  {
-    title: '1. Unlock',
-    body: `Pay £5 once to select up to ${PACK_SIZE} guides. Need more options? Unlock another ${PACK_SIZE} for £5.`,
-  },
-  {
-    title: '2. Filter & swipe',
-    body: 'Filter by language, age, gender and activity type. Save only guides you genuinely want to hear from.',
-  },
-  {
-    title: '3. Match & arrange',
-    body: 'Guides browse compatible visitors too. Once interest is mutual, contact details become available.',
-  },
-]
+// Computed so the cards follow a language switch.
+const steps = computed(() =>
+  (['unlock', 'filter', 'match'] as const).map((step) => ({
+    title: t(`home.how.${step}_title`),
+    body: t(`home.how.${step}_body`, { count: PACK_SIZE }),
+  })),
+)
 </script>
 
 <template>
@@ -32,40 +27,39 @@ const steps = [
     <section class="hero section shell">
       <div class="hero-grid">
         <div>
-          <PillBadge>⚓ Made for Gibraltar cruise days</PillBadge>
-          <h1>Find your local. Skip the tourist shuffle.</h1>
+          <PillBadge>{{ t('home.hero.badge') }}</PillBadge>
+          <h1>{{ t('home.hero.heading') }}</h1>
           <p class="lead">
-            Match with independent Gibraltar guides based on your language, interests, pace and
-            budget. Choose up to five guides for a one-time £5 access fee.
+            {{ t('home.hero.lead') }}
           </p>
 
           <div class="cta-row">
-            <RouterLink to="/register" role="button">Find my guide · £5</RouterLink>
+            <RouterLink to="/register" role="button">{{ t('home.hero.find_guide') }}</RouterLink>
             <RouterLink
               v-if="!auth.isAuthenticated"
               :to="{ path: '/register', query: { role: 'guide' } }"
               role="button"
               class="soft-btn"
             >
-              I’m a guide
+              {{ t('home.hero.im_a_guide') }}
             </RouterLink>
           </div>
 
           <div class="cta-row">
-            <PillBadge>{{ PACK_SIZE }} guide selections included</PillBadge>
-            <PillBadge>+{{ PACK_SIZE }} more for £5</PillBadge>
-            <PillBadge>Direct contact after match</PillBadge>
+            <PillBadge>{{ t('home.hero.selections_included', { count: PACK_SIZE }) }}</PillBadge>
+            <PillBadge>{{ t('home.hero.more_for_price', { count: PACK_SIZE }) }}</PillBadge>
+            <PillBadge>{{ t('home.hero.direct_contact') }}</PillBadge>
           </div>
         </div>
 
-        <PhonePreview v-if="heroGuide" :guide="heroGuide" progress-label="2 / 5 selected" />
+        <PhonePreview v-if="heroGuide" :guide="heroGuide" :progress-label="t('home.hero.preview_progress')" />
       </div>
     </section>
 
     <section id="how" class="section shell">
       <SectionTitle
-        eyebrow="Simple by design"
-        heading="Three taps between “we’ve docked” and “we’ve got a plan.”"
+        :eyebrow="t('home.how.eyebrow')"
+        :heading="t('home.how.heading')"
       />
       <div class="grid-3">
         <FeatureCard v-for="step in steps" :key="step.title" v-bind="step" />
@@ -76,18 +70,18 @@ const steps = [
       <PriceBox>
         <div class="grid-3 price-grid">
           <div>
-            <PillBadge>Visitor access</PillBadge>
+            <PillBadge>{{ t('home.pricing.badge') }}</PillBadge>
             <div class="price">£5</div>
-            <div class="muted">one-time selection fee</div>
+            <div class="muted">{{ t('home.pricing.caption') }}</div>
           </div>
           <div>
-            <strong>Includes {{ PACK_SIZE }} guide selections</strong>
+            <strong>{{ t('home.pricing.includes', { count: PACK_SIZE }) }}</strong>
             <p class="muted no-margin">
-              No subscription. No marketplace clutter. Just a focused shortlist.
+              {{ t('home.pricing.tagline') }}
             </p>
           </div>
           <div>
-            <RouterLink to="/register" role="button" class="full">Start matching</RouterLink>
+            <RouterLink to="/register" role="button" class="full">{{ t('home.pricing.start') }}</RouterLink>
           </div>
         </div>
       </PriceBox>

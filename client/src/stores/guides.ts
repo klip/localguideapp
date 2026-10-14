@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { t } from '@/i18n'
 import { useApi, type ProfileAccount, type PublicProfile } from '@/plugins/api'
 import type { DiscoveryFilters, Guide } from '@/types'
 
@@ -16,14 +17,14 @@ export function toGuideCard(account: ProfileAccount | PublicProfile): Guide {
   return {
     id: String(account.id),
     // A public profile carries no email, so it has no fallback beyond this.
-    name: account.name || 'RockGuide guide',
+    name: account.name || t('common.guide_card.default_name'),
     age: account.age ?? 0,
-    headline: account.headline || 'New on RockGuide',
+    headline: account.headline || t('common.guide_card.default_headline'),
     ratingAverage: account.rating_average ?? 0,
     reviewCount: account.review_count ?? 0,
-    priceLabel: account.price_label || 'Contact for pricing',
+    priceLabel: account.price_label || t('common.guide_card.default_price_label'),
     priceNote: account.price_note ?? '',
-    bio: account.bio || 'This guide hasn’t added a bio yet.',
+    bio: account.bio || t('common.guide_card.default_bio'),
     includes: account.includes ?? '',
     gender: account.gender ?? null,
     // Passed through exactly as the server grouped them: the card doesn't
@@ -69,9 +70,8 @@ export const useGuidesStore = defineStore('guides', () => {
   /**
    * `options.includeDecided` keeps guides this visitor has already picked
    * or passed in the result. The deck wants them gone (that's the default,
-   * enforced server-side); `ShortlistPage` wants them,
-   * since it renders cards the visitor has by definition already decided
-   * on — without it its `find(id)` lookups come back empty after a reload.
+   * enforced server-side); `hydrateDecided()` below wants them, so the
+   * matches rail can name guides picked before a reload.
    */
   async function load(filters?: DiscoveryFilters, options?: { includeDecided?: boolean }) {
     loading.value = true

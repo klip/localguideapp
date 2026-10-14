@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomePage from '@/pages/HomePage.vue'
+import { initialLanguage, isLanguage, type Language } from '@/i18n'
 
 /**
  * One route per interface in the prototype.
@@ -7,23 +7,58 @@ import HomePage from '@/pages/HomePage.vue'
  * The prototype presents everything as sections of a single scrolling page; the
  * `Screen NN` eyebrows mark the boundaries, and each becomes a route here:
  *
- *   hero + how it works + pricing  →  /
+ *   hero + how it works + pricing  →  /about
  *   Screen 01 (registration)       →  /register  (+ /login for returning users)
  *   Screen 01 (unlock panel)       →  /unlock
  *   Screen 02 (visitor config)     →  /profile   (/onboarding redirects there)
  *   Screen 03 (visitor discovery)  →  /discover
  *   Screen 04 (guide-side deck)    →  /guide/discover
  *
- * Two more come from links the prototype draws but never resolves:
- * "Full profile →" and "View shortlist".
+ * One more comes from a link the prototype draws but never resolves:
+ * "Full profile →". (Its "View matches" leads to /matches.)
+ *
+ * The landing page is the discovery deck itself (`/` redirects to
+ * /discover): signed-out visitors browse straight away and are asked to sign
+ * up on their first "Interested" (see DiscoverPage.vue). The marketing page
+ * lives on at /about.
  */
+/**
+ * The UI language is the first segment of every URL (`/es/discover`). It's
+ * the router's base rather than a route param, so routes and links stay
+ * language-free (`to="/matches"` renders as `/es/matches`) and active-link
+ * matching keeps working.
+ *
+ * A URL that names a supported language wins over the saved choice (and
+ * becomes it — see main.ts). One that doesn't is rewritten in place, before
+ * the router reads it, to the saved choice / browser language / English.
+ * Switching language reloads under the new prefix (LanguageSwitcher.vue).
+ */
+function resolveUrlLanguage(): Language {
+  if (typeof window === 'undefined') return 'en'
+  const base = import.meta.env.BASE_URL
+  const rest = window.location.pathname.slice(base.length)
+  const first = rest.split('/')[0]
+  if (isLanguage(first)) return first
+
+  const language = initialLanguage()
+  const { search, hash } = window.location
+  window.history.replaceState(window.history.state, '', `${base}${language}/${rest}${search}${hash}`)
+  return language
+}
+
+export const urlLanguage = resolveUrlLanguage()
+
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHistory(`${import.meta.env.BASE_URL}${urlLanguage}/`),
   routes: [
     {
       path: '/',
+      redirect: '/discover',
+    },
+    {
+      path: '/about',
       name: 'home',
-      component: HomePage,
+      component: () => import('@/pages/HomePage.vue'),
     },
     {
       path: '/register',
@@ -80,11 +115,6 @@ const router = createRouter({
       props: true,
     },
     {
-      path: '/shortlist',
-      name: 'shortlist',
-      component: () => import('@/pages/ShortlistPage.vue'),
-    },
-    {
       path: '/guide/discover',
       name: 'guide-discover',
       component: () => import('@/pages/GuideDiscoverPage.vue'),
@@ -114,7 +144,7 @@ const router = createRouter({
   ],
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) return savedPosition
-    // The header links to /#how, so in-page anchors have to keep working.
+    // The header links to /about#how, so in-page anchors have to keep working.
     if (to.hash) return { el: to.hash, behavior: 'smooth' }
     return { top: 0 }
   },

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import PanelCard from '@/components/PanelCard.vue'
 import ReviewsSection from '@/components/ReviewsSection.vue'
 import TagList from '@/components/TagList.vue'
+import { t } from '@/i18n'
 import { ApiError, useApi, type PublicProfile } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCategoriesStore } from '@/stores/categories'
@@ -35,7 +36,7 @@ async function loadVisitor() {
     visitor.value = profile.role === 'guest' ? profile : null
   } catch (err) {
     if (!(err instanceof ApiError && err.status === 400))
-      reportApiError(err, 'Could not load this visitor.')
+      reportApiError(err, t('visitor_profile.toast.load_failed'))
   } finally {
     loading.value = false
   }
@@ -47,13 +48,12 @@ onMounted(() => {
 })
 watch(() => props.id, loadVisitor)
 
-const name = computed(() => visitor.value?.name || 'RockGuide visitor')
+const name = computed(() => visitor.value?.name || t('common.visitor_card.default_name'))
 const photo = computed(() =>
   visitor.value?.image ? `url("${visitor.value.image}")` : 'var(--rg-photo-visitor)',
 )
-const GENDER_LABELS = { male: 'Male', female: 'Female' } as const
 const genderLabel = computed(() =>
-  visitor.value?.gender ? GENDER_LABELS[visitor.value.gender] : null,
+  visitor.value?.gender ? t(`common.gender.${visitor.value.gender}`) : null,
 )
 const backTo = computed(() => (auth.user?.role === 'guide' ? '/guide/discover' : '/'))
 </script>
@@ -61,10 +61,10 @@ const backTo = computed(() => (auth.user?.role === 'guide' ? '/guide/discover' :
 <template>
   <section class="section shell">
     <p class="tiny">
-      <RouterLink :to="backTo">← Back</RouterLink>
+      <RouterLink :to="backTo">{{ t('visitor_profile.page.back') }}</RouterLink>
     </p>
 
-    <PanelCard v-if="loading" title="Loading…" />
+    <PanelCard v-if="loading" :title="t('visitor_profile.page.loading')" />
 
     <template v-else-if="visitor">
       <div class="profile-layout">
@@ -80,20 +80,20 @@ const backTo = computed(() => (auth.user?.role === 'guide' ? '/guide/discover' :
         </div>
 
         <PanelCard
-          :title="visitor.party || 'Visitor'"
+          :title="visitor.party || t('visitor_profile.details.default_title')"
           :subtitle="
             visitor.duration_hours
-              ? `Looking for about ${visitor.duration_hours} hours with a guide`
+              ? t('visitor_profile.details.duration', { hours: visitor.duration_hours })
               : undefined
           "
         >
           <dl v-if="genderLabel" class="facts">
-            <dt>Gender</dt>
+            <dt>{{ t('visitor_profile.details.gender') }}</dt>
             <dd>{{ genderLabel }}</dd>
           </dl>
 
-          <h3 class="sub">About</h3>
-          <p>{{ visitor.bio || 'This visitor hasn’t written anything about themselves yet.' }}</p>
+          <h3 class="sub">{{ t('visitor_profile.details.about') }}</h3>
+          <p>{{ visitor.bio || t('visitor_profile.details.no_bio') }}</p>
 
           <template v-for="(values, key) in visitor.attributes" :key="key">
             <h3 v-if="values.length" class="sub">{{ categoriesStore.labelFor(String(key)) }}</h3>
@@ -116,9 +116,9 @@ const backTo = computed(() => (auth.user?.role === 'guide' ? '/guide/discover' :
       <ReviewsSection :user-id="visitor.id" :subject-name="name" />
     </template>
 
-    <PanelCard v-else title="Visitor not found">
-      <p class="muted">That visitor is no longer listed.</p>
-      <RouterLink :to="backTo" role="button">Back</RouterLink>
+    <PanelCard v-else :title="t('visitor_profile.not_found.title')">
+      <p class="muted">{{ t('visitor_profile.not_found.body') }}</p>
+      <RouterLink :to="backTo" role="button">{{ t('visitor_profile.not_found.back') }}</RouterLink>
     </PanelCard>
   </section>
 </template>

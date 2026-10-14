@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue'
+import { t, tn } from '@/i18n'
 import { useApi, type Review } from '@/plugins/api'
 import { useMessagesStore } from '@/stores/messages'
 import { characterCount, REVIEW_COMMENT_MAX } from '@/utils/reviews'
@@ -53,7 +54,8 @@ const canSubmit = computed(
 )
 const shown = computed(() => hover.value || rating.value)
 
-const STAR_WORDS = ['Terrible', 'Poor', 'OK', 'Good', 'Excellent']
+/** The word for a grade, 1–5. */
+const starWord = (grade: number) => t(`common.review_form.grade_${grade}`)
 
 async function submit() {
   if (!canSubmit.value) return
@@ -64,10 +66,12 @@ async function submit() {
       rating: rating.value,
       comment: comment.value.trim(),
     })
-    messages.success(props.existing ? 'Your review was updated.' : 'Thanks — your review is live.')
+    messages.success(
+      props.existing ? t('common.review_form.updated') : t('common.review_form.posted'),
+    )
     emit('saved', saved)
   } catch (err) {
-    reportApiError(err, 'Could not save your review.')
+    reportApiError(err, t('common.review_form.save_failed'))
   } finally {
     saving.value = false
   }
@@ -78,10 +82,10 @@ async function remove() {
   saving.value = true
   try {
     await api.deleteReview({ reviewId: props.existing.id })
-    messages.success('Your review was deleted.')
+    messages.success(t('common.review_form.deleted'))
     emit('deleted')
   } catch (err) {
-    reportApiError(err, 'Could not delete your review.')
+    reportApiError(err, t('common.review_form.delete_failed'))
   } finally {
     saving.value = false
     confirmingDelete.value = false
@@ -92,11 +96,15 @@ async function remove() {
 <template>
   <form class="review-form" :aria-labelledby="`${uid}-title`" @submit.prevent="submit">
     <h3 :id="`${uid}-title`" class="form-title">
-      {{ existing ? 'Edit your review' : `Write a review of ${subjectName}` }}
+      {{
+        existing
+          ? t('common.review_form.edit_title')
+          : t('common.review_form.write_title', { name: subjectName })
+      }}
     </h3>
 
     <fieldset class="stars-field">
-      <legend class="tiny">Your rating</legend>
+      <legend class="tiny">{{ t('common.review_form.rating') }}</legend>
       <div class="star-picker" @mouseleave="hover = 0">
         <template v-for="value in 5" :key="value">
           <input
@@ -116,18 +124,19 @@ async function remove() {
           >
             <span aria-hidden="true">★</span>
             <span class="visually-hidden"
-              >{{ value }} {{ value === 1 ? 'star' : 'stars' }} — {{ STAR_WORDS[value - 1] }}</span
+              >{{ tn('common.review_form.star_option', value, { word: starWord(value) }) }}</span
             >
           </label>
         </template>
         <span class="tiny muted star-word" aria-hidden="true">{{
-          shown ? STAR_WORDS[shown - 1] : ''
+          shown ? starWord(shown) : ''
         }}</span>
       </div>
     </fieldset>
 
     <label :for="`${uid}-comment`" class="tiny"
-      >Comment <span class="muted">(optional)</span></label
+      >{{ t('common.review_form.comment') }}
+      <span class="muted">{{ t('common.review_form.optional') }}</span></label
     >
     <textarea
       :id="`${uid}-comment`"
@@ -135,7 +144,7 @@ async function remove() {
       rows="3"
       :aria-invalid="tooLong || undefined"
       :aria-describedby="`${uid}-count`"
-      placeholder="What stood out about the trip?"
+      :placeholder="t('common.review_form.placeholder')"
     />
     <p
       :id="`${uid}-count`"
@@ -143,13 +152,16 @@ async function remove() {
       :class="{ 'counter--over': tooLong }"
       aria-live="polite"
     >
-      {{ length }} / {{ REVIEW_COMMENT_MAX }}
-      <template v-if="tooLong"> — please shorten your comment</template>
+      {{
+        tooLong
+          ? t('common.review_form.count_too_long', { count: length, max: REVIEW_COMMENT_MAX })
+          : t('common.review_form.count', { count: length, max: REVIEW_COMMENT_MAX })
+      }}
     </p>
 
     <div class="actions">
       <button type="submit" :disabled="!canSubmit" :aria-busy="saving || undefined">
-        {{ existing ? 'Save changes' : 'Post review' }}
+        {{ existing ? t('common.review_form.save') : t('common.review_form.post') }}
       </button>
 
       <template v-if="existing">
@@ -160,12 +172,12 @@ async function remove() {
           :disabled="saving"
           @click="confirmingDelete = true"
         >
-          Delete review
+          {{ t('common.review_form.delete') }}
         </button>
         <template v-else>
-          <span class="tiny">Delete your review?</span>
+          <span class="tiny">{{ t('common.review_form.delete_confirm') }}</span>
           <button type="button" class="danger" :disabled="saving" @click="remove">
-            Yes, delete
+            {{ t('common.review_form.delete_yes') }}
           </button>
           <button
             type="button"
@@ -173,7 +185,7 @@ async function remove() {
             :disabled="saving"
             @click="confirmingDelete = false"
           >
-            Cancel
+            {{ t('common.review_form.cancel') }}
           </button>
         </template>
       </template>

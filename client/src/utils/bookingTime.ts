@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 /**
  * Booking date-times arrive as UTC `YYYY-MM-DD HH:MM:SS` strings (see
  * `Bookings.php`); the UI shows them in the viewer's own zone.
@@ -34,5 +35,5 @@ export function formatMoney(amount: number | null): string {
 
 /** "3 h", "1.5 h"; `null` when not set. */
 export function formatHours(hours: number | null): string | null {
-  return hours ? `${hours} h` : null
+  return hours ? t('common.booking_time.hours', { hours }) : null
 }

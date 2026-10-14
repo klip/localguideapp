@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
+import { t } from '@/i18n'
 import router from '@/router'
 
 export type MessageKind = 'success' | 'error' | 'info'
@@ -109,7 +110,7 @@ export const useMessagesStore = defineStore('messages', () => {
   function sessionExpired() {
     if (sessionExpiredShowing) return
     sessionExpiredShowing = true
-    push('info', 'Your session expired — please log in again.', PAGE_PLACEMENT, DEFAULT_DURATION_MS, () => {
+    push('info', t('common.messages.session_expired'), PAGE_PLACEMENT, DEFAULT_DURATION_MS, () => {
       sessionExpiredShowing = false
       router.push('/login')
     })

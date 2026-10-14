@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
 import DecisionRow from './DecisionRow.vue'
+import { t } from '@/i18n'
 import TagList from './TagList.vue'
 
 /**
@@ -54,14 +55,14 @@ const emit = defineEmits<{
           <strong>{{ priceLabel }}</strong>
           <div v-if="priceNote" class="tiny muted">{{ priceNote }}</div>
         </div>
-        <RouterLink v-if="profileLink" class="tiny" :to="profileLink">Full profile →</RouterLink>
+        <RouterLink v-if="profileLink" class="tiny" :to="profileLink">{{ t('common.profile_card.full_profile') }}</RouterLink>
       </div>
 
       <p v-if="bio">{{ bio }}</p>
 
       <TagList :tags="tags" />
 
-      <p v-if="includes" class="tiny muted"><strong>Includes:</strong> {{ includes }}</p>
+      <p v-if="includes" class="tiny muted"><strong>{{ t('common.profile_card.includes') }}</strong> {{ includes }}</p>
 
       <slot />
 

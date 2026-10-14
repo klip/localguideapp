@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
+import { t } from '@/i18n'
 import { useMessagesStore } from '@/stores/messages'
 
 /** Renders the global message queue. Mounted once, in App.vue. */
@@ -92,7 +93,7 @@ const positioned = computed<PositionedToast[]>(() => {
         :style="item.style"
       >
         <span>{{ item.text }}</span>
-        <button type="button" class="dismiss" aria-label="Dismiss" @click="messages.dismiss(item.id)">
+        <button type="button" class="dismiss" :aria-label="t('common.message_toaster.dismiss')" @click="messages.dismiss(item.id)">
           ✕
         </button>
       </div>

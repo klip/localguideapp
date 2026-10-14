@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useId, watch } from 'vue'
 import ReviewItem from './ReviewItem.vue'
+import { t } from '@/i18n'
 import { REVIEWS_PAGE_SIZE, useApi, type Review } from '@/plugins/api'
 import { reportApiError } from '@/utils/reportApiError'
 
@@ -50,7 +51,7 @@ async function loadPage() {
     total.value = page.total
     loadedOnce.value = true
   } catch (err) {
-    reportApiError(err, 'Could not load reviews.')
+    reportApiError(err, t('common.reviews.load_failed'))
   } finally {
     loading.value = false
   }
@@ -102,23 +103,25 @@ function onDialogClick(event: MouseEvent) {
           ref="closeButton"
           type="button"
           rel="prev"
-          aria-label="Close reviews"
+          :aria-label="t('common.reviews_dialog.close')"
           @click="close"
         />
-        <h2 :id="`${uid}-title`" class="dialog-title">Reviews of {{ subjectName }}</h2>
+        <h2 :id="`${uid}-title`" class="dialog-title">
+          {{ t('common.reviews_dialog.title', { name: subjectName }) }}
+        </h2>
       </header>
 
       <p v-if="loadedOnce" class="tiny muted" aria-live="polite">
-        Showing {{ reviews.length }} of {{ total }}
+        {{ t('common.reviews_dialog.showing', { shown: reviews.length, total }) }}
       </p>
 
       <ReviewItem v-for="review in reviews" :key="review.id" :review="review" />
 
-      <p v-if="loading" class="tiny muted" aria-live="polite">Loading reviews…</p>
-      <p v-else-if="loadedOnce && total === 0" class="muted">No reviews yet.</p>
+      <p v-if="loading" class="tiny muted" aria-live="polite">{{ t('common.reviews.loading') }}</p>
+      <p v-else-if="loadedOnce && total === 0" class="muted">{{ t('common.reviews.none') }}</p>
 
       <button v-if="hasMore && !loading" type="button" class="soft-btn more" @click="loadPage">
-        Load more
+        {{ t('common.reviews_dialog.load_more') }}
       </button>
     </article>
   </dialog>

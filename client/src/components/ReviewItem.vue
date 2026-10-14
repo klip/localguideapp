@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import StarRating from './StarRating.vue'
+import { t } from '@/i18n'
 import type { Review } from '@/plugins/api'
 import { initialOf, timeAgo } from '@/utils/reviews'
 
@@ -32,7 +33,7 @@ const edited = computed(() => props.review.updated_at !== props.review.created_a
         <div class="meta">
           <StarRating :value="review.rating" />
           <time class="tiny muted" :datetime="review.created_at">{{ when }}</time>
-          <span v-if="edited" class="tiny muted">· edited</span>
+          <span v-if="edited" class="tiny muted">{{ t('common.review_item.edited') }}</span>
         </div>
       </div>
     </div>

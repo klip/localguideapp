@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import StarRating from './StarRating.vue'
+import { t, tn } from '@/i18n'
 import type { ReviewHistogram } from '@/plugins/api'
 
 /**
@@ -25,13 +26,15 @@ const bars = computed(() =>
 
 <template>
   <div class="summary">
-    <ul class="bars" aria-label="Reviews by grade">
+    <ul class="bars" :aria-label="t('common.review_summary.label')">
       <li v-for="bar in bars" :key="bar.grade" class="bar-row">
         <span class="tiny grade" aria-hidden="true">{{ bar.grade }}</span>
         <span class="track" aria-hidden="true"
           ><span class="fill" :style="{ width: `${bar.percent}%` }"
         /></span>
-        <span class="visually-hidden">{{ bar.grade }} stars: {{ bar.count }}</span>
+        <span class="visually-hidden">{{
+          t('common.review_summary.grade_count', { grade: bar.grade, count: bar.count })
+        }}</span>
       </li>
     </ul>
 
@@ -41,7 +44,7 @@ const bars = computed(() =>
       }}</strong>
       <StarRating :value="average ?? 0" size="lg" />
       <span class="tiny muted" data-test="review-total"
-        >{{ total }} {{ total === 1 ? 'review' : 'reviews' }}</span
+        >{{ tn('common.review_summary.total', total) }}</span
       >
     </div>
   </div>

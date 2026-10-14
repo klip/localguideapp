@@ -22,13 +22,11 @@ class db
     {
         $this->debug = $debug;
 
-        // Credentials come from the web server environment, never from the
-        // repo — the same pattern `Auth.php` uses for PEPPER. nginx supplies
-        // them with `fastcgi_param` (see nginx/conf.d/api.rockguide.com.conf),
-        // and `getenv()` is the fallback so CLI scripts under `docker exec`
-        // work too. Read here rather than in the property above: PHP
-        // evaluates property defaults as constant expressions, so a method
-        // call there is a fatal error.
+        // Credentials come from the service's environment, never from the
+        // repo — the env file in Docker, a Secret in Kubernetes. `$_SERVER`
+        // first (FastCGI params), then `getenv()`. Read here rather than in
+        // the property above: PHP evaluates property defaults as constant
+        // expressions, so a method call there is a fatal error.
         $this->Gconfig['dbhost'] = self::env('DB_HOST', $this->Gconfig['dbhost']);
         $this->Gconfig['dbuser'] = self::env('DB_USER', '');
         $this->Gconfig['dbpass'] = self::env('DB_PASS', '');
@@ -62,8 +60,9 @@ class db
         $this->dbLink = mysqli_init();
         mysqli_options($this->dbLink, MYSQLI_OPT_CONNECT_TIMEOUT, 5);
         if (!mysqli_real_connect($this->dbLink, $this->Gconfig['dbhost'], $this->Gconfig['dbuser'], $this->Gconfig['dbpass'], $this->Gconfig['dbname'], $this->Gconfig['dbport'], $this->Gconfig['dbanan'])) {
-            die('Connect Error (' . mysqli_connect_errno() . ') '
-                . mysqli_connect_error());
+            // Not a RuntimeException: those messages are shown to the user.
+            // This one goes to the log behind a generic 500.
+            throw new Exception('Database connection failed (' . mysqli_connect_errno() . ').');
         }
         // utf8mb4, not MySQL's 3-byte `utf8`: review comments (and names) can
         // carry emoji, which utf8mb3 mangles to '?'.
@@ -373,8 +372,31 @@ class db
         return $columns;
     }
 
+    /**
+     * Long-running workers outlive MySQL's idle timeout: reconnects when the
+     * link has gone away. Call it before each unit of work, not per query.
+     */
+    public function ensureConnected(): void
+    {
+        if (!$this->dbLink || !@mysqli_query($this->dbLink, 'SELECT 1')) {
+            $this->db_Connect();
+        }
+    }
+
+    /**
+     * A database error, as a structured log line (see `Log`). Quoted values
+     * are blanked out of any SQL first — an insert can carry a login code or
+     * a password hash, and those must not reach the logs.
+     */
     public function writeLog($info)
     {
-        file_put_contents('/tmp/db_error_' . date('Y-m-d') . '.log', $info, FILE_APPEND);
+        Log::error('Database error', ['detail' => self::redactSql((string) $info)]);
+    }
+
+    private static function redactSql(string $text): string
+    {
+        $text = preg_replace(['/"(?:[^"\\\\]|\\\\.)*"/s', "/'(?:[^'\\\\]|\\\\.)*'/s"], ['"?"', "'?'"], $text);
+
+        return mb_substr((string) $text, 0, 2000);
     }
 }

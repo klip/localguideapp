@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: RockGuide
+    folder: RockGuide
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

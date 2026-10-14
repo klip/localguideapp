@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import { t } from '@/i18n'
 import {
   ApiError,
   isTwoFactorChallenge,
@@ -12,7 +13,7 @@ import {
 } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
-import { useShortlistStore } from '@/stores/shortlist'
+import { useMatchesStore } from '@/stores/matches'
 import { formMessagePlacement } from '@/utils/formMessagePlacement'
 import {
   forgetTrustedDevice,
@@ -32,7 +33,7 @@ const router = useRouter()
 const api = useApi()
 const auth = useAuthStore()
 const messages = useMessagesStore()
-const shortlist = useShortlistStore()
+const matchesStore = useMatchesStore()
 
 const email = ref('')
 const password = ref('')
@@ -78,7 +79,7 @@ async function finish(user: AuthResult) {
   // worst case they see "0 unlocked" and can revisit /unlock.
   try {
     const state = await api.paymentState()
-    shortlist.applyPaymentState(state)
+    matchesStore.applyPaymentState(state)
   } catch {
     // non-fatal — see comment above
   }
@@ -114,7 +115,7 @@ async function submit() {
     }
     await finish(result)
   } catch (err) {
-    const text = err instanceof ApiError ? err.message : 'Could not log you in.'
+    const text = err instanceof ApiError ? err.message : t('login.toast.failed')
     messages.error(
       text,
       formMessagePlacement(text, {
@@ -142,7 +143,7 @@ async function verify() {
     if (deviceToken && trustedUntil) rememberTrustedDevice(email.value, deviceToken, trustedUntil)
     await finish(user)
   } catch (err) {
-    const text = err instanceof ApiError ? err.message : 'Could not check that code.'
+    const text = err instanceof ApiError ? err.message : t('login.toast.code_failed')
     messages.error(text, anchorTo('input', codeInputRef.value))
     // A spent challenge can't be retried — back to the password step.
     if (/log in again/i.test(text)) backToPassword()
@@ -161,11 +162,11 @@ async function resend() {
     code.value = ''
     startResendCountdown(challenge.value.resendAfterSeconds)
     messages.success(
-      `New code sent to ${challenge.value.destination}.`,
+      t('login.toast.code_resent', { destination: challenge.value.destination }),
       anchorTo('input', codeInputRef.value),
     )
   } catch (err) {
-    const text = err instanceof ApiError ? err.message : 'Could not send a new code.'
+    const text = err instanceof ApiError ? err.message : t('login.toast.resend_failed')
     messages.error(text, anchorTo('input', codeInputRef.value))
     if (/log in again/i.test(text)) backToPassword()
   } finally {
@@ -185,17 +186,17 @@ function backToPassword() {
 
 <template>
   <section class="section shell">
-    <SectionTitle eyebrow="Login" heading="Welcome back" />
+    <SectionTitle :eyebrow="t('login.header.eyebrow')" :heading="t('login.header.heading')" />
 
     <PanelCard
       v-if="challenge"
       class="narrow"
-      title="Check your email"
-      :subtitle="`We sent a 6-digit code to ${challenge.destination}.`"
+      :title="t('login.code.title')"
+      :subtitle="t('login.code.subtitle', { destination: challenge.destination })"
     >
       <form @submit.prevent="verify">
         <label>
-          Login code
+          {{ t('login.code.label') }}
           <input
             ref="codeInputRef"
             v-model="code"
@@ -212,7 +213,7 @@ function backToPassword() {
 
         <label class="remember">
           <input v-model="rememberDevice" type="checkbox" />
-          Don’t ask for a code on this device for 30 days
+          {{ t('login.code.remember_device') }}
         </label>
 
         <button
@@ -221,7 +222,7 @@ function backToPassword() {
           :aria-busy="submitting"
           :disabled="submitting || !codeComplete"
         >
-          {{ submitting ? 'Checking…' : 'Verify and log in' }}
+          {{ submitting ? t('login.code.checking') : t('login.code.verify') }}
         </button>
         <button
           type="button"
@@ -230,33 +231,42 @@ function backToPassword() {
           :disabled="resending || resendIn > 0"
           @click="resend"
         >
-          {{ resendIn > 0 ? `Send a new code in ${resendIn}s` : 'Send a new code' }}
+          {{
+            resendIn > 0
+              ? t('login.code.resend_in', { seconds: resendIn })
+              : t('login.code.resend')
+          }}
         </button>
 
         <p class="tiny muted centred">
-          The code works for {{ Math.round(challenge.expiresInSeconds / 60) }} minutes.
+          {{ t('login.code.expires', { minutes: Math.round(challenge.expiresInSeconds / 60) }) }}
           <button type="button" class="link-btn" @click="backToPassword">
-            Use a different account
+            {{ t('login.code.different_account') }}
           </button>
         </p>
       </form>
     </PanelCard>
 
-    <PanelCard v-else class="narrow" title="Log in" subtitle="Pick up where you left off.">
+    <PanelCard
+      v-else
+      class="narrow"
+      :title="t('login.form.title')"
+      :subtitle="t('login.form.subtitle')"
+    >
       <form ref="formRef" @submit.prevent="submit">
         <label>
-          Email
+          {{ t('common.form.email') }}
           <input
             ref="emailInputRef"
             v-model="email"
             type="email"
             autocomplete="email"
-            placeholder="you@example.com"
+            :placeholder="t('common.form.email_placeholder')"
             required
           />
         </label>
         <label>
-          Password
+          {{ t('common.form.password') }}
           <input
             ref="passwordInputRef"
             v-model="password"
@@ -265,16 +275,17 @@ function backToPassword() {
             placeholder="••••••••"
             required
           />
-          <RouterLink to="/forgot-password" class="tiny forgot">Forgot password?</RouterLink>
+          <RouterLink to="/forgot-password" class="tiny forgot">{{ t('login.form.forgot_password') }}</RouterLink>
         </label>
 
         <button type="submit" class="full" :aria-busy="submitting" :disabled="submitting">
-          {{ submitting ? 'Logging in…' : 'Log in' }}
+          {{ submitting ? t('login.form.submitting') : t('login.form.submit') }}
         </button>
-        <button type="button" class="soft-btn full">Continue with Apple</button>
+        <button type="button" class="soft-btn full">{{ t('common.form.continue_with_apple') }}</button>
 
         <p class="tiny muted centred">
-          New here? <RouterLink to="/register">Create an account</RouterLink>
+          {{ t('login.form.new_here') }}
+          <RouterLink to="/register">{{ t('login.form.create_account') }}</RouterLink>
         </p>
       </form>
     </PanelCard>

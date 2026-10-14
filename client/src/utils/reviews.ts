@@ -1,11 +1,12 @@
 /** Small display helpers shared by the review components and the deck cards. */
+import { t, tn } from '@/i18n'
 
 /** The most characters a review comment may have — mirrors `Reviews::MAX_COMMENT_LENGTH`. */
 export const REVIEW_COMMENT_MAX = 256
 
 /** "★ 4.6 · 12 reviews" — the card/hero line. Callers only render it when `count > 0`. */
 export function formatRating(average: number, count: number): string {
-  return `★ ${average.toFixed(1)} · ${count} ${count === 1 ? 'review' : 'reviews'}`
+  return tn('common.rating.summary', count, { average: average.toFixed(1) })
 }
 
 /**
@@ -22,13 +23,14 @@ export function initialOf(name: string): string {
   return (Array.from(name.trim())[0] ?? '?').toUpperCase()
 }
 
-const UNITS: [limit: number, seconds: number, one: string, many: string][] = [
-  [60 * 60, 60, 'a minute ago', 'minutes ago'],
-  [60 * 60 * 24, 60 * 60, 'an hour ago', 'hours ago'],
-  [60 * 60 * 24 * 7, 60 * 60 * 24, 'a day ago', 'days ago'],
-  [60 * 60 * 24 * 30, 60 * 60 * 24 * 7, 'a week ago', 'weeks ago'],
-  [60 * 60 * 24 * 365, 60 * 60 * 24 * 30, 'a month ago', 'months ago'],
-  [Infinity, 60 * 60 * 24 * 365, 'a year ago', 'years ago'],
+/** `unit` names the keys: `common.time_ago.<unit>_single` for "a minute ago", plurals for the rest. */
+const UNITS: [limit: number, seconds: number, unit: string][] = [
+  [60 * 60, 60, 'minute'],
+  [60 * 60 * 24, 60 * 60, 'hour'],
+  [60 * 60 * 24 * 7, 60 * 60 * 24, 'day'],
+  [60 * 60 * 24 * 30, 60 * 60 * 24 * 7, 'week'],
+  [60 * 60 * 24 * 365, 60 * 60 * 24 * 30, 'month'],
+  [Infinity, 60 * 60 * 24 * 365, 'year'],
 ]
 
 /**
@@ -41,12 +43,12 @@ export function timeAgo(iso: string, now: Date = new Date()): string {
   if (Number.isNaN(then)) return ''
 
   const seconds = Math.floor((now.getTime() - then) / 1000)
-  if (seconds < 60) return 'just now'
+  if (seconds < 60) return t('common.time_ago.just_now')
 
-  for (const [limit, unit, one, many] of UNITS) {
+  for (const [limit, size, unit] of UNITS) {
     if (seconds < limit) {
-      const count = Math.floor(seconds / unit)
-      return count <= 1 ? one : `${count} ${many}`
+      const count = Math.floor(seconds / size)
+      return count <= 1 ? t(`common.time_ago.${unit}_single`) : tn(`common.time_ago.${unit}s`, count)
     }
   }
 

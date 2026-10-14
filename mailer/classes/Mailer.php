@@ -3,39 +3,33 @@
 /**
  * Sends plain-text email over SMTP with STARTTLS and AUTH LOGIN — enough for
  * Gmail (smtp.gmail.com:587 with an App Password), with no Composer and no
- * PHPMailer. Everything comes from the server environment, set with
- * `fastcgi_param` in nginx/conf.d/api.rockguide.com.conf like `PEPPER`/`DB_*`:
+ * PHPMailer. Only the mail worker uses it (`MailWorker`); every other service
+ * queues messages with `MailQueue` instead. Settings come from the worker's
+ * environment:
  *
  *   SMTP_HOST, SMTP_PORT (default 587), SMTP_USER, SMTP_PASS
  *   MAIL_FROM (default SMTP_USER), MAIL_FROM_NAME (default "RockGuide")
  *   MAIL_REDIRECT_TO — development only: every message goes to this address
  *                      instead, with the real recipient noted in the body.
  *
- * `send()` never throws. Email is a side channel here — a payment or a
- * cancellation must not fail because Gmail was slow — so a missing config or
- * an SMTP error is logged through `db::writeLog()` and reported as `false`.
+ * `send()` throws a `MailerException`; its `permanent` flag tells the worker
+ * whether trying again could help (a 5xx reply, a bad address, no config:
+ * no; a timeout or a 4xx: yes).
  */
 class Mailer
 {
     private const TIMEOUT_SECONDS = 10;
 
-    /** @var db */
-    private $db;
-
-    public function __construct(db $db)
+    public static function isConfigured(): bool
     {
-        $this->db = $db;
+        return self::env('SMTP_HOST') !== '' && self::env('SMTP_USER') !== '' && self::env('SMTP_PASS') !== '';
     }
 
-    public function send(string $to, string $subject, string $body): bool
+    /** @throws MailerException */
+    public function send(string $to, string $subject, string $body): void
     {
-        $host = self::env('SMTP_HOST');
-        $user = self::env('SMTP_USER');
-        $pass = self::env('SMTP_PASS');
-
-        if ($host === '' || $user === '' || $pass === '') {
-            $this->db->writeLog('Mailer: SMTP is not configured, not sending "' . $subject . '" to ' . $to);
-            return false;
+        if (!self::isConfigured()) {
+            throw new MailerException('SMTP is not configured', true);
         }
 
         $redirect = self::env('MAIL_REDIRECT_TO');
@@ -46,16 +40,15 @@ class Mailer
 
         $to = self::headerSafe($to);
         if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-            $this->db->writeLog('Mailer: invalid recipient "' . $to . '"');
-            return false;
+            throw new MailerException('invalid recipient address', true);
         }
 
         try {
-            $this->deliver($host, (int) (self::env('SMTP_PORT') ?: 587), $user, $pass, $to, $subject, $body);
-            return true;
+            $this->deliver(self::env('SMTP_HOST'), (int) (self::env('SMTP_PORT') ?: 587), self::env('SMTP_USER'), self::env('SMTP_PASS'), $to, $subject, $body);
+        } catch (MailerException $e) {
+            throw $e;
         } catch (Throwable $e) {
-            $this->db->writeLog('Mailer: sending "' . $subject . '" to ' . $to . ' failed: ' . $e->getMessage());
-            return false;
+            throw new MailerException($e->getMessage(), false);
         }
     }
 
@@ -138,8 +131,10 @@ class Mailer
 
         $code = (int) substr($reply, 0, 3);
         if (!in_array($code, (array) $expected, true)) {
-            // Never echo credentials: only the server's reply goes in the message.
-            throw new RuntimeException('unexpected SMTP reply: ' . trim($reply));
+            // Never echo credentials: only the server's reply goes in the
+            // message. 5xx is a permanent refusal; anything else (4xx, a
+            // dropped connection) may work on a later attempt.
+            throw new MailerException('unexpected SMTP reply: ' . trim($reply), $code >= 500 && $code < 600);
         }
 
         return $reply;
@@ -167,5 +162,18 @@ class Mailer
         $value = $_SERVER[$key] ?? getenv($key);
 
         return ($value === false || $value === null) ? '' : trim((string) $value);
+    }
+}
+
+/** A failed send. `permanent` — retrying won't help. */
+class MailerException extends Exception
+{
+    /** @var bool */
+    public $permanent;
+
+    public function __construct(string $message, bool $permanent)
+    {
+        parent::__construct($message);
+        $this->permanent = $permanent;
     }
 }

@@ -5,6 +5,7 @@ import ReviewForm from './ReviewForm.vue'
 import ReviewItem from './ReviewItem.vue'
 import ReviewSummary from './ReviewSummary.vue'
 import ReviewsDialog from './ReviewsDialog.vue'
+import { t, tn } from '@/i18n'
 import { useApi, type ReviewsPage } from '@/plugins/api'
 import { reportApiError } from '@/utils/reportApiError'
 
@@ -36,7 +37,7 @@ async function load() {
     failed.value = false
   } catch (err) {
     failed.value = true
-    reportApiError(err, 'Could not load reviews.')
+    reportApiError(err, t('common.reviews.load_failed'))
   }
 }
 
@@ -51,9 +52,9 @@ async function closeDialog() {
 </script>
 
 <template>
-  <PanelCard class="reviews" title="Reviews">
-    <p v-if="failed" class="muted">Reviews are unavailable right now.</p>
-    <p v-else-if="!page" class="tiny muted">Loading reviews…</p>
+  <PanelCard class="reviews" :title="t('common.reviews.title')">
+    <p v-if="failed" class="muted">{{ t('common.reviews.unavailable') }}</p>
+    <p v-else-if="!page" class="tiny muted">{{ t('common.reviews.loading') }}</p>
 
     <template v-else>
       <template v-if="page.total > 0">
@@ -69,7 +70,7 @@ async function closeDialog() {
           class="soft-btn show-all"
           @click="dialogOpen = true"
         >
-          Show all {{ page.total }} {{ page.total === 1 ? 'review' : 'reviews' }}
+          {{ tn('common.reviews.show_all', page.total) }}
         </button>
 
         <ReviewsDialog
@@ -80,7 +81,7 @@ async function closeDialog() {
         />
       </template>
 
-      <p v-else class="muted">No reviews yet.</p>
+      <p v-else class="muted">{{ t('common.reviews.none') }}</p>
 
       <ReviewForm
         v-if="page.viewer.canReview"

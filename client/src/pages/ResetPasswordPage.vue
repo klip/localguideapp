@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import { t } from '@/i18n'
 import { ApiError, useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
@@ -38,11 +39,14 @@ async function submit() {
   if (submitting.value) return
 
   if (newPassword.value.length < MIN_LENGTH) {
-    messages.error(`Use at least ${MIN_LENGTH} characters.`, anchorTo('input', newInputRef.value))
+    messages.error(
+      t('reset_password.toast.too_short', { count: MIN_LENGTH }),
+      anchorTo('input', newInputRef.value),
+    )
     return
   }
   if (newPassword.value !== confirmPassword.value) {
-    messages.error('The two passwords don’t match.', anchorTo('input', confirmInputRef.value))
+    messages.error(t('reset_password.toast.mismatch'), anchorTo('input', confirmInputRef.value))
     return
   }
 
@@ -50,10 +54,10 @@ async function submit() {
   try {
     await api.resetPassword({ token: token.value, newPassword: newPassword.value })
     auth.clear()
-    messages.success('Password changed — log in with your new password.')
+    messages.success(t('reset_password.toast.changed'))
     router.push('/login')
   } catch (err) {
-    const text = err instanceof ApiError ? err.message : 'Could not change your password.'
+    const text = err instanceof ApiError ? err.message : t('reset_password.toast.failed')
     if (/invalid or has expired/i.test(text)) linkDead.value = true
     else messages.error(text, anchorTo('element', formRef.value))
   } finally {
@@ -64,25 +68,31 @@ async function submit() {
 
 <template>
   <section class="section shell">
-    <SectionTitle eyebrow="Account" heading="Choose a new password" />
+    <SectionTitle
+      :eyebrow="t('reset_password.header.eyebrow')"
+      :heading="t('reset_password.header.heading')"
+    />
 
-    <PanelCard v-if="!tokenLooksValid || linkDead" class="narrow" title="This link doesn’t work">
+    <PanelCard
+      v-if="!tokenLooksValid || linkDead"
+      class="narrow"
+      :title="t('reset_password.dead_link.title')"
+    >
       <p>
-        Reset links work once, for 30 minutes, and only the newest one you asked for. Ask for a
-        fresh one and use it straight away.
+        {{ t('reset_password.dead_link.body') }}
       </p>
-      <RouterLink to="/forgot-password" role="button" class="full">Send a new link</RouterLink>
+      <RouterLink to="/forgot-password" role="button" class="full">{{ t('reset_password.dead_link.send_new') }}</RouterLink>
     </PanelCard>
 
     <PanelCard
       v-else
       class="narrow"
-      title="New password"
-      subtitle="You’ll be signed out everywhere."
+      :title="t('reset_password.form.title')"
+      :subtitle="t('reset_password.form.subtitle')"
     >
       <form ref="formRef" @submit.prevent="submit">
         <label>
-          New password
+          {{ t('reset_password.form.new_password') }}
           <input
             ref="newInputRef"
             v-model="newPassword"
@@ -93,7 +103,7 @@ async function submit() {
           />
         </label>
         <label>
-          Repeat new password
+          {{ t('reset_password.form.repeat_password') }}
           <input
             ref="confirmInputRef"
             v-model="confirmPassword"
@@ -104,7 +114,7 @@ async function submit() {
           />
         </label>
         <button type="submit" class="full" :aria-busy="submitting" :disabled="submitting">
-          {{ submitting ? 'Saving…' : 'Set new password' }}
+          {{ submitting ? t('reset_password.form.saving') : t('reset_password.form.submit') }}
         </button>
       </form>
     </PanelCard>

@@ -5,6 +5,7 @@ import RangePicker from '@/components/RangePicker.vue'
 import ImageCropper from '@/components/ImageCropper.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import { t, tn } from '@/i18n'
 import { COUNTRY_CODES } from '@/data/countryCodes'
 import {
   ApiError,
@@ -54,10 +55,16 @@ const savingAccount = ref(false)
 const accountPanelRef = ref<HTMLElement | null>(null)
 const cropperRef = ref<InstanceType<typeof ImageCropper> | null>(null)
 
-const countryCodeSuggestions: ComboboxSuggestion[] = COUNTRY_CODES.map((country) => ({
-  value: country.dialCode,
-  label: `${country.name} (${country.dialCode})`,
-}))
+// Computed so country names follow a language switch (`common.country.<iso2>`).
+const countryCodeSuggestions = computed<ComboboxSuggestion[]>(() =>
+  COUNTRY_CODES.map((country) => ({
+    value: country.dialCode,
+    label: t('profile.contact.country_option', {
+      country: t(`common.country.${country.iso2}`),
+      dial_code: country.dialCode,
+    }),
+  })),
+)
 
 /**
  * `users.phone` is one combined string (e.g. "+350 56002731") — the country
@@ -258,7 +265,7 @@ function applyProfile(data: MyProfile) {
 
   const { code, number } = splitPhone(data.phone ?? '')
   phoneCountryCode.value = code
-  phoneCountryQuery.value = countryCodeSuggestions.find((s) => s.value === code)?.label ?? ''
+  phoneCountryQuery.value = countryCodeSuggestions.value.find((s) => s.value === code)?.label ?? ''
   phoneNumber.value = number
 
   // Only email can be chosen for now; anything else loads unselected so the
@@ -295,9 +302,9 @@ async function forgetDevices(event: MouseEvent) {
     await api.forgetTrustedDevices()
     forgetTrustedDevice(profile.value.email)
     profile.value = { ...profile.value, trusted_device_count: 0 }
-    messages.success('Done — every device will ask for a code at the next login.', placement)
+    messages.success(t('profile.toast.devices_forgotten'), placement)
   } catch (err) {
-    reportApiError(err, 'Could not forget your devices.', placement)
+    reportApiError(err, t('profile.toast.devices_failed'), placement)
   } finally {
     forgettingDevices.value = false
   }
@@ -317,7 +324,7 @@ onMounted(async () => {
     applyProfile(profileResult)
     localCategories.value = categoriesResult.categories
   } catch (err) {
-    loadError.value = err instanceof ApiError ? err.message : 'Could not load your profile.'
+    loadError.value = err instanceof ApiError ? err.message : t('profile.toast.load_failed')
   } finally {
     loading.value = false
   }
@@ -347,9 +354,9 @@ async function saveAccount() {
       role: auth.user.role,
       sessionHash: auth.user.sessionHash,
     })
-    messages.success('Contact details saved.', anchorTo('element', accountPanelRef.value))
+    messages.success(t('profile.toast.contact_saved'), anchorTo('element', accountPanelRef.value))
   } catch (err) {
-    reportApiError(err, 'Could not save your details.', anchorTo('element', accountPanelRef.value))
+    reportApiError(err, t('profile.toast.contact_failed'), anchorTo('element', accountPanelRef.value))
   } finally {
     savingAccount.value = false
   }
@@ -375,9 +382,9 @@ async function saveProfile() {
       newCategoryLabels: { ...newCategoryLabels },
       ranges: { ...selectedRanges },
     })
-    messages.success('Profile saved.', anchorTo('element', profilePanelRef.value))
+    messages.success(t('profile.toast.profile_saved'), anchorTo('element', profilePanelRef.value))
   } catch (err) {
-    reportApiError(err, 'Could not save your profile.', anchorTo('element', profilePanelRef.value))
+    reportApiError(err, t('profile.toast.profile_failed'), anchorTo('element', profilePanelRef.value))
   } finally {
     savingProfile.value = false
   }
@@ -387,7 +394,7 @@ async function changePassword() {
   if (!auth.user || changingPassword.value) return
 
   if (newPassword.value !== confirmPassword.value) {
-    messages.error('New passwords do not match.', anchorTo('element', passwordPanelRef.value))
+    messages.error(t('profile.toast.password_mismatch'), anchorTo('element', passwordPanelRef.value))
     return
   }
 
@@ -400,9 +407,9 @@ async function changePassword() {
     currentPassword.value = ''
     newPassword.value = ''
     confirmPassword.value = ''
-    messages.success('Password changed.', anchorTo('element', passwordPanelRef.value))
+    messages.success(t('profile.toast.password_changed'), anchorTo('element', passwordPanelRef.value))
   } catch (err) {
-    reportApiError(err, 'Could not change your password.', anchorTo('element', passwordPanelRef.value))
+    reportApiError(err, t('profile.toast.password_failed'), anchorTo('element', passwordPanelRef.value))
   } finally {
     changingPassword.value = false
   }
@@ -412,90 +419,89 @@ async function changePassword() {
 <template>
   <section class="section shell">
     <SectionTitle
-      eyebrow="Account"
-      heading="Your profile"
-      lead="Manage your personal info, contact details, security and interests."
+      :eyebrow="t('profile.header.eyebrow')"
+      :heading="t('profile.header.heading')"
+      :lead="t('profile.header.lead')"
     />
 
-    <PanelCard v-if="!auth.user" class="narrow" title="Log in to manage your profile">
-      <p class="muted">You need to be signed in to see this page.</p>
-      <RouterLink to="/login" role="button">Log in</RouterLink>
+    <PanelCard v-if="!auth.user" class="narrow" :title="t('profile.signed_out.title')">
+      <p class="muted">{{ t('profile.signed_out.body') }}</p>
+      <RouterLink to="/login" role="button">{{ t('profile.signed_out.log_in') }}</RouterLink>
     </PanelCard>
 
-    <PanelCard v-else-if="loading" title="Loading…" />
+    <PanelCard v-else-if="loading" :title="t('profile.page.loading')" />
 
-    <PanelCard v-else-if="loadError" title="Could not load your profile">
+    <PanelCard v-else-if="loadError" :title="t('profile.page.load_error')">
       <p class="muted">{{ loadError }}</p>
     </PanelCard>
 
     <div v-else class="profile-grid">
       <div ref="accountPanelRef">
-        <PanelCard title="Personal &amp; contact info" subtitle="Your name, how to reach you, and your photo.">
+        <PanelCard :title="t('profile.contact.title')" :subtitle="t('profile.contact.subtitle')">
           <details ref="passwordPanelRef" class="password-disclosure">
-            <summary>Change password</summary>
+            <summary>{{ t('profile.password.title') }}</summary>
             <form @submit.prevent="changePassword">
               <label>
-                Current password
+                {{ t('profile.password.current') }}
                 <input v-model="currentPassword" type="password" autocomplete="current-password" required />
               </label>
               <label>
-                New password
+                {{ t('profile.password.new') }}
                 <input v-model="newPassword" type="password" autocomplete="new-password" required />
               </label>
               <label>
-                Confirm new password
+                {{ t('profile.password.confirm') }}
                 <input v-model="confirmPassword" type="password" autocomplete="new-password" required />
               </label>
 
               <button type="submit" class="full" :aria-busy="changingPassword" :disabled="changingPassword">
-                {{ changingPassword ? 'Changing…' : 'Change password' }}
+                {{ changingPassword ? t('profile.password.changing') : t('profile.password.submit') }}
               </button>
             </form>
           </details>
 
           <form @submit.prevent="saveAccount">
             <label>
-              Name
+              {{ t('profile.contact.name') }}
               <input v-model="name" type="text" autocomplete="name" />
             </label>
             <label>
-              Email
+              {{ t('common.contact.email') }}
               <input v-model="email" type="email" autocomplete="email" required />
             </label>
 
             <div class="phone-row">
               <label class="phone-code">
-                Country code
+                {{ t('profile.contact.country_code') }}
                 <AttributeCombobox
                   v-model="phoneCountryQuery"
                   :suggestions="countryCodeSuggestions"
                   :allow-create="false"
-                  placeholder="Search country…"
+                  :placeholder="t('profile.contact.country_placeholder')"
                   @select="selectCountryCode"
                 />
               </label>
               <label class="phone-number">
-                Phone
+                {{ t('common.contact.phone') }}
                 <input v-model="phoneNumber" type="tel" autocomplete="tel" placeholder="56002731" />
               </label>
             </div>
 
             <label>
-              Two-factor code sent via
+              {{ t('profile.contact.two_factor') }}
               <select v-model="twoFactorMethod" required>
-                <option value="" disabled>Choose a method</option>
-                <option value="email">Email</option>
+                <option value="" disabled>{{ t('profile.contact.two_factor_choose') }}</option>
+                <option value="email">{{ t('common.contact.email') }}</option>
                 <!-- Not wired to a provider yet — AccountSecurity.php only sends by email. -->
-                <option value="sms" disabled>SMS (coming soon)</option>
-                <option value="whatsapp" disabled>WhatsApp (coming soon)</option>
+                <option value="sms" disabled>{{ t('profile.contact.two_factor_sms') }}</option>
+                <option value="whatsapp" disabled>{{ t('profile.contact.two_factor_whatsapp') }}</option>
               </select>
               <small class="tiny muted">
-                Each time you log in, we’ll email you a 6-digit code to enter after your password.
+                {{ t('profile.contact.two_factor_hint') }}
               </small>
             </label>
             <p v-if="trustedDeviceCount > 0" class="tiny muted trusted-devices">
-              Codes are skipped on {{ trustedDeviceCount }} remembered
-              device{{ trustedDeviceCount === 1 ? '' : 's' }} for 30 days from when you ticked it.
+              {{ tn('profile.contact.trusted_devices', trustedDeviceCount) }}
               <button
                 type="button"
                 class="link-btn"
@@ -503,58 +509,62 @@ async function changePassword() {
                 :disabled="forgettingDevices"
                 @click="forgetDevices"
               >
-                Forget all devices
+                {{ t('profile.contact.forget_devices') }}
               </button>
             </p>
 
             <div v-if="profile?.image" class="current-photo">
-              <img :src="profile.image" alt="Current profile photo" />
-              <span class="tiny muted">Current photo</span>
+              <img :src="profile.image" :alt="t('profile.contact.photo_alt')" />
+              <span class="tiny muted">{{ t('profile.contact.current_photo') }}</span>
             </div>
             <ImageCropper ref="cropperRef" />
 
             <button type="submit" class="full" :aria-busy="savingAccount" :disabled="savingAccount">
-              {{ savingAccount ? 'Saving…' : 'Save contact info' }}
+              {{ savingAccount ? t('profile.contact.saving') : t('profile.contact.submit') }}
             </button>
           </form>
         </PanelCard>
       </div>
 
       <div ref="profilePanelRef">
-        <PanelCard title="Profile details" subtitle="What visitors and guides see about you.">
+        <PanelCard :title="t('profile.details.title')" :subtitle="t('profile.details.subtitle')">
           <form @submit.prevent="saveProfile">
             <label>
-              Date of birth
+              {{ t('profile.details.date_of_birth') }}
               <input v-model="dateOfBirth" type="date" :max="todayIso" />
             </label>
 
             <label v-if="isGuide">
-              Gender
+              {{ t('profile.details.gender') }}
               <select v-model="gender">
-                <option value="">Prefer not to say</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
+                <option value="">{{ t('profile.details.gender_unset') }}</option>
+                <option value="male">{{ t('common.gender.male') }}</option>
+                <option value="female">{{ t('common.gender.female') }}</option>
               </select>
             </label>
 
             <label v-if="isGuide">
-              Headline
-              <input v-model="headline" type="text" placeholder="e.g. Rock scrambles &amp; sunset views" />
+              {{ t('profile.details.headline') }}
+              <input
+                v-model="headline"
+                type="text"
+                :placeholder="t('profile.details.headline_placeholder')"
+              />
             </label>
 
             <label v-if="!isGuide">
-              Party
-              <input v-model="party" type="text" placeholder="e.g. 2 adults · Aurora Vista cruise" />
+              {{ t('profile.details.party') }}
+              <input v-model="party" type="text" :placeholder="t('profile.details.party_placeholder')" />
             </label>
 
             <label>
-              Bio
+              {{ t('profile.details.bio') }}
               <textarea v-model="bio" rows="3" />
             </label>
 
             <template v-if="isGuide">
               <label>
-                Price amount (£)
+                {{ t('profile.details.price_amount') }}
                 <input
                   v-model.number="priceAmount"
                   type="number"
@@ -563,31 +573,34 @@ async function changePassword() {
                   aria-describedby="price-amount-hint"
                 />
                 <small id="price-amount-hint" class="muted">
-                  The fee a visitor pays to get your contact details. Leave it at 0 to guide for free — you'll swap
-                  contact details as soon as you match.
+                  {{ t('profile.details.price_amount_hint') }}
                 </small>
               </label>
               <label>
-                Price label
-                <input v-model="priceLabel" type="text" placeholder="e.g. £95 / 6 hours" />
+                {{ t('profile.details.price_label') }}
+                <input
+                  v-model="priceLabel"
+                  type="text"
+                  :placeholder="t('profile.details.price_label_placeholder')"
+                />
               </label>
               <label>
-                Price note
+                {{ t('profile.details.price_note') }}
                 <input v-model="priceNote" type="text" />
               </label>
               <label>
-                What's included
+                {{ t('profile.details.includes') }}
                 <textarea v-model="includes" rows="2" />
               </label>
             </template>
 
             <label v-else>
-              Requested tour length (hours)
+              {{ t('profile.details.duration') }}
               <input v-model.number="durationHours" type="number" min="1" max="24" />
             </label>
 
             <div class="attributes-editor">
-              <strong class="tiny">About</strong>
+              <strong class="tiny">{{ t('profile.details.about') }}</strong>
 
               <div v-for="category in visibleCategories" :key="category.key" class="attribute-group">
                 <span class="tiny muted">{{ (isGuide && category.providerLabel) || category.label }}</span>
@@ -601,7 +614,7 @@ async function changePassword() {
                     <button
                       type="button"
                       class="chip-remove"
-                      aria-label="Remove"
+                      :aria-label="t('profile.details.remove_option')"
                       @click="removeAttribute(category.key, value)"
                     >
                       ×
@@ -611,7 +624,7 @@ async function changePassword() {
                     v-if="!manuallyExpandedCategories.has(category.key)"
                     type="button"
                     class="chip-add"
-                    :aria-label="`Add a ${category.label} option`"
+                    :aria-label="t('profile.details.add_option', { category: category.label })"
                     @click="expandCategory(category.key)"
                   >
                     +
@@ -622,7 +635,7 @@ async function changePassword() {
                   v-if="manuallyExpandedCategories.has(category.key)"
                   :model-value="optionQueries[category.key] ?? ''"
                   :suggestions="optionSuggestionsFor(category.key)"
-                  placeholder="Search or create an option…"
+                  :placeholder="t('profile.details.option_placeholder')"
                   autofocus
                   class="option-combobox"
                   @update:model-value="(value) => (optionQueries[category.key] = value)"
@@ -634,7 +647,9 @@ async function changePassword() {
               <div v-for="category in rangeCategories" :key="category.key" class="attribute-group">
                 <span class="tiny muted">
                   {{ (isGuide && category.providerLabel) || category.label }}
-                  <em v-if="!(selectedRanges[category.key] ?? []).length">— empty means always available</em>
+                  <em v-if="!(selectedRanges[category.key] ?? []).length">{{
+                    t('profile.details.range_empty_hint')
+                  }}</em>
                 </span>
                 <RangePicker
                   :ranges="selectedRanges[category.key] ?? []"
@@ -647,18 +662,18 @@ async function changePassword() {
               </div>
 
               <label class="tiny add-category">
-                Add another category
+                {{ t('profile.details.add_category') }}
                 <AttributeCombobox
                   v-model="categoryQuery"
                   :suggestions="categorySuggestions"
-                  placeholder="Search or create a category…"
+                  :placeholder="t('profile.details.category_placeholder')"
                   @select="selectCategory"
                 />
               </label>
             </div>
 
             <button type="submit" class="full" :aria-busy="savingProfile" :disabled="savingProfile">
-              {{ savingProfile ? 'Saving…' : 'Save profile' }}
+              {{ savingProfile ? t('profile.details.saving') : t('profile.details.submit') }}
             </button>
           </form>
         </PanelCard>

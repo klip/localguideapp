@@ -1,0 +1,58 @@
+// Grafana Alloy: tails the RockGuide containers' stdout/stderr through the
+// Docker socket and ships them to Loki. Only containers labelled
+// `rockguide.logs=true` (see docker-lemp's compose file) are collected.
+//
+// Every RockGuide service writes one JSON object per line (lib/Log.php), so
+// `level` and `service` become Loki labels; anything else — nginx, PHP-FPM's
+// own messages — is kept as plain text.
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "rockguide" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_label_rockguide_logs"]
+    regex         = "true"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+}
+
+loki.source.docker "rockguide" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.rockguide.rules
+  labels        = { app = "rockguide" }
+  forward_to    = [loki.process.rockguide.receiver]
+}
+
+loki.process "rockguide" {
+  stage.json {
+    expressions = { level = "level", service = "service" }
+  }
+
+  stage.labels {
+    values = { level = "", service = "" }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

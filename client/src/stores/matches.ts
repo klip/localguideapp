@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { PaymentState } from '@/plugins/api'
+import { clearPendingRejects, readPendingRejects } from '@/utils/pendingRejects'
 
 /** Selections granted per £5 pack, per the pricing in the prototype. */
 export const PACK_SIZE = 5
@@ -9,11 +10,12 @@ export const PACK_SIZE = 5
  * Tracks the visitor's paid selection pack: how many picks they have bought,
  * which guides they kept, and which they dismissed.
  */
-export const useShortlistStore = defineStore('shortlist', () => {
+export const useMatchesStore = defineStore('matches', () => {
   /** Packs bought at £5 each. Zero means the visitor has not paid yet. */
   const packsUnlocked = ref(0)
   const picks = ref<string[]>([])
-  const passed = ref<string[]>([])
+  // Rejects made before signing in survive a reload (see utils/pendingRejects.ts).
+  const passed = ref<string[]>(readPendingRejects())
 
   const hasAccess = computed(() => packsUnlocked.value > 0)
   const capacity = computed(() => packsUnlocked.value * PACK_SIZE)
@@ -34,12 +36,13 @@ export const useShortlistStore = defineStore('shortlist', () => {
    * "3 / 10 picked" rather than "0 / 10" — see `App.vue`'s boot call. The
    * arrays are seeded directly rather than through `pick()`/`pass()`, which
    * gate on remaining capacity: these decisions are already recorded in
-   * `selections`, so re-applying that gate would drop them.
+   * `selections`, so re-applying that gate would drop them. Rejects from
+   * before sign-in that haven't reached the server yet are kept as passed.
    */
   function applyPaymentState(state: PaymentState) {
     packsUnlocked.value = state.packsUnlocked
     picks.value = (state.pickedIds ?? []).map(String)
-    passed.value = (state.passedIds ?? []).map(String)
+    passed.value = [...new Set([...(state.passedIds ?? []).map(String), ...readPendingRejects()])]
   }
 
   function pick(id: string) {
@@ -73,6 +76,7 @@ export const useShortlistStore = defineStore('shortlist', () => {
 
   function resetPassed() {
     passed.value = []
+    clearPendingRejects()
   }
 
   return {

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import { t } from '@/i18n'
 import { ApiError, useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
@@ -17,7 +18,9 @@ const messages = useMessagesStore()
 /** `/register?role=guide` (from the "I'm a guide" CTA) vs. the default visitor flow. */
 const role = computed(() => (route.query.role === 'guide' ? 'guide' : 'guest'))
 const isGuide = computed(() => role.value === 'guide')
-const heading = computed(() => (isGuide.value ? 'Create your guide account' : 'Create your visitor account'))
+const heading = computed(() =>
+  isGuide.value ? t('register.header.guide_heading') : t('register.header.visitor_heading'),
+)
 const url = computed(() => (!isGuide.value ? '/register?role=guide' : '/register'))
 
 const email = ref('')
@@ -39,10 +42,11 @@ async function submit() {
       role: role.value,
     })
     auth.setUser(user)
-    messages.success('Account created — welcome to RockGuide.', anchorTo('element', formRef.value))
-    router.push(isGuide.value ? '/guide/discover' : '/unlock')
+    messages.success(t('register.toast.created'), anchorTo('element', formRef.value))
+    // A visitor lands back on the deck, which asks for the first pack itself.
+    router.push(isGuide.value ? '/guide/discover' : '/discover')
   } catch (err) {
-    const text = err instanceof ApiError ? err.message : 'Could not create your account.'
+    const text = err instanceof ApiError ? err.message : t('register.toast.failed')
     messages.error(
       text,
       formMessagePlacement(text, {
@@ -59,23 +63,23 @@ async function submit() {
 
 <template>
   <section class="section shell">
-    <SectionTitle eyebrow="Screen 01" :heading="heading" />
+    <SectionTitle :eyebrow="t('register.header.eyebrow')" :heading="heading" />
 
-    <PanelCard class="narrow" :title="heading" subtitle="Takes less than a minute.">
+    <PanelCard class="narrow" :title="heading" :subtitle="t('register.form.subtitle')">
       <form ref="formRef" @submit.prevent="submit">
         <label>
-          Email
+          {{ t('common.form.email') }}
           <input
             ref="emailInputRef"
             v-model="email"
             type="email"
             autocomplete="email"
-            placeholder="you@example.com"
+            :placeholder="t('common.form.email_placeholder')"
             required
           />
         </label>
         <label>
-          Password
+          {{ t('common.form.password') }}
           <input
             ref="passwordInputRef"
             v-model="password"
@@ -87,16 +91,19 @@ async function submit() {
         </label>
 
         <button type="submit" class="full" :aria-busy="submitting" :disabled="submitting">
-          {{ submitting ? 'Creating account…' : 'Continue' }}
+          {{ submitting ? t('register.form.submitting') : t('register.form.submit') }}
         </button>
-        <button type="button" class="soft-btn full">Continue with Apple</button>
+        <button type="button" class="soft-btn full">{{ t('common.form.continue_with_apple') }}</button>
 
         <p class="tiny muted centred">
-          Already registered? <RouterLink to="/login">Log in</RouterLink>
+          {{ t('register.form.already_registered') }}
+          <RouterLink to="/login">{{ t('register.form.log_in') }}</RouterLink>
         </p>
 
         <p class="tiny muted centred">
-           <RouterLink :to="url" class="secondary">{{ isGuide ? "I am visiting" : "I am a guide"}}</RouterLink>
+           <RouterLink :to="url" class="secondary">{{
+            isGuide ? t('register.form.switch_to_visitor') : t('register.form.switch_to_guide')
+          }}</RouterLink>
         </p>
       </form>
     </PanelCard>

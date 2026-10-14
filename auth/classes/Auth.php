@@ -6,7 +6,7 @@
  * A registration/verify pass combines, per attempt:
  *   - the password the user typed
  *   - a random per-user salt (`creds.salt`)
- *   - a server-wide pepper, read from $_SERVER['PEPPER'] and never stored in
+ *   - a server-wide pepper, read from the PEPPER environment variable and never stored in
  *     the database
  *
  * The three are mixed with an HMAC (pepper as the HMAC key) before the
@@ -36,8 +36,8 @@ class Auth
 
     private static function pepper(string $password, string $salt): string
     {
-        // FastCGI param first (see the nginx vhost), then the process
-        // environment so CLI scripts work. `getenv()` returns false when
+        // FastCGI param first, then the process environment (the auth
+        // service's env file / Kubernetes Secret). `getenv()` returns false when
         // unset, which `??` would not catch — `?:` collapses it to '' so the
         // guard below still fires.
         $pepper = (string) ($_SERVER['PEPPER'] ?? getenv('PEPPER') ?: '');

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { t } from '@/i18n'
 import { useMessagesStore } from '@/stores/messages'
 
 /**
@@ -65,11 +66,11 @@ function onFileChange(event: Event) {
   if (!file) return
 
   if (!file.type.startsWith('image/')) {
-    messages.error('Please choose an image file.')
+    messages.error(t('common.image_cropper.not_an_image'))
     return
   }
   if (file.size > MAX_SOURCE_BYTES) {
-    messages.error('That image is too large — please choose one under 8MB.')
+    messages.error(t('common.image_cropper.too_large'))
     return
   }
 
@@ -159,8 +160,8 @@ defineExpose({ getCroppedDataUrl })
     />
 
     <div v-if="!imageSrc" class="empty">
-      <button type="button" class="soft-btn" @click="changePhoto">Add a photo</button>
-      <p class="tiny muted">Optional — square crop, shown on your discovery card.</p>
+      <button type="button" class="soft-btn" @click="changePhoto">{{ t('common.image_cropper.add_photo') }}</button>
+      <p class="tiny muted">{{ t('common.image_cropper.hint') }}</p>
     </div>
 
     <div v-else class="editor">
@@ -175,7 +176,7 @@ defineExpose({ getCroppedDataUrl })
       </div>
 
       <label class="zoom tiny muted">
-        Zoom
+        {{ t('common.image_cropper.zoom') }}
         <input
           type="range"
           min="1"
@@ -187,8 +188,8 @@ defineExpose({ getCroppedDataUrl })
       </label>
 
       <div class="actions">
-        <button type="button" class="soft-btn" @click="changePhoto">Change photo</button>
-        <button type="button" class="soft-btn" @click="removePhoto">Remove</button>
+        <button type="button" class="soft-btn" @click="changePhoto">{{ t('common.image_cropper.change_photo') }}</button>
+        <button type="button" class="soft-btn" @click="removePhoto">{{ t('common.image_cropper.remove') }}</button>
       </div>
     </div>
   </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { t } from '@/i18n'
 
 /**
  * Read-only stars for a grade or an average — a filled row of five clipped
@@ -10,7 +11,7 @@ import { computed } from 'vue'
 const props = withDefaults(defineProps<{ value: number; size?: 'sm' | 'lg' }>(), { size: 'sm' })
 
 const clamped = computed(() => Math.max(0, Math.min(5, props.value)))
-const label = computed(() => `Rated ${Number(clamped.value.toFixed(1))} out of 5`)
+const label = computed(() => t('common.star_rating.label', { value: Number(clamped.value.toFixed(1)) }))
 </script>
 
 <template>

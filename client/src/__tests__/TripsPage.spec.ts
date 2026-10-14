@@ -5,7 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import TripsPage from '../pages/TripsPage.vue'
 import { API_KEY, type Api, type PaymentState, type TripRow } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
-import { useShortlistStore } from '@/stores/shortlist'
+import { useMatchesStore } from '@/stores/matches'
 
 function testRouter() {
   return createRouter({
@@ -41,16 +41,16 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     payGuideFee: vi.fn<Api['payGuideFee']>(),
     bookingAction: vi.fn<Api['bookingAction']>(),
     cancelBooking: vi.fn<Api['cancelBooking']>(),
-    notifications: vi.fn<Api['notifications']>(),
+    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
     decide: vi.fn<Api['decide']>(),
     revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matches: vi.fn<Api['matches']>(),
     matchOverview: vi.fn<Api['matchOverview']>(),
     trips: vi.fn<Api['trips']>().mockResolvedValue({ trips: [] }),
     publicProfile: vi.fn<Api['publicProfile']>(),
     reviews: vi.fn<Api['reviews']>(),
     submitReview: vi.fn<Api['submitReview']>(),
     deleteReview: vi.fn<Api['deleteReview']>(),
+    translations: vi.fn<Api['translations']>(),
     ...overrides,
   }
 }
@@ -271,7 +271,7 @@ describe('TripsPage', () => {
     const api = fakeApi({ trips, paymentState: paymentStateFn, bookingAction })
     const wrapper = await mountPage(api, 'guest')
 
-    expect(useShortlistStore().picks).toEqual(['7'])
+    expect(useMatchesStore().picks).toEqual(['7'])
 
     const request = wrapper
       .findAll('.booking button')

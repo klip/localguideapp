@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import BookingPanel from '@/components/BookingPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import { useLiveSection } from '@/composables/useLiveSection'
+import { t, tn } from '@/i18n'
 import {
   useApi,
   type MatchOverviewRow,
@@ -12,7 +14,7 @@ import {
 } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
-import { useShortlistStore } from '@/stores/shortlist'
+import { useMatchesStore } from '@/stores/matches'
 import { reportApiError } from '@/utils/reportApiError'
 
 /**
@@ -27,8 +29,7 @@ import { reportApiError } from '@/utils/reportApiError'
  *   awaiting  — you're interested, no answer yet; can withdraw
  *   passed    — you passed; can reconsider
  *
- * Unlike `ShortlistPage.vue`'s picks grid this is entirely server-backed,
- * so it's also how a guide finds out about a match the visitor completed
+ * Entirely server-backed, so it's also how a guide finds out about a match the visitor completed
  * (the deck's "it's a match" toast only fires on the guide's own decision).
  *
  * Each matched row carries a `BookingPanel` — paying the guide's fee and the
@@ -41,10 +42,11 @@ type Action = SelectionDecision | 'revoke'
 const api = useApi()
 const auth = useAuthStore()
 const messages = useMessagesStore()
-const shortlist = useShortlistStore()
+const matchesStore = useMatchesStore()
 
 const isGuest = computed(() => auth.user?.role === 'guest')
-const counterpartNoun = computed(() => (isGuest.value ? 'guide' : 'visitor'))
+/** `guest`/`guide` — picks the role-specific wording for keys that differ by side. */
+const side = computed(() => (isGuest.value ? 'guest' : 'guide'))
 
 const rows = ref<MatchOverviewRow[]>([])
 const payment = ref<PaymentState | null>(null)
@@ -75,12 +77,8 @@ const grouped = computed(() => {
   return out
 })
 
-const tabs: { id: Group; label: string }[] = [
-  { id: 'matched', label: 'Matched' },
-  { id: 'incoming', label: 'Likes you' },
-  { id: 'awaiting', label: 'Awaiting reply' },
-  { id: 'passed', label: 'Passed' },
-]
+const TAB_IDS: Group[] = ['matched', 'incoming', 'awaiting', 'passed']
+const tabs = computed(() => TAB_IDS.map((id) => ({ id, label: t(`matches.tabs.${id}`) })))
 
 /** Explicit choice wins; otherwise open on whichever group needs attention first. */
 const chosenTab = ref<Group | null>(null)
@@ -93,7 +91,7 @@ const activeTab = computed<Group>(() => {
 const visibleRows = computed(() => grouped.value[activeTab.value])
 const tripCount = computed(() => rows.value.filter(isTrip).length)
 
-/** Server-authoritative for guests (the local `shortlist` count can drift) — null for guides, who never pay. */
+/** Server-authoritative for guests (the local `matchesStore` count can drift) — null for guides, who never pay. */
 const selectionsLeft = computed(() => (isGuest.value ? (payment.value?.selectionsLeft ?? 0) : null))
 const outOfPicks = computed(() => selectionsLeft.value === 0)
 
@@ -108,25 +106,28 @@ async function load() {
     ])
     rows.value = overview.selections
     payment.value = paymentState
-    if (paymentState) shortlist.applyPaymentState(paymentState)
+    if (paymentState) matchesStore.applyPaymentState(paymentState)
   } catch (err) {
-    reportApiError(err, 'Could not load your matches.')
+    reportApiError(err, t('matches.toast.load_failed'))
   } finally {
     loading.value = false
     loaded.value = true
   }
 }
 
-onMounted(load)
+useLiveSection('matches', load)
 
 function displayName(row: MatchOverviewRow) {
-  return row.name || row.email || `A ${counterpartNoun.value}`
+  return row.name || row.email || t(`matches.row.unnamed_${side.value}`)
 }
 
 function subline(row: MatchOverviewRow) {
   const parts = isGuest.value
     ? [row.headline, row.price_label]
-    : [row.party, row.duration_hours ? `${row.duration_hours}h tour` : null]
+    : [
+        row.party,
+        row.duration_hours ? t('matches.row.tour_length', { hours: row.duration_hours }) : null,
+      ]
   return parts.filter(Boolean).join(' · ')
 }
 
@@ -147,23 +148,23 @@ function since(row: MatchOverviewRow) {
 }
 
 /** Keeps the visitor deck's client-only pick/pass state in step, so a guide handled here doesn't resurface there. */
-function syncShortlist(row: MatchOverviewRow, action: Action) {
+function syncMatches(row: MatchOverviewRow, action: Action) {
   if (!isGuest.value) return
   const id = String(row.counterpart_id)
-  if (action === 'interested') shortlist.pick(id)
-  else if (action === 'pass') shortlist.pass(id)
-  else shortlist.remove(id)
+  if (action === 'interested') matchesStore.pick(id)
+  else if (action === 'pass') matchesStore.pass(id)
+  else matchesStore.remove(id)
 }
 
 const SUCCESS_COPY: Record<Group, Partial<Record<Action, (name: string) => string>>> = {
-  matched: { revoke: (name) => `Unmatched from ${name}.` },
+  matched: { revoke: (name) => t('matches.toast.unmatched', { name }) },
   incoming: {
-    interested: (name) => `You're now matched with ${name}.`,
-    pass: (name) => `Passed on ${name}.`,
+    interested: (name) => t('matches.toast.matched', { name }),
+    pass: (name) => t('matches.toast.passed', { name }),
   },
-  awaiting: { revoke: (name) => `Withdrew your interest in ${name}.` },
+  awaiting: { revoke: (name) => t('matches.toast.withdrawn', { name }) },
   passed: {
-    interested: (name) => `Marked ${name} as interested.`,
+    interested: (name) => t('matches.toast.reconsidered', { name }),
   },
 }
 
@@ -194,7 +195,7 @@ async function act(row: MatchOverviewRow, action: Action, event: MouseEvent) {
       action === 'revoke'
         ? await api.revokeSelection({ targetId: row.counterpart_id })
         : await api.decide({ targetId: row.counterpart_id, decision: action })
-    syncShortlist(row, action)
+    syncMatches(row, action)
     await load()
 
     // Reconsidering someone who'd already said yes completes a match too.
@@ -204,17 +205,17 @@ async function act(row: MatchOverviewRow, action: Action, event: MouseEvent) {
         : SUCCESS_COPY[group][action]
     if (copy) messages.success(copy(name), placement)
   } catch (err) {
-    reportApiError(err, 'Could not update this match.', placement)
+    reportApiError(err, t('matches.toast.update_failed'), placement)
   } finally {
     busyId.value = null
   }
 }
 
 const EMPTY_COPY = computed<Record<Group, string>>(() => ({
-  matched: `No matches waiting on a booking. When a ${counterpartNoun.value} you like likes you back, they appear here; confirmed trips are in My trips.`,
-  incoming: `Nobody's waiting on an answer from you right now.`,
-  awaiting: `You're not waiting on anyone. Mark ${counterpartNoun.value}s as interested from the deck.`,
-  passed: `You haven't passed on anyone.`,
+  matched: t(`matches.empty.matched_${side.value}`),
+  incoming: t('matches.empty.incoming'),
+  awaiting: t(`matches.empty.awaiting_${side.value}`),
+  passed: t('matches.empty.passed'),
 }))
 
 const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'))
@@ -223,18 +224,18 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
 <template>
   <section class="section shell">
     <SectionTitle
-      eyebrow="Your matches"
-      heading="Matches"
-      :lead="
-        isGuest
-          ? 'Everyone you’ve picked, everyone who picked you, and the guides you’ve matched with.'
-          : 'Visitors who liked you, visitors you liked, and everyone you’ve matched with.'
-      "
+      :eyebrow="t('matches.header.eyebrow')"
+      :heading="t('matches.header.heading')"
+      :lead="t(`matches.header.lead_${side}`)"
     />
 
-    <PanelCard v-if="!auth.isAuthenticated" class="narrow" title="Log in to see your matches">
-      <p class="muted">Matches are tied to your account.</p>
-      <RouterLink to="/login" role="button">Log in</RouterLink>
+    <PanelCard
+      v-if="!auth.isAuthenticated"
+      class="narrow"
+      :title="t('matches.signed_out.title')"
+    >
+      <p class="muted">{{ t('matches.signed_out.body') }}</p>
+      <RouterLink to="/login" role="button">{{ t('matches.signed_out.log_in') }}</RouterLink>
     </PanelCard>
 
     <template v-else>
@@ -255,22 +256,22 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
         </div>
 
         <p v-if="tripCount" class="tiny muted picks-left">
-          {{ tripCount }} confirmed trip{{ tripCount === 1 ? '' : 's' }} ·
-          <RouterLink to="/trips">My trips</RouterLink>
+          {{ tn('matches.toolbar.confirmed_trips', tripCount) }} ·
+          <RouterLink to="/trips">{{ t('matches.toolbar.my_trips') }}</RouterLink>
         </p>
         <p v-if="selectionsLeft !== null" class="tiny muted picks-left">
-          {{ selectionsLeft }} selection{{ selectionsLeft === 1 ? '' : 's' }} left ·
-          <RouterLink to="/unlock">Unlock more</RouterLink>
+          {{ tn('matches.toolbar.selections_left', selectionsLeft) }} ·
+          <RouterLink to="/unlock">{{ t('matches.toolbar.unlock_more') }}</RouterLink>
         </p>
       </div>
 
       <PanelCard>
-        <p v-if="loading && !loaded" class="muted empty">Loading your matches…</p>
+        <p v-if="loading && !loaded" class="muted empty">{{ t('matches.list.loading') }}</p>
 
         <div v-else-if="!visibleRows.length" class="empty">
           <p class="muted">{{ EMPTY_COPY[activeTab] }}</p>
           <RouterLink v-if="activeTab !== 'passed'" :to="deckLink" class="soft-btn" role="button">
-            Go to discovery
+            {{ t('matches.empty.go_to_discovery') }}
           </RouterLink>
         </div>
 
@@ -288,31 +289,33 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                     }}<template v-if="row.age">, {{ row.age }}</template></strong
                   ></RouterLink
                 >
-                <PillBadge v-if="activeTab === 'matched'">Matched</PillBadge>
-                <PillBadge v-else-if="row.their_decision === 'interested'">Likes you</PillBadge>
+                <PillBadge v-if="activeTab === 'matched'">{{ t('matches.tabs.matched') }}</PillBadge>
+                <PillBadge v-else-if="row.their_decision === 'interested'">{{
+                  t('matches.tabs.incoming')
+                }}</PillBadge>
                 <PillBadge v-else-if="activeTab === 'awaiting'" tone="neutral"
-                  >Awaiting reply</PillBadge
+                  >{{ t('matches.tabs.awaiting') }}</PillBadge
                 >
               </div>
               <div v-if="subline(row)" class="tiny muted">{{ subline(row) }}</div>
-              <div class="tiny muted">Since {{ since(row) }}</div>
+              <div class="tiny muted">{{ t('matches.row.since', { date: since(row) }) }}</div>
 
               <dl v-if="activeTab === 'matched' && (row.email || row.phone)" class="contact">
                 <div v-if="row.email">
-                  <dt>Email</dt>
+                  <dt>{{ t('common.contact.email') }}</dt>
                   <dd>
                     <a :href="`mailto:${row.email}`">{{ row.email }}</a>
                   </dd>
                 </div>
                 <div v-if="row.phone">
-                  <dt>Phone</dt>
+                  <dt>{{ t('common.contact.phone') }}</dt>
                   <dd>
                     <a :href="`tel:${row.phone.replace(/\s+/g, '')}`">{{ row.phone }}</a>
                   </dd>
                 </div>
               </dl>
               <p v-if="activeTab === 'incoming' && isGuest" class="tiny muted note">
-                Accepting uses one of your selections.
+                {{ t('matches.row.accept_costs_pick') }}
               </p>
             </div>
 
@@ -326,13 +329,13 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                   :disabled="busyId !== null"
                   @click="act(row, 'revoke', $event)"
                 >
-                  Unmatch
+                  {{ t('matches.actions.unmatch') }}
                 </button>
               </template>
 
               <template v-else-if="activeTab === 'incoming'">
                 <RouterLink v-if="outOfPicks" to="/unlock" role="button" class="accept">
-                  Unlock to accept
+                  {{ t('matches.actions.unlock_to_accept') }}
                 </RouterLink>
                 <button
                   v-else
@@ -342,7 +345,7 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                   :disabled="busyId !== null"
                   @click="act(row, 'interested', $event)"
                 >
-                  ♥ Accept
+                  {{ t('matches.actions.accept') }}
                 </button>
                 <button
                   type="button"
@@ -350,7 +353,7 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                   :disabled="busyId !== null"
                   @click="act(row, 'pass', $event)"
                 >
-                  Pass
+                  {{ t('matches.actions.pass') }}
                 </button>
               </template>
 
@@ -362,13 +365,13 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                   :disabled="busyId !== null"
                   @click="act(row, 'revoke', $event)"
                 >
-                  Withdraw
+                  {{ t('matches.actions.withdraw') }}
                 </button>
               </template>
 
               <template v-else>
                 <RouterLink v-if="outOfPicks" to="/unlock" role="button" class="soft-btn">
-                  Unlock to reconsider
+                  {{ t('matches.actions.unlock_to_reconsider') }}
                 </RouterLink>
                 <button
                   v-else
@@ -378,7 +381,7 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                   :disabled="busyId !== null"
                   @click="act(row, 'interested', $event)"
                 >
-                  Reconsider
+                  {{ t('matches.actions.reconsider') }}
                 </button>
               </template>
             </div>

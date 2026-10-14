@@ -1,24 +1,30 @@
 <?php
 
 /**
- * Tells a user something happened while they weren't looking: an in-app
- * notification (`notifications`, shown as a toast next time the client asks —
- * see `App.vue`) plus a message on their contact channel.
+ * Tells a user something happened: an in-app notification (`notifications`)
+ * plus, for most kinds, a message on their contact channel. The row is
+ * pushed at once through Redis (`Push`) and marked read if some gateway took
+ * it; a user who isn't connected gets their unread rows when they next sign
+ * in on a socket (`pushState`). The client shows each as a toast (`App.vue`).
  *
- * The contact channel is email for now. When SMS/WhatsApp delivery exists,
- * `deliver()` is the one place to choose by the user's preferred channel.
+ * The contact channel is email for now, queued for the mail worker
+ * (`MailQueue`). When SMS/WhatsApp delivery exists, `deliver()` is the one
+ * place to choose by the user's preferred channel.
  */
 class Notifications
 {
     /** @var db */
     private $db;
-    /** @var Mailer */
-    private $mailer;
+    /** @var MailQueue */
+    private $mail;
+    /** @var Push */
+    private $push;
 
-    public function __construct(db $db, Mailer $mailer)
+    public function __construct(db $db, MailQueue $mail, Push $push)
     {
         $this->db = $db;
-        $this->mailer = $mailer;
+        $this->mail = $mail;
+        $this->push = $push;
     }
 
     /**
@@ -27,52 +33,109 @@ class Notifications
      */
     public function notify(int $userId, string $kind, string $inApp, string $subject, string $body): void
     {
-        $this->db->db_Insert('notifications', [
-            'user_id' => $userId,
-            'kind' => $kind,
-            'message' => mb_substr($inApp, 0, 512),
-        ]);
-
-        $this->deliver($userId, $subject, $body);
+        $this->record($userId, $kind, mb_substr($inApp, 0, 512));
+        $this->deliver($userId, $kind, $subject, $body);
     }
 
     /**
-     * Unread notifications for a user, oldest first, marked read in the same
-     * call — the client shows each one once, as a toast.
-     *
-     * @return array<int, array{id: int, kind: string, message: string, created_at: string}>
+     * In-app only, no email — for things worth a toast but not an inbox
+     * (a match updating their profile). An identical message that's still
+     * unread, or went out in the last 10 minutes, isn't added again — a few
+     * saves in a row leave the other person one line, not several.
      */
-    public function takeUnread(int $userId): array
+    public function notifyInApp(int $userId, string $kind, string $inApp): void
     {
-        $rows = $this->db->db_GetArray(
-            'SELECT `id`, `kind`, `message`, `created_at` FROM `notifications`
-             WHERE `user_id` = ' . $userId . ' AND `read_at` IS NULL
-             ORDER BY `id` ASC LIMIT 20'
+        $message = mb_substr($inApp, 0, 512);
+        $waiting = $this->db->db_GetRow(
+            'SELECT `id` FROM `notifications`
+             WHERE `user_id` = ' . $userId . '
+               AND (`read_at` IS NULL OR `created_at` >= NOW() - INTERVAL 10 MINUTE)
+               AND `kind` = "' . $this->db->db_Escape($kind) . '"
+               AND `message` = "' . $this->db->db_Escape($message) . '"'
         );
-
-        if ($rows) {
-            $ids = array_map(static function ($row) {
-                return (int) $row['id'];
-            }, $rows);
-            $this->db->db_Execute(
-                'UPDATE `notifications` SET `read_at` = UTC_TIMESTAMP()
-                 WHERE `user_id` = ' . $userId . ' AND `id` IN (' . implode(',', $ids) . ')'
-            );
+        if ($waiting) {
+            return;
         }
 
-        foreach ($rows as &$row) {
-            $row['id'] = (int) $row['id'];
-        }
-        unset($row);
-
-        return $rows;
+        $this->record($userId, $kind, $message);
     }
 
-    private function deliver(int $userId, string $subject, string $body): void
+    /**
+     * Unread notifications for several users, oldest first, marked read in
+     * the same call — the backlog a gateway sends when a user signs in.
+     *
+     * @param int[] $userIds
+     * @return array<int, array<int, array{id: int, kind: string, message: string, created_at: string}>> by user id
+     */
+    public function takeUnreadFor(array $userIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $userIds)));
+        if (!$ids) {
+            return [];
+        }
+
+        $rows = $this->db->db_GetArray(
+            'SELECT `id`, `user_id`, `kind`, `message`, `created_at` FROM `notifications`
+             WHERE `user_id` IN (' . implode(',', $ids) . ') AND `read_at` IS NULL
+             ORDER BY `id` ASC LIMIT 200'
+        );
+        if (!$rows) {
+            return [];
+        }
+
+        $this->db->db_Execute(
+            'UPDATE `notifications` SET `read_at` = UTC_TIMESTAMP()
+             WHERE `id` IN (' . implode(',', array_map(static function ($row) {
+                return (int) $row['id'];
+            }, $rows)) . ')'
+        );
+
+        $byUser = [];
+        foreach ($rows as $row) {
+            $byUser[(int) $row['user_id']][] = [
+                'id' => (int) $row['id'],
+                'kind' => $row['kind'],
+                'message' => $row['message'],
+                'created_at' => $row['created_at'],
+            ];
+        }
+
+        return $byUser;
+    }
+
+    /**
+     * Stores the row and pushes it; if a gateway took it, it's read (the
+     * user has it on screen), otherwise it waits for their next sign-in.
+     * Their counters are refreshed at the end of the request either way.
+     */
+    private function record(int $userId, string $kind, string $message): void
+    {
+        $id = (int) $this->db->db_Insert('notifications', [
+            'user_id' => $userId,
+            'kind' => $kind,
+            'message' => $message,
+        ]);
+        $this->push->touch($userId);
+        if (!$id) {
+            return;
+        }
+
+        $delivered = $this->push->toUser($userId, ['type' => 'notification', 'notification' => [
+            'id' => $id,
+            'kind' => $kind,
+            'message' => $message,
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]]);
+        if ($delivered > 0) {
+            $this->db->db_Execute('UPDATE `notifications` SET `read_at` = UTC_TIMESTAMP() WHERE `id` = ' . $id);
+        }
+    }
+
+    private function deliver(int $userId, string $kind, string $subject, string $body): void
     {
         $email = $this->db->db_GetFieldFromQuery('SELECT `email` FROM `users` WHERE `id` = ' . $userId, 'email');
         if ($email) {
-            $this->mailer->send((string) $email, $subject, $body);
+            $this->mail->enqueue((string) $email, $subject, $body, $kind);
         }
     }
 }

@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
 import AppFooter from '@/components/AppFooter.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import MessageToaster from '@/components/MessageToaster.vue'
-import { useApi } from '@/plugins/api'
+import { useApi, type AppNotification } from '@/plugins/api'
+import { socket } from '@/plugins/socket'
+import { useBadgesStore } from '@/stores/badges'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
-import { useShortlistStore } from '@/stores/shortlist'
+import { useMatchesStore } from '@/stores/matches'
+import { syncPendingRejects } from '@/utils/pendingRejects'
 
 /**
  * `stores/auth.ts` restores `user` from localStorage optimistically on
@@ -16,8 +18,7 @@ import { useShortlistStore } from '@/stores/shortlist'
  * stale (e.g. the tab was closed for a while). Confirming it here, once at
  * boot, avoids a misleading logged-in-looking header in the meantime; a
  * session that goes stale *during* the visit instead surfaces reactively —
- * any action gets a 401 and `plugins/api.ts`'s `call()` clears it — so no
- * polling loop is needed here.
+ * any action gets a 401 and `plugins/api.ts`'s `call()` clears it.
  *
  * `useApi()` is captured here, synchronously in `<script setup>`, not
  * inside `onMounted()` itself — same reason as `stores/guides.ts`: Vue's
@@ -25,36 +26,50 @@ import { useShortlistStore } from '@/stores/shortlist'
  */
 const api = useApi()
 const auth = useAuthStore()
-const shortlist = useShortlistStore()
+const matchesStore = useMatchesStore()
 const messages = useMessagesStore()
-const route = useRoute()
 
 /**
- * In-app notifications (`Notifications.php`) are things that happened while
- * the user wasn't looking — a guide hearing their fee was paid, a visitor
- * hearing their booking was cancelled. There's no push channel, so they're
- * pulled: at boot and on every navigation, throttled so clicking around
- * doesn't turn into a request per click. The server marks them read as it
- * returns them, so each shows exactly once.
+ * The server pushes over the API's socket (`plugins/socket.ts`):
+ * notifications — a guide hearing a visitor matched with them or paid their
+ * fee, a visitor hearing their booking was accepted, someone they're matched
+ * with updating their details — each once, shown as a toast; and the menu
+ * counters for unseen matches and trips (`stores/badges.ts`). Pushes reach
+ * whoever the connection is identified as, so it's told whenever the session
+ * changes — and cleared on sign-out.
  */
-const NOTIFICATION_PULL_INTERVAL_MS = 15_000
 const NOTIFICATION_TOAST_MS = 10_000
-let lastNotificationPull = 0
+const badges = useBadgesStore()
 
-async function pullNotifications() {
-  if (!auth.isAuthenticated) return
-  if (Date.now() - lastNotificationPull < NOTIFICATION_PULL_INTERVAL_MS) return
-  lastNotificationPull = Date.now()
+socket.on('notification', (message) => {
+  const note = message.notification as AppNotification | undefined
+  if (!note) return
+  messages.info(note.message, undefined, NOTIFICATION_TOAST_MS)
+  badges.bump()
+})
+socket.on('badges', (message) => badges.set(message))
 
-  try {
-    const { notifications } = await api.notifications()
-    for (const note of notifications) messages.info(note.message, undefined, NOTIFICATION_TOAST_MS)
-  } catch {
-    // Best-effort: they stay unread server-side and come back next time.
-  }
-}
+watch(
+  () => auth.sessionHash,
+  (hash) => {
+    socket.identify(hash ?? null)
+    if (!hash) badges.reset()
+  },
+  { immediate: true },
+)
 
-watch(() => route.fullPath, pullNotifications)
+/**
+ * Guides rejected before signing in (utils/pendingRejects.ts) are sent to the
+ * server in the background as soon as there's an account to record them
+ * against — on register/login (the user changing), and once at boot, after
+ * the session check below, to retry anything a failed attempt left queued.
+ */
+watch(
+  () => auth.user?.id,
+  (id, previous) => {
+    if (id && id !== previous) void syncPendingRejects(api, auth.user?.role)
+  },
+)
 
 onMounted(async () => {
   if (!auth.isAuthenticated) return
@@ -69,9 +84,9 @@ onMounted(async () => {
     // out over it.
   }
 
-  await pullNotifications()
+  void syncPendingRejects(api, auth.user?.role)
 
-  // `stores/shortlist.ts` is in-memory only (unlike `auth`, which persists to
+  // `stores/matches.ts` is in-memory only (unlike `auth`, which persists to
   // localStorage), so a plain refresh dropped a paid-up visitor back to "0
   // packs": the deck showed the paywall and the header read "0 / 0 picked"
   // even though the purchases were recorded server-side. Only LoginPage and
@@ -81,7 +96,7 @@ onMounted(async () => {
 
   try {
     const state = await api.paymentState()
-    shortlist.applyPaymentState(state)
+    matchesStore.applyPaymentState(state)
   } catch {
     // Best-effort, exactly like LoginPage's equivalent: worst case the user
     // briefly sees "0 unlocked" and can revisit /unlock. A 401 has already

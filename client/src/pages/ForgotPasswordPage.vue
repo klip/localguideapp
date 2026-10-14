@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import { t } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { anchorTo } from '@/stores/messages'
 import { reportApiError } from '@/utils/reportApiError'
@@ -27,7 +28,7 @@ async function submit() {
     await api.requestPasswordReset({ email: email.value.trim() })
     sentTo.value = email.value.trim()
   } catch (err) {
-    reportApiError(err, 'Could not send the reset email.', anchorTo('element', formRef.value))
+    reportApiError(err, t('forgot_password.toast.failed'), anchorTo('element', formRef.value))
   } finally {
     submitting.value = false
   }
@@ -36,38 +37,43 @@ async function submit() {
 
 <template>
   <section class="section shell">
-    <SectionTitle eyebrow="Account" heading="Forgot your password?" />
+    <SectionTitle
+      :eyebrow="t('forgot_password.header.eyebrow')"
+      :heading="t('forgot_password.header.heading')"
+    />
 
-    <PanelCard v-if="sentTo" class="narrow" title="Check your email">
+    <PanelCard v-if="sentTo" class="narrow" :title="t('forgot_password.sent.title')">
       <p>
-        If <strong>{{ sentTo }}</strong> belongs to a RockGuide account, we’ve sent it a link to
-        choose a new password. The link works once, for 30 minutes.
+        {{ t('forgot_password.sent.body', { email: sentTo }) }}
       </p>
-      <p class="tiny muted">Nothing arrived? Check your spam folder, or try again in a minute.</p>
-      <RouterLink to="/login" role="button" class="full">Back to log in</RouterLink>
+      <p class="tiny muted">{{ t('forgot_password.sent.nothing_arrived') }}</p>
+      <RouterLink to="/login" role="button" class="full">{{ t('forgot_password.sent.back_to_login') }}</RouterLink>
     </PanelCard>
 
     <PanelCard
       v-else
       class="narrow"
-      title="Reset your password"
-      subtitle="We’ll email you a link to choose a new one."
+      :title="t('forgot_password.form.title')"
+      :subtitle="t('forgot_password.form.subtitle')"
     >
       <form ref="formRef" @submit.prevent="submit">
         <label>
-          Email
+          {{ t('common.form.email') }}
           <input
             v-model="email"
             type="email"
             autocomplete="email"
-            placeholder="you@example.com"
+            :placeholder="t('common.form.email_placeholder')"
             required
           />
         </label>
         <button type="submit" class="full" :aria-busy="submitting" :disabled="submitting">
-          {{ submitting ? 'Sending…' : 'Email me a reset link' }}
+          {{ submitting ? t('forgot_password.form.sending') : t('forgot_password.form.submit') }}
         </button>
-        <p class="tiny muted centred">Remembered it? <RouterLink to="/login">Log in</RouterLink></p>
+        <p class="tiny muted centred">
+          {{ t('forgot_password.form.remembered') }}
+          <RouterLink to="/login">{{ t('forgot_password.form.log_in') }}</RouterLink>
+        </p>
       </form>
     </PanelCard>
   </section>

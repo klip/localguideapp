@@ -1,6 +1,8 @@
 import { inject, type App, type InjectionKey } from 'vue'
+import { t } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
+import { socket, type SocketResponse } from '@/plugins/socket'
 import type { AttributeMap, DiscoveryFilters, Gender, RangeMap } from '@/types'
 
 /**
@@ -245,7 +247,7 @@ export interface PaymentState {
   selectionsLeft: number
   /**
    * Guide ids this visitor has already kept / dismissed. The counts above
-   * aren't enough to rebuild `stores/shortlist.ts` after a reload — it needs
+   * aren't enough to rebuild `stores/matches.ts` after a reload — it needs
    * the ids themselves — and they're cheap here (one indexed read of
    * `selections`) compared with pulling `matchOverview()`, whose rows carry
    * the counterpart's photo.
@@ -312,7 +314,7 @@ export interface Booking {
   updated_at: string
 }
 
-/** An in-app notification (`Notifications::takeUnread()`) — shown once as a toast by `App.vue`, then it's read. */
+/** An in-app notification, pushed over the socket once (`Realtime`) — `App.vue` shows it as a toast. */
 export interface AppNotification {
   id: number
   kind: string
@@ -330,14 +332,6 @@ export interface SelectionRow {
   active: 0 | 1
   created_at: string
   updated_at: string
-}
-
-/** One active (mutual) match, from the calling user's point of view. `email` is `null` until the pair has a booking. */
-export interface MatchRow {
-  id: number
-  counterpart_id: number
-  name: string | null
-  email: string | null
 }
 
 /**
@@ -511,16 +505,15 @@ export const REVIEWS_PAGE_SIZE = 20
 /** Mirrors `AGE_CATEGORY_KEY` in `stores/categories.ts`; duplicated so the api layer doesn't import a store. */
 const AGE_FILTER_KEY = 'age'
 
-const BASE_URL =(import.meta.env.VITE_API_BASE_URL ?? 'https://api.rockguide.com').replace(
-  /\/+$/,
-  '',
-)
-
 function isErrorBody(body: unknown): body is { error: string } {
   return !!body && typeof body === 'object' && typeof (body as Record<string, unknown>).error === 'string'
 }
 
 /**
+ * Every request goes over the one WebSocket (`plugins/socket.ts`) — not
+ * `fetch` — as `{ action, sessionHash?, ...payload }`, exactly the body the
+ * HTTP endpoint takes, and comes back with the status HTTP would have sent.
+ *
  * Attaches the current session hash (if any) to every request — the one
  * place that needs to, rather than every call site remembering to. Reading
  * `useAuthStore()` here, from a plain function rather than a component/store
@@ -535,28 +528,19 @@ function isErrorBody(body: unknown): body is { error: string } {
 async function call<T>(action: string, payload: object = {}): Promise<T> {
   const sessionHash = useAuthStore().sessionHash
 
-  let response: Response
+  let response: SocketResponse
   try {
-    response = await fetch(BASE_URL + '/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...(sessionHash ? { sessionHash } : {}), ...payload }),
-    })
+    response = await socket.request({ action, ...(sessionHash ? { sessionHash } : {}), ...payload })
   } catch {
-    throw new ApiError('Could not reach the server. Check your connection and try again.', 0)
+    throw new ApiError(t('common.api.unreachable'), 0)
   }
 
-  let body: unknown = null
-  try {
-    body = await response.json()
-  } catch {
-    if (!response.ok) {
-      throw new ApiError('Something went wrong.', response.status)
-    }
-    throw new ApiError('The server returned an unexpected response.', response.status)
+  const { status, body } = response
+  if (!body || typeof body !== 'object') {
+    throw new ApiError(t('common.api.unexpected_response'), status)
   }
 
-  if (!response.ok) {
+  if (status < 200 || status >= 300) {
     // A 401 means the session RequestProcessor::requireUserId() looked for
     // is missing, unknown, or expired (see AuthenticationException.php) —
     // the client's own idea of "logged in" is now wrong, so correct it here
@@ -566,11 +550,11 @@ async function call<T>(action: string, payload: object = {}): Promise<T> {
     // redirect-to-/login-on-close behavior. Individual pages' own catch
     // blocks route through `reportApiError()` (src/utils/reportApiError.ts),
     // which skips its own toast for a 401 so this doesn't double up.
-    if (response.status === 401) {
+    if (status === 401) {
       useAuthStore().clear()
       useMessagesStore().sessionExpired()
     }
-    throw new ApiError(isErrorBody(body) ? body.error : 'Something went wrong.', response.status)
+    throw new ApiError(isErrorBody(body) ? body.error : t('common.api.something_went_wrong'), status)
   }
 
   return body as T
@@ -621,20 +605,17 @@ export const api = {
    *
    * For a signed-in caller the server also drops anyone they've already
    * decided on, so the deck doesn't re-serve matched/passed cards after a
-   * reload. `includeDecided` opts out of *that* part: pages which resolve a
-   * specific, already-picked card by id (`ShortlistPage`)
-   * need those rows back. Filters still apply either way.
+   * reload. `includeDecided` opts out of *that* part, for resolving
+   * already-picked cards by id (`stores/guides.ts`'s `hydrateDecided()`).
+   * Filters still apply either way. (The guide deck never needs it.)
    */
   guides: (filters?: DiscoveryFilters, includeDecided = false) =>
     call<{ guides: ProfileAccount[] }>('guides', {
       ...deckRequest(filters),
       ...(includeDecided ? { includeDecided: true } : {}),
     }),
-  visitors: (filters?: DiscoveryFilters, includeDecided = false) =>
-    call<{ visitors: ProfileAccount[] }>('visitors', {
-      ...deckRequest(filters),
-      ...(includeDecided ? { includeDecided: true } : {}),
-    }),
+  visitors: (filters?: DiscoveryFilters) =>
+    call<{ visitors: ProfileAccount[] }>('visitors', deckRequest(filters)),
   updateProfile: (payload: ProfileUpdatePayload) => call<{ ok: true }>('updateProfile', payload),
   attributeCategories: () => call<{ categories: AttributeCategory[] }>('attributeCategories'),
   myProfile: () => call<MyProfile>('myProfile'),
@@ -666,14 +647,13 @@ export const api = {
   /** Guide cancels the booking with a visitor — they're refunded (plus 5% if late) and get their pick back. */
   cancelBooking: (payload: { targetId: number; reason?: string }) =>
     call<Booking>('cancelBooking', payload),
-  /** Unread in-app notifications, marked read by this same call. */
-  notifications: () => call<{ notifications: AppNotification[] }>('notifications'),
+  /** The user opened /matches or /trips — clears that menu counter (the new counts arrive as a `badges` push). */
+  markSeen: (section: 'matches' | 'trips') => call<{ ok: true }>('markSeen', { section }),
 
   decide: (payload: { targetId: number; decision: SelectionDecision }) =>
     call<SelectionRow>('decide', payload),
   revokeSelection: (payload: { targetId: number }) =>
     call<SelectionRow>('revokeSelection', payload),
-  matches: () => call<{ matches: MatchRow[] }>('matches'),
   /** Every pair the caller is part of (matched, pending either way, passed) — see `MatchOverviewRow`. */
   matchOverview: () => call<{ selections: MatchOverviewRow[] }>('matchOverview'),
 
@@ -685,6 +665,10 @@ export const api = {
   /** Creates or edits the caller's review of `subjectId` — only after a finished trip together. */
   submitReview: (payload: SubmitReviewPayload) => call<Review>('submitReview', payload),
   deleteReview: (payload: { reviewId: number }) => call<{ ok: true }>('deleteReview', payload),
+
+  /** Every UI string for one language, `{ key: value }` — see `src/i18n`. No session needed. */
+  translations: (language: string) =>
+    call<{ language: string; strings: Record<string, string> }>('translations', { language }),
 }
 
 export type Api = typeof api

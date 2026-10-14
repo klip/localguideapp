@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { t } from '@/i18n'
 
 /**
  * A small type-ahead text input: filters `suggestions` by the typed text and
@@ -146,7 +147,7 @@ function onEnter() {
         {{ item.label }}
       </li>
       <li v-if="showCreateRow" class="create-row" @mousedown.prevent="createNew">
-        + Create "{{ modelValue.trim() }}"
+        {{ t('common.attribute_combobox.create', { text: modelValue.trim() }) }}
       </li>
     </ul>
   </div>

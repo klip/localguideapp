@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
 /**
  * Warm gradient panel carrying the £5 price. Used full-width on the landing
  * page and compact inside the unlock panel.
@@ -9,7 +10,7 @@ withDefaults(
     caption?: string
     compact?: boolean
   }>(),
-  { price: '£5', caption: 'one-time selection fee', compact: false },
+  { price: '£5', compact: false },
 )
 </script>
 
@@ -17,7 +18,7 @@ withDefaults(
   <div class="price-box" :class="{ 'price-box--compact': compact }">
     <slot>
       <div class="price">{{ price }}</div>
-      <div class="muted">{{ caption }}</div>
+      <div class="muted">{{ caption ?? t('common.price_box.caption') }}</div>
     </slot>
   </div>
 </template>

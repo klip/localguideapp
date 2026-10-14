@@ -5,6 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import { API_KEY, type Api } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
+import { useBadgesStore } from '@/stores/badges'
 
 function testRouter() {
   return createRouter({
@@ -37,16 +38,16 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     payGuideFee: vi.fn<Api['payGuideFee']>(),
     bookingAction: vi.fn<Api['bookingAction']>(),
     cancelBooking: vi.fn<Api['cancelBooking']>(),
-    notifications: vi.fn<Api['notifications']>(),
+    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
     decide: vi.fn<Api['decide']>(),
     revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matches: vi.fn<Api['matches']>(),
     matchOverview: vi.fn<Api['matchOverview']>(),
     trips: vi.fn<Api['trips']>(),
     publicProfile: vi.fn<Api['publicProfile']>(),
     reviews: vi.fn<Api['reviews']>(),
     submitReview: vi.fn<Api['submitReview']>(),
     deleteReview: vi.fn<Api['deleteReview']>(),
+    translations: vi.fn<Api['translations']>(),
     ...overrides,
   }
 }
@@ -117,13 +118,13 @@ describe('AppHeader mobile menu', () => {
   it('shows Matches and Profile only when signed in, and "How it works" only when signed out', async () => {
     const signedOut = await mountHeader(false)
     expect(signedOut.wrapper.find('a[href="/matches"]').exists()).toBe(false)
-    expect(signedOut.wrapper.find('a[href="/#how"]').exists()).toBe(true)
+    expect(signedOut.wrapper.find('a[href="/about#how"]').exists()).toBe(true)
     signedOut.wrapper.unmount()
 
     const signedIn = await mountHeader(true)
     expect(signedIn.wrapper.find('a[href="/matches"]').exists()).toBe(true)
     expect(signedIn.wrapper.find('a[href="/profile"]').exists()).toBe(true)
-    expect(signedIn.wrapper.find('a[href="/#how"]').exists()).toBe(false)
+    expect(signedIn.wrapper.find('a[href="/about#how"]').exists()).toBe(false)
     expect(signedIn.wrapper.text()).toContain('Signed in as')
 
     // Log out is always the last nav item: the foot of the mobile drawer,
@@ -133,5 +134,25 @@ describe('AppHeader mobile menu', () => {
     expect(last?.text()).toContain('Log out')
     expect(last?.classes()).toContain('account')
     signedIn.wrapper.unmount()
+  })
+
+  it('puts red counters on Matches and My trips for unseen ones, and a dot on the burger', async () => {
+    const { wrapper } = await mountHeader(true)
+    expect(wrapper.find('[data-test="matches-count"]').exists()).toBe(false)
+    expect(wrapper.find('.burger-dot').exists()).toBe(false)
+
+    useBadgesStore().set({ matches: 3, trips: 120 })
+    await flushPromises()
+
+    const matches = wrapper.find('a[href="/matches"] [data-test="matches-count"]')
+    expect(matches.text()).toContain('3')
+    expect(matches.find('.visually-hidden').text()).toBe('3 new')
+    expect(wrapper.find('a[href="/trips"] [data-test="trips-count"]').text()).toContain('99+')
+    expect(wrapper.find('.burger-dot').exists()).toBe(true)
+
+    useBadgesStore().set({ matches: 0, trips: 0 })
+    await flushPromises()
+    expect(wrapper.find('[data-test="matches-count"]').exists()).toBe(false)
+    wrapper.unmount()
   })
 })

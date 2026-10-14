@@ -87,29 +87,90 @@ class Bookings
 
     /**
      * Called by `Selections` when a pair has just become an active match.
-     * Only a free guide gets a booking here; a paid one waits for `pay()`.
+     * A free guide's booking opens here (and the guide hears about it, as
+     * before); a paid one waits for `pay()`. The side that *didn't* make the
+     * completing decision is told about the match — the one who did is
+     * looking at it already.
      */
-    public function onMatched(array $selection): void
+    public function onMatched(array $selection, bool $guestActed): void
     {
-        if ($this->guideFee((int) $selection['guide_id']) > 0) {
+        $guest = $this->user((int) $selection['guest_id']);
+        $guide = $this->user((int) $selection['guide_id']);
+        $guestName = self::nameOf($guest, 'A visitor');
+        $guideName = self::nameOf($guide, 'Your guide');
+        $fee = $this->guideFee((int) $selection['guide_id']);
+
+        if ($fee > 0) {
+            if ($guestActed) {
+                $this->notifications->notify(
+                    (int) $guide['id'],
+                    'match',
+                    "You matched with {$guestName}. Once they pay your " . self::money($fee) . ' fee you can confirm a date — see Matches.',
+                    "New match: {$guestName}",
+                    self::greeting($guide)
+                    . "{$guestName} is interested too, so you're a match. They can now pay your " . self::money($fee)
+                    . " fee to request a date; you'll hear from us when they do, and contact details are shared once you accept.\n\nRockGuide"
+                );
+            } else {
+                $this->notifications->notify(
+                    (int) $guest['id'],
+                    'match',
+                    "{$guideName} liked you back — it's a match! Pay their " . self::money($fee) . ' fee on Matches to request a date.',
+                    "It's a match: {$guideName}",
+                    self::greeting($guest)
+                    . "{$guideName} is interested too, so you're a match. Pay their " . self::money($fee)
+                    . " fee on the Matches page to request a date; contact details are shared once they accept.\n\nRockGuide"
+                );
+            }
             return;
         }
 
-        if ($this->createFree($selection)) {
-            $guest = $this->user((int) $selection['guest_id']);
-            $guide = $this->user((int) $selection['guide_id']);
-            $guestName = self::nameOf($guest, 'A visitor');
+        if (!$this->createFree($selection)) {
+            return;
+        }
 
+        $this->notifications->notify(
+            (int) $guide['id'],
+            'booking_free',
+            "You matched with {$guestName}. Your trip and their contact details are on your My trips page.",
+            "New match: {$guestName}",
+            self::greeting($guide)
+            . "You and {$guestName} are a match. You don't charge a fee, so your contact details have been shared with each other.\n\n"
+            . self::contactBlock($guest)
+            . "\nGet in touch to arrange the tour. When it's over, mark the trip finished on your My trips page.\n\nRockGuide"
+        );
+
+        if (!$guestActed) {
             $this->notifications->notify(
-                (int) $guide['id'],
+                (int) $guest['id'],
                 'booking_free',
-                "You matched with {$guestName}. Your trip and their contact details are on your My trips page.",
-                "New match: {$guestName}",
-                self::greeting($guide)
-                . "You and {$guestName} are a match. You don't charge a fee, so your contact details have been shared with each other.\n\n"
-                . self::contactBlock($guest)
+                "{$guideName} liked you back — it's a match! Your trip and their contact details are on your My trips page.",
+                "It's a match: {$guideName}",
+                self::greeting($guest)
+                . "You and {$guideName} are a match. They don't charge a fee, so your contact details have been shared with each other.\n\n"
+                . self::contactBlock($guide)
                 . "\nGet in touch to arrange the tour. When it's over, mark the trip finished on your My trips page.\n\nRockGuide"
             );
+        }
+    }
+
+    /**
+     * In-app only: tells everyone `$userId` is actively matched with that
+     * they changed their profile or contact details, so a guide sees the
+     * visitor's new party size or phone without having to go looking.
+     * Repeated saves collapse into one unread line (`notifyInApp()`).
+     */
+    public function onProfileUpdated(int $userId): void
+    {
+        $user = $this->user($userId);
+        $name = self::nameOf($user, 'One of your matches');
+        $rows = $this->db->db_GetArray(
+            'SELECT IF(`guest_id` = ' . $userId . ', `guide_id`, `guest_id`) AS `other`
+             FROM `selections`
+             WHERE (`guest_id` = ' . $userId . ' OR `guide_id` = ' . $userId . ') AND `active` = 1'
+        );
+        foreach ($rows ?: [] as $row) {
+            $this->notifications->notifyInApp((int) $row['other'], 'profile_updated', "{$name} updated their details.");
         }
     }
 
@@ -591,8 +652,9 @@ class Bookings
     }
 
     /**
-     * Moves bookings along with the clock. There's no scheduler in this app,
-     * so this runs at the start of every API request (see `RequestProcessor`):
+     * Moves bookings along with the clock. Run every 30 s by the scheduler
+     * (`bin/scheduler.php`, one pass at a time across replicas), not by
+     * requests:
      *
      *   - a pending booking whose meeting time has come without the guide
      *     answering is declined and refunded in full;

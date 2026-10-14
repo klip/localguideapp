@@ -6,18 +6,19 @@ import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import PriceBox from '@/components/PriceBox.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import { t } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
-import { PACK_SIZE, useShortlistStore } from '@/stores/shortlist'
+import { PACK_SIZE, useMatchesStore } from '@/stores/matches'
 import { reportApiError } from '@/utils/reportApiError'
 
 const router = useRouter()
 const api = useApi()
 const auth = useAuthStore()
 const messages = useMessagesStore()
-const shortlist = useShortlistStore()
-const { hasAccess, capacity } = storeToRefs(shortlist)
+const matchesStore = useMatchesStore()
+const { hasAccess, capacity } = storeToRefs(matchesStore)
 
 const paying = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
@@ -30,7 +31,7 @@ async function pay() {
   if (paying.value) return
 
   if (!auth.user) {
-    messages.error('Log in first to unlock a pack.', anchorTo('element', panelRef.value))
+    messages.error(t('unlock.toast.log_in_first'), anchorTo('element', panelRef.value))
     return
   }
 
@@ -38,10 +39,10 @@ async function pay() {
   try {
     const isTopUp = hasAccess.value
     const state = await api.unlockPack()
-    shortlist.applyPaymentState(state)
+    matchesStore.applyPaymentState(state)
     router.push(isTopUp ? '/discover' : '/profile')
   } catch (err) {
-    reportApiError(err, 'Could not complete payment.', anchorTo('element', panelRef.value))
+    reportApiError(err, t('unlock.toast.payment_failed'), anchorTo('element', panelRef.value))
   } finally {
     paying.value = false
   }
@@ -51,38 +52,38 @@ async function pay() {
 <template>
   <section class="section shell">
     <SectionTitle
-      eyebrow="Screen 01"
-      heading="Unlock your shortlist"
-      :lead="`Choose up to ${PACK_SIZE} guides. No subscription — pay once and start matching.`"
+      :eyebrow="t('unlock.header.eyebrow')"
+      :heading="t('unlock.header.heading')"
+      :lead="t('unlock.header.lead', { count: PACK_SIZE })"
     />
 
     <div ref="panelRef">
       <PanelCard
         class="narrow"
-        title="Unlock your shortlist"
-        :subtitle="`Choose up to ${PACK_SIZE} guides.`"
+        :title="t('unlock.panel.title')"
+        :subtitle="t('unlock.panel.subtitle', { count: PACK_SIZE })"
       >
         <PriceBox compact>
           <div class="price-head">
             <div>
-              <span class="tiny muted">ONE-TIME FEE</span>
+              <span class="tiny muted">{{ t('unlock.price.one_time_fee') }}</span>
               <div class="price">£5</div>
             </div>
-            <PillBadge>{{ PACK_SIZE }} picks</PillBadge>
+            <PillBadge>{{ t('unlock.price.picks', { count: PACK_SIZE }) }}</PillBadge>
           </div>
         </PriceBox>
 
         <button type="button" class="full" :aria-busy="paying" :disabled="paying" @click="pay">
-          {{ paying ? 'Paying…' : 'Pay £5 securely' }}
+          {{ paying ? t('unlock.panel.paying') : t('unlock.panel.pay') }}
         </button>
 
         <p class="tiny muted">
-          You can add {{ PACK_SIZE }} more guide selections later for another £5.
+          {{ t('unlock.panel.top_up_note', { count: PACK_SIZE }) }}
         </p>
 
         <p v-if="hasAccess" class="tiny">
-          You already have {{ capacity }} selections unlocked.
-          <RouterLink to="/discover">Back to discovery</RouterLink>
+          {{ t('unlock.panel.already_unlocked', { count: capacity }) }}
+          <RouterLink to="/discover">{{ t('unlock.panel.back_to_discovery') }}</RouterLink>
         </p>
       </PanelCard>
     </div>

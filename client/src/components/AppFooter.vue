@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BrandMark from './BrandMark.vue'
+import { t } from '@/i18n'
 </script>
 
 <template>
@@ -8,7 +9,7 @@ import BrandMark from './BrandMark.vue'
     <div class=" shell">
       <div class="row-between wrap">
         <BrandMark as="text" />
-        <span class="tiny muted">Concept UI · Mobile first · Pico CSS</span>
+        <span class="tiny muted">{{ t('common.app_footer.tagline') }}</span>
       </div>
     </div>
   </footer>

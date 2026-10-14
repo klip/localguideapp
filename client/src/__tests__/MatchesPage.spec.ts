@@ -12,7 +12,8 @@ import {
 } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
-import { useShortlistStore } from '@/stores/shortlist'
+import { useMatchesStore } from '@/stores/matches'
+import { useBadgesStore } from '@/stores/badges'
 
 function testRouter() {
   return createRouter({
@@ -48,16 +49,16 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     payGuideFee: vi.fn<Api['payGuideFee']>(),
     bookingAction: vi.fn<Api['bookingAction']>(),
     cancelBooking: vi.fn<Api['cancelBooking']>(),
-    notifications: vi.fn<Api['notifications']>(),
+    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
     decide: vi.fn<Api['decide']>(),
     revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matches: vi.fn<Api['matches']>(),
     matchOverview: vi.fn<Api['matchOverview']>(),
     trips: vi.fn<Api['trips']>(),
     publicProfile: vi.fn<Api['publicProfile']>(),
     reviews: vi.fn<Api['reviews']>(),
     submitReview: vi.fn<Api['submitReview']>(),
     deleteReview: vi.fn<Api['deleteReview']>(),
+    translations: vi.fn<Api['translations']>(),
     ...overrides,
   }
 }
@@ -227,6 +228,34 @@ describe('MatchesPage', () => {
     expect(wrapper.text()).toContain('Ana')
   })
 
+  it('marks matches seen once loaded, and refetches when a new one is pushed', async () => {
+    vi.useFakeTimers()
+    try {
+      const api = fakeApi({
+        matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [matched] }),
+      })
+      await mountPage(api, 'guide')
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(api.markSeen).toHaveBeenCalledWith('matches')
+      expect(api.matchOverview).toHaveBeenCalledTimes(1)
+
+      // A new match arrives while the page is open.
+      useBadgesStore().set({ matches: 1, trips: 0 })
+      await vi.advanceTimersByTimeAsync(300)
+
+      expect(api.matchOverview).toHaveBeenCalledTimes(2)
+      expect(api.markSeen).toHaveBeenCalledTimes(2)
+
+      // The counter dropping back to 0 (because of that markSeen) doesn't loop.
+      useBadgesStore().set({ matches: 0, trips: 0 })
+      await vi.advanceTimersByTimeAsync(300)
+      expect(api.matchOverview).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('opens on "Likes you" when there are no matches yet but someone is waiting on an answer', async () => {
     const api = fakeApi({
       matchOverview: vi
@@ -272,7 +301,7 @@ describe('MatchesPage', () => {
 
     expect(decide).toHaveBeenCalledWith({ targetId: 8, decision: 'interested' })
     expect(matchOverview).toHaveBeenCalledTimes(2)
-    expect(useShortlistStore().isPicked('8')).toBe(true)
+    expect(useMatchesStore().isPicked('8')).toBe(true)
     expect(
       useMessagesStore()
         .items.map((item) => item.text)

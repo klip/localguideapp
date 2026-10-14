@@ -1,19 +1,16 @@
 <?php
 
 /**
- * Data access for accounts: `users` (basic profile + contact info + current
- * role), `roles` (guest/guide/admin/manager/viewer), `creds` (password hash
- * + salt, one row per user), and `user_role` (a log of role grants, written
- * on `register()`). `searchByRole()` additionally reaches into the
+ * Data access for accounts as the API sees them: `users` (basic profile +
+ * contact info + current role) and `roles`. Creating accounts and anything
+ * touching passwords (`creds`) belongs to the auth service (`auth/classes/
+ * Accounts.php`). `searchByRole()` additionally reaches into the
  * filterable-attribute tables owned by `Profiles` (`user_profiles` and
  * friends) to run discovery-deck filtering in SQL — see that method's
- * docblock. `getFullAccount()`/`updateAccount()`/`verifyPasswordFor()`/
- * `setPassword()` back the self-service profile page (`ProfilePage.vue`) —
- * see the note on `RequestProcessor`'s `updateAccount`/`changePassword`
- * actions: like every other mutating action, these get their
- * `$userId` from a resolved `Session`, not a raw request field — see
- * `RequestProcessor::requireUserId()`. `findById()` backs
- * `RequestProcessor::actionSession()`.
+ * docblock. `getFullAccount()`/`updateAccount()` back the self-service
+ * profile page (`ProfilePage.vue`); like every other mutating action they get
+ * their `$userId` from the gateway's resolved session, never a request field
+ * — see `RequestProcessor::requireUserId()`.
  */
 class Users
 {
@@ -40,7 +37,6 @@ class Users
         );
     }
 
-    /** Used by `RequestProcessor::actionSession()` to turn a resolved session's user id back into an `AuthResult`-shaped row. */
     public function findById(int $userId)
     {
         return $this->db->db_GetRowById($userId, 'users');
@@ -53,82 +49,6 @@ class Users
             'name'
         );
         return $name === false ? null : $name;
-    }
-
-    /**
-     * Creates a `users` row plus its matching `creds` row, and logs the
-     * grant in `user_role` (separate from `users.role_id`, the account's
-     * current role — see the note atop `api/sql/003_user_role.sql`).
-     *
-     * Relies on the unique index on `users.email` to reject duplicates
-     * atomically, rather than check-then-insert.
-     *
-     * @return int the new user id
-     */
-    public function register(
-        string $email,
-        string $password,
-        string $roleName,
-        ?string $name = null,
-        ?string $image = null
-    ): int {
-        $roleId = $this->findRoleIdByName($roleName);
-        if (!$roleId) {
-            throw new RuntimeException('Unknown role: ' . $roleName);
-        }
-
-        $userId = $this->db->db_Insert('users', [
-            'role_id' => $roleId,
-            'email' => $email,
-            'name' => $name ?? '',
-            'image' => $image ?? '',
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
-
-        if (!$userId) {
-            throw new RuntimeException('Could not create account — email may already be registered.');
-        }
-
-        $salt = Auth::generateSalt();
-        $hash = Auth::hashPassword($password, $salt);
-
-        $this->db->db_Insert('creds', [
-            'user_id' => $userId,
-            'password' => $hash,
-            'salt' => $salt,
-        ]);
-
-        $this->db->db_Insert('user_role', [
-            'user_id' => $userId,
-            'role_id' => $roleId,
-        ]);
-
-        return (int) $userId;
-    }
-
-    /**
-     * Verifies login credentials. Returns the `users` row on success, false
-     * otherwise (unknown email, no creds row, or password mismatch).
-     */
-    public function verifyCredentials(string $email, string $password)
-    {
-        $user = $this->findByEmail($email);
-        if (!$user) {
-            return false;
-        }
-
-        $creds = $this->db->db_GetRow(
-            'SELECT * FROM `creds` WHERE `user_id` = ' . intval($user['id'])
-        );
-        if (!$creds) {
-            return false;
-        }
-
-        if (!Auth::verifyPassword($password, $creds['salt'], $creds['password'])) {
-            return false;
-        }
-
-        return $user;
     }
 
     /**
@@ -150,17 +70,16 @@ class Users
      * user has already decided on, in either direction ('interested' or
      * 'pass'), plus the caller themselves. Without it the deck re-serves
      * matched and passed cards on every reload, because the client's own
-     * decided-list (`stores/shortlist.ts`) doesn't survive one. Someone who
+     * decided-list (`stores/matches.ts`) doesn't survive one. Someone who
      * has marked the caller 'interested' while the caller hasn't answered
      * yet is deliberately still returned — that's how a match gets
      * completed from the deck. Anonymous callers (no session) see
      * everyone, as before.
      *
      * `$filters['includeDecided']` turns that exclusion off (the caller
-     * themselves is still dropped): `ShortlistPage`
-     * renders cards the visitor has by definition already decided on and
-     * resolves them out of the same fetch, so there the deck rule would
-     * empty the page.
+     * themselves is still dropped): the client's `hydrateDecided()`
+     * (`stores/guides.ts`) needs the guides the visitor has by definition
+     * already decided on, so the Discover matches rail can name them.
      *
      * $filters (every key optional, absent never excludes):
      *   gender?: 'male'|'female'
@@ -439,23 +358,16 @@ class Users
         $this->db->db_Update('users', $fields, 'WHERE `id` = ' . $userId);
     }
 
-    /** Verifies a password against the account's stored hash — the "current password" check before `setPassword()`. */
-    public function verifyPasswordFor(int $userId, string $password): bool
+    /**
+     * How many unexpired devices skip the login code — shown on the profile
+     * page. `trusted_devices` belongs to the auth service; this one read
+     * stays here until the database is split (docs/scaling.md).
+     */
+    public function trustedDeviceCount(int $userId): int
     {
-        $creds = $this->db->db_GetRow('SELECT * FROM `creds` WHERE `user_id` = ' . $userId);
-        if (!$creds) {
-            return false;
-        }
-
-        return Auth::verifyPassword($password, $creds['salt'], $creds['password']);
-    }
-
-    /** Re-salts and re-hashes the account's password. Caller (`RequestProcessor::actionChangePassword()`) must verify the current password first. */
-    public function setPassword(int $userId, string $newPassword): void
-    {
-        $salt = Auth::generateSalt();
-        $hash = Auth::hashPassword($newPassword, $salt);
-
-        $this->db->db_Update('creds', ['password' => $hash, 'salt' => $salt], 'WHERE `user_id` = ' . $userId);
+        return (int) $this->db->db_GetFieldFromQuery(
+            'SELECT COUNT(*) AS n FROM `trusted_devices` WHERE `user_id` = ' . $userId . ' AND `expires_at` > UTC_TIMESTAMP()',
+            'n'
+        );
     }
 }

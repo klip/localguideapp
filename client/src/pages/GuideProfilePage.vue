@@ -6,11 +6,12 @@ import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import ReviewsSection from '@/components/ReviewsSection.vue'
 import TagList from '@/components/TagList.vue'
+import { t } from '@/i18n'
 import { ApiError, useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCategoriesStore } from '@/stores/categories'
 import { toGuideCard } from '@/stores/guides'
-import { useShortlistStore } from '@/stores/shortlist'
+import { useMatchesStore } from '@/stores/matches'
 import { formatRange, rangeFormatFor } from '@/utils/formatRange'
 import { reportApiError } from '@/utils/reportApiError'
 import { formatRating } from '@/utils/reviews'
@@ -25,8 +26,8 @@ const props = defineProps<{ id: string }>()
 
 const api = useApi()
 const auth = useAuthStore()
-const shortlist = useShortlistStore()
-const { canPick } = storeToRefs(shortlist)
+const matchesStore = useMatchesStore()
+const { canPick } = storeToRefs(matchesStore)
 
 const categoriesStore = useCategoriesStore()
 
@@ -48,7 +49,7 @@ async function loadGuide() {
     guide.value = profile.role === 'guide' ? toGuideCard(profile) : null
   } catch (err) {
     // A 400 here is "Profile not found." — the not-found panel says so already.
-    if (!(err instanceof ApiError && err.status === 400)) reportApiError(err, 'Could not load this guide.')
+    if (!(err instanceof ApiError && err.status === 400)) reportApiError(err, t('guide_profile.toast.load_failed'))
   } finally {
     loading.value = false
   }
@@ -60,10 +61,10 @@ onMounted(() => {
 })
 watch(() => props.id, loadGuide)
 
-const isPicked = computed(() => shortlist.isPicked(props.id))
+const isPicked = computed(() => matchesStore.isPicked(props.id))
 
 /**
- * Same contract as DiscoverPage.vue's accept()/reject(): the local shortlist
+ * Same contract as DiscoverPage.vue's accept()/reject(): the local matches
  * gates capacity and drives the UI, and the server copy is recorded
  * best-effort behind it. Without this a decision made here vanished on the
  * next reload. Signed-out viewers can still browse this page, so nothing is
@@ -74,18 +75,18 @@ async function persistDecision(guideId: string, decision: 'interested' | 'pass')
   try {
     await api.decide({ targetId: Number(guideId), decision })
   } catch (err) {
-    reportApiError(err, 'Could not record your decision.')
+    reportApiError(err, t('guide_profile.toast.decision_failed'))
   }
 }
 
 function accept(id: string) {
-  shortlist.pick(id)
+  matchesStore.pick(id)
   // pick() no-ops when the pack is spent; don't persist what it didn't record.
-  if (shortlist.isPicked(id)) void persistDecision(id, 'interested')
+  if (matchesStore.isPicked(id)) void persistDecision(id, 'interested')
 }
 
 function reject(id: string) {
-  shortlist.pass(id)
+  matchesStore.pass(id)
   void persistDecision(id, 'pass')
 }
 </script>
@@ -93,10 +94,10 @@ function reject(id: string) {
 <template>
   <section class="section shell">
     <p class="tiny">
-      <RouterLink to="/discover">← Back to discovery</RouterLink>
+      <RouterLink to="/discover">{{ t('guide_profile.page.back') }}</RouterLink>
     </p>
 
-    <PanelCard v-if="loading" title="Loading…" />
+    <PanelCard v-if="loading" :title="t('guide_profile.page.loading')" />
 
     <template v-else-if="guide">
       <div class="profile-layout">
@@ -129,11 +130,11 @@ function reject(id: string) {
             <TagList v-if="spans.length" :tags="spans.map((span) => formatRange(span, rangeFormatFor(key)))" />
           </template>
 
-          <h3 class="sub">What’s included</h3>
+          <h3 class="sub">{{ t('guide_profile.details.included') }}</h3>
           <p class="tiny muted">{{ guide.includes }}</p>
 
           <template #footer>
-            <PillBadge v-if="isPicked">On your shortlist</PillBadge>
+            <PillBadge v-if="isPicked">{{ t('guide_profile.details.in_matches') }}</PillBadge>
             <DecisionRow
               v-else
               :disabled="!canPick"
@@ -141,7 +142,8 @@ function reject(id: string) {
               @reject="reject(guide.id)"
             />
             <p v-if="!isPicked && !canPick" class="tiny muted">
-              No selections left in your pack. <RouterLink to="/unlock">Unlock +5 · £5</RouterLink>
+              {{ t('guide_profile.details.no_selections') }}
+              <RouterLink to="/unlock">{{ t('guide_profile.details.unlock') }}</RouterLink>
             </p>
           </template>
         </PanelCard>
@@ -150,9 +152,9 @@ function reject(id: string) {
       <ReviewsSection :user-id="Number(guide.id)" :subject-name="guide.name" />
     </template>
 
-    <PanelCard v-else title="Guide not found">
-      <p class="muted">That guide is no longer listed.</p>
-      <RouterLink to="/discover" role="button">Back to discovery</RouterLink>
+    <PanelCard v-else :title="t('guide_profile.not_found.title')">
+      <p class="muted">{{ t('guide_profile.not_found.body') }}</p>
+      <RouterLink to="/discover" role="button">{{ t('guide_profile.not_found.back') }}</RouterLink>
     </PanelCard>
   </section>
 </template>

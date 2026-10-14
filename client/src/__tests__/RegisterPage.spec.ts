@@ -11,7 +11,7 @@ function testRouter() {
     history: createWebHistory(),
     routes: [
       { path: '/register', name: 'register', component: RegisterPage },
-      { path: '/unlock', name: 'unlock', component: { template: '<div />' } },
+      { path: '/discover', name: 'discover', component: { template: '<div />' } },
       { path: '/guide/discover', name: 'guide-discover', component: { template: '<div />' } },
       { path: '/login', name: 'login', component: { template: '<div />' } },
     ],
@@ -42,16 +42,16 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     payGuideFee: vi.fn<Api['payGuideFee']>(),
     bookingAction: vi.fn<Api['bookingAction']>(),
     cancelBooking: vi.fn<Api['cancelBooking']>(),
-    notifications: vi.fn<Api['notifications']>(),
+    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
     decide: vi.fn<Api['decide']>(),
     revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matches: vi.fn<Api['matches']>(),
     matchOverview: vi.fn<Api['matchOverview']>(),
     trips: vi.fn<Api['trips']>(),
     publicProfile: vi.fn<Api['publicProfile']>(),
     reviews: vi.fn<Api['reviews']>(),
     submitReview: vi.fn<Api['submitReview']>(),
     deleteReview: vi.fn<Api['deleteReview']>(),
+    translations: vi.fn<Api['translations']>(),
     ...overrides,
   }
 }
@@ -99,7 +99,7 @@ describe('RegisterPage', () => {
     expect(wrapper.text()).not.toContain('Create your visitor account')
   })
 
-  it('registers as a guest by default and redirects to /unlock', async () => {
+  it('registers as a guest by default and redirects to /discover', async () => {
     const register = vi
       .fn<Api['register']>()
       .mockResolvedValue({ id: 1, email: 'visitor@example.com', role: 'guest', sessionHash: 'test-session-hash' })
@@ -112,10 +112,10 @@ describe('RegisterPage', () => {
       password: 'correcthorse',
       role: 'guest',
     })
-    expect(router.currentRoute.value.path).toBe('/unlock')
+    expect(router.currentRoute.value.path).toBe('/discover')
   })
 
-  it('registers as a guide via ?role=guide and redirects to /guide/discover instead of /unlock', async () => {
+  it('registers as a guide via ?role=guide and redirects to /guide/discover instead of /discover', async () => {
     const register = vi
       .fn<Api['register']>()
       .mockResolvedValue({ id: 2, email: 'guide@example.com', role: 'guide', sessionHash: 'test-session-hash' })

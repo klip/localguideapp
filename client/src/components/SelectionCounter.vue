@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * "3 selections left" strip with an optional unlock action. Shown above the
- * visitor deck and in the desktop shortlist rail.
+ * visitor deck and in the desktop matches rail.
  */
 withDefaults(
   defineProps<{

@@ -3,19 +3,24 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import FilterPanel from '@/components/FilterPanel.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
+import PriceBox from '@/components/PriceBox.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
 import SelectionCounter from '@/components/SelectionCounter.vue'
 import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
+import { t, tn } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCategoriesStore } from '@/stores/categories'
 import { useFiltersStore } from '@/stores/filters'
 import { useGuidesStore } from '@/stores/guides'
-import { PACK_SIZE, useShortlistStore } from '@/stores/shortlist'
+import { PACK_SIZE, useMatchesStore } from '@/stores/matches'
 import { debounce } from '@/utils/debounce'
+import { addPendingReject } from '@/utils/pendingRejects'
 import { formatRating } from '@/utils/reviews'
+import { anchorTo } from '@/stores/messages'
 import { reportApiError } from '@/utils/reportApiError'
 import type { DiscoveryFilters } from '@/types'
 
@@ -24,7 +29,7 @@ const api = useApi()
 const auth = useAuthStore()
 const categoriesStore = useCategoriesStore()
 const filtersStore = useFiltersStore()
-const shortlist = useShortlistStore()
+const matchesStore = useMatchesStore()
 const guidesStore = useGuidesStore()
 
 const { filters } = storeToRefs(filtersStore)
@@ -41,7 +46,7 @@ watch(isDesktop, (desktop) => {
 function onFiltersToggle(event: Event) {
   filtersOpen.value = (event.target as HTMLDetailsElement).open
 }
-const { hasAccess, picks, capacity, selectionsLeft, canPick } = storeToRefs(shortlist)
+const { hasAccess, picks, capacity, selectionsLeft, canPick } = storeToRefs(matchesStore)
 const { items: guides, loading: guidesLoading } = storeToRefs(guidesStore)
 
 /**
@@ -64,7 +69,10 @@ onMounted(async () => {
     return
   }
 
-  await guidesStore.load(filters.value)
+  // The pack check runs alongside the first deck fetch rather than relying
+  // on App.vue's boot sync, which hasn't finished yet after a plain refresh —
+  // without its answer the payment modal would flash open for a paid-up guest.
+  await Promise.all([guidesStore.load(filters.value), checkPack()])
   initialLoadDone.value = true
   // Labels for the card's tag chips, and the filter bar's own category list.
   categoriesStore.load()
@@ -76,7 +84,7 @@ watch(filters, (next) => debouncedLoad(next), { deep: true })
  * Undecided guides from the server's already-filtered list; the head of
  * the list is the card on top.
  */
-const deck = computed(() => guides.value.filter((guide) => !shortlist.isDecided(guide.id)))
+const deck = computed(() => guides.value.filter((guide) => !matchesStore.isDecided(guide.id)))
 const current = computed(() => deck.value[0])
 
 /** From real reviews — omitted until a guide has at least one, rather than showing "★ 0 · 0 reviews". */
@@ -107,13 +115,13 @@ watch(
 
 const counterHeadline = computed(() =>
   selectionsLeft.value > 0
-    ? `${selectionsLeft.value} selection${selectionsLeft.value === 1 ? '' : 's'} left`
-    : 'No selections left',
+    ? tn('discover.counter.selections_left', selectionsLeft.value)
+    : t('discover.counter.no_selections_left'),
 )
 
 /**
  * Persists the decision server-side (see `Selections::decide()`) in the
- * background, best-effort — `shortlist`'s local pick/pass state is what the
+ * background, best-effort — `matchesStore`'s local pick/pass state is what the
  * deck itself reads from and is what already gates capacity, so a failure
  * here doesn't need to block or undo it, just surface a toast. This is what
  * makes a real mutual match with a guide possible at all — see
@@ -124,22 +132,85 @@ async function persistDecision(guideId: string, decision: 'interested' | 'pass')
   try {
     await api.decide({ targetId: Number(guideId), decision })
   } catch (err) {
-    reportApiError(err, 'Could not record your decision.')
+    reportApiError(err, t('discover.toast.decision_failed'))
   }
 }
 
+/**
+ * The deck is the landing page, so it's open to everyone: a signed-out
+ * visitor can browse and reject freely (locally only — there's no one to
+ * record it against), and "Interested" is where they're asked to sign up.
+ * A signed-in guest without a pack is shown the payment modal straight
+ * away (and again on "Interested"); everyone else just swipes.
+ */
+const isGuest = computed(() => auth.user?.role === 'guest')
+const authPromptOpen = ref(false)
+const payOpen = ref(false)
+const paying = ref(false)
+const payPanelRef = ref<HTMLElement | null>(null)
+/** The card whose "Interested" opened the payment modal — picked once paid. */
+const pendingAcceptId = ref<string | null>(null)
+
+/** Out of picks in a pack they already bought — the card's buttons go inert, as before. */
+const cardDisabled = computed(() => isGuest.value && hasAccess.value && !canPick.value)
+
+async function checkPack() {
+  if (!isGuest.value) return
+  try {
+    matchesStore.applyPaymentState(await api.paymentState())
+  } catch (err) {
+    reportApiError(err, t('discover.toast.pack_check_failed'))
+    return
+  }
+  if (!hasAccess.value) payOpen.value = true
+}
+
+// Stands in for the payment provider callback — calling api.unlockPack() *is*
+// the payment (see api/classes/Payments.php, no real gateway wired up yet).
+async function payForPack() {
+  if (paying.value) return
+  paying.value = true
+  try {
+    matchesStore.applyPaymentState(await api.unlockPack())
+    payOpen.value = false
+    const pending = pendingAcceptId.value
+    pendingAcceptId.value = null
+    if (pending && !matchesStore.isDecided(pending)) accept(pending)
+  } catch (err) {
+    reportApiError(err, t('discover.toast.payment_failed'), anchorTo('element', payPanelRef.value))
+  } finally {
+    paying.value = false
+  }
+}
+
+function onPayClose() {
+  payOpen.value = false
+  pendingAcceptId.value = null
+}
+
 function accept(id: string) {
-  shortlist.pick(id)
+  if (!auth.isAuthenticated) {
+    authPromptOpen.value = true
+    return
+  }
+  if (isGuest.value && !hasAccess.value) {
+    pendingAcceptId.value = id
+    payOpen.value = true
+    return
+  }
+  matchesStore.pick(id)
   // pick() no-ops (and isPicked stays false) when the pack is already
   // spent — the button is disabled in that case (see `:disabled="!canPick"`
   // below), but guard here too rather than persist a decision the local
   // state didn't actually record.
-  if (shortlist.isPicked(id)) void persistDecision(id, 'interested')
+  if (matchesStore.isPicked(id)) void persistDecision(id, 'interested')
 }
 
 function reject(id: string) {
-  shortlist.pass(id)
-  void persistDecision(id, 'pass')
+  matchesStore.pass(id)
+  // Signed out: kept in this browser and sent once they sign in (App.vue).
+  if (auth.isAuthenticated) void persistDecision(id, 'pass')
+  else addPendingReject(id)
 }
 </script>
 
@@ -149,130 +220,210 @@ function reject(id: string) {
       <!-- Filters: a side rail on desktop, a collapsed disclosure on mobile. -->
       <aside class="rail">
         <details class="filters-disclosure" :open="filtersOpen" @toggle="onFiltersToggle">
-          <summary><strong>Filters</strong></summary>
-          <p class="tiny muted">Keep them light and optional.</p>
+          <summary><strong>{{ t('discover.filters.title') }}</strong></summary>
+          <p class="tiny muted">{{ t('discover.filters.hint') }}</p>
           <FilterPanel />
         </details>
       </aside>
-      
-        <PanelCard>
-          <template #header>
-            <div class="row-between">
-              <div>
-                <strong>Guides for you</strong>
-                <div class="tiny muted">Friday · cruise day</div>
-              </div>
-              <PillBadge>{{ picks.length }} / {{ capacity }} picked</PillBadge>
+
+      <PanelCard>
+        <template #header>
+          <div class="row-between">
+            <div>
+              <strong>{{ t('discover.deck.title') }}</strong>
+              <div class="tiny muted">{{ t('discover.deck.subtitle') }}</div>
             </div>
-          </template>
+            <PillBadge v-if="hasAccess">{{
+              t('discover.deck.picked', { picked: picks.length, capacity })
+            }}</PillBadge>
+          </div>
+        </template>
 
-          <!-- Paywall: every route stays reachable, the deck itself is what is gated. -->
-          <template v-if="!hasAccess">
-            <div class="empty">
-              <h3>Unlock to start matching</h3>
-              <p class="muted">
-                A one-time £5 fee gives you {{ PACK_SIZE }} guide selections. Browse freely once
-                unlocked.
-              </p>
-              <RouterLink to="/unlock" role="button">Unlock {{ PACK_SIZE }} picks · £5</RouterLink>
-            </div>
-          </template>
+        <!--
+          The deck is open to everyone; "Interested" is what's gated — by an
+          account for a signed-out visitor, by a pack for a guest without one.
+        -->
+        <SelectionCounter
+          v-if="!auth.isAuthenticated"
+          :headline="t('discover.counter.browse_freely')"
+          :caption="t('discover.counter.browse_caption')"
+          :action-label="t('discover.counter.sign_up')"
+          @action="router.push('/register')"
+        />
+        <SelectionCounter
+          v-else-if="isGuest && !hasAccess"
+          :headline="t('discover.counter.unlock_headline', { count: PACK_SIZE })"
+          :caption="t('discover.counter.unlock_caption')"
+          :action-label="t('discover.counter.unlock')"
+          @action="payOpen = true"
+        />
+        <SelectionCounter
+          v-else
+          :headline="counterHeadline"
+          :caption="t('discover.counter.pack_caption')"
+          :action-label="t('discover.counter.get_more', { count: PACK_SIZE })"
+          @action="router.push('/unlock')"
+        />
 
-          <template v-else>
-            <SelectionCounter
-              :headline="counterHeadline"
-              caption="before your current pack is used"
-              :action-label="`Get +${PACK_SIZE}`"
-              @action="router.push('/unlock')"
-            />
+        <ProfileCard
+          v-if="current"
+          :key="current.id"
+          :name="current.name"
+          :age="current.age"
+          :photo="current.photo"
+          :meta="currentMeta"
+          :price-label="current.priceLabel"
+          :price-note="current.priceNote"
+          :bio="current.bio"
+          :tags="categoriesStore.tagsFor(current.attributes)"
+          :includes="current.includes"
+          :profile-link="{ name: 'guide-profile', params: { id: current.id } }"
+          :disabled="cardDisabled"
+          @accept="accept(current.id)"
+          @reject="reject(current.id)"
+        />
 
-            <ProfileCard
-              v-if="current"
-              :key="current.id"
-              :name="current.name"
-              :age="current.age"
-              :photo="current.photo"
-              :meta="currentMeta"
-              :price-label="current.priceLabel"
-              :price-note="current.priceNote"
-              :bio="current.bio"
-              :tags="categoriesStore.tagsFor(current.attributes)"
-              :includes="current.includes"
-              :profile-link="{ name: 'guide-profile', params: { id: current.id } }"
-              :disabled="!canPick"
-              @accept="accept(current.id)"
-              @reject="reject(current.id)"
-            />
+        <div v-else-if="guidesLoading && !initialLoadDone" class="empty">
+          <h3>{{ t('discover.empty.loading') }}</h3>
+        </div>
 
-            <div v-else-if="guidesLoading && !initialLoadDone" class="empty">
-              <h3>Loading guides…</h3>
-            </div>
-
-            <!--
+        <!--
               Signed in, no filters, nothing back: the server also hides guides
               this visitor already decided on (see Users::searchByRole()), so
               "nobody has registered" would often be a lie. This copy is true
               either way — an empty system and a fully-worked-through deck both
               mean there's nobody new to show.
             -->
-            <div
-              v-else-if="initialLoadDone && guides.length === 0 && filtersStore.isPristine && auth.isAuthenticated"
-              class="empty"
-            >
-              <h3>Nobody new right now</h3>
-              <p class="muted">
-                You’ve seen every guide available at the moment. Guides you’ve already decided on
-                live under Matches.
-              </p>
-              <div class="empty-actions">
-                <RouterLink to="/matches" role="button">View matches</RouterLink>
-              </div>
-            </div>
+        <div
+          v-else-if="
+            initialLoadDone &&
+            guides.length === 0 &&
+            filtersStore.isPristine &&
+            auth.isAuthenticated
+          "
+          class="empty"
+        >
+          <h3>{{ t('discover.empty.nobody_new_title') }}</h3>
+          <p class="muted">
+            {{ t('discover.empty.nobody_new_body') }}
+          </p>
+          <div class="empty-actions">
+            <RouterLink to="/matches" role="button">{{ t('discover.empty.view_matches') }}</RouterLink>
+          </div>
+        </div>
 
-            <div v-else-if="initialLoadDone && guides.length === 0 && filtersStore.isPristine" class="empty">
-              <h3>No guides registered yet</h3>
-              <p class="muted">Check back soon — local guides are still signing up.</p>
-            </div>
+        <div
+          v-else-if="initialLoadDone && guides.length === 0 && filtersStore.isPristine"
+          class="empty"
+        >
+          <h3>{{ t('discover.empty.no_guides_title') }}</h3>
+          <p class="muted">{{ t('discover.empty.no_guides_body') }}</p>
+        </div>
 
-            <div v-else class="empty">
-              <h3>That’s everyone for now</h3>
-              <p class="muted">
-                No more guides match these filters. Loosen them, or review the shortlist you built.
-              </p>
-              <div class="empty-actions">
-                <button type="button" class="soft-btn" @click="filtersStore.reset()">
-                  Clear filters
-                </button>
-                <RouterLink to="/shortlist" role="button">View shortlist</RouterLink>
-                <button type="button" class="soft-btn" @click="shortlist.resetPassed()">
-                  Take another look
-                </button>
-              </div>
-            </div>
+        <div v-else class="empty">
+          <h3>{{ t('discover.empty.everyone_title') }}</h3>
+          <p class="muted">
+            {{ t('discover.empty.everyone_body') }}
+          </p>
+          <div class="empty-actions">
+            <button type="button" class="soft-btn" @click="filtersStore.reset()">
+              {{ t('discover.empty.clear_filters') }}
+            </button>
+            <RouterLink to="/matches" role="button">{{ t('discover.empty.view_matches') }}</RouterLink>
+            <button type="button" class="soft-btn" @click="matchesStore.resetPassed()">
+              {{ t('discover.empty.take_another_look') }}
+            </button>
+          </div>
+        </div>
 
-            <p v-if="!canPick && current" class="tiny muted">
-              You’ve used every pick in this pack. Unlock {{ PACK_SIZE }} more to keep going.
-            </p>
-          </template>
-        </PanelCard>
-      
-      <!-- Shortlist rail. -->
+        <p v-if="cardDisabled && current" class="tiny muted">
+          {{ t('discover.deck.pack_used', { count: PACK_SIZE }) }}
+        </p>
+      </PanelCard>
+
+      <!-- Matches rail. -->
       <aside class="rail">
-        <PanelCard title="Your shortlist">
-          <SelectionCounter :headline="`${picks.length} / ${capacity}`" caption="selected" />
+        <PanelCard v-if="!auth.isAuthenticated" :title="t('discover.rail.title')">
+          <p class="tiny muted">
+            {{ t('discover.rail.signed_out_body', { count: PACK_SIZE }) }}
+          </p>
+          <RouterLink to="/register" role="button" class="full">{{
+            t('discover.rail.create_account')
+          }}</RouterLink>
+          <RouterLink to="/login" role="button" class="soft-btn full">{{
+            t('discover.rail.log_in')
+          }}</RouterLink>
+        </PanelCard>
+        <PanelCard v-else :title="t('discover.rail.title')">
+          <SelectionCounter
+            :headline="t('discover.rail.count', { picked: picks.length, capacity })"
+            :caption="t('discover.rail.selected')"
+          />
 
           <ul v-if="pickedGuides.length" class="picked">
             <li v-for="guide in pickedGuides" :key="guide.id">{{ guide.name }}</li>
           </ul>
-          <p v-else class="tiny muted">Nothing picked yet.</p>
+          <p v-else class="tiny muted">{{ t('discover.rail.nothing_picked') }}</p>
 
-          <RouterLink to="/shortlist" role="button" class="soft-btn full">View shortlist</RouterLink>
+          <RouterLink to="/matches" role="button" class="soft-btn full"
+            >{{ t('discover.rail.view_matches') }}</RouterLink
+          >
           <RouterLink to="/unlock" role="button" class="full">
-            Unlock +{{ PACK_SIZE }} · £5
+            {{ t('discover.rail.unlock_more', { count: PACK_SIZE }) }}
           </RouterLink>
         </PanelCard>
       </aside>
     </div>
+
+    <ModalDialog
+      :open="authPromptOpen"
+      :title="t('discover.auth_modal.title')"
+      @close="authPromptOpen = false"
+    >
+      <p class="muted">
+        {{ t('discover.auth_modal.body', { count: PACK_SIZE }) }}
+      </p>
+      <RouterLink to="/register" role="button" class="full">{{
+        t('discover.auth_modal.create_account')
+      }}</RouterLink>
+      <RouterLink to="/login" role="button" class="soft-btn full">{{
+        t('discover.auth_modal.log_in')
+      }}</RouterLink>
+    </ModalDialog>
+
+    <ModalDialog
+      :open="payOpen"
+      :title="t('discover.pay_modal.title')"
+      :close-label="t('discover.pay_modal.not_now')"
+      @close="onPayClose"
+    >
+      <div ref="payPanelRef">
+        <p class="muted">
+          {{ t('discover.pay_modal.body', { count: PACK_SIZE }) }}
+        </p>
+        <PriceBox compact>
+          <div class="price-head">
+            <div>
+              <span class="tiny muted">{{ t('discover.pay_modal.one_time_fee') }}</span>
+              <div class="price">£5</div>
+            </div>
+            <PillBadge>{{ t('discover.pay_modal.picks', { count: PACK_SIZE }) }}</PillBadge>
+          </div>
+        </PriceBox>
+        <button
+          type="button"
+          class="full pay"
+          :aria-busy="paying"
+          :disabled="paying"
+          @click="payForPack"
+        >
+          {{ paying ? t('discover.pay_modal.paying') : t('discover.pay_modal.pay') }}
+        </button>
+        <p class="tiny muted">
+          {{ t('discover.pay_modal.top_up_note', { count: PACK_SIZE }) }}
+        </p>
+      </div>
+    </ModalDialog>
   </section>
 </template>
 
@@ -337,5 +488,15 @@ function reject(id: string) {
 
 a[role='button'] {
   margin-bottom: 0.5rem;
+}
+
+.price-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.pay {
+  margin: 0.75rem 0;
 }
 </style>

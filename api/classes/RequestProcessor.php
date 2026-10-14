@@ -1,13 +1,23 @@
 <?php
 
 /**
- * Single entry point for front-to-back requests: resolves an `action` from
- * the query string or JSON body, dispatches it, and writes a JSON response.
- * Keeps HTTP plumbing (input parsing, status codes, error shape) out of the
- * data-access classes and keeps `index.php` a one-liner.
+ * The API service: every domain action — decks, profiles, matches, bookings,
+ * trips, reviews, translations. Internal only: the gateway forwards each
+ * client request here over HTTP (`ServiceHttp`) with the caller's user id
+ * already resolved by the auth service, so this service never sees a session
+ * hash and holds no state between requests.
+ *
+ * Account actions (register, login, two-factor, password reset/change,
+ * logout, session) live in the auth service (`auth/`).
  */
 class RequestProcessor
 {
+    /**
+     * Actions that can change someone's menu counters: the caller's and the
+     * `targetId`'s are recomputed and pushed when one succeeds (`Push`).
+     */
+    private const COUNTER_ACTIONS = ['decide', 'revokeSelection', 'payGuideFee', 'cancelBooking', 'bookingAction', 'markSeen'];
+
     /** @var db */
     private $db;
     /** @var Users */
@@ -22,206 +32,163 @@ class RequestProcessor
     private $notifications;
     /** @var Profiles */
     private $profiles;
-    /** @var Session */
-    private $sessions;
     /** @var Reviews */
     private $reviews;
-    /** @var AccountSecurity */
-    private $security;
-    /** @var array|null memoized parsed request body */
+    /** @var Translations */
+    private $translations;
+    /** @var Badges */
+    private $badges;
+    /** @var Push */
+    private $push;
+    /** @var array|null the request `process()` is handling */
     private $input;
+    /** @var int|null the caller, as the gateway resolved them */
+    private $userId;
 
-    public function __construct(db $db)
+    public function __construct(db $db, RedisClient $redis)
     {
         $this->db = $db;
         $this->users = new Users($db);
         $this->payments = new Payments($db);
-        $mailer = new Mailer($db);
-        $this->notifications = new Notifications($db, $mailer);
+        $this->badges = new Badges($db);
+        $this->push = new Push($redis, $this->badges);
+        $this->notifications = new Notifications($db, new MailQueue($db, $redis), $this->push);
         $this->bookings = new Bookings($db, $this->notifications);
         $this->selections = new Selections($db, $this->users, $this->payments, $this->bookings);
         $this->profiles = new Profiles($db);
-        $this->sessions = new Session($db);
         $this->reviews = new Reviews($db);
-        $this->security = new AccountSecurity($db, $this->users, $mailer, $this->sessions);
+        $this->translations = new Translations($db);
     }
 
-    public function handle(): void
+    /**
+     * Runs one request — `{ action, ...payload }` — for `$context['userId']`
+     * (null when signed out) and returns `[httpStatus, body]`; see
+     * `ServiceHttp` for the transport.
+     *
+     * @return array{0: int, 1: array}
+     */
+    public function process(array $input, array $context = []): array
     {
-        header('Content-Type: application/json; charset=utf-8');
+        $this->input = $input;
+        $this->userId = $context['userId'] ?? null;
+        $action = (string) ($input['action'] ?? '');
 
         try {
-            $this->sweepBookings();
-
-            switch ($this->resolveAction()) {
-                case 'register':
-                    $this->respond($this->actionRegister());
-                    break;
-
-                case 'login':
-                    $this->respond($this->actionLogin());
-                    break;
-
-                case 'guides':
-                    $this->respond(['guides' => $this->users->searchByRole('guide', $this->readFilters(), $this->profiles, $this->optionalUserId())]);
-                    break;
-
-                case 'visitors':
-                    $this->respond(['visitors' => $this->users->searchByRole('guest', $this->readFilters(), $this->profiles, $this->optionalUserId())]);
-                    break;
-
-                case 'updateProfile':
-                    $this->respond($this->actionUpdateProfile());
-                    break;
-
-                case 'attributeCategories':
-                    $this->respond(['categories' => $this->profiles->getCategories()]);
-                    break;
-
-                case 'myProfile':
-                    $userId = $this->requireUserId();
-                    $this->respond($this->users->getFullAccount($userId, $this->profiles)
-                        + ['trusted_device_count' => $this->security->trustedDeviceCount($userId)]);
-                    break;
-
-                case 'updateAccount':
-                    $this->respond($this->actionUpdateAccount());
-                    break;
-
-                case 'changePassword':
-                    $this->respond($this->actionChangePassword());
-                    break;
-
-                case 'unlockPack':
-                    $this->respond($this->actionUnlockPack());
-                    break;
-
-                case 'paymentState':
-                    $this->respond($this->actionPaymentState());
-                    break;
-
-                case 'decide':
-                    $this->respond($this->actionDecide());
-                    break;
-
-                case 'revokeSelection':
-                    $this->respond($this->actionRevokeSelection());
-                    break;
-
-                case 'matches':
-                    $this->respond(['matches' => $this->selections->getActiveMatches($this->requireUserId())]);
-                    break;
-
-                case 'matchOverview':
-                    $this->respond(['selections' => $this->selections->getOverview($this->requireUserId())]);
-                    break;
-
-                // Confirmed trips — scheduled, current and past (see `Bookings::tripsFor()`).
-                case 'trips':
-                    $userId = $this->requireUserId();
-                    $this->respond(['trips' => $this->bookings->tripsFor($userId, $this->users->getRoleName($userId))]);
-                    break;
-
-                case 'payGuideFee':
-                    $this->respond($this->actionPayGuideFee());
-                    break;
-
-                case 'cancelBooking':
-                    $this->respond($this->actionCancelBooking());
-                    break;
-
-                case 'bookingAction':
-                    $this->respond($this->actionBooking());
-                    break;
-
-                case 'notifications':
-                    $this->respond(['notifications' => $this->notifications->takeUnread($this->requireUserId())]);
-                    break;
-
-                case 'logout':
-                    $this->respond($this->actionLogout());
-                    break;
-
-                case 'session':
-                    $this->respond($this->actionSession());
-                    break;
-
-                // Two-factor login and password reset (see `AccountSecurity`, 016_auth_challenges.sql).
-                case 'verifyTwoFactor':
-                    $this->respond($this->actionVerifyTwoFactor());
-                    break;
-
-                case 'resendTwoFactor':
-                    $this->respond($this->actionResendTwoFactor());
-                    break;
-
-                case 'requestPasswordReset':
-                    $this->respond($this->actionRequestPasswordReset());
-                    break;
-
-                case 'resetPassword':
-                    $this->respond($this->actionResetPassword());
-                    break;
-
-                case 'forgetTrustedDevices':
-                    $this->respond($this->actionForgetTrustedDevices());
-                    break;
-
-                // Reviews and public profiles (see `Reviews`, 013_reviews.sql).
-                case 'publicProfile':
-                    $this->respond($this->actionPublicProfile());
-                    break;
-
-                case 'reviews':
-                    $this->respond($this->actionReviews());
-                    break;
-
-                case 'submitReview':
-                    $this->respond($this->actionSubmitReview());
-                    break;
-
-                case 'deleteReview':
-                    $this->respond($this->actionDeleteReview());
-                    break;
-
-                default:
-                    $this->respond(['error' => 'Unknown action.'], 404);
+            $result = $this->dispatch($action);
+            if ($result[0] === 200 && in_array($action, self::COUNTER_ACTIONS, true)) {
+                $this->push->touch((int) $this->userId, (int) ($input['targetId'] ?? 0));
             }
+
+            return $result;
         } catch (AuthenticationException $e) {
-            $this->respond(['error' => $e->getMessage()], 401);
+            return [401, ['error' => $e->getMessage()]];
         } catch (RuntimeException $e) {
-            $this->respond(['error' => $e->getMessage()], 400);
+            return [400, ['error' => $e->getMessage()]];
         } catch (Throwable $e) {
-            $this->db->writeLog($e->getMessage());
-            $this->respond(['error' => 'Unexpected server error.'], 500);
+            Log::exception('Request failed', $e);
+            return [500, ['error' => 'Unexpected server error.']];
+        } finally {
+            // Counters for everyone this request touched — the caller, the
+            // other person, anyone a notification went to.
+            $this->push->flush();
         }
     }
 
-    private function resolveAction(): string
+    /** @return array{0: int, 1: array} */
+    private function dispatch(string $action): array
     {
-        if (!empty($_GET['action'])) {
-            return (string) $_GET['action'];
-        }
+        switch ($action) {
+            case 'guides':
+                return [200, ['guides' => $this->users->searchByRole('guide', $this->readFilters(), $this->profiles, $this->optionalUserId())]];
 
-        $body = $this->readInput();
-        return isset($body['action']) ? (string) $body['action'] : '';
+            case 'visitors':
+                return [200, ['visitors' => $this->users->searchByRole('guest', $this->readFilters(), $this->profiles, $this->optionalUserId())]];
+
+            case 'updateProfile':
+                return [200, $this->actionUpdateProfile()];
+
+            case 'attributeCategories':
+                return [200, ['categories' => $this->profiles->getCategories()]];
+
+            case 'myProfile':
+                $userId = $this->requireUserId();
+                return [200, $this->users->getFullAccount($userId, $this->profiles)
+                    + ['trusted_device_count' => $this->users->trustedDeviceCount($userId)]];
+
+            case 'updateAccount':
+                return [200, $this->actionUpdateAccount()];
+
+            case 'unlockPack':
+                return [200, $this->actionUnlockPack()];
+
+            case 'paymentState':
+                return [200, $this->actionPaymentState()];
+
+            case 'decide':
+                return [200, $this->actionDecide()];
+
+            case 'revokeSelection':
+                return [200, $this->actionRevokeSelection()];
+
+            case 'matchOverview':
+                return [200, ['selections' => $this->selections->getOverview($this->requireUserId())]];
+
+            // Confirmed trips — scheduled, current and past (see `Bookings::tripsFor()`).
+            case 'trips':
+                $userId = $this->requireUserId();
+                return [200, ['trips' => $this->bookings->tripsFor($userId, $this->users->getRoleName($userId))]];
+
+            case 'payGuideFee':
+                return [200, $this->actionPayGuideFee()];
+
+            case 'cancelBooking':
+                return [200, $this->actionCancelBooking()];
+
+            case 'bookingAction':
+                return [200, $this->actionBooking()];
+
+            // Clears the Matches or My trips counter (see `Badges`); the
+            // new counts reach the client as a `badges` push.
+            case 'markSeen':
+                $this->badges->markSeen($this->requireUserId(), (string) ($this->readInput()['section'] ?? ''));
+                return [200, ['ok' => true]];
+
+            // Reviews and public profiles (see `Reviews`, 013_reviews.sql).
+            case 'publicProfile':
+                return [200, $this->actionPublicProfile()];
+
+            case 'reviews':
+                return [200, $this->actionReviews()];
+
+            case 'submitReview':
+                return [200, $this->actionSubmitReview()];
+
+            case 'deleteReview':
+                return [200, $this->actionDeleteReview()];
+
+            // UI text for one language (see `Translations`, 018_translations.sql).
+            case 'translations':
+                return [200, $this->actionTranslations()];
+
+            // Gateway-only (never routed for a client): what a socket that just
+            // signed in should be shown — unread notifications (marked read
+            // now) and the current counters.
+            case 'pushState':
+                $userId = $this->requireUserId();
+                return [200, [
+                    'notifications' => $this->notifications->takeUnreadFor([$userId])[$userId] ?? [],
+                    'badges' => $this->badges->countsFor([$userId])[$userId],
+                ]];
+
+            default:
+                return [404, ['error' => 'Unknown action.']];
+        }
     }
 
-    /** Parses $_GET (for GET requests) or a JSON body (for everything else), once per request. */
+    /** The request currently being processed (see `process()`). */
     private function readInput(): array
     {
-        if ($this->input !== null) {
-            return $this->input;
-        }
-
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
-            $this->input = $_GET;
-            return $this->input;
-        }
-
-        $decoded = json_decode((string) file_get_contents('php://input'), true);
-        $this->input = is_array($decoded) ? $decoded : $_POST;
-        return $this->input;
+        return $this->input ?? [];
     }
 
     /**
@@ -263,152 +230,6 @@ class RequestProcessor
         ];
     }
 
-    /** data: URI images from ImageCropper.vue max out around 480x480 JPEG — a few hundred KB is generous headroom. */
-    private const MAX_IMAGE_BASE64_LENGTH = 2_000_000;
-
-    private function actionRegister(): array
-    {
-        $input = $this->readInput();
-
-        $email = trim((string) ($input['email'] ?? ''));
-        $password = (string) ($input['password'] ?? '');
-        $role = (string) ($input['role'] ?? 'guest');
-        $name = isset($input['name']) ? trim((string) $input['name']) : null;
-        $image = isset($input['image']) ? $this->validateImage((string) $input['image']) : null;
-
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new RuntimeException('A valid email is required.');
-        }
-        if (strlen($password) < 8) {
-            throw new RuntimeException('Password must be at least 8 characters.');
-        }
-
-        $userId = $this->users->register($email, $password, $role, $name, $image);
-        $sessionHash = $this->sessions->create($userId);
-
-        return ['id' => $userId, 'email' => $email, 'role' => $role, 'sessionHash' => $sessionHash];
-    }
-
-    /**
-     * Only accepts a `data:image/(png|jpeg|webp);base64,...` string within a
-     * sane size cap — this lands straight in `users.image` with no other
-     * processing, so it's the one place guarding against something huge or
-     * not-actually-an-image-data-URI getting through.
-     */
-    private function validateImage(string $image): string
-    {
-        if ($image === '') {
-            return '';
-        }
-
-        if (strlen($image) > self::MAX_IMAGE_BASE64_LENGTH) {
-            throw new RuntimeException('Image is too large.');
-        }
-
-        if (!preg_match('/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+\/]+=*$/', $image)) {
-            throw new RuntimeException('Image must be a PNG, JPEG or WebP data URL.');
-        }
-
-        return $image;
-    }
-
-    private function actionLogin(): array
-    {
-        $input = $this->readInput();
-
-        $email = trim((string) ($input['email'] ?? ''));
-        $password = (string) ($input['password'] ?? '');
-
-        $user = $this->users->verifyCredentials($email, $password);
-        if (!$user) {
-            throw new RuntimeException('Invalid email or password.');
-        }
-
-        // With two-factor on, the password only earns a challenge; the
-        // session waits for `verifyTwoFactor` — unless this browser sent a
-        // device token the account trusted within the last 30 days.
-        $deviceToken = (string) ($input['deviceToken'] ?? '');
-        if (
-            AccountSecurity::requiresTwoFactor($user)
-            && !$this->security->isTrustedDevice((int) $user['id'], $deviceToken)
-        ) {
-            return $this->security->startLogin($user);
-        }
-
-        return $this->signIn($user);
-    }
-
-    /** Creates a session for `$user` (a `users` row) and returns the `AuthResult` shape. */
-    private function signIn(array $user): array
-    {
-        $sessionHash = $this->sessions->create((int) $user['id']);
-
-        return [
-            'id' => (int) $user['id'],
-            'email' => $user['email'],
-            'name' => $user['name'],
-            'role' => $this->users->getRoleName((int) $user['id']),
-            'sessionHash' => $sessionHash,
-        ];
-    }
-
-    /** Second login step: the emailed code for a challenge from `login` — see `AccountSecurity::verifyLogin()`. */
-    private function actionVerifyTwoFactor(): array
-    {
-        $input = $this->readInput();
-        $userId = $this->security->verifyLogin(
-            (string) ($input['challengeToken'] ?? ''),
-            (string) ($input['code'] ?? '')
-        );
-
-        $user = $this->users->findById($userId);
-        if (!$user) {
-            throw new RuntimeException('This code has expired. Log in again to get a new one.');
-        }
-
-        $result = $this->signIn($user);
-        // "Don't ask on this device for 30 days" — the token comes back once,
-        // here, for the browser to keep.
-        if (!empty($input['rememberDevice'])) {
-            $result += $this->security->trustDevice($userId, (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
-        }
-
-        return $result;
-    }
-
-    private function actionForgetTrustedDevices(): array
-    {
-        $this->security->forgetTrustedDevices($this->requireUserId());
-
-        return ['ok' => true];
-    }
-
-    private function actionResendTwoFactor(): array
-    {
-        return $this->security->resendLoginCode((string) ($this->readInput()['challengeToken'] ?? ''));
-    }
-
-    /** Always `ok` — whether the email has an account is never revealed. */
-    private function actionRequestPasswordReset(): array
-    {
-        $email = trim((string) ($this->readInput()['email'] ?? ''));
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new RuntimeException('A valid email is required.');
-        }
-
-        $this->security->requestPasswordReset($email);
-
-        return ['ok' => true];
-    }
-
-    private function actionResetPassword(): array
-    {
-        $input = $this->readInput();
-        $this->security->resetPassword((string) ($input['token'] ?? ''), (string) ($input['newPassword'] ?? ''));
-
-        return ['ok' => true];
-    }
-
     private function actionUnlockPack(): array
     {
         $userId = $this->requireUserId();
@@ -430,7 +251,7 @@ class RequestProcessor
     {
         $capacity = $this->payments->getCapacity($userId);
         $picksUsed = $this->selections->getPicksUsed($userId);
-        // The ids as well as the count: the client's shortlist store is
+        // The ids as well as the count: the client's matches store is
         // in-memory, so this is what it re-seeds from after a page reload.
         $decisions = $this->selections->getDecisionIdsFor($userId);
 
@@ -563,20 +384,6 @@ class RequestProcessor
             . implode(', ', array_merge($guideOps, $guestOps, $eitherOps)) . '.');
     }
 
-    /**
-     * Moves bookings along with the clock (`Bookings::sweep()`) — this app has
-     * no scheduler, so every request does it. Never allowed to fail the
-     * request it rides on.
-     */
-    private function sweepBookings(): void
-    {
-        try {
-            $this->bookings->sweep();
-        } catch (Throwable $e) {
-            $this->db->writeLog('Bookings::sweep() failed: ' . $e->getMessage());
-        }
-    }
-
     /** The guide cancels their booking with a visitor, refunding them — see `Bookings::cancelByGuide()`. */
     private function actionCancelBooking(): array
     {
@@ -663,12 +470,14 @@ class RequestProcessor
             }
         }
 
+        $this->bookings->onProfileUpdated($userId);
+
         return ['ok' => true];
     }
 
     /**
      * Updates account-level fields on `users` — name, email, phone, 2FA
-     * delivery channel, and (reusing `validateImage()`) the profile photo.
+     * delivery channel, and (through `ImageData::validate()`) the profile photo.
      * `phone` arrives already fully formed (e.g. "+350 56002731") — any
      * country-code picker is a `ProfilePage.vue`-only concern, not something
      * this API knows about. Unlike `Profiles::setProfile()`'s fields,
@@ -690,7 +499,7 @@ class RequestProcessor
             $fields['phone'] = trim((string) $input['phone']);
         }
         if (array_key_exists('image', $input)) {
-            $fields['image'] = $this->validateImage((string) ($input['image'] ?? ''));
+            $fields['image'] = ImageData::validate((string) ($input['image'] ?? ''));
         }
 
         if (isset($input['email'])) {
@@ -726,31 +535,7 @@ class RequestProcessor
         }
 
         $this->users->updateAccount($userId, $fields);
-
-        return ['ok' => true];
-    }
-
-    /** Verifies `currentPassword` before setting `newPassword` — see `Users::verifyPasswordFor()`/`setPassword()`. */
-    private function actionChangePassword(): array
-    {
-        $input = $this->readInput();
-        $userId = $this->requireUserId();
-
-        $currentPassword = (string) ($input['currentPassword'] ?? '');
-        $newPassword = (string) ($input['newPassword'] ?? '');
-
-        if (strlen($newPassword) < 8) {
-            throw new RuntimeException('New password must be at least 8 characters.');
-        }
-        if (!$this->users->verifyPasswordFor($userId, $currentPassword)) {
-            throw new RuntimeException('Current password is incorrect.');
-        }
-
-        $this->users->setPassword($userId, $newPassword);
-        $user = $this->users->findById($userId);
-        if ($user) {
-            $this->security->notifyPasswordChanged($user);
-        }
+        $this->bookings->onProfileUpdated($userId);
 
         return ['ok' => true];
     }
@@ -826,24 +611,35 @@ class RequestProcessor
     }
 
     /**
-     * Resolves the calling user's id from `sessionHash` (see `Session::
-     * resolve()`) — the source of identity for every authenticated action.
-     * A valid, non-expired hash gets its 5-minute inactivity window slid
-     * forward as a side effect of this call. Throws `AuthenticationException`
-     * (→ HTTP 401) rather than the generic `RuntimeException` (→ 400) other
-     * validation failures use, so the client can tell "you're logged out"
-     * apart from an ordinary bad-input error and react to it (see
-     * `plugins/api.ts`'s `call()`).
+     * Every UI string for `language` — no session needed, the signed-out deck
+     * is translated too. `strings` is always a JSON object, even when the
+     * language has no rows yet (the client then shows its bundled English).
+     */
+    private function actionTranslations(): array
+    {
+        $language = (string) ($this->readInput()['language'] ?? '');
+
+        return [
+            'language' => $language,
+            'strings' => (object) $this->translations->forLanguage($language),
+        ];
+    }
+
+    /**
+     * The caller's id, which the gateway resolved from their session through
+     * the auth service (and slid forward) before forwarding the request.
+     * Throws `AuthenticationException` (→ HTTP 401) rather than the generic
+     * `RuntimeException` (→ 400) other validation failures use, so the client
+     * can tell "you're logged out" apart from an ordinary bad-input error
+     * (see `plugins/api.ts`'s `call()`).
      */
     private function requireUserId(): int
     {
-        $hash = (string) ($this->readInput()['sessionHash'] ?? '');
-        $userId = $hash !== '' ? $this->sessions->resolve($hash) : null;
-        if (!$userId) {
+        if (!$this->userId) {
             throw new AuthenticationException('Your session has expired. Please log in again.');
         }
 
-        return $userId;
+        return $this->userId;
     }
 
     /**
@@ -851,58 +647,10 @@ class RequestProcessor
      * didn't — for actions that still work signed out but personalise
      * themselves for a signed-in caller (the `guides`/`visitors` decks,
      * which hide anyone the caller already decided on; see
-     * `Users::searchByRole()`).
-     *
-     * A hash that is present but invalid still throws (→ 401) rather than
-     * quietly falling back to the anonymous view, so an expired session
-     * signs the user out here exactly like it does on every other action.
+     * `Users::searchByRole()`). A session that was sent but had expired never
+     * gets this far: the gateway answers 401 itself.
      */
     private function optionalUserId(): ?int
     {
-        $hash = (string) ($this->readInput()['sessionHash'] ?? '');
-
-        return $hash === '' ? null : $this->requireUserId();
-    }
-
-    /** Destroys the current session, if any. Never throws for a missing/unknown hash — there's simply nothing to do. */
-    private function actionLogout(): array
-    {
-        $hash = (string) ($this->readInput()['sessionHash'] ?? '');
-        if ($hash !== '') {
-            $this->sessions->destroy($hash);
-        }
-
-        return ['ok' => true];
-    }
-
-    /**
-     * Validates the current session and returns the same `AuthResult` shape
-     * `register`/`login` do (including the same, unrotated `sessionHash`) —
-     * what `App.vue` calls on boot to confirm a locally-cached session (see
-     * `stores/auth.ts`) is still valid server-side, and to slide its
-     * inactivity window forward just by the app having been opened.
-     */
-    private function actionSession(): array
-    {
-        $userId = $this->requireUserId();
-        $user = $this->users->findById($userId);
-        if (!$user) {
-            throw new AuthenticationException('Your session has expired. Please log in again.');
-        }
-
-        return [
-            'id' => $userId,
-            'email' => $user['email'],
-            'name' => $user['name'],
-            'role' => $this->users->getRoleName($userId),
-            'sessionHash' => (string) ($this->readInput()['sessionHash'] ?? ''),
-        ];
-    }
-
-    private function respond(array $payload, int $status = 200): void
-    {
-        http_response_code($status);
-        echo json_encode($payload);
-        exit;
-    }
-}
+        return $this->userId;
+    }}

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import RangePicker from './RangePicker.vue'
+import { t } from '@/i18n'
 import { useCategoriesStore } from '@/stores/categories'
 import { useFiltersStore } from '@/stores/filters'
 import { formatRange, rangeFormatFor } from '@/utils/formatRange'
@@ -74,11 +75,11 @@ function clearAll() {
   <form class="filter-panel" @submit.prevent="emit('apply')">
     <!-- The one dropdown: gender is a fact about a person, not a tag list. -->
     <label :class="{ tiny: compact }">
-      Gender
+      {{ t('common.filter_panel.gender') }}
       <select :value="filters.gender ?? ''" @change="onGenderChange">
-        <option value="">No preference</option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
+        <option value="">{{ t('common.filter_panel.no_preference') }}</option>
+        <option value="male">{{ t('common.gender.male') }}</option>
+        <option value="female">{{ t('common.gender.female') }}</option>
       </select>
     </label>
 
@@ -91,7 +92,7 @@ function clearAll() {
           :aria-expanded="openKey === category.key"
           @click="openCategory(category.key)"
         >
-          {{ openKey === category.key ? 'Done' : 'Edit' }}
+          {{ openKey === category.key ? t('common.filter_panel.done') : t('common.filter_panel.edit') }}
         </button>
       </div>
 
@@ -103,7 +104,7 @@ function clearAll() {
             <button
               type="button"
               class="tag-remove"
-              :aria-label="`Remove ${formatRange(range, rangeFormatFor(category.key))}`"
+              :aria-label="t('common.filter_panel.remove', { value: formatRange(range, rangeFormatFor(category.key)) })"
               @click="filtersStore.removeRange(category.key, index)"
             >
               ×
@@ -136,7 +137,7 @@ function clearAll() {
               {{ option.label }}
             </button>
           </li>
-          <li v-if="!category.options.length" class="tiny muted">Nobody has added an option here yet.</li>
+          <li v-if="!category.options.length" class="tiny muted">{{ t('common.filter_panel.no_options') }}</li>
         </template>
 
         <template v-else>
@@ -145,7 +146,7 @@ function clearAll() {
             <button
               type="button"
               class="tag-remove"
-              :aria-label="`Remove ${categoriesStore.optionLabelFor(category.key, value)}`"
+              :aria-label="t('common.filter_panel.remove', { value: categoriesStore.optionLabelFor(category.key, value) })"
               @click="filtersStore.toggleValue(category.key, value)"
             >
               ×
@@ -156,7 +157,7 @@ function clearAll() {
     </div>
 
     <div v-if="addableCategories.length" class="add-row">
-      <span class="tiny muted">Add a filter</span>
+      <span class="tiny muted">{{ t('common.filter_panel.add_filter') }}</span>
       <ul class="tags">
         <li v-for="category in addableCategories" :key="category.key">
           <button type="button" class="tag tag--add" @click="openCategory(category.key)">
@@ -166,11 +167,11 @@ function clearAll() {
       </ul>
     </div>
 
-    <p v-if="categoriesStore.loading && !categoriesStore.loaded" class="tiny muted">Loading filters…</p>
+    <p v-if="categoriesStore.loading && !categoriesStore.loaded" class="tiny muted">{{ t('common.filter_panel.loading') }}</p>
 
-    <button type="submit" class="full">Show matches</button>
+    <button type="submit" class="full">{{ t('common.filter_panel.show_matches') }}</button>
     <button v-if="!isPristine" type="button" class="soft-btn full" @click="clearAll">
-      Clear filters
+      {{ t('common.filter_panel.clear') }}
     </button>
   </form>
 </template>

@@ -7,7 +7,7 @@
  * match.
  *
  * A guest's capacity to say 'interested' is gated by `Payments` (paid packs
- * of `Payments::PACK_SIZE`, mirroring the client's `useShortlistStore`).
+ * of `Payments::PACK_SIZE`, mirroring the client's `useMatchesStore`).
  * Guides aren't gated — matching today's app, where only visitors pay.
  *
  * Contact details are gated separately, by `Bookings`: a match alone no
@@ -100,43 +100,6 @@ class Selections
         );
 
         return $this->syncActive($guestId, $guideId);
-    }
-
-    /**
-     * Active (mutual) matches for a user, with the other side's basic info.
-     * `email` is `null` until the pair has a confirmed booking — same rule
-     * as `getOverview()`.
-     */
-    public function getActiveMatches(int $userId): array
-    {
-        $counterpartColumn = null;
-        if ($this->users->getRoleName($userId) === 'guest') {
-            $ownColumn = 'guest_id';
-            $counterpartColumn = 'guide_id';
-        } elseif ($this->users->getRoleName($userId) === 'guide') {
-            $ownColumn = 'guide_id';
-            $counterpartColumn = 'guest_id';
-        } else {
-            return [];
-        }
-
-        $this->bookings->ensureFreeBookingsFor($userId);
-
-        $rows = $this->db->db_GetArray(
-            'SELECT s.`id`, s.`' . $counterpartColumn . '` AS `counterpart_id`, u.`name`,
-                    IF(' . self::CONTACT_UNLOCKED . ', u.`email`, NULL) AS `email`
-             FROM `selections` s
-             JOIN `users` u ON u.`id` = s.`' . $counterpartColumn . '`
-             WHERE s.`' . $ownColumn . '` = ' . (int) $userId . ' AND s.`active` = 1'
-        );
-
-        foreach ($rows as &$row) {
-            $row['id'] = (int) $row['id'];
-            $row['counterpart_id'] = (int) $row['counterpart_id'];
-        }
-        unset($row);
-
-        return $rows;
     }
 
     /**
@@ -235,7 +198,7 @@ class Selections
 
     /**
      * A guest's own decisions as counterpart ids, split by which way they
-     * went. `stores/shortlist.ts` is in-memory, so this is what the client
+     * went. `stores/matches.ts` is in-memory, so this is what the client
      * seeds it from after a reload — without it a refresh reports "0 picked"
      * for someone who has spent half their pack.
      *
@@ -286,11 +249,16 @@ class Selections
             $decisionField => $decision,
         ], [$decisionField]);
 
-        return $this->syncActive($guestId, $guideId);
+        return $this->syncActive($guestId, $guideId, $decisionField === 'guest_decision');
     }
 
-    /** Recomputes and persists `active` for a pair from its current decisions; returns the row. */
-    private function syncActive(int $guestId, int $guideId): array
+    /**
+     * Recomputes and persists `active` for a pair from its current decisions;
+     * returns the row. `$guestActed` says whose decision this was, so a new
+     * match is announced to the other side (`Bookings::onMatched()`); null
+     * when nobody's decision could have completed one (a revoke).
+     */
+    private function syncActive(int $guestId, int $guideId, ?bool $guestActed = null): array
     {
         $row = $this->findPair($guestId, $guideId);
         if (!$row) {
@@ -306,9 +274,9 @@ class Selections
                 . ' WHERE `id` = ' . (int) $row['id']
             );
         }
-        if ($justMatched) {
+        if ($justMatched && $guestActed !== null) {
             // A free guide's booking opens right here; a paid one waits for the guest to pay.
-            $this->bookings->onMatched($row);
+            $this->bookings->onMatched($row, $guestActed);
         }
 
         // mysqli hands back every column as a string; cast the ints so the

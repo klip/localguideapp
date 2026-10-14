@@ -7,6 +7,7 @@ import PillBadge from '@/components/PillBadge.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
+import { t } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCategoriesStore } from '@/stores/categories'
@@ -87,7 +88,7 @@ async function decide(visitorId: string, decision: 'interested' | 'pass') {
   try {
     return await api.decide({ targetId: Number(visitorId), decision })
   } catch (err) {
-    reportApiError(err, 'Could not record your decision.')
+    reportApiError(err, t('guide_discover.toast.decision_failed'))
     return null
   }
 }
@@ -99,7 +100,9 @@ async function accept(id: string) {
   const row = await decide(id, 'interested')
   if (row?.active === 1) {
     messages.success(
-      `You matched with ${visitor?.name ?? 'this visitor'}! Once they've paid your fee and you've confirmed the date (straight away, if you don't charge one), the trip and their contact details are on your My trips page.`,
+      t('guide_discover.toast.matched', {
+        name: visitor?.name ?? t('guide_discover.toast.matched_fallback_name'),
+      }),
     )
   }
 }
@@ -113,16 +116,16 @@ function reject(id: string) {
 <template>
   <section class="section shell">
     <SectionTitle
-      eyebrow="Screen 04"
-      heading="Guide-side matching"
-      lead="The same interaction model as visitor discovery, but the card emphasises party needs, schedule and requested experience — and there's no selection pack to spend."
+      :eyebrow="t('guide_discover.header.eyebrow')"
+      :heading="t('guide_discover.header.heading')"
+      :lead="t('guide_discover.header.lead')"
     />
 
     <div class="discovery-layout">
       <aside class="rail">
         <details class="filters-disclosure" :open="filtersOpen" @toggle="onFiltersToggle">
-          <summary><strong>Availability &amp; fit</strong></summary>
-          <p class="tiny muted">Match visitors against how you actually work.</p>
+          <summary><strong>{{ t('guide_discover.filters.title') }}</strong></summary>
+          <p class="tiny muted">{{ t('guide_discover.filters.hint') }}</p>
           <FilterPanel compact />
         </details>
       </aside>
@@ -131,10 +134,10 @@ function reject(id: string) {
         <template #header>
           <div class="row-between">
             <div>
-              <strong>Visitors</strong>
-              <div class="tiny muted">Matching your availability</div>
+              <strong>{{ t('guide_discover.deck.title') }}</strong>
+              <div class="tiny muted">{{ t('guide_discover.deck.subtitle') }}</div>
             </div>
-            <PillBadge>{{ interested.length }} interested</PillBadge>
+            <PillBadge>{{ t('guide_discover.deck.interested', { count: interested.length }) }}</PillBadge>
           </div>
         </template>
 
@@ -153,7 +156,7 @@ function reject(id: string) {
         />
 
         <div v-else-if="visitorsLoading && !initialLoadDone" class="empty">
-          <h3>Loading visitors…</h3>
+          <h3>{{ t('guide_discover.empty.loading') }}</h3>
         </div>
 
         <!-- See the matching comment in DiscoverPage.vue: decided visitors are
@@ -163,39 +166,43 @@ function reject(id: string) {
           v-else-if="initialLoadDone && visitors.length === 0 && filtersStore.isPristine && auth.isAuthenticated"
           class="empty"
         >
-          <h3>Nobody new right now</h3>
+          <h3>{{ t('guide_discover.empty.nobody_new_title') }}</h3>
           <p class="muted">
-            You’ve answered every visitor available at the moment. The ones you kept live under
-            Matches.
+            {{ t('guide_discover.empty.nobody_new_body') }}
           </p>
-          <RouterLink to="/matches" role="button">View matches</RouterLink>
+          <RouterLink to="/matches" role="button">{{ t('guide_discover.empty.view_matches') }}</RouterLink>
         </div>
 
         <div v-else-if="initialLoadDone && visitors.length === 0 && filtersStore.isPristine" class="empty">
-          <h3>No visitors registered yet</h3>
-          <p class="muted">Check back soon — visitors are still signing up.</p>
+          <h3>{{ t('guide_discover.empty.no_visitors_title') }}</h3>
+          <p class="muted">{{ t('guide_discover.empty.no_visitors_body') }}</p>
         </div>
 
         <div v-else class="empty">
-          <h3>No visitors left in this view</h3>
+          <h3>{{ t('guide_discover.empty.none_left_title') }}</h3>
           <p class="muted">
-            Widen your availability or clear the filters to see more arriving parties.
+            {{ t('guide_discover.empty.none_left_body') }}
           </p>
           <button type="button" class="soft-btn" @click="filtersStore.reset()">
-            Clear filters
+            {{ t('guide_discover.empty.clear_filters') }}
           </button>
         </div>
       </PanelCard>
 
       <aside class="rail">
-        <PanelCard title="Interested in" subtitle="Mutual interest reveals contact details.">
+        <PanelCard
+          :title="t('guide_discover.rail.title')"
+          :subtitle="t('guide_discover.rail.subtitle')"
+        >
           <ul v-if="interestedVisitors.length" class="picked">
             <li v-for="visitor in interestedVisitors" :key="visitor.id">
               {{ visitor.name }}
-              <span class="tiny muted">· {{ visitor.durationHours }}h</span>
+              <span class="tiny muted">{{
+                t('guide_discover.rail.duration', { hours: visitor.durationHours })
+              }}</span>
             </li>
           </ul>
-          <p v-else class="tiny muted">No visitors saved yet.</p>
+          <p v-else class="tiny muted">{{ t('guide_discover.rail.empty') }}</p>
         </PanelCard>
       </aside>
     </div>

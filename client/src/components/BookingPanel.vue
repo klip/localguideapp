@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import PillBadge from '@/components/PillBadge.vue'
+import { t } from '@/i18n'
 import { useApi, type BookingOp, type BookingView } from '@/plugins/api'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { formatHours, formatMoney, formatWhen, tripEnd, utcDate } from '@/utils/bookingTime'
@@ -135,14 +136,14 @@ function op(name: BookingOp, success: string, withReason = false) {
         ...(withReason && text ? { reason: text } : {}),
       }),
     success,
-    'Could not update this booking.',
+    t('common.booking_panel.update_failed'),
   )
 }
 
 function pay() {
   const when = new Date(meetingAt.value)
   if (!meetingAt.value || Number.isNaN(when.getTime())) {
-    messages.error('Choose when you’d like to meet.', anchorTo('element', root.value))
+    messages.error(t('common.booking_panel.meeting_required'), anchorTo('element', root.value))
     return
   }
   const hours = durationHours.value === '' ? undefined : Number(durationHours.value)
@@ -155,8 +156,11 @@ function pay() {
         ...(hours !== undefined ? { durationHours: hours } : {}),
         ...(place ? { location: place } : {}),
       }),
-    `Payment of ${money(props.row.fee_amount)} received — ${props.name} will now confirm the date. Contact details unlock once they do.`,
-    'The payment didn’t go through.',
+    t('common.booking_panel.paid', {
+      amount: money(props.row.fee_amount),
+      name: props.name,
+    }),
+    t('common.booking_panel.pay_failed'),
   )
 }
 
@@ -165,8 +169,10 @@ function saveLocation() {
   return run(
     () =>
       api.bookingAction({ targetId: props.row.counterpart_id, op: 'setLocation', location: place }),
-    place ? `Meeting place saved — ${props.name} has been told.` : 'Meeting place removed.',
-    'Could not save the meeting place.',
+    place
+      ? t('common.booking_panel.location_saved', { name: props.name })
+      : t('common.booking_panel.location_removed'),
+    t('common.booking_panel.location_failed'),
   )
 }
 
@@ -174,20 +180,24 @@ function saveLocation() {
 function freeCancel() {
   return run(
     () => api.revokeSelection({ targetId: props.row.counterpart_id }),
-    `Trip cancelled — ${props.name} has been told.`,
-    'Could not cancel this trip.',
+    t('common.booking_panel.trip_cancelled', { name: props.name }),
+    t('common.booking_panel.trip_cancel_failed'),
   )
 }
 
 function requestCancellation() {
   if (!reason.value.trim()) {
     messages.error(
-      `Tell ${props.name} why you need to cancel.`,
+      t('common.booking_panel.reason_required', { name: props.name }),
       anchorTo('input', root.value?.querySelector('textarea')),
     )
     return
   }
-  return op('requestCancellation', `Cancellation requested — ${props.name} will decide.`, true)
+  return op(
+    'requestCancellation',
+    t('common.booking_panel.cancel_requested', { name: props.name }),
+    true,
+  )
 }
 
 function guideCancel() {
@@ -196,9 +206,12 @@ function guideCancel() {
     () =>
       api.cancelBooking({ targetId: props.row.counterpart_id, ...(text ? { reason: text } : {}) }),
     paid.value
-      ? `Booking cancelled — ${props.name} has been refunded ${money(props.row.refund_if_cancelled ?? props.row.booking_amount)}.`
-      : `Booking cancelled — ${props.name} has been told.`,
-    'Could not cancel this booking.',
+      ? t('common.booking_panel.booking_cancelled_refunded', {
+          name: props.name,
+          amount: money(props.row.refund_if_cancelled ?? props.row.booking_amount),
+        })
+      : t('common.booking_panel.booking_cancelled', { name: props.name }),
+    t('common.booking_panel.booking_cancel_failed'),
   )
 }
 </script>
@@ -209,73 +222,82 @@ function guideCancel() {
     <template v-if="summary">
       <p v-if="pending" class="booking-line">
         <PillBadge tone="neutral">{{
-          isGuest ? `Waiting for ${name} to confirm` : 'Booking request'
+          isGuest
+            ? t('common.booking_panel.waiting_confirm', { name })
+            : t('common.booking_panel.booking_request')
         }}</PillBadge>
         <span class="tiny muted">
-          {{ money(row.booking_amount) }} paid · {{ meetingLabel
-          }}<template v-if="durationLabel"> · {{ durationLabel }}</template
+          {{ t('common.booking_panel.paid_on', { amount: money(row.booking_amount), when: meetingLabel }) }}<template v-if="durationLabel"> · {{ durationLabel }}</template
           ><template v-if="row.location"> · {{ row.location }}</template>
         </span>
       </p>
       <p v-else-if="paid" class="booking-line">
-        <PillBadge>Paid {{ money(row.booking_amount) }}</PillBadge>
-        <PillBadge v-if="started" tone="neutral">Trip in progress</PillBadge>
+        <PillBadge>{{ t('common.booking_panel.paid_badge', { amount: money(row.booking_amount) }) }}</PillBadge>
+        <PillBadge v-if="started" tone="neutral">{{ t('common.booking_panel.in_progress') }}</PillBadge>
         <span v-if="meetingLabel" class="tiny muted">
           {{ meetingLabel }}<template v-if="durationLabel"> · {{ durationLabel }}</template>
         </span>
       </p>
       <p v-else-if="confirmed" class="booking-line">
-        <PillBadge tone="neutral">Free guide</PillBadge>
+        <PillBadge tone="neutral">{{ t('common.booking_panel.free_guide') }}</PillBadge>
       </p>
       <p v-else-if="finished" class="booking-line">
-        <PillBadge tone="neutral">Trip finished</PillBadge>
-        <RouterLink :to="reviewLink" class="tiny">Leave {{ name }} a review →</RouterLink>
+        <PillBadge tone="neutral">{{ t('common.booking_panel.trip_finished') }}</PillBadge>
+        <RouterLink :to="reviewLink" class="tiny">{{
+          t('common.booking_panel.leave_review', { name })
+        }}</RouterLink>
       </p>
     </template>
 
     <!-- What happens next -->
     <p v-if="needsBooking && isGuest" class="tiny muted note">
       <template v-if="lastDeclined"
-        >{{ name }} couldn’t make the last time you asked for — you were refunded.
+        >{{ t('common.booking_panel.declined_before', { name }) }}
       </template>
-      Pay {{ name }}’s {{ money(row.fee_amount) }} fee to
-      {{ finished ? 'book another trip' : 'request a date' }}. Contact details unlock for both of
-      you once {{ name }} confirms it.
+      {{
+        finished
+          ? t('common.booking_panel.pay_to_book_again', { name, amount: money(row.fee_amount) })
+          : t('common.booking_panel.pay_to_request_date', { name, amount: money(row.fee_amount) })
+      }}
     </p>
     <p v-else-if="needsBooking" class="tiny muted note">
-      Contact details unlock once the visitor pays your {{ money(row.fee_amount) }} fee and you
-      confirm the date.
+      {{ t('common.booking_panel.guide_awaiting_payment', { amount: money(row.fee_amount) }) }}
     </p>
     <p v-else-if="pending && isGuest" class="tiny muted note">
-      You can withdraw until {{ name }} confirms — you’d be refunded in full. If they don’t answer
-      before the meeting time, it’s called off and refunded automatically.
+      {{ t('common.booking_panel.guest_pending_note', { name }) }}
     </p>
     <p v-else-if="pending" class="tiny muted note">
-      Accepting commits you to this date — contact details are shared then. Declining refunds the
-      visitor in full.
+      {{ t('common.booking_panel.guide_pending_note') }}
     </p>
     <div v-else-if="cancelRequested" class="request">
       <p v-if="isGuest" class="tiny muted">
-        You asked to cancel. If {{ name }} agrees, you’re refunded
-        {{ money(row.refund_if_guest_cancels) }}.
+        {{
+          t('common.booking_panel.guest_cancel_requested', {
+            name,
+            amount: money(row.refund_if_guest_cancels),
+          })
+        }}
       </p>
       <p v-else>
-        <strong>{{ name }} asked to cancel:</strong> “{{ row.cancel_request_reason }}”<br />
-        <span class="tiny muted"
-          >Approving refunds them {{ money(row.refund_if_guest_cancels) }} (the fee minus 5%).</span
-        >
+        <strong>{{
+          t('common.booking_panel.cancel_requested_by', { name, reason: row.cancel_request_reason })
+        }}</strong
+        ><br />
+        <span class="tiny muted">{{
+          t('common.booking_panel.approve_refund_note', { amount: money(row.refund_if_guest_cancels) })
+        }}</span>
       </p>
     </div>
 
     <template v-if="confirmed">
       <p v-if="row.auto_finish && endLabel" class="tiny muted note">
-        The trip finishes by itself at {{ endLabel }}.
+        {{ t('common.booking_panel.auto_finish_note', { when: endLabel }) }}
       </p>
       <p v-else-if="row.finish_requested_by === 'me'" class="tiny muted note">
-        Waiting for {{ name }} to confirm the trip is finished.
+        {{ t('common.booking_panel.waiting_finish', { name }) }}
       </p>
       <p v-else-if="row.finish_requested_by === 'them'" class="note">
-        {{ name }} says the trip is finished.
+        {{ t('common.booking_panel.they_say_finished', { name }) }}
       </p>
     </template>
 
@@ -288,7 +310,11 @@ function guideCancel() {
         :disabled="busy"
         @click="show('pay')"
       >
-        {{ finished ? 'Book again' : 'Pay' }} {{ money(row.fee_amount) }}
+        {{
+          finished
+            ? t('common.booking_panel.book_again', { amount: money(row.fee_amount) })
+            : t('common.booking_panel.pay', { amount: money(row.fee_amount) })
+        }}
       </button>
 
       <template v-if="pending && isGuest">
@@ -298,10 +324,10 @@ function guideCancel() {
           :aria-busy="busy"
           :disabled="busy"
           @click="
-            op('withdraw', `Payment withdrawn — you’ve been refunded ${money(row.booking_amount)}.`)
+            op('withdraw', t('common.booking_panel.withdrawn', { amount: money(row.booking_amount) }))
           "
         >
-          Withdraw payment
+          {{ t('common.booking_panel.withdraw_payment') }}
         </button>
       </template>
       <template v-if="pending && !isGuest && openForm !== 'decline'">
@@ -311,13 +337,13 @@ function guideCancel() {
           :aria-busy="busy"
           :disabled="busy"
           @click="
-            op('accept', `Booking confirmed — it’s in My trips, with ${name}’s contact details.`)
+            op('accept', t('common.booking_panel.accepted', { name }))
           "
         >
-          ✓ Accept
+          {{ t('common.booking_panel.accept') }}
         </button>
         <button type="button" class="reject" :disabled="busy" @click="show('decline')">
-          Decline
+          {{ t('common.booking_panel.decline') }}
         </button>
       </template>
 
@@ -329,10 +355,10 @@ function guideCancel() {
           :aria-busy="busy"
           :disabled="busy"
           @click="
-            op('withdrawCancellation', 'Cancellation request withdrawn — your booking stands.')
+            op('withdrawCancellation', t('common.booking_panel.cancel_request_withdrawn'))
           "
         >
-          Keep my booking
+          {{ t('common.booking_panel.keep_my_booking') }}
         </button>
         <button
           v-else-if="!started && openForm !== 'requestCancel'"
@@ -341,7 +367,7 @@ function guideCancel() {
           :disabled="busy"
           @click="show('requestCancel')"
         >
-          Request cancellation
+          {{ t('common.booking_panel.request_cancellation') }}
         </button>
       </template>
       <button
@@ -351,7 +377,7 @@ function guideCancel() {
         :disabled="busy"
         @click="show('freeCancel')"
       >
-        Cancel trip
+        {{ t('common.booking_panel.cancel_trip') }}
       </button>
       <template v-if="confirmed && !isGuest">
         <template v-if="cancelRequested">
@@ -363,19 +389,22 @@ function guideCancel() {
             @click="
               op(
                 'approveCancellation',
-                `Cancellation approved — ${name} has been refunded ${money(row.refund_if_guest_cancels)}.`,
+                t('common.booking_panel.cancel_approved', {
+                  name,
+                  amount: money(row.refund_if_guest_cancels),
+                }),
               )
             "
           >
-            Approve cancellation
+            {{ t('common.booking_panel.approve_cancellation') }}
           </button>
           <button
             type="button"
             class="soft-btn"
             :disabled="busy"
-            @click="op('refuseCancellation', `You kept the booking — ${name} has been told.`)"
+            @click="op('refuseCancellation', t('common.booking_panel.cancel_refused', { name }))"
           >
-            Refuse
+            {{ t('common.booking_panel.refuse') }}
           </button>
         </template>
         <button
@@ -385,7 +414,7 @@ function guideCancel() {
           :disabled="busy"
           @click="show('guideCancel')"
         >
-          Cancel booking
+          {{ t('common.booking_panel.cancel_booking') }}
         </button>
       </template>
 
@@ -395,18 +424,18 @@ function guideCancel() {
           type="button"
           class="soft-btn"
           :disabled="busy"
-          @click="op('requestFinish', `Marked as finished — ${name} will be asked to confirm.`)"
+          @click="op('requestFinish', t('common.booking_panel.finish_requested', { name }))"
         >
-          Mark trip finished
+          {{ t('common.booking_panel.mark_finished') }}
         </button>
         <button
           v-else-if="row.finish_requested_by === 'me'"
           type="button"
           class="soft-btn"
           :disabled="busy"
-          @click="op('dismissFinish', 'Finish request withdrawn.')"
+          @click="op('dismissFinish', t('common.booking_panel.finish_withdrawn'))"
         >
-          Undo
+          {{ t('common.booking_panel.undo') }}
         </button>
         <template v-else>
           <button
@@ -414,17 +443,17 @@ function guideCancel() {
             class="accept"
             :aria-busy="busy"
             :disabled="busy"
-            @click="op('confirmFinish', `Trip finished — you can leave ${name} a review now.`)"
+            @click="op('confirmFinish', t('common.booking_panel.finish_confirmed', { name }))"
           >
-            Confirm finished
+            {{ t('common.booking_panel.confirm_finished') }}
           </button>
           <button
             type="button"
             class="soft-btn"
             :disabled="busy"
-            @click="op('dismissFinish', `Told ${name} the trip isn’t over yet.`)"
+            @click="op('dismissFinish', t('common.booking_panel.finish_refused', { name }))"
           >
-            Not yet
+            {{ t('common.booking_panel.not_yet') }}
           </button>
         </template>
       </template>
@@ -436,7 +465,7 @@ function guideCancel() {
         :disabled="busy"
         @click="show('location')"
       >
-        {{ row.location ? 'Change meeting place' : 'Set meeting place' }}
+        {{ row.location ? t('common.booking_panel.change_location') : t('common.booking_panel.set_location') }}
       </button>
     </div>
 
@@ -444,16 +473,17 @@ function guideCancel() {
     <form
       v-if="openForm === 'pay'"
       class="inline-form"
-      :aria-label="`Pay ${name}’s fee`"
+      :aria-label="t('common.booking_panel.pay_form_label', { name })"
       @submit.prevent="pay"
     >
       <div class="fields">
         <label>
-          When would you like to meet?
+          {{ t('common.booking_panel.meeting_question') }}
           <input v-model="meetingAt" type="datetime-local" :min="minMeeting" required />
         </label>
         <label>
-          Trip length (hours) <span class="muted">optional</span>
+          {{ t('common.booking_panel.trip_length') }}
+          <span class="muted">{{ t('common.booking_panel.optional') }}</span>
           <input
             v-model.number="durationHours"
             type="number"
@@ -465,25 +495,29 @@ function guideCancel() {
         </label>
       </div>
       <label>
-        Where to meet <span class="muted">optional</span>
+        {{ t('common.booking_panel.where_to_meet') }}
+        <span class="muted">{{ t('common.booking_panel.optional') }}</span>
         <input
           v-model="location"
           type="text"
           :maxlength="MAX_LOCATION"
-          placeholder="e.g. Casemates Square, by the fountain"
+          :placeholder="t('common.booking_panel.location_placeholder')"
         />
       </label>
       <p class="tiny muted">
-        You’ll pay {{ money(row.fee_amount) }} now; {{ name }} then confirms the date. With a trip
-        length the trip finishes by itself — otherwise you both mark it finished. If
-        {{ name }} declines or later cancels, you’re refunded in full.
+        {{
+          t('common.booking_panel.pay_note', {
+            amount: money(row.fee_amount),
+            name,
+          })
+        }}
       </p>
       <div class="form-actions">
         <button type="submit" class="accept" :aria-busy="busy" :disabled="busy">
-          Confirm payment
+          {{ t('common.booking_panel.confirm_payment') }}
         </button>
         <button type="button" class="soft-btn" :disabled="busy" @click="openForm = null">
-          Not now
+          {{ t('common.booking_panel.not_now') }}
         </button>
       </div>
     </form>
@@ -491,25 +525,29 @@ function guideCancel() {
     <form
       v-if="openForm === 'decline'"
       class="inline-form"
-      :aria-label="`Decline ${name}’s booking`"
+      :aria-label="t('common.booking_panel.decline_form_label', { name })"
       @submit.prevent="
-        op('decline', `Declined — ${name} has been refunded ${money(row.booking_amount)}.`, true)
+        op(
+          'decline',
+          t('common.booking_panel.declined', { name, amount: money(row.booking_amount) }),
+          true,
+        )
       "
     >
       <p>
-        {{ name }} will be refunded {{ money(row.booking_amount) }} in full and can suggest another
-        time.
+        {{ t('common.booking_panel.decline_note', { name, amount: money(row.booking_amount) }) }}
       </p>
       <label>
-        Reason <span class="muted">(optional, shared with them)</span>
+        {{ t('common.booking_panel.reason') }}
+        <span class="muted">{{ t('common.booking_panel.reason_hint') }}</span>
         <textarea v-model="reason" rows="2" maxlength="256" />
       </label>
       <div class="form-actions">
         <button type="submit" class="reject" :aria-busy="busy" :disabled="busy">
-          Decline booking
+          {{ t('common.booking_panel.decline_booking') }}
         </button>
         <button type="button" class="soft-btn" :disabled="busy" @click="openForm = null">
-          Back
+          {{ t('common.booking_panel.back') }}
         </button>
       </div>
     </form>
@@ -517,24 +555,27 @@ function guideCancel() {
     <form
       v-if="openForm === 'requestCancel'"
       class="inline-form"
-      :aria-label="`Ask ${name} to cancel`"
+      :aria-label="t('common.booking_panel.request_cancel_form_label', { name })"
       @submit.prevent="requestCancellation"
     >
       <p>
-        If {{ name }} agrees, you’re refunded
-        <strong>{{ money(row.refund_if_guest_cancels) }}</strong> — the fee minus 5% — and get your
-        pick back.
+        {{
+          t('common.booking_panel.request_cancel_note', {
+            name,
+            amount: money(row.refund_if_guest_cancels),
+          })
+        }}
       </p>
       <label>
-        Why do you need to cancel?
+        {{ t('common.booking_panel.cancel_reason_question') }}
         <textarea v-model="reason" rows="2" maxlength="256" required />
       </label>
       <div class="form-actions">
         <button type="submit" class="reject" :aria-busy="busy" :disabled="busy">
-          Send request
+          {{ t('common.booking_panel.send_request') }}
         </button>
         <button type="button" class="soft-btn" :disabled="busy" @click="openForm = null">
-          Back
+          {{ t('common.booking_panel.back') }}
         </button>
       </div>
     </form>
@@ -542,23 +583,27 @@ function guideCancel() {
     <form
       v-if="openForm === 'location'"
       class="inline-form"
-      :aria-label="`Meeting place for your trip with ${name}`"
+      :aria-label="t('common.booking_panel.location_form_label', { name })"
       @submit.prevent="saveLocation"
     >
       <label>
-        Where to meet
+        {{ t('common.booking_panel.where_to_meet') }}
         <input
           v-model="location"
           type="text"
           :maxlength="MAX_LOCATION"
-          placeholder="e.g. Casemates Square, by the fountain"
+          :placeholder="t('common.booking_panel.location_placeholder')"
         />
       </label>
-      <p class="tiny muted">{{ name }} is told when you change it. Leave it empty to remove it.</p>
+      <p class="tiny muted">
+        {{ t('common.booking_panel.location_note', { name }) }}
+      </p>
       <div class="form-actions">
-        <button type="submit" class="accept" :aria-busy="busy" :disabled="busy">Save</button>
+        <button type="submit" class="accept" :aria-busy="busy" :disabled="busy">
+          {{ t('common.booking_panel.save') }}
+        </button>
         <button type="button" class="soft-btn" :disabled="busy" @click="openForm = null">
-          Back
+          {{ t('common.booking_panel.back') }}
         </button>
       </div>
     </form>
@@ -566,17 +611,18 @@ function guideCancel() {
     <form
       v-if="openForm === 'freeCancel'"
       class="inline-form"
-      :aria-label="`Cancel your trip with ${name}`"
+      :aria-label="t('common.booking_panel.free_cancel_form_label', { name })"
       @submit.prevent="freeCancel"
     >
       <p class="cancel-summary">
-        {{ name }} will be told the trip is off, and you’ll no longer be matched. You get your pick
-        back.
+        {{ t('common.booking_panel.free_cancel_note', { name }) }}
       </p>
       <div class="form-actions">
-        <button type="submit" class="reject" :aria-busy="busy" :disabled="busy">Cancel trip</button>
+        <button type="submit" class="reject" :aria-busy="busy" :disabled="busy">
+          {{ t('common.booking_panel.cancel_trip') }}
+        </button>
         <button type="button" class="soft-btn" :disabled="busy" @click="openForm = null">
-          Keep trip
+          {{ t('common.booking_panel.keep_trip') }}
         </button>
       </div>
     </form>
@@ -584,29 +630,35 @@ function guideCancel() {
     <form
       v-if="openForm === 'guideCancel'"
       class="inline-form"
-      :aria-label="`Cancel the booking with ${name}`"
+      :aria-label="t('common.booking_panel.guide_cancel_form_label', { name })"
       @submit.prevent="guideCancel"
     >
       <p class="cancel-summary">
-        <template v-if="paid">
-          {{ name }} will be refunded
-          <strong>{{ money(row.refund_if_cancelled ?? row.booking_amount) }}</strong
-          ><template v-if="lateCancel"> — that includes 5% for cancelling at short notice</template
-          >.
-        </template>
-        <template v-else>{{ name }} will be told the booking is off.</template>
-        They get their pick back and a message by email.
+        <template v-if="paid">{{
+          lateCancel
+            ? t('common.booking_panel.guide_cancel_refund_late', {
+                name,
+                amount: money(row.refund_if_cancelled ?? row.booking_amount),
+              })
+            : t('common.booking_panel.guide_cancel_refund', {
+                name,
+                amount: money(row.refund_if_cancelled ?? row.booking_amount),
+              })
+        }}</template>
+        <template v-else>{{ t('common.booking_panel.guide_cancel_free', { name }) }}</template>
+        {{ t('common.booking_panel.guide_cancel_note') }}
       </p>
       <label>
-        Reason <span class="muted">(optional, shared with them)</span>
+        {{ t('common.booking_panel.reason') }}
+        <span class="muted">{{ t('common.booking_panel.reason_hint') }}</span>
         <textarea v-model="reason" rows="2" maxlength="256" />
       </label>
       <div class="form-actions">
         <button type="submit" class="reject" :aria-busy="busy" :disabled="busy">
-          Cancel booking
+          {{ t('common.booking_panel.cancel_booking') }}
         </button>
         <button type="button" class="soft-btn" :disabled="busy" @click="openForm = null">
-          Keep booking
+          {{ t('common.booking_panel.keep_booking') }}
         </button>
       </div>
     </form>

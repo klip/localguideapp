@@ -1,18 +1,9 @@
 <?php
-require_once __DIR__.'/classes/db.php';
-require_once __DIR__.'/classes/AuthenticationException.php';
-require_once __DIR__.'/classes/Auth.php';
-require_once __DIR__.'/classes/Session.php';
-require_once __DIR__.'/classes/Users.php';
-require_once __DIR__.'/classes/Payments.php';
-require_once __DIR__.'/classes/Mailer.php';
-require_once __DIR__.'/classes/Notifications.php';
-require_once __DIR__.'/classes/AccountSecurity.php';
-require_once __DIR__.'/classes/Bookings.php';
-require_once __DIR__.'/classes/Selections.php';
-require_once __DIR__.'/classes/Profiles.php';
-require_once __DIR__.'/classes/Reviews.php';
-require_once __DIR__.'/classes/RequestProcessor.php';
+// The API service's HTTP entry point — internal only, called by the gateway
+// (see lib/ServiceHttp.php for the contract).
+require_once __DIR__.'/bootstrap.php';
+Log::install('api');
 
-$processor = new RequestProcessor(new db());
-$processor->handle();
+ServiceHttp::serve(static function (array $input, array $context): array {
+    return (new RequestProcessor(new db(), new RedisClient()))->process($input, $context);
+});

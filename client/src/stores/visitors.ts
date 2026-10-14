@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { t } from '@/i18n'
 import { useApi, type ProfileAccount } from '@/plugins/api'
 import type { DiscoveryFilters, Visitor } from '@/types'
 
@@ -7,10 +8,10 @@ import type { DiscoveryFilters, Visitor } from '@/types'
 function toVisitorCard(account: ProfileAccount): Visitor {
   return {
     id: String(account.id),
-    name: account.name || 'RockGuide visitor',
+    name: account.name || t('common.visitor_card.default_name'),
     age: account.age ?? 0,
-    party: account.party || 'New visitor',
-    bio: account.bio || 'No trip details yet.',
+    party: account.party || t('common.visitor_card.default_party'),
+    bio: account.bio || t('common.visitor_card.default_bio'),
     durationHours: account.duration_hours ?? 0,
     attributes: account.attributes ?? {},
     ranges: account.ranges ?? {},
