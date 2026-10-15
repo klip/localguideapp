@@ -5,7 +5,7 @@ import AppHeader from '@/components/AppHeader.vue'
 import CookieNotice from '@/components/CookieNotice.vue'
 import TermsDialog from '@/components/TermsDialog.vue'
 import MessageToaster from '@/components/MessageToaster.vue'
-import { useApi, type AppNotification } from '@/plugins/api'
+import { useApi, type AppNotification, type ChatMessage } from '@/plugins/api'
 import { socket } from '@/plugins/socket'
 import { useBadgesStore } from '@/stores/badges'
 import { useLegalStore } from '@/stores/legal'
@@ -13,6 +13,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
 import { useMatchesStore } from '@/stores/matches'
 import { syncPendingRejects } from '@/utils/pendingRejects'
+import { t } from '@/i18n'
+import { useRoute } from 'vue-router'
 
 /**
  * `stores/auth.ts` restores `user` from localStorage optimistically on
@@ -44,6 +46,7 @@ const legal = useLegalStore()
  */
 const NOTIFICATION_TOAST_MS = 10_000
 const badges = useBadgesStore()
+const currentRoute = useRoute()
 
 socket.on('notification', (message) => {
   const note = message.notification as AppNotification | undefined
@@ -52,6 +55,19 @@ socket.on('notification', (message) => {
   badges.bump()
 })
 socket.on('badges', (message) => badges.set(message))
+// A chat message for me: a toast, unless that conversation is already open
+// (MessagesPage shows it there). The counter itself comes as `badges`.
+socket.on('message', (payload) => {
+  const message = payload.message as (ChatMessage & { sender_name?: string | null }) | undefined
+  if (!message || message.mine) return
+  const route = currentRoute
+  if (route.name === 'messages' && Number(route.params.id) === message.sender_id) return
+  messages.info(
+    t('common.chat.new_message', { name: message.sender_name || t('common.chat.someone') }),
+    undefined,
+    NOTIFICATION_TOAST_MS,
+  )
+})
 
 watch(
   () => auth.sessionHash,

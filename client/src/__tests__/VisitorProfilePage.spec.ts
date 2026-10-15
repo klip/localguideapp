@@ -13,44 +13,15 @@ import {
   type ReviewsPage,
 } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
+import { fakeApi as baseFakeApi } from './fakeApi'
 
-/** A stub `Api` — every method is a no-op `vi.fn()` unless overridden. */
+/** The shared stub `Api` (see `fakeApi.ts`) with this spec's defaults. */
 function fakeApi(overrides: Partial<Api> = {}): Api {
-  return {
-    register: vi.fn<Api['register']>(),
-    login: vi.fn<Api['login']>(),
-    verifyTwoFactor: vi.fn<Api['verifyTwoFactor']>(),
-    resendTwoFactor: vi.fn<Api['resendTwoFactor']>(),
-    requestPasswordReset: vi.fn<Api['requestPasswordReset']>(),
-    resetPassword: vi.fn<Api['resetPassword']>(),
-    forgetTrustedDevices: vi.fn<Api['forgetTrustedDevices']>(),
-    guides: vi.fn<Api['guides']>(),
-    visitors: vi.fn<Api['visitors']>(),
-    updateProfile: vi.fn<Api['updateProfile']>(),
+  return baseFakeApi({
     attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: [] }),
-    myProfile: vi.fn<Api['myProfile']>(),
-    updateAccount: vi.fn<Api['updateAccount']>(),
-    changePassword: vi.fn<Api['changePassword']>(),
-    logout: vi.fn<Api['logout']>(),
-    session: vi.fn<Api['session']>(),
-    unlockPack: vi.fn<Api['unlockPack']>(),
-    paymentState: vi.fn<Api['paymentState']>(),
-    payGuideFee: vi.fn<Api['payGuideFee']>(),
-    bookingAction: vi.fn<Api['bookingAction']>(),
-    cancelBooking: vi.fn<Api['cancelBooking']>(),
-    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
-    decide: vi.fn<Api['decide']>(),
-    revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matchOverview: vi.fn<Api['matchOverview']>(),
-    trips: vi.fn<Api['trips']>(),
-    publicProfile: vi.fn<Api['publicProfile']>(),
     reviews: vi.fn<Api['reviews']>().mockResolvedValue(emptyReviews),
-    submitReview: vi.fn<Api['submitReview']>(),
-    deleteReview: vi.fn<Api['deleteReview']>(),
-    translations: vi.fn<Api['translations']>(),
-    legalDocument: vi.fn<Api['legalDocument']>(),
     ...overrides,
-  }
+  })
 }
 
 const emptyReviews: ReviewsPage = {

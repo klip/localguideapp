@@ -3,6 +3,7 @@
     "common.api",
     "common.app_footer",
     "common.app_header",
+    "common.chat",
     "common.cookie_notice",
     "common.language_switcher",
     "common.message_toaster",
@@ -147,6 +148,13 @@
       "trips.status",
       "trips.tabs",
       "trips.toast"
+    ],
+    "messages": [
+      "messages.header",
+      "messages.list",
+      "messages.signed_out",
+      "messages.thread",
+      "messages.toast"
     ],
     "profile": [
       "common.attribute_combobox",

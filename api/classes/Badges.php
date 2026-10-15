@@ -1,7 +1,7 @@
 <?php
 
 /**
- * The red counters on the Matches and My trips menu items: how many of a
+ * The red counters on the Matches, My trips and Messages menu items: how many of a
  * user's matches and trips they haven't looked at yet (020_seen_markers.sql).
  *
  * - A **match** counts while it's on /matches' Matched tab — active, and its
@@ -38,14 +38,14 @@ class Badges
      * connected user at once).
      *
      * @param int[] $userIds
-     * @return array<int, array{matches: int, trips: int}>
+     * @return array<int, array{matches: int, trips: int, messages: int}>
      */
     public function countsFor(array $userIds): array
     {
         $ids = array_values(array_unique(array_map('intval', $userIds)));
         $out = [];
         foreach ($ids as $id) {
-            $out[$id] = ['matches' => 0, 'trips' => 0];
+            $out[$id] = ['matches' => 0, 'trips' => 0, 'messages' => 0];
         }
         if (!$ids) {
             return $out;
@@ -82,6 +82,11 @@ class Badges
         );
         foreach ($tripRows ?: [] as $row) {
             $out[(int) $row['uid']]['trips'] = (int) $row['n'];
+        }
+
+        // Unread chat messages — cleared by opening the conversation, not by `markSeen`.
+        foreach (Messages::unreadCounts($this->db, $ids) as $id => $count) {
+            $out[$id]['messages'] = $count;
         }
 
         return $out;

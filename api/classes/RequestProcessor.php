@@ -38,6 +38,8 @@ class RequestProcessor
     private $translations;
     /** @var Badges */
     private $badges;
+    /** @var Messages */
+    private $messages;
     /** @var Push */
     private $push;
     /** @var array|null the request `process()` is handling */
@@ -58,6 +60,7 @@ class RequestProcessor
         $this->profiles = new Profiles($db);
         $this->reviews = new Reviews($db);
         $this->translations = new Translations($db);
+        $this->messages = new Messages($db, $this->push, $this->notifications);
     }
 
     /**
@@ -168,6 +171,27 @@ class RequestProcessor
 
             case 'deleteReview':
                 return [200, $this->actionDeleteReview()];
+
+            // Chat between matched people (see `Messages`, 030_messages.sql).
+            // `Messages` touches whoever's unread counter changed itself.
+            case 'conversations':
+                return [200, ['conversations' => $this->messages->conversationsFor($this->requireUserId())]];
+
+            case 'messages':
+                $input = $this->readInput();
+                $beforeId = (int) ($input['beforeId'] ?? 0);
+                return [200, $this->messages->threadWith($this->requireUserId(), $this->requireTargetId(), $beforeId > 0 ? $beforeId : null)];
+
+            case 'sendMessage':
+                $body = $this->readInput()['body'] ?? '';
+                if (!is_string($body)) {
+                    throw new RuntimeException('A message must be text.');
+                }
+                return [200, $this->messages->send($this->requireUserId(), $this->requireTargetId(), $body)];
+
+            case 'markMessagesRead':
+                $this->messages->markReadWith($this->requireUserId(), $this->requireTargetId(), (int) ($this->readInput()['upToId'] ?? 0));
+                return [200, ['ok' => true]];
 
             // UI text for one language (see `Translations`, 018_translations.sql).
             case 'translations':
@@ -729,6 +753,17 @@ class RequestProcessor
         }
 
         return $this->userId;
+    }
+
+    /** The request's `targetId` — the other person an action is about. */
+    private function requireTargetId(): int
+    {
+        $targetId = (int) ($this->readInput()['targetId'] ?? 0);
+        if ($targetId <= 0) {
+            throw new RuntimeException('targetId is required.');
+        }
+
+        return $targetId;
     }
 
     /**

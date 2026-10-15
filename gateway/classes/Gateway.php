@@ -18,8 +18,10 @@
  *   reach them; `""` signs it out. Answered by `{ type: "auth", userId }`.
  *
  * Gateway → client
- * - `{ type: "notification", notification }` and `{ type: "badges", matches,
- *   trips }`, which the services publish to Redis channel `user:<id>`
+ * - `{ type: "notification", notification }`, `{ type: "badges", matches,
+ *   trips, messages }`, `{ type: "message", message }` (a chat message,
+ *   live only) and `{ type: "messages_read", reader_id, up_to_id, read_at }`,
+ *   which the services publish to Redis channel `user:<id>`
  *   (`Push`). This gateway subscribes to that channel while it holds a
  *   connection for the user, and on sign-in fetches what was waiting
  *   (`pushState`).
@@ -317,6 +319,18 @@ class Gateway
                 $this->deliverNote($id, (array) ($message['notification'] ?? []));
             } elseif (($message['type'] ?? '') === 'badges') {
                 $this->deliverBadges($id, $message);
+            } elseif (($message['type'] ?? '') === 'message' && is_array($message['message'] ?? null)) {
+                // A chat message (`Messages`): live only — the conversation
+                // is fetched again whenever it's opened, so nothing to replay.
+                $this->send($id, ['type' => 'message', 'message' => $message['message']]);
+            } elseif (($message['type'] ?? '') === 'messages_read') {
+                // The other side read up to `up_to_id` — the sender's "Seen".
+                $this->send($id, [
+                    'type' => 'messages_read',
+                    'reader_id' => (int) ($message['reader_id'] ?? 0),
+                    'up_to_id' => (int) ($message['up_to_id'] ?? 0),
+                    'read_at' => (string) ($message['read_at'] ?? ''),
+                ]);
             }
         }
     }
@@ -337,7 +351,11 @@ class Gateway
 
     private function deliverBadges(int $id, array $counts): void
     {
-        $counts = ['matches' => (int) ($counts['matches'] ?? 0), 'trips' => (int) ($counts['trips'] ?? 0)];
+        $counts = [
+            'matches' => (int) ($counts['matches'] ?? 0),
+            'trips' => (int) ($counts['trips'] ?? 0),
+            'messages' => (int) ($counts['messages'] ?? 0),
+        ];
         $encoded = json_encode($counts);
         if (!isset($this->connections[$id]) || $this->connections[$id]['badges'] === $encoded) {
             return;

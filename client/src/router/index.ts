@@ -136,6 +136,14 @@ const router = createRouter({
       component: () => import('@/pages/TripsPage.vue'),
     },
     {
+      // Chat with the people you're matched with (see MessagesPage.vue);
+      // `:id` opens the conversation with that user.
+      path: '/messages/:id?',
+      name: 'messages',
+      component: () => import('@/pages/MessagesPage.vue'),
+      props: true,
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/pages/ProfilePage.vue'),

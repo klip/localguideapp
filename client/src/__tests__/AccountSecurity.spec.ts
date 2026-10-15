@@ -14,44 +14,16 @@ import {
 } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
+import { fakeApi as baseFakeApi } from './fakeApi'
 
-/** A stub `Api` — every method is a no-op `vi.fn()` unless overridden. */
+/** The shared stub `Api` (see `fakeApi.ts`) with this spec's defaults. */
 function fakeApi(overrides: Partial<Api> = {}): Api {
-  return {
-    register: vi.fn<Api['register']>(),
-    login: vi.fn<Api['login']>(),
-    verifyTwoFactor: vi.fn<Api['verifyTwoFactor']>(),
-    resendTwoFactor: vi.fn<Api['resendTwoFactor']>(),
+  return baseFakeApi({
     requestPasswordReset: vi.fn<Api['requestPasswordReset']>().mockResolvedValue({ ok: true }),
     resetPassword: vi.fn<Api['resetPassword']>().mockResolvedValue({ ok: true }),
-    forgetTrustedDevices: vi.fn<Api['forgetTrustedDevices']>(),
-    guides: vi.fn<Api['guides']>(),
-    visitors: vi.fn<Api['visitors']>(),
-    updateProfile: vi.fn<Api['updateProfile']>(),
-    attributeCategories: vi.fn<Api['attributeCategories']>(),
-    myProfile: vi.fn<Api['myProfile']>(),
-    updateAccount: vi.fn<Api['updateAccount']>(),
-    changePassword: vi.fn<Api['changePassword']>(),
-    logout: vi.fn<Api['logout']>(),
-    session: vi.fn<Api['session']>(),
-    unlockPack: vi.fn<Api['unlockPack']>(),
     paymentState: vi.fn<Api['paymentState']>().mockRejectedValue(new Error('not needed')),
-    payGuideFee: vi.fn<Api['payGuideFee']>(),
-    bookingAction: vi.fn<Api['bookingAction']>(),
-    cancelBooking: vi.fn<Api['cancelBooking']>(),
-    trips: vi.fn<Api['trips']>(),
-    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
-    decide: vi.fn<Api['decide']>(),
-    revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matchOverview: vi.fn<Api['matchOverview']>(),
-    publicProfile: vi.fn<Api['publicProfile']>(),
-    reviews: vi.fn<Api['reviews']>(),
-    submitReview: vi.fn<Api['submitReview']>(),
-    deleteReview: vi.fn<Api['deleteReview']>(),
-    translations: vi.fn<Api['translations']>(),
-    legalDocument: vi.fn<Api['legalDocument']>(),
     ...overrides,
-  }
+  })
 }
 
 const TOKEN = 'a'.repeat(64)

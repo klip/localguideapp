@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import BrandMark from './BrandMark.vue'
 import LanguageSwitcher from './LanguageSwitcher.vue'
 import PillBadge from './PillBadge.vue'
-import { t } from '@/i18n'
+import { t, tn } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useMatchesStore } from '@/stores/matches'
 import { useAuthStore } from '@/stores/auth'
@@ -25,8 +25,10 @@ const route = useRoute()
 /** Guides never pay/browse guides — send them to their own deck instead of the visitor-side /discover (see DiscoverPage.vue's redirect guard). */
 /** Unseen matches and trips (pushed by the server, see `stores/badges.ts`), as the red counters on their menu items. */
 const badges = useBadgesStore()
-const { matches: newMatches, trips: newTrips } = storeToRefs(badges)
-const hasNews = computed(() => isAuthenticated.value && newMatches.value + newTrips.value > 0)
+const { matches: newMatches, trips: newTrips, messages: unreadMessages } = storeToRefs(badges)
+const hasNews = computed(
+  () => isAuthenticated.value && newMatches.value + newTrips.value + unreadMessages.value > 0,
+)
 
 function badgeText(count: number) {
   return count > 99 ? '99+' : String(count)
@@ -197,6 +199,17 @@ onBeforeUnmount(() => {
                 }}<span v-if="newTrips" class="nav-count" data-test="trips-count"
                   ><span aria-hidden="true">{{ badgeText(newTrips) }}</span
                   ><span class="visually-hidden">{{ t('common.app_header.new_count', { count: newTrips }) }}</span></span
+                >
+              </RouterLink>
+            </li>
+            <li v-if="isAuthenticated">
+              <RouterLink to="/messages" class="nav-link nav-link--counted">
+                {{ t('common.app_header.messages')
+                }}<span v-if="unreadMessages" class="nav-count" data-test="messages-count"
+                  ><span aria-hidden="true">{{ badgeText(unreadMessages) }}</span
+                  ><span class="visually-hidden">{{
+                    tn('common.app_header.unread_count', unreadMessages)
+                  }}</span></span
                 >
               </RouterLink>
             </li>

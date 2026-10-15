@@ -7,6 +7,7 @@ import { API_KEY, type Api, type PaymentState, type ProfileAccount } from '@/plu
 import { useAuthStore } from '@/stores/auth'
 import { useMatchesStore } from '@/stores/matches'
 import { readPendingRejects } from '@/utils/pendingRejects'
+import { fakeApi as baseFakeApi } from './fakeApi'
 
 function testRouter() {
   return createRouter({
@@ -19,45 +20,15 @@ function testRouter() {
   })
 }
 
-/** A stub `Api` — every method is a no-op `vi.fn()` unless overridden. */
+/** The shared stub `Api` (see `fakeApi.ts`) with this spec's defaults. */
 function fakeApi(overrides: Partial<Api> = {}): Api {
-  return {
-    register: vi.fn<Api['register']>(),
-    login: vi.fn<Api['login']>(),
-    verifyTwoFactor: vi.fn<Api['verifyTwoFactor']>(),
-    resendTwoFactor: vi.fn<Api['resendTwoFactor']>(),
-    requestPasswordReset: vi.fn<Api['requestPasswordReset']>(),
-    resetPassword: vi.fn<Api['resetPassword']>(),
-    forgetTrustedDevices: vi.fn<Api['forgetTrustedDevices']>(),
+  return baseFakeApi({
     guides: vi
       .fn<Api['guides']>()
       .mockResolvedValue({ guides: [guide(1, 'Ana'), guide(2, 'Ben')] }),
-    visitors: vi.fn<Api['visitors']>(),
-    updateProfile: vi.fn<Api['updateProfile']>(),
     attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: [] }),
-    myProfile: vi.fn<Api['myProfile']>(),
-    updateAccount: vi.fn<Api['updateAccount']>(),
-    changePassword: vi.fn<Api['changePassword']>(),
-    logout: vi.fn<Api['logout']>(),
-    session: vi.fn<Api['session']>(),
-    unlockPack: vi.fn<Api['unlockPack']>(),
-    paymentState: vi.fn<Api['paymentState']>(),
-    payGuideFee: vi.fn<Api['payGuideFee']>(),
-    bookingAction: vi.fn<Api['bookingAction']>(),
-    cancelBooking: vi.fn<Api['cancelBooking']>(),
-    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
-    decide: vi.fn<Api['decide']>(),
-    revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matchOverview: vi.fn<Api['matchOverview']>(),
-    trips: vi.fn<Api['trips']>(),
-    publicProfile: vi.fn<Api['publicProfile']>(),
-    reviews: vi.fn<Api['reviews']>(),
-    submitReview: vi.fn<Api['submitReview']>(),
-    deleteReview: vi.fn<Api['deleteReview']>(),
-    translations: vi.fn<Api['translations']>(),
-    legalDocument: vi.fn<Api['legalDocument']>(),
     ...overrides,
-  }
+  })
 }
 
 function guide(id: number, name: string): ProfileAccount {

@@ -321,6 +321,14 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
 
             <div class="actions">
               <template v-if="activeTab === 'matched'">
+                <RouterLink
+                  :to="`/messages/${row.counterpart_id}`"
+                  role="button"
+                  class="accept"
+                  data-test="message-link"
+                >
+                  {{ t('matches.actions.message') }}
+                </RouterLink>
                 <button
                   v-if="canUnmatch(row)"
                   type="button"

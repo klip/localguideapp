@@ -6,9 +6,11 @@
  * subscribes to; whatever is published there reaches all their open tabs,
  * whichever gateway replica each one is connected to.
  *
- * Two message types, the same the client always received:
+ * Four message types:
  *   { type: "notification", notification: { id, kind, message, created_at } }
- *   { type: "badges", matches, trips }   — the menu counters (`Badges`)
+ *   { type: "badges", matches, trips, messages }   — the menu counters (`Badges`)
+ *   { type: "message", message }   — a chat message (`Messages`)
+ *   { type: "messages_read", reader_id, up_to_id, read_at }   — the other side read them
  *
  * Badges are recomputed once per request, not per change: code calls
  * `touch()` for each user a change concerns, and `flush()` (end of request,

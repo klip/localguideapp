@@ -116,8 +116,10 @@ plain-module test, `api.spec.ts`, for `plugins/api.ts`'s `call()` itself
 (session-hash attachment, 401-triggered auto-logout — see "Sessions"
 above; it mocks `fetch` via `vi.stubGlobal` rather than going through a
 component). The pattern for a page that calls the API: build a local test
-router (routes it actually navigates to/from), a `fakeApi()` stub object
-typed as `Api` (see `plugins/api.ts`) provided via `global.provide: {
+router (routes it actually navigates to/from), the shared `fakeApi()` stub
+(`src/__tests__/fakeApi.ts` — every method a typed `vi.fn()`; add a new
+`api.*()` method there once, and a spec layers its own defaults as
+`fakeApi({ ...defaults, ...overrides })`) provided via `global.provide: {
 [API_KEY]: api }` — no real `fetch` involved — and a fresh `createPinia()`
 per test, also passed to `setActivePinia()` so a store can be inspected
 after mount (`useMessagesStore().items`) the same way the component sees
@@ -748,6 +750,40 @@ after each step so the page re-fetches.
 - Nothing is charged or refunded for real (same as pack purchases). Emails
   and notification copy live in `Bookings.php`; times in emails are UTC
   ("… UTC"), in the UI the viewer's own zone.
+
+### Messages: chat between matched people (`MessagesPage.vue`, `/messages`)
+
+The channel that replaces swapping phone numbers. `api/classes/Messages.php`,
+`messages` (030), one row per message tied to the pair's `selections` row.
+
+- **Who**: a guest and guide can write while their match is active; once it
+  dissolves (unmatch, a cancelled trip) the history stays, read-only
+  (`can_send: false`). `pairOf()` requires the caller to be one of the pair.
+- **Every body is masked** (`ContactFilter::mask()`) at any booking stage —
+  the conversation stays on the platform; map links are kept. The banner on
+  every conversation says so (`messages.thread.stay_banner`).
+- **Live, no polling**: `sendMessage` publishes `{ type: 'message' }` to
+  both users (the sender's other tabs too; the recipient's copy carries
+  `sender_name` for App.vue's "New message from …" toast, skipped while that
+  conversation is open). Reading publishes `{ type: 'messages_read',
+  reader_id, up_to_id }` to the other side, which moves its "Seen". The page
+  patches its list and thread from pushes instead of refetching (the list
+  carries photos).
+- **Read means seen**: opening a conversation marks read only up to the
+  newest message in the response; a live message is marked read
+  (`markMessagesRead` with `upToId`) only while the tab is visible, else once
+  it's shown again. Pushes that land while a conversation loads are held and
+  merged by id; a slow load for a conversation the user already left is
+  dropped.
+- **Counter**: "Messages" in the header shows unread messages (`Badges`
+  `messages`, `Messages::unreadCounts()`), cleared by reading, not by
+  `markSeen`.
+- **Email**: only to someone not connected anywhere (`Push::toUser()`
+  reached 0 gateways) and only for the first message from that person they
+  haven't read — never the text.
+- Enter sends only with a fine pointer (a touchscreen keyboard's Enter is a
+  new line); "Message" buttons sit on Matches' Matched rows and on trip cards
+  while matched.
 
 ### Contact filter (`lib/ContactFilter.php`)
 
@@ -1646,6 +1682,10 @@ is a `503` from the gateway.
 | `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year), `durationHours?` (0.5–24), `location?` (≤160 chars) | `Booking` (`status: 'pending'` — waits for the guide) | `actionPayGuideFee()` → `Bookings::pay()` |
 | `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation), `location?` (setLocation; empty clears) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/setLocation()/…` |
 | `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
+| `conversations` | **yes** | `api.conversations()` | — | `{ conversations: Conversation[] }` (`counterpart_id, name, image, role, can_send, unread, last_message`) | `Messages::conversationsFor()` |
+| `messages` | **yes** | `api.messages(payload)` | `targetId, beforeId?` | `ChatThread` (`counterpart, can_send, has_more, messages` oldest first, ≤50) — the newest page marks read | `Messages::threadWith()` |
+| `sendMessage` | **yes** | `api.sendMessage(payload)` | `targetId, body` (≤2000) | `ChatMessage` (masked) | `Messages::send()` |
+| `markMessagesRead` | **yes** | `api.markMessagesRead(payload)` | `targetId, upToId` | `{ ok: true }` | `Messages::markReadWith()` |
 | `markSeen` | **yes** | `api.markSeen(section)` | `section` (`'matches' \| 'trips'`) | `{ ok: true }` — the new counts arrive as a `badges` push | `Badges::markSeen()` |
 | `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
 | `session` | **yes** | `api.session()` | — | `AuthResult` (same shape as `register`/`login`, unrotated `sessionHash`) | `actionSession()` |
@@ -1808,6 +1848,9 @@ API service (`api/classes/`):
   `matched_at` and calls `Bookings::onMatched()` on the flip to active;
   `revoke()` enforces the booked-pair rules; `getOverview()`
   masks contact details with `CONTACT_UNLOCKED`.
+- `api/classes/Messages.php` — chat (see "Messages"): `send()`,
+  `conversationsFor()`, `threadWith()`, `markReadWith()`, static
+  `unreadCounts()` (for `Badges`).
 - `api/classes/Reviews.php` — data access for `reviews`: `listFor()`
   (a page, newest first, plus `summaryFor()`'s total/average/histogram),
   `viewerStateFor()`, `eligibleBookingId()`, `submit()` (validates and
@@ -1971,6 +2014,10 @@ API service (`api/classes/`):
   NULL` identifies a trip. Applied 2026-10-05. Not re-runnable.
 - `api/sql/028_contact_filter_hits.sql` — `contact_filter_hits` (see
   "Contact filter"). Applied 2026-10-15. Re-runnable.
+- `api/sql/030_messages.sql` — `messages` (see "Messages"). Applied
+  2026-10-15. Re-runnable.
+- `api/sql/031_translations_messages.sql` — chat UI text. Applied
+  2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,
   `profile.details.contact_hint`. Applied 2026-10-15. Re-runnable.
 

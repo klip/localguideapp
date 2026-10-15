@@ -251,6 +251,14 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
             >
               {{ trip.cancel_reason }}
             </p>
+            <p v-if="trip.active && trip.booking_status !== 'cancelled'" class="note">
+              <RouterLink
+                :to="`/messages/${trip.counterpart_id}`"
+                class="tiny"
+                data-test="message-link"
+                >{{ t('trips.card.message', { name: displayName(trip) }) }}</RouterLink
+              >
+            </p>
             <p v-if="reviewLink(trip)" class="note">
               <RouterLink :to="reviewLink(trip)!" class="tiny"
                 >{{ t('trips.card.leave_review', { name: displayName(trip) }) }}</RouterLink

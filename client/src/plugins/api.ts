@@ -527,6 +527,42 @@ export interface SubmitReviewPayload {
   comment?: string
 }
 
+/**
+ * One chat message (`Messages.php`), as the viewer sees it — `mine` says
+ * which side of the conversation it sits on. `body` has contact details
+ * already replaced by `[•••]`. Times are ISO 8601 UTC.
+ */
+export interface ChatMessage {
+  id: number
+  sender_id: number
+  recipient_id: number
+  mine: boolean
+  body: string
+  created_at: string
+  read_at: string | null
+}
+
+/** A row on the Messages list: someone you're matched (or have chatted) with. */
+export interface Conversation {
+  counterpart_id: number
+  name: string | null
+  image: string | null
+  role: 'guest' | 'guide' | null
+  /** The match is active — once it dissolves the history stays, read-only. */
+  can_send: boolean
+  unread: number
+  last_message: { id: number; mine: boolean; body: string; created_at: string } | null
+}
+
+/** One conversation's page (`api.messages()`), oldest first. */
+export interface ChatThread {
+  counterpart: { id: number; name: string | null; image: string | null; role: 'guest' | 'guide' | null }
+  can_send: boolean
+  /** Older messages exist — ask again with `beforeId` = the first one's id. */
+  has_more: boolean
+  messages: ChatMessage[]
+}
+
 /** The server's cap on one `api.reviews()` page — the "Show all" modal's page size. */
 export const REVIEWS_PAGE_SIZE = 20
 
@@ -701,6 +737,15 @@ export const api = {
   /** Creates or edits the caller's review of `subjectId` — only after a finished trip together. */
   submitReview: (payload: SubmitReviewPayload) => call<Review>('submitReview', payload),
   deleteReview: (payload: { reviewId: number }) => call<{ ok: true }>('deleteReview', payload),
+
+  /** Everyone the caller can chat with or has chatted with, newest activity first. */
+  conversations: () => call<{ conversations: Conversation[] }>('conversations'),
+  /** One conversation, newest page (marks it read) or the page before `beforeId`. */
+  messages: (payload: { targetId: number; beforeId?: number }) => call<ChatThread>('messages', payload),
+  /** Sends a message to someone the caller is actively matched with; returns it as stored (masked). */
+  sendMessage: (payload: { targetId: number; body: string }) => call<ChatMessage>('sendMessage', payload),
+  /** Marks what `targetId` sent the caller, up to message `upToId`, as read — messages that arrived while the conversation was open. */
+  markMessagesRead: (payload: { targetId: number; upToId: number }) => call<{ ok: true }>('markMessagesRead', payload),
 
   /** UI strings for one language, `{ key: value }` — all, or a `TranslationScope` of them (see `src/i18n`). No session needed. */
   translations: (language: string, scope: TranslationScope = {}) =>

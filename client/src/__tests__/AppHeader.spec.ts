@@ -1,56 +1,18 @@
-import { afterEach, describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
-import { API_KEY, type Api } from '@/plugins/api'
+import { API_KEY } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
+import { fakeApi } from './fakeApi'
 
 function testRouter() {
   return createRouter({
     history: createWebHistory(),
     routes: [{ path: '/:pathMatch(.*)*', name: 'any', component: { template: '<div />' } }],
   })
-}
-
-/** A stub `Api` — every method is a no-op `vi.fn()` unless overridden. */
-function fakeApi(overrides: Partial<Api> = {}): Api {
-  return {
-    register: vi.fn<Api['register']>(),
-    login: vi.fn<Api['login']>(),
-    verifyTwoFactor: vi.fn<Api['verifyTwoFactor']>(),
-    resendTwoFactor: vi.fn<Api['resendTwoFactor']>(),
-    requestPasswordReset: vi.fn<Api['requestPasswordReset']>(),
-    resetPassword: vi.fn<Api['resetPassword']>(),
-    forgetTrustedDevices: vi.fn<Api['forgetTrustedDevices']>(),
-    guides: vi.fn<Api['guides']>(),
-    visitors: vi.fn<Api['visitors']>(),
-    updateProfile: vi.fn<Api['updateProfile']>(),
-    attributeCategories: vi.fn<Api['attributeCategories']>(),
-    myProfile: vi.fn<Api['myProfile']>(),
-    updateAccount: vi.fn<Api['updateAccount']>(),
-    changePassword: vi.fn<Api['changePassword']>(),
-    logout: vi.fn<Api['logout']>(),
-    session: vi.fn<Api['session']>(),
-    unlockPack: vi.fn<Api['unlockPack']>(),
-    paymentState: vi.fn<Api['paymentState']>(),
-    payGuideFee: vi.fn<Api['payGuideFee']>(),
-    bookingAction: vi.fn<Api['bookingAction']>(),
-    cancelBooking: vi.fn<Api['cancelBooking']>(),
-    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
-    decide: vi.fn<Api['decide']>(),
-    revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matchOverview: vi.fn<Api['matchOverview']>(),
-    trips: vi.fn<Api['trips']>(),
-    publicProfile: vi.fn<Api['publicProfile']>(),
-    reviews: vi.fn<Api['reviews']>(),
-    submitReview: vi.fn<Api['submitReview']>(),
-    deleteReview: vi.fn<Api['deleteReview']>(),
-    translations: vi.fn<Api['translations']>(),
-    legalDocument: vi.fn<Api['legalDocument']>(),
-    ...overrides,
-  }
 }
 
 async function mountHeader(signedIn: boolean) {
@@ -154,6 +116,24 @@ describe('AppHeader mobile menu', () => {
     useBadgesStore().set({ matches: 0, trips: 0 })
     await flushPromises()
     expect(wrapper.find('[data-test="matches-count"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('counts unread chat messages on Messages, with a plural label, and lights the burger dot', async () => {
+    const { wrapper } = await mountHeader(true)
+    expect(wrapper.find('a[href="/messages"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="messages-count"]').exists()).toBe(false)
+
+    useBadgesStore().set({ messages: 1 })
+    await flushPromises()
+    const count = wrapper.find('a[href="/messages"] [data-test="messages-count"]')
+    expect(count.find('.visually-hidden').text()).toBe('1 unread')
+    expect(wrapper.find('.burger-dot').exists()).toBe(true)
+
+    useBadgesStore().set({ messages: 0 })
+    await flushPromises()
+    expect(wrapper.find('[data-test="messages-count"]').exists()).toBe(false)
+    expect(wrapper.find('.burger-dot').exists()).toBe(false)
     wrapper.unmount()
   })
 })

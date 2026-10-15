@@ -38,6 +38,15 @@ class Notifications
     }
 
     /**
+     * Email only, no in-app row — for something the app already shows its
+     * own way (a chat message: the Messages counter and the live push).
+     */
+    public function emailOnly(int $userId, string $kind, string $subject, string $body): void
+    {
+        $this->deliver($userId, $kind, $subject, $body);
+    }
+
+    /**
      * In-app only, no email — for things worth a toast but not an inbox
      * (a match updating their profile). An identical message that's still
      * unread, or went out in the last 10 minutes, isn't added again — a few

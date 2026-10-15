@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
 import { useMatchesStore } from '@/stores/matches'
 import { useBadgesStore } from '@/stores/badges'
+import { fakeApi } from './fakeApi'
 
 /** Stands in for the API socket: records `identify()` and lets a test fire pushes. */
 const fakeSocket = vi.hoisted(() => {
@@ -33,45 +34,6 @@ function testRouter() {
       { path: '/:pathMatch(.*)*', name: 'not-found', component: { template: '<div />' } },
     ],
   })
-}
-
-/** A stub `Api` — every method is a no-op `vi.fn()` unless overridden. App.vue only calls `session()`, and only when a cached session already exists (not the case for this anonymous-render test). */
-function fakeApi(overrides: Partial<Api> = {}): Api {
-  return {
-    register: vi.fn<Api['register']>(),
-    login: vi.fn<Api['login']>(),
-    verifyTwoFactor: vi.fn<Api['verifyTwoFactor']>(),
-    resendTwoFactor: vi.fn<Api['resendTwoFactor']>(),
-    requestPasswordReset: vi.fn<Api['requestPasswordReset']>(),
-    resetPassword: vi.fn<Api['resetPassword']>(),
-    forgetTrustedDevices: vi.fn<Api['forgetTrustedDevices']>(),
-    guides: vi.fn<Api['guides']>(),
-    visitors: vi.fn<Api['visitors']>(),
-    updateProfile: vi.fn<Api['updateProfile']>(),
-    attributeCategories: vi.fn<Api['attributeCategories']>(),
-    myProfile: vi.fn<Api['myProfile']>(),
-    updateAccount: vi.fn<Api['updateAccount']>(),
-    changePassword: vi.fn<Api['changePassword']>(),
-    logout: vi.fn<Api['logout']>(),
-    session: vi.fn<Api['session']>(),
-    unlockPack: vi.fn<Api['unlockPack']>(),
-    paymentState: vi.fn<Api['paymentState']>(),
-    payGuideFee: vi.fn<Api['payGuideFee']>(),
-    bookingAction: vi.fn<Api['bookingAction']>(),
-    cancelBooking: vi.fn<Api['cancelBooking']>(),
-    markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
-    decide: vi.fn<Api['decide']>(),
-    revokeSelection: vi.fn<Api['revokeSelection']>(),
-    matchOverview: vi.fn<Api['matchOverview']>(),
-    trips: vi.fn<Api['trips']>(),
-    publicProfile: vi.fn<Api['publicProfile']>(),
-    reviews: vi.fn<Api['reviews']>(),
-    submitReview: vi.fn<Api['submitReview']>(),
-    deleteReview: vi.fn<Api['deleteReview']>(),
-    translations: vi.fn<Api['translations']>(),
-    legalDocument: vi.fn<Api['legalDocument']>(),
-    ...overrides,
-  }
 }
 
 describe('App', () => {
@@ -190,6 +152,44 @@ describe('App', () => {
     await flushPromises()
     expect(fakeSocket.identify).toHaveBeenLastCalledWith(null)
     expect(useBadgesStore().matches).toBe(0)
+    localStorage.clear()
+  })
+
+  it('toasts an incoming chat message, but not my own or one for the conversation already open', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const session: AuthResult = { id: 7, email: 'v@example.com', role: 'guest', sessionHash: 'hash' }
+    useAuthStore().setUser(session)
+    const api = fakeApi({
+      session: vi.fn<Api['session']>().mockResolvedValue(session),
+      paymentState: vi.fn<Api['paymentState']>().mockRejectedValue(new Error('not needed')),
+    })
+
+    const router = createRouter({
+      history: createWebHistory(),
+      routes: [
+        { path: '/', name: 'home', component: { template: '<div />' } },
+        { path: '/messages/:id?', name: 'messages', component: { template: '<div />' } },
+      ],
+    })
+    router.push('/')
+    await router.isReady()
+    mount(App, { global: { plugins: [pinia, router], provide: { [API_KEY]: api } } })
+    await flushPromises()
+
+    const chat = (overrides: Record<string, unknown>) => ({
+      message: { id: 1, sender_id: 101, recipient_id: 7, mine: false, body: 'Hi', created_at: '', read_at: null, sender_name: 'Gina', ...overrides },
+    })
+    const texts = () => useMessagesStore().items.map((item) => item.text)
+
+    fakeSocket.push('message', chat({}))
+    expect(texts()).toContain('New message from Gina')
+
+    useMessagesStore().items.splice(0)
+    fakeSocket.push('message', chat({ id: 2, mine: true, sender_id: 7, recipient_id: 101 }))
+    await router.push('/messages/101')
+    fakeSocket.push('message', chat({ id: 3 }))
+    expect(texts()).toEqual([])
     localStorage.clear()
   })
 })
