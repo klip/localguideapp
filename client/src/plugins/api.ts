@@ -756,6 +756,9 @@ export const api = {
   messages: (payload: { targetId: number; beforeId?: number }) => call<ChatThread>('messages', payload),
   /** Sends a message to someone the caller is actively matched with; returns it as stored (masked). */
   sendMessage: (payload: { targetId: number; body: string }) => call<ChatMessage>('sendMessage', payload),
+  /** Reports another user to the moderators (a title + what happened); returns the filed complaint. */
+  reportUser: (payload: { subjectId: number; title: string; description: string }) =>
+    call<{ id: number; status: 'open'; created_at: string }>('reportUser', payload),
   /** Shares the caller's current position (from `navigator.geolocation`) as a `location` message. */
   shareLocation: (payload: { targetId: number; latitude: number; longitude: number; accuracy?: number }) =>
     call<ChatMessage>('shareLocation', payload),

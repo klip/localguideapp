@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import PanelCard from '@/components/PanelCard.vue'
 import ReviewsSection from '@/components/ReviewsSection.vue'
 import StandingBadges from '@/components/StandingBadges.vue'
+import ReportUser from '@/components/ReportUser.vue'
 import TagList from '@/components/TagList.vue'
 import { t } from '@/i18n'
 import { ApiError, useApi, type PublicProfile } from '@/plugins/api'
@@ -117,6 +118,7 @@ const backTo = computed(() => (auth.user?.role === 'guide' ? '/guide/discover' :
       </div>
 
       <ReviewsSection :user-id="visitor.id" :subject-name="name" />
+      <ReportUser :subject-id="visitor.id" :subject-name="name" />
     </template>
 
     <PanelCard v-else :title="t('visitor_profile.not_found.title')">

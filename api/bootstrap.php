@@ -14,5 +14,6 @@ require_once __DIR__.'/classes/Selections.php';
 require_once __DIR__.'/classes/Profiles.php';
 require_once __DIR__.'/classes/Reviews.php';
 require_once __DIR__.'/classes/Messages.php';
+require_once __DIR__.'/classes/Complaints.php';
 require_once __DIR__.'/classes/Translations.php';
 require_once __DIR__.'/classes/RequestProcessor.php';

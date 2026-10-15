@@ -40,6 +40,8 @@ class RequestProcessor
     private $badges;
     /** @var Messages */
     private $messages;
+    /** @var Complaints */
+    private $complaints;
     /** @var Push */
     private $push;
     /** @var array|null the request `process()` is handling */
@@ -61,6 +63,7 @@ class RequestProcessor
         $this->reviews = new Reviews($db);
         $this->translations = new Translations($db);
         $this->messages = new Messages($db, $this->push, $this->notifications);
+        $this->complaints = new Complaints($db, new MailQueue($db, $redis));
     }
 
     /**
@@ -202,6 +205,16 @@ class RequestProcessor
             case 'markMessagesRead':
                 $this->messages->markReadWith($this->requireUserId(), $this->requireTargetId(), (int) ($this->readInput()['upToId'] ?? 0));
                 return [200, ['ok' => true]];
+
+            // One user reporting another (see `Complaints`, 037_complaints.sql).
+            case 'reportUser':
+                $input = $this->readInput();
+                return [200, $this->complaints->file(
+                    $this->requireUserId(),
+                    (int) ($input['subjectId'] ?? 0),
+                    $input['title'] ?? null,
+                    $input['description'] ?? null
+                )];
 
             // UI text for one language (see `Translations`, 018_translations.sql).
             case 'translations':

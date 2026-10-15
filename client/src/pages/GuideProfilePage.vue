@@ -5,6 +5,7 @@ import DecisionRow from '@/components/DecisionRow.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import StandingBadges from '@/components/StandingBadges.vue'
+import ReportUser from '@/components/ReportUser.vue'
 import ReviewsSection from '@/components/ReviewsSection.vue'
 import TagList from '@/components/TagList.vue'
 import { t } from '@/i18n'
@@ -152,6 +153,7 @@ function reject(id: string) {
       </div>
 
       <ReviewsSection :user-id="Number(guide.id)" :subject-name="guide.name" />
+      <ReportUser :subject-id="Number(guide.id)" :subject-name="guide.name" />
     </template>
 
     <PanelCard v-else :title="t('guide_profile.not_found.title')">
