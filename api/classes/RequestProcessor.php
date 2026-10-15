@@ -189,6 +189,16 @@ class RequestProcessor
                 }
                 return [200, $this->messages->send($this->requireUserId(), $this->requireTargetId(), $body)];
 
+            case 'shareLocation':
+                $input = $this->readInput();
+                return [200, $this->messages->shareLocation(
+                    $this->requireUserId(),
+                    $this->requireTargetId(),
+                    $input['latitude'] ?? null,
+                    $input['longitude'] ?? null,
+                    $input['accuracy'] ?? null
+                )];
+
             case 'markMessagesRead':
                 $this->messages->markReadWith($this->requireUserId(), $this->requireTargetId(), (int) ($this->readInput()['upToId'] ?? 0));
                 return [200, ['ok' => true]];

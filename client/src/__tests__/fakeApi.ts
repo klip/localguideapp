@@ -44,6 +44,7 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     conversations: vi.fn<Api['conversations']>(),
     messages: vi.fn<Api['messages']>(),
     sendMessage: vi.fn<Api['sendMessage']>(),
+    shareLocation: vi.fn<Api['shareLocation']>(),
     markMessagesRead: vi.fn<Api['markMessagesRead']>().mockResolvedValue({ ok: true }),
     ...overrides,
   }

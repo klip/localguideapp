@@ -11,6 +11,9 @@
  *   - Every message goes through `ContactFilter::mask()`: phone numbers,
  *     emails, links and handles become [•••] — whatever stage the booking
  *     is at, the conversation stays here. Map links are kept.
+ *   - A message is `text` or `location` (032): a point the sender's device
+ *     reported, stored as coordinates so each viewer's app links it to
+ *     their own device's maps (`shareLocation()`).
  *   - Delivery: published to both people's `user:<id>` channels (`Push`) as
  *     `{ type: "message", message }`, so the recipient sees it live and the
  *     sender's other tabs stay in step. Someone who isn't looking gets the
@@ -44,10 +47,7 @@ class Messages
      */
     public function send(int $senderId, int $recipientId, string $body): array
     {
-        $selection = $this->pairOf($senderId, $recipientId);
-        if (!$selection || (int) $selection['active'] !== 1) {
-            throw new RuntimeException('You can only message someone you’re matched with.');
-        }
+        $selection = $this->activePair($senderId, $recipientId);
 
         $body = trim((string) preg_replace('/\R{3,}/u', "\n\n", $body));
         if ($body === '' || !mb_check_encoding($body, 'UTF-8')) {
@@ -56,16 +56,72 @@ class Messages
         if (mb_strlen($body, 'UTF-8') > self::MAX_LENGTH) {
             throw new RuntimeException('Messages can be ' . self::MAX_LENGTH . ' characters at most.');
         }
-        $body = ContactFilter::mask($body, 'message');
 
+        return $this->deliver($selection, $senderId, $recipientId, [
+            'body' => ContactFilter::mask($body, 'message'),
+        ]);
+    }
+
+    /**
+     * Shares a point — what the sender's device reported — as a `location`
+     * message. Coordinates are stored, not a link, so each viewer gets a link
+     * to their own device's maps app (client/src/utils/mapsLink.ts).
+     * `$accuracy` is the device's estimate in metres, if it gave one.
+     */
+    public function shareLocation(int $senderId, int $recipientId, $latitude, $longitude, $accuracy = null): array
+    {
+        $selection = $this->activePair($senderId, $recipientId);
+
+        $lat = self::coordinate($latitude, 90);
+        $lng = self::coordinate($longitude, 180);
+        if ($lat === null || $lng === null) {
+            throw new RuntimeException('That location isn’t valid.');
+        }
+        $fields = [
+            'kind' => 'location',
+            'body' => '',
+            'latitude' => number_format($lat, 6, '.', ''),
+            'longitude' => number_format($lng, 6, '.', ''),
+        ];
+        if (is_int($accuracy) || is_float($accuracy)) {
+            $fields['accuracy_m'] = (string) max(0, min(100000, (int) round($accuracy)));
+        }
+
+        return $this->deliver($selection, $senderId, $recipientId, $fields);
+    }
+
+    /** The pair's selection, refusing unless it's an active match. */
+    private function activePair(int $senderId, int $recipientId): array
+    {
+        $selection = $this->pairOf($senderId, $recipientId);
+        if (!$selection || (int) $selection['active'] !== 1) {
+            throw new RuntimeException('You can only message someone you’re matched with.');
+        }
+
+        return $selection;
+    }
+
+    /** A finite number within ±`$limit` (JSON `true` and numeric strings refused), else null. */
+    private static function coordinate($value, int $limit): ?float
+    {
+        if (!is_int($value) && !is_float($value)) {
+            return null;
+        }
+        $value = (float) $value;
+
+        return is_finite($value) && abs($value) <= $limit ? $value : null;
+    }
+
+    /** Stores a message, pushes it to both people, and emails an absent recipient. */
+    private function deliver(array $selection, int $senderId, int $recipientId, array $fields): array
+    {
         $hadUnread = $this->unreadFrom($senderId, $recipientId) > 0;
 
         $id = $this->db->db_Insert('messages', [
             'selection_id' => (int) $selection['id'],
             'sender_id' => $senderId,
             'recipient_id' => $recipientId,
-            'body' => $body,
-        ]);
+        ] + $fields);
         if (!$id) {
             throw new RuntimeException('Could not send the message. Please try again.');
         }
@@ -97,7 +153,7 @@ class Messages
         $rows = $this->db->db_GetArray(
             'SELECT s.`id` AS `selection_id`, s.`active`, s.`matched_at`,
                     u.`id` AS `counterpart_id`, u.`name`, u.`image`, r.`name` AS `role`,
-                    m.`id` AS `last_id`, m.`sender_id` AS `last_sender_id`, m.`body` AS `last_body`,
+                    m.`id` AS `last_id`, m.`sender_id` AS `last_sender_id`, m.`kind` AS `last_kind`, m.`body` AS `last_body`,
                     UNIX_TIMESTAMP(m.`created_at`) AS `last_ts`,
                     (SELECT COUNT(*) FROM `messages` um
                       WHERE um.`selection_id` = s.`id` AND um.`recipient_id` = ' . $userId . ' AND um.`read_at` IS NULL) AS `unread`
@@ -120,6 +176,7 @@ class Messages
             'last_message' => $row['last_id'] === null ? null : [
                 'id' => (int) $row['last_id'],
                 'mine' => (int) $row['last_sender_id'] === $userId,
+                'kind' => $row['last_kind'],
                 'body' => $row['last_body'],
                 'created_at' => gmdate('Y-m-d\TH:i:s\Z', (int) $row['last_ts']),
             ],
@@ -209,7 +266,7 @@ class Messages
         return $out;
     }
 
-    private const SELECT = 'SELECT `id`, `sender_id`, `recipient_id`, `body`,
+    private const SELECT = 'SELECT `id`, `sender_id`, `recipient_id`, `kind`, `body`, `latitude`, `longitude`, `accuracy_m`,
         UNIX_TIMESTAMP(`created_at`) AS `created_ts`, UNIX_TIMESTAMP(`read_at`) AS `read_ts`
         FROM `messages`';
 
@@ -287,7 +344,13 @@ class Messages
             'sender_id' => (int) $row['sender_id'],
             'recipient_id' => (int) $row['recipient_id'],
             'mine' => (int) $row['sender_id'] === $viewerId,
+            'kind' => $row['kind'],
             'body' => $row['body'],
+            'location' => $row['kind'] === 'location' ? [
+                'latitude' => (float) $row['latitude'],
+                'longitude' => (float) $row['longitude'],
+                'accuracy_m' => $row['accuracy_m'] === null ? null : (int) $row['accuracy_m'],
+            ] : null,
             'created_at' => gmdate('Y-m-d\TH:i:s\Z', (int) $row['created_ts']),
             'read_at' => $row['read_ts'] === null ? null : gmdate('Y-m-d\TH:i:s\Z', (int) $row['read_ts']),
         ];

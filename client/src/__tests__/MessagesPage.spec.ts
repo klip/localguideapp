@@ -27,6 +27,8 @@ function message(overrides: Partial<ChatMessage> = {}): ChatMessage {
     sender_id: 101,
     recipient_id: 7,
     mine: false,
+    kind: 'text',
+    location: null,
     body: 'Hi! Happy to show you the Rock.',
     created_at: '2026-10-15T10:00:00Z',
     read_at: null,
@@ -41,7 +43,7 @@ const conversation: Conversation = {
   role: 'guide',
   can_send: true,
   unread: 2,
-  last_message: { id: 1, mine: false, body: 'Hi! Happy to show you the Rock.', created_at: '2026-10-15T10:00:00Z' },
+  last_message: { id: 1, mine: false, kind: 'text', body: 'Hi! Happy to show you the Rock.', created_at: '2026-10-15T10:00:00Z' },
 }
 
 function thread(overrides: Partial<ChatThread> = {}): ChatThread {
@@ -78,6 +80,149 @@ describe('MessagesPage', () => {
   afterEach(() => {
     localStorage.clear()
     vi.unstubAllGlobals()
+  })
+
+  it('shares the current location only after confirming, and shows it with maps links', async () => {
+    const getCurrentPosition = vi.fn<Geolocation['getCurrentPosition']>((success) =>
+      success({ coords: { latitude: 36.1408, longitude: -5.3536, accuracy: 12 } } as GeolocationPosition),
+    )
+    vi.stubGlobal('isSecureContext', true)
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    const shared = message({
+      id: 7,
+      sender_id: 7,
+      recipient_id: 101,
+      mine: true,
+      kind: 'location',
+      body: '',
+      location: { latitude: 36.1408, longitude: -5.3536, accuracy_m: 12 },
+    })
+    const api = fakeApi({
+      conversations: vi.fn<Api['conversations']>().mockResolvedValue({ conversations: [conversation] }),
+      messages: vi.fn<Api['messages']>().mockResolvedValue(thread()),
+      shareLocation: vi.fn<Api['shareLocation']>().mockResolvedValue(shared),
+    })
+    const { wrapper } = await mountPage(api)
+
+    await wrapper.find('.location-btn').trigger('click')
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+    expect(wrapper.find('#location-confirm').text()).toContain('Gina')
+
+    await wrapper.find('[data-test="send-location"]').trigger('click')
+    await flushPromises()
+
+    expect(api.shareLocation).toHaveBeenCalledWith({ targetId: 101, latitude: 36.1408, longitude: -5.3536, accuracy: 12 })
+    const mineRows = wrapper.findAll('.bubble-row--mine')
+    const bubble = mineRows[mineRows.length - 1]!
+    expect(bubble.text()).toContain('Shared location')
+    expect(bubble.text()).toContain('12 m')
+    const links = bubble.findAll('.location-links a')
+    expect(links.length).toBe(2)
+    expect(links[0]!.attributes('href')).toMatch(/36\.140800/)
+    expect(links[0]!.attributes('rel')).toContain('noopener')
+    Reflect.deleteProperty(navigator, 'geolocation')
+  })
+
+  it('explains a blocked location permission instead of sending anything', async () => {
+    const getCurrentPosition = vi.fn<Geolocation['getCurrentPosition']>((_success, failure) =>
+      failure?.({ code: 1, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3, message: '' } as GeolocationPositionError),
+    )
+    vi.stubGlobal('isSecureContext', true)
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    const api = fakeApi({
+      conversations: vi.fn<Api['conversations']>().mockResolvedValue({ conversations: [conversation] }),
+      messages: vi.fn<Api['messages']>().mockResolvedValue(thread()),
+    })
+    const { wrapper } = await mountPage(api)
+
+    await wrapper.find('.location-btn').trigger('click')
+    await wrapper.find('[data-test="send-location"]').trigger('click')
+    await flushPromises()
+
+    expect(api.shareLocation).not.toHaveBeenCalled()
+    expect(useMessagesStore().items.map((item) => item.text).join(' ')).toMatch(/Location access is blocked/)
+    Reflect.deleteProperty(navigator, 'geolocation')
+  })
+
+  it('says so when the browser can’t share a location (no API, or not HTTPS)', async () => {
+    vi.stubGlobal('isSecureContext', false)
+    const api = fakeApi({
+      conversations: vi.fn<Api['conversations']>().mockResolvedValue({ conversations: [conversation] }),
+      messages: vi.fn<Api['messages']>().mockResolvedValue(thread()),
+    })
+    const { wrapper } = await mountPage(api)
+
+    await wrapper.find('.location-btn').trigger('click')
+    await wrapper.find('[data-test="send-location"]').trigger('click')
+
+    expect(api.shareLocation).not.toHaveBeenCalled()
+    expect(useMessagesStore().items.map((item) => item.text).join(' ')).toMatch(/can’t share your location/)
+  })
+
+  it('recovers from a timeout, and ignores a second request while one is running', async () => {
+    let fail: PositionErrorCallback | null | undefined
+    const getCurrentPosition = vi.fn<Geolocation['getCurrentPosition']>((_success, failure) => (fail = failure))
+    vi.stubGlobal('isSecureContext', true)
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    const api = fakeApi({
+      conversations: vi.fn<Api['conversations']>().mockResolvedValue({ conversations: [conversation] }),
+      messages: vi.fn<Api['messages']>().mockResolvedValue(thread()),
+    })
+    const { wrapper } = await mountPage(api)
+
+    await wrapper.find('.location-btn').trigger('click')
+    await wrapper.find('[data-test="send-location"]').trigger('click')
+    expect(wrapper.find('.location-btn').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('.location-btn').text()).toContain('Finding you')
+    // The button is disabled while locating, so no second request starts.
+    await wrapper.find('.location-btn').trigger('click')
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+
+    fail!({ code: 3, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3, message: '' } as GeolocationPositionError)
+    await flushPromises()
+    expect(wrapper.find('.location-btn').attributes('disabled')).toBeUndefined()
+    expect(useMessagesStore().items.map((item) => item.text).join(' ')).toMatch(/took too long/)
+    Reflect.deleteProperty(navigator, 'geolocation')
+  })
+
+  it('never sends a position that arrives after leaving the conversation, and closes the confirmation on a switch', async () => {
+    let succeed: PositionCallback | undefined
+    const getCurrentPosition = vi.fn<Geolocation['getCurrentPosition']>((success) => (succeed = success))
+    vi.stubGlobal('isSecureContext', true)
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    const api = fakeApi({
+      conversations: vi.fn<Api['conversations']>().mockResolvedValue({ conversations: [conversation] }),
+      messages: vi.fn<Api['messages']>().mockResolvedValue(thread()),
+    })
+    const { wrapper, router } = await mountPage(api)
+
+    await wrapper.find('.location-btn').trigger('click')
+    await wrapper.find('[data-test="send-location"]').trigger('click')
+    await router.push('/messages/202')
+    await flushPromises()
+    succeed!({ coords: { latitude: 1, longitude: 2, accuracy: 5 } } as GeolocationPosition)
+    await flushPromises()
+    expect(api.shareLocation).not.toHaveBeenCalled()
+
+    await wrapper.find('.location-btn').trigger('click')
+    expect(wrapper.find('#location-confirm').exists()).toBe(true)
+    await router.push('/messages/101')
+    await flushPromises()
+    expect(wrapper.find('#location-confirm').exists()).toBe(false)
+    Reflect.deleteProperty(navigator, 'geolocation')
+  })
+
+  it('shows a pushed location with its links, and "Location" as the list preview', async () => {
+    const api = fakeApi({
+      conversations: vi.fn<Api['conversations']>().mockResolvedValue({ conversations: [{ ...conversation }] }),
+    })
+    const { wrapper } = await mountPage(api, '/messages')
+
+    fakeSocket.push('message', {
+      message: message({ id: 11, kind: 'location', body: '', location: { latitude: 36.1, longitude: -5.3, accuracy_m: null } }),
+    })
+    await flushPromises()
+    expect(wrapper.find('.preview').text()).toBe('Location')
   })
 
   it('treats Enter as a new line on a touchscreen (no fine pointer)', async () => {

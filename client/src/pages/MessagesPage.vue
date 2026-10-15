@@ -9,6 +9,7 @@ import { ApiError, useApi, type ChatMessage, type Conversation, type ChatThread 
 import { socket } from '@/plugins/socket'
 import { useAuthStore } from '@/stores/auth'
 import { reportApiError } from '@/utils/reportApiError'
+import { detectMapsPlatform, mapsLinksFor, type MapsLink } from '@/utils/mapsLink'
 
 /**
  * Messages — direct chat with the people you're matched with, for both roles
@@ -132,6 +133,88 @@ async function send() {
   }
 }
 
+/**
+ * "Share my location": asks first (where you are is personal), then reads
+ * the device's position once and sends it as a `location` message — no
+ * tracking, nothing kept running afterwards.
+ */
+const confirmingLocation = ref(false)
+const locating = ref(false)
+
+/**
+ * The location request in flight, if any. Leaving the conversation (or the
+ * page) cancels it, so a permission prompt answered later never sends your
+ * position to someone you've moved away from.
+ */
+let locationRequest = 0
+let locationWatchdog: ReturnType<typeof setTimeout> | undefined
+/** Some browsers never answer when a permission prompt is just dismissed. */
+const LOCATION_WATCHDOG_MS = 60_000
+
+function cancelLocation() {
+  locationRequest++
+  clearTimeout(locationWatchdog)
+  locating.value = false
+  confirmingLocation.value = false
+}
+
+function shareLocation() {
+  const id = openId.value
+  confirmingLocation.value = false
+  // The confirm panel (which had focus) is gone; keep focus in the composer.
+  void nextTick(() => composerRef.value?.focus())
+  if (!id || locating.value) return
+  if (!('geolocation' in navigator) || !window.isSecureContext) {
+    reportApiError(null, t('messages.location.unsupported'))
+    return
+  }
+
+  const request = ++locationRequest
+  const settle = () => {
+    clearTimeout(locationWatchdog)
+    locating.value = false
+  }
+  locating.value = true
+  locationWatchdog = setTimeout(() => {
+    if (request !== locationRequest) return
+    locationRequest++
+    settle()
+    reportApiError(null, t('messages.location.timeout'))
+  }, LOCATION_WATCHDOG_MS)
+
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      if (request !== locationRequest) return
+      clearTimeout(locationWatchdog)
+      try {
+        const { latitude, longitude, accuracy } = position.coords
+        const message = await api.shareLocation({ targetId: id, latitude, longitude, accuracy })
+        receive(message)
+      } catch (err) {
+        reportApiError(err, t('messages.toast.location_failed'))
+      } finally {
+        if (request === locationRequest) settle()
+      }
+    },
+    (error) => {
+      if (request !== locationRequest) return
+      settle()
+      const reason =
+        error.code === error.PERMISSION_DENIED ? 'denied' : error.code === error.TIMEOUT ? 'timeout' : 'unavailable'
+      reportApiError(null, t(`messages.location.${reason}`))
+    },
+    { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 },
+  )
+}
+
+/** Links for a shared point, the viewer's own device's maps app first. */
+const mapsPlatform = detectMapsPlatform()
+function locationLinks(message: ChatMessage): MapsLink[] {
+  if (!message.location) return []
+  const label = message.mine ? undefined : displayName(thread.value?.counterpart.name ?? null, thread.value?.counterpart.role)
+  return mapsLinksFor(message.location.latitude, message.location.longitude, mapsPlatform, label)
+}
+
 function onComposerKeydown(event: KeyboardEvent) {
   // Enter sends, Shift+Enter is a new line; never while an IME is composing.
   if (finePointer.value && event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -180,7 +263,13 @@ function receive(message: ChatMessage) {
   }
   const row = conversations.value[index]!
   if (row.last_message?.id === message.id) return
-  row.last_message = { id: message.id, mine: message.mine, body: message.body, created_at: message.created_at }
+  row.last_message = {
+    id: message.id,
+    mine: message.mine,
+    kind: message.kind,
+    body: message.body,
+    created_at: message.created_at,
+  }
   if (!message.mine && !isOpen) row.unread += 1
   conversations.value.splice(index, 1)
   conversations.value.unshift(row)
@@ -222,6 +311,7 @@ const stopReads = socket.on('messages_read', (payload) => {
 })
 
 onBeforeUnmount(() => {
+  cancelLocation()
   stopMessages()
   stopReads()
   document.removeEventListener('visibilitychange', onVisibilityChange)
@@ -234,6 +324,7 @@ onMounted(() => {
 watch(openId, (id) => {
   draft.value = ''
   unreadUpTo = 0
+  cancelLocation()
   if (id) {
     void loadThread(id)
   } else {
@@ -280,7 +371,8 @@ function startsDay(index: number) {
 function preview(conversation: Conversation) {
   const last = conversation.last_message
   if (!last) return t('messages.list.say_hello')
-  return last.mine ? t('messages.list.you', { text: last.body }) : last.body
+  const text = last.kind === 'location' ? t('messages.list.location') : last.body
+  return last.mine ? t('messages.list.you', { text }) : text
 }
 
 /** The last of my messages the other side has read — "Seen" goes under it. */
@@ -395,7 +487,25 @@ function backToList() {
               <p v-if="startsDay(index)" class="day tiny muted">{{ dayOf(message.created_at) }}</p>
               <div class="bubble-row" :class="{ 'bubble-row--mine': message.mine }">
                 <div class="bubble">
-                  <span class="body">{{ message.body }}</span>
+                  <template v-if="message.kind === 'location' && message.location">
+                    <span class="body location-title"><span aria-hidden="true">📍 </span>{{ t('messages.location.title') }}</span>
+                    <span v-if="message.location.accuracy_m" class="tiny muted">{{
+                      t('messages.location.accuracy', { meters: message.location.accuracy_m })
+                    }}</span>
+                    <span class="location-links">
+                      <a
+                        v-for="(link, index) in locationLinks(message)"
+                        :key="link.provider"
+                        :href="link.href"
+                        :class="{ primary: index === 0 }"
+                        :target="link.provider === 'geo' ? undefined : '_blank'"
+                        rel="noopener noreferrer"
+                        :data-provider="link.provider"
+                        >{{ t(`messages.location.open_${link.provider}`) }}</a
+                      >
+                    </span>
+                  </template>
+                  <span v-else class="body">{{ message.body }}</span>
                   <span class="meta">
                     <time :datetime="message.created_at">{{ timeOf(message.created_at) }}</time>
                     <template v-if="message.id === lastSeenId"> · {{ t('messages.thread.seen') }}</template>
@@ -418,11 +528,40 @@ function backToList() {
               @keydown="onComposerKeydown"
             />
             <div class="composer-actions">
-              <small v-if="finePointer" id="composer-hint" class="muted hint">{{ t('messages.thread.enter_hint') }}</small>
-              <small v-if="remaining < 200" class="muted" :class="{ over: remaining < 0 }">{{ remaining }}</small>
+              <button
+                type="button"
+                class="soft-btn location-btn"
+                :aria-busy="locating || undefined"
+                :disabled="locating"
+                :aria-expanded="confirmingLocation"
+                :aria-controls="confirmingLocation ? 'location-confirm' : undefined"
+                @click="confirmingLocation = !confirmingLocation"
+              >
+                <span aria-hidden="true">📍</span>
+                {{ locating ? t('messages.location.locating') : t('messages.location.share') }}
+              </button>
+              <small v-if="remaining < 200" class="muted count" :class="{ over: remaining < 0 }">{{ remaining }}</small>
               <button type="submit" :aria-busy="sending" :disabled="!draft.trim() || remaining < 0">
                 {{ t('messages.thread.send') }}
               </button>
+            </div>
+            <small v-if="finePointer" id="composer-hint" class="muted hint">{{ t('messages.thread.enter_hint') }}</small>
+            <div v-if="confirmingLocation" id="location-confirm" class="location-confirm">
+              <p class="tiny">
+                {{
+                  t('messages.location.confirm', {
+                    name: displayName(thread.counterpart.name, thread.counterpart.role),
+                  })
+                }}
+              </p>
+              <div class="confirm-actions">
+                <button type="button" class="soft-btn" @click="confirmingLocation = false">
+                  {{ t('messages.location.cancel') }}
+                </button>
+                <button type="button" data-test="send-location" @click="shareLocation">
+                  {{ t('messages.location.send') }}
+                </button>
+              </div>
             </div>
           </form>
           <p v-else class="muted tiny closed">{{ t('messages.thread.closed') }}</p>
@@ -644,21 +783,70 @@ function backToList() {
 
 .composer-actions {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
 
   button {
     width: auto;
     margin: 0;
   }
 
+  // The location button on the left, the counter and Send on the right.
+  .location-btn {
+    margin-right: auto;
+  }
+
   .over {
     color: var(--rg-red);
   }
+}
 
-  .hint {
-    margin-right: auto;
+.hint {
+  display: block;
+  margin-top: 0.4rem;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  button {
+    width: auto;
+    margin: 0;
+  }
+}
+
+.location-title {
+  font-weight: 600;
+}
+
+.location-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+
+  .primary {
+    font-weight: 700;
+  }
+}
+
+.location-btn {
+  white-space: nowrap;
+}
+
+.location-confirm {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--rg-radius-soft);
+  background: var(--rg-orange-50);
+  border: 1px solid var(--rg-orange-200);
+
+  p {
+    margin: 0 0 0.5rem;
   }
 }
 

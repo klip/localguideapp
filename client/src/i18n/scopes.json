@@ -152,6 +152,7 @@
     "messages": [
       "messages.header",
       "messages.list",
+      "messages.location",
       "messages.signed_out",
       "messages.thread",
       "messages.toast"

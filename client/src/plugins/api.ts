@@ -537,7 +537,10 @@ export interface ChatMessage {
   sender_id: number
   recipient_id: number
   mine: boolean
+  /** `location`: a shared point (`location` set, `body` empty) — see `utils/mapsLink.ts`. */
+  kind: 'text' | 'location'
   body: string
+  location: { latitude: number; longitude: number; accuracy_m: number | null } | null
   created_at: string
   read_at: string | null
 }
@@ -551,7 +554,7 @@ export interface Conversation {
   /** The match is active — once it dissolves the history stays, read-only. */
   can_send: boolean
   unread: number
-  last_message: { id: number; mine: boolean; body: string; created_at: string } | null
+  last_message: { id: number; mine: boolean; kind: ChatMessage['kind']; body: string; created_at: string } | null
 }
 
 /** One conversation's page (`api.messages()`), oldest first. */
@@ -744,6 +747,9 @@ export const api = {
   messages: (payload: { targetId: number; beforeId?: number }) => call<ChatThread>('messages', payload),
   /** Sends a message to someone the caller is actively matched with; returns it as stored (masked). */
   sendMessage: (payload: { targetId: number; body: string }) => call<ChatMessage>('sendMessage', payload),
+  /** Shares the caller's current position (from `navigator.geolocation`) as a `location` message. */
+  shareLocation: (payload: { targetId: number; latitude: number; longitude: number; accuracy?: number }) =>
+    call<ChatMessage>('shareLocation', payload),
   /** Marks what `targetId` sent the caller, up to message `upToId`, as read — messages that arrived while the conversation was open. */
   markMessagesRead: (payload: { targetId: number; upToId: number }) => call<{ ok: true }>('markMessagesRead', payload),
 

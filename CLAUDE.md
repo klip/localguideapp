@@ -784,6 +784,19 @@ The channel that replaces swapping phone numbers. `api/classes/Messages.php`,
 - Enter sends only with a fine pointer (a touchscreen keyboard's Enter is a
   new line); "Message" buttons sit on Matches' Matched rows and on trip cards
   while matched.
+- **Share my location** (032): a message is `kind: 'text' | 'location'`; a
+  location stores the point the sender's device reported (`latitude`,
+  `longitude`, `accuracy_m`) — never a link — via `shareLocation`. The button
+  asks first (inline "Send your current location to …?"), reads
+  `navigator.geolocation.getCurrentPosition()` once (needs HTTPS or
+  localhost), and is cancelled if the user leaves the conversation before the
+  position arrives (a late permission answer never sends it) or after 60 s.
+- **The viewer's own maps app**: `src/utils/mapsLink.ts` reads the *viewer's*
+  device — Client Hints, else the User-Agent (iPadOS reporting "Macintosh"
+  counts as Apple) — and orders the links: Apple devices → Apple Maps
+  (`maps.apple.com/?ll=…&q=…`, opens the Maps app) then Google; Android →
+  Google Maps' universal link (opens the app) then `geo:0,0?q=lat,lng(label)`
+  (any installed maps app); others → Google then Apple.
 
 ### Contact filter (`lib/ContactFilter.php`)
 
@@ -1685,6 +1698,7 @@ is a `503` from the gateway.
 | `conversations` | **yes** | `api.conversations()` | — | `{ conversations: Conversation[] }` (`counterpart_id, name, image, role, can_send, unread, last_message`) | `Messages::conversationsFor()` |
 | `messages` | **yes** | `api.messages(payload)` | `targetId, beforeId?` | `ChatThread` (`counterpart, can_send, has_more, messages` oldest first, ≤50) — the newest page marks read | `Messages::threadWith()` |
 | `sendMessage` | **yes** | `api.sendMessage(payload)` | `targetId, body` (≤2000) | `ChatMessage` (masked) | `Messages::send()` |
+| `shareLocation` | **yes** | `api.shareLocation(payload)` | `targetId, latitude` (±90), `longitude` (±180) — numbers — `accuracy?` (m) | `ChatMessage` (`kind: 'location'`, `location`) | `Messages::shareLocation()` |
 | `markMessagesRead` | **yes** | `api.markMessagesRead(payload)` | `targetId, upToId` | `{ ok: true }` | `Messages::markReadWith()` |
 | `markSeen` | **yes** | `api.markSeen(section)` | `section` (`'matches' \| 'trips'`) | `{ ok: true }` — the new counts arrive as a `badges` push | `Badges::markSeen()` |
 | `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
@@ -2018,6 +2032,10 @@ API service (`api/classes/`):
   2026-10-15. Re-runnable.
 - `api/sql/031_translations_messages.sql` — chat UI text. Applied
   2026-10-15. Re-runnable.
+- `api/sql/032_message_locations.sql` — `messages.kind`, `latitude`,
+  `longitude`, `accuracy_m`. Applied 2026-10-15. Not re-runnable.
+- `api/sql/033_translations_locations.sql` — "Share my location" text.
+  Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,
   `profile.details.contact_hint`. Applied 2026-10-15. Re-runnable.
 
