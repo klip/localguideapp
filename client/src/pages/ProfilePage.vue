@@ -330,6 +330,28 @@ onMounted(async () => {
   }
 })
 
+/**
+ * The input a refused save pointed at (`ApiError.field` for a
+ * `contact_details` error — see `ContactFilter`): marked invalid until it's
+ * edited, and the toast sits under it rather than on the panel.
+ */
+const invalidField = ref<string | null>(null)
+
+function reportSaveError(err: unknown, fallback: string, panel: HTMLElement | null) {
+  const field = err instanceof ApiError && err.code === 'contact_details' ? err.field : undefined
+  const input = field ? panel?.querySelector<HTMLElement>(`[data-field="${field}"]`) : null
+  invalidField.value = input ? (field ?? null) : null
+  // Toasts are fixed to the rect measured now, so the field must already be
+  // where it'll stay: no smooth scroll still under way when it's measured.
+  input?.scrollIntoView?.({ block: 'center', behavior: 'instant' })
+  input?.focus({ preventScroll: true })
+  reportApiError(err, fallback, input ? anchorTo('input', input) : anchorTo('element', panel))
+}
+
+function clearInvalid(field: string) {
+  if (invalidField.value === field) invalidField.value = null
+}
+
 async function saveAccount() {
   if (!auth.user || savingAccount.value || !twoFactorMethod.value) return
   savingAccount.value = true
@@ -356,7 +378,7 @@ async function saveAccount() {
     })
     messages.success(t('profile.toast.contact_saved'), anchorTo('element', accountPanelRef.value))
   } catch (err) {
-    reportApiError(err, t('profile.toast.contact_failed'), anchorTo('element', accountPanelRef.value))
+    reportSaveError(err, t('profile.toast.contact_failed'), accountPanelRef.value)
   } finally {
     savingAccount.value = false
   }
@@ -384,7 +406,7 @@ async function saveProfile() {
     })
     messages.success(t('profile.toast.profile_saved'), anchorTo('element', profilePanelRef.value))
   } catch (err) {
-    reportApiError(err, t('profile.toast.profile_failed'), anchorTo('element', profilePanelRef.value))
+    reportSaveError(err, t('profile.toast.profile_failed'), profilePanelRef.value)
   } finally {
     savingProfile.value = false
   }
@@ -463,7 +485,14 @@ async function changePassword() {
           <form @submit.prevent="saveAccount">
             <label>
               {{ t('profile.contact.name') }}
-              <input v-model="name" type="text" autocomplete="name" />
+              <input
+                v-model="name"
+                type="text"
+                autocomplete="name"
+                data-field="name"
+                :aria-invalid="invalidField === 'name' || undefined"
+                @input="clearInvalid('name')"
+              />
             </label>
             <label>
               {{ t('common.contact.email') }}
@@ -549,17 +578,35 @@ async function changePassword() {
                 v-model="headline"
                 type="text"
                 :placeholder="t('profile.details.headline_placeholder')"
+                data-field="headline"
+                :aria-invalid="invalidField === 'headline' || undefined"
+                @input="clearInvalid('headline')"
               />
             </label>
 
             <label v-if="!isGuide">
               {{ t('profile.details.party') }}
-              <input v-model="party" type="text" :placeholder="t('profile.details.party_placeholder')" />
+              <input
+                v-model="party"
+                type="text"
+                :placeholder="t('profile.details.party_placeholder')"
+                data-field="party"
+                :aria-invalid="invalidField === 'party' || undefined"
+                @input="clearInvalid('party')"
+              />
             </label>
 
             <label>
               {{ t('profile.details.bio') }}
-              <textarea v-model="bio" rows="3" />
+              <textarea
+                v-model="bio"
+                rows="3"
+                data-field="bio"
+                aria-describedby="contact-hint"
+                :aria-invalid="invalidField === 'bio' || undefined"
+                @input="clearInvalid('bio')"
+              />
+              <small id="contact-hint" class="muted">{{ t('profile.details.contact_hint') }}</small>
             </label>
 
             <template v-if="isGuide">
@@ -582,15 +629,30 @@ async function changePassword() {
                   v-model="priceLabel"
                   type="text"
                   :placeholder="t('profile.details.price_label_placeholder')"
+                  data-field="priceLabel"
+                  :aria-invalid="invalidField === 'priceLabel' || undefined"
+                  @input="clearInvalid('priceLabel')"
                 />
               </label>
               <label>
                 {{ t('profile.details.price_note') }}
-                <input v-model="priceNote" type="text" />
+                <input
+                  v-model="priceNote"
+                  type="text"
+                  data-field="priceNote"
+                  :aria-invalid="invalidField === 'priceNote' || undefined"
+                  @input="clearInvalid('priceNote')"
+                />
               </label>
               <label>
                 {{ t('profile.details.includes') }}
-                <textarea v-model="includes" rows="2" />
+                <textarea
+                  v-model="includes"
+                  rows="2"
+                  data-field="includes"
+                  :aria-invalid="invalidField === 'includes' || undefined"
+                  @input="clearInvalid('includes')"
+                />
               </label>
             </template>
 
@@ -599,7 +661,7 @@ async function changePassword() {
               <input v-model.number="durationHours" type="number" min="1" max="24" />
             </label>
 
-            <div class="attributes-editor">
+            <div class="attributes-editor" data-field="attribute" tabindex="-1">
               <strong class="tiny">{{ t('profile.details.about') }}</strong>
 
               <div v-for="category in visibleCategories" :key="category.key" class="attribute-group">

@@ -88,6 +88,8 @@ class AuthProcessor
             }
         } catch (AuthenticationException $e) {
             return [401, ['error' => $e->getMessage()]];
+        } catch (ContactDetailsException $e) {
+            return [400, $e->toBody()];
         } catch (RuntimeException $e) {
             return [400, ['error' => $e->getMessage()]];
         } catch (Throwable $e) {
@@ -110,6 +112,8 @@ class AuthProcessor
         if (strlen($password) < 8) {
             throw new RuntimeException('Password must be at least 8 characters.');
         }
+        // A name is shown on every deck card, so it can't carry a phone number.
+        ContactFilter::assertClean($name, 'name');
 
         // The account exists only together with its acceptance of the terms
         // in force: `termsVersion` is the version the registration modal

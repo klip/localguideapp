@@ -173,11 +173,14 @@ class Reviews
         if (mb_strlen($comment, 'UTF-8') > self::MAX_COMMENT_LENGTH) {
             throw new RuntimeException('Comment must be ' . self::MAX_COMMENT_LENGTH . ' characters or fewer.');
         }
-
         $bookingId = $this->eligibleBookingId($authorId, $subjectId);
         if (!$bookingId) {
             throw new RuntimeException('You can only review someone after a finished trip with them.');
         }
+
+        // Public on the profile: no phone numbers or handles (see `ContactFilter`).
+        // The mask can be a character longer than a short handle it replaces.
+        $comment = mb_substr(ContactFilter::mask($comment, 'review'), 0, self::MAX_COMMENT_LENGTH, 'UTF-8');
 
         // Hand-written rather than `db_InsertUpdate()`: that helper quotes
         // every value, and an empty comment has to be a real NULL.

@@ -749,6 +749,42 @@ after each step so the page re-fetches.
   and notification copy live in `Bookings.php`; times in emails are UTC
   ("… UTC"), in the UI the viewer's own zone.
 
+### Contact filter (`lib/ContactFilter.php`)
+
+Contact details are what a booking unlocks, so nothing a person writes for
+others may carry them. `ContactFilter` finds phone numbers (7+ digits in a
+run — spelled-out digits in en/es/fr/de/it/pt, any Unicode digits, "O" for
+zero, commas/dots/dashes between groups), emails (real, and "at/dot"
+spelled out or bracketed), links (lowercase `name.tld`, `www.`, `http`,
+`wa.me`/`t.me`), `@handles`, "IG: name"/"insta name_99"-style ids and "add
+me on WhatsApp"/"my number is" invitations.
+
+- **Refused** (`assertClean()` → `ContactDetailsException` → `400 { error,
+  code: 'contact_details', field }`) where someone describes themselves:
+  `updateProfile`'s text fields and every category/option it would add —
+  each alone *and* joined (`assertCleanTogether()`; a number split across
+  headline+bio or across three interest chips) — checked before anything
+  is written; `name` on `updateAccount` and `register`.
+- **Masked** (`mask()` → `[•••]`, the rest kept) where someone writes *to*
+  someone: review comments, a booking's meeting place, decline/cancel
+  reasons.
+- **Allowed on purpose**: map links (Google/Apple Maps) and coordinates —
+  a meeting point isn't a contact detail; dates, clock times, year lists,
+  money, "1.500.000"-style thousands, "9 - 13 / 16 - 20" hours. Plain
+  messenger names ("Instagram photography", "Signal: strong") pass; only a
+  name plus an id-looking token counts.
+- **Fails closed**: invalid UTF-8 or a regex failure is one `unreadable` hit.
+- Every hit is logged (`Contact details blocked|masked`) and recorded in
+  `contact_filter_hits` (028: user, field, kinds, outcome — never the text).
+- Client: `call()` turns `code: 'contact_details'` into
+  `common.api.contact_details` in the viewer's language (`ApiError.code`/
+  `.field` carry the rest); `ProfilePage.vue` scrolls to the `data-field`
+  input, marks it `aria-invalid` and anchors the toast under it. A hint
+  under Bio (`profile.details.contact_hint`) says it up front.
+- Tests: `docker exec lemp-php php /var/www/localguideapp/lib/tests/ContactFilterTest.php`
+  — keep adding real false positives to `$allowed` and bypasses to
+  `$blocked`. Spelled-out digits in other languages aren't covered.
+
 ### In-app notifications
 
 `notifications` rows (`Notifications::notify()`, which also queues the
@@ -1458,7 +1494,9 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
   wrong → 403, unset on the service → 503), `X-User-Id`, `X-Request-Id`,
   `X-Client-User-Agent`; `GET /healthz` → 200. The gateway also answers
   `GET /healthz`. Only `/ws` is public on `api.rockguide.com`; the service
-  ports aren't published.
+  ports aren't published. The gateway accepts browser origins
+  `rockguide.com` (+ www/admin/api) and `localhost:5173`; `WS_EXTRA_ORIGINS`
+  (comma-separated, exact) adds more, e.g. a second dev server.
 - **Gateway-only actions** — `resolve`, `peekMany` (auth) and `pushState`
   (api) — the gateway refuses them from clients (404).
 - **Stateless**: nothing but the gateway's open sockets lives in a
@@ -1576,7 +1614,9 @@ always sent as `{ action, sessionHash?, ...payload }` over the WebSocket
 "Sessions" below) without a valid `sessionHash` — everything else either
 takes no identity at all or reads one from the payload (`register`/`login`)
 directly. Every response is `200` with a JSON body on success; a thrown
-`RuntimeException` maps to `400`, `AuthenticationException` to `401`, an
+`RuntimeException` maps to `400` (`ContactDetailsException` adds `code:
+'contact_details'` and `field` to that body — see "Contact filter"),
+`AuthenticationException` to `401`, an
 unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 `Log::exception()`, generic message to the client); an unreachable service
 is a `503` from the gateway.
@@ -1659,6 +1699,8 @@ Shared (`lib/`):
 - `lib/ImageData.php` — the `data:image/...` validator (register,
   updateAccount).
 - `lib/LegalDocuments.php` — the terms in force and their acceptance.
+- `lib/ContactFilter.php` — keeps contact details out of shared text (see
+  "Contact filter"); `configure()`d per request by both processors.
 - `lib/AuthenticationException.php` — mapped to `401` by both processors.
 
 Auth service (`auth/classes/`):
@@ -1927,10 +1969,14 @@ API service (`api/classes/`):
   nullable), and `accepted_at = created_at` for bookings cancelled before
   014 (back then every booking was born confirmed), so `accepted_at IS NOT
   NULL` identifies a trip. Applied 2026-10-05. Not re-runnable.
+- `api/sql/028_contact_filter_hits.sql` — `contact_filter_hits` (see
+  "Contact filter"). Applied 2026-10-15. Re-runnable.
+- `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,
+  `profile.details.contact_hint`. Applied 2026-10-15. Re-runnable.
 
 There is no test setup, linter, or formatter configured for the PHP
-services yet; `docker exec lemp-php php -l <file>` is the only current
-check. The end-to-end check used for the service split drove real sockets
+services yet; `docker exec lemp-php php -l <file>` is the main check, plus
+plain-PHP scripts in `lib/tests/` (exit non-zero on failure). The end-to-end check used for the service split drove real sockets
 against throwaway `@example.test` accounts with the mail worker stopped.
 
 ### Database state

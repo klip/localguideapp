@@ -9,15 +9,21 @@ import type { AttributeMap, DiscoveryFilters, Gender, RangeMap } from '@/types'
  * Thrown for every failure mode of a request: network failure, a
  * non-JSON/unexpected response, or the API's own `{ error }` payload.
  * `status` is 0 for failures that never got an HTTP response at all
- * (offline, DNS, CORS rejection).
+ * (offline, DNS, CORS rejection). `code`/`field` come from errors the server
+ * marks for the client to handle — today only `contact_details` (see
+ * `lib/ContactFilter.php`), whose `field` names the input that held them.
  */
 export class ApiError extends Error {
   status: number
+  code?: string
+  field?: string
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string, field?: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.code = code
+    this.field = field
   }
 }
 
@@ -527,7 +533,7 @@ export const REVIEWS_PAGE_SIZE = 20
 /** Mirrors `AGE_CATEGORY_KEY` in `stores/categories.ts`; duplicated so the api layer doesn't import a store. */
 const AGE_FILTER_KEY = 'age'
 
-function isErrorBody(body: unknown): body is { error: string } {
+function isErrorBody(body: unknown): body is { error: string; code?: string; field?: string } {
   return (
     !!body &&
     typeof body === 'object' &&
@@ -580,10 +586,11 @@ async function call<T>(action: string, payload: object = {}): Promise<T> {
       useAuthStore().clear()
       useMessagesStore().sessionExpired()
     }
-    throw new ApiError(
-      isErrorBody(body) ? body.error : t('common.api.something_went_wrong'),
-      status,
-    )
+    if (!isErrorBody(body)) throw new ApiError(t('common.api.something_went_wrong'), status)
+    // Server text is English; the one error a user is meant to act on gets
+    // the viewer's language (see `ContactFilter`).
+    const message = body.code === 'contact_details' ? t('common.api.contact_details') : body.error
+    throw new ApiError(message, status, body.code, body.field)
   }
 
   return body as T

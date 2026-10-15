@@ -998,12 +998,17 @@ class Bookings
             throw new RuntimeException('Keep the meeting place short — ' . self::MAX_LOCATION_LENGTH . ' characters at most.');
         }
 
-        return $value;
+        // The other side reads it before contact details are shared (a
+        // pending booking), so a phone number here would skip the guide's
+        // acceptance; a map link is fine. The mask can be a character longer
+        // than a short handle it replaces, hence the trim after it.
+        return mb_substr(ContactFilter::mask($value, 'location'), 0, self::MAX_LOCATION_LENGTH);
     }
 
+    /** A decline/cancellation note, shown to the other side — contact details masked (see `ContactFilter`). */
     private static function reason(string $reason): string
     {
-        return mb_substr(trim($reason), 0, 256);
+        return mb_substr(ContactFilter::mask(trim($reason), 'reason'), 0, 256);
     }
 
     private static function endOf(array $booking): string

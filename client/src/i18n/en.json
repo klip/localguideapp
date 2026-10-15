@@ -1,4 +1,5 @@
 {
+  "common.api.contact_details": "Contact details (phone numbers, emails, links or social media handles) can’t be shared here. They’re exchanged once a trip is confirmed.",
   "common.api.something_went_wrong": "Something went wrong.",
   "common.api.unexpected_response": "The server returned an unexpected response.",
   "common.api.unreachable": "Could not reach the server. Check your connection and try again.",
@@ -520,6 +521,7 @@
   "profile.details.add_option": "Add a {category} option",
   "profile.details.bio": "Bio",
   "profile.details.category_placeholder": "Search or create a category…",
+  "profile.details.contact_hint": "Please don’t include phone numbers, emails, links or social media handles — contact details are shared automatically once a trip is confirmed.",
   "profile.details.date_of_birth": "Date of birth",
   "profile.details.duration": "Requested tour length (hours)",
   "profile.details.gender": "Gender",

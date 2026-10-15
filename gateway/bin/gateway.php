@@ -39,9 +39,13 @@ if ($internalToken === '') {
 
 // The origins the web app is served from. No Origin at all is a non-browser
 // client (a script, a test) — allowed, since nothing here rides on cookies:
-// every request carries its own sessionHash.
-$allowOrigin = static function (string $origin): bool {
-    return $origin === '' || (bool) preg_match('#^https?://((www|admin|api)\.)?(rockguide\.com|localhost:5173)$#i', $origin);
+// every request carries its own sessionHash. WS_EXTRA_ORIGINS (comma-separated,
+// exact match) adds more, e.g. a second dev server on another port.
+$extraOrigins = array_filter(array_map('trim', explode(',', (string) (getenv('WS_EXTRA_ORIGINS') ?: ''))));
+$allowOrigin = static function (string $origin) use ($extraOrigins): bool {
+    return $origin === ''
+        || in_array(strtolower($origin), array_map('strtolower', $extraOrigins), true)
+        || (bool) preg_match('#^https?://((www|admin|api)\.)?(rockguide\.com|localhost:5173)$#i', $origin);
 };
 
 $gateway = new Gateway(

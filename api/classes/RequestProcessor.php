@@ -72,6 +72,7 @@ class RequestProcessor
         $this->input = $input;
         $this->userId = $context['userId'] ?? null;
         $action = (string) ($input['action'] ?? '');
+        ContactFilter::configure($this->db, $this->userId);
 
         try {
             $result = $this->dispatch($action);
@@ -82,6 +83,8 @@ class RequestProcessor
             return $result;
         } catch (AuthenticationException $e) {
             return [401, ['error' => $e->getMessage()]];
+        } catch (ContactDetailsException $e) {
+            return [400, $e->toBody()];
         } catch (RuntimeException $e) {
             return [400, ['error' => $e->getMessage()]];
         } catch (Throwable $e) {
@@ -453,6 +456,7 @@ class RequestProcessor
         if (isset($fields['date_of_birth']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $fields['date_of_birth'])) {
             throw new RuntimeException('dateOfBirth must be a YYYY-MM-DD date.');
         }
+        $this->assertProfileTextClean($input);
 
         $this->profiles->setProfile($userId, $fields);
 
@@ -481,6 +485,45 @@ class RequestProcessor
     }
 
     /**
+     * Everything `updateProfile` would show other people — the free-text
+     * fields, and any category or option it would add to the shared lists
+     * every profile editor and filter bar suggests from — checked for
+     * contact details before anything is written (see `ContactFilter`), so a
+     * refused save changes nothing. `field` in the error is the input key
+     * (`bio`, `headline`, …), or `attribute` for a category or option.
+     */
+    private function assertProfileTextClean(array $input): void
+    {
+        $texts = [];
+        foreach (['headline', 'bio', 'priceLabel', 'priceNote', 'includes', 'party'] as $key) {
+            if (isset($input[$key]) && is_scalar($input[$key])) {
+                ContactFilter::assertClean((string) $input[$key], $key);
+                $texts[$key] = (string) $input[$key];
+            }
+        }
+        // Shown together on the profile, so checked together too: a number
+        // split between the headline and the bio is still a number.
+        ContactFilter::assertCleanTogether($texts);
+
+        $attributeTexts = [];
+        foreach ((array) ($input['newCategoryLabels'] ?? []) as $key => $label) {
+            $attributeTexts[] = (string) $key;
+            $attributeTexts[] = is_scalar($label) ? (string) $label : '';
+        }
+        foreach ((array) ($input['attributes'] ?? []) as $key => $values) {
+            $attributeTexts[] = (string) $key;
+            foreach (is_array($values) ? $values : [] as $value) {
+                $attributeTexts[] = is_scalar($value) ? (string) $value : '';
+            }
+        }
+        foreach ($attributeTexts as $text) {
+            ContactFilter::assertClean($text, 'attribute');
+        }
+        // Chips sit side by side: "560", "027", "31" read as one number.
+        ContactFilter::assertClean(implode("\n", $attributeTexts), 'attribute');
+    }
+
+    /**
      * Updates account-level fields on `users` — name, email, phone, 2FA
      * delivery channel, and (through `ImageData::validate()`) the profile photo.
      * `phone` arrives already fully formed (e.g. "+350 56002731") — any
@@ -499,6 +542,7 @@ class RequestProcessor
 
         if (isset($input['name'])) {
             $fields['name'] = trim((string) $input['name']);
+            ContactFilter::assertClean($fields['name'], 'name');
         }
         if (isset($input['phone'])) {
             $fields['phone'] = trim((string) $input['phone']);

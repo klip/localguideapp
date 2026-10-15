@@ -270,6 +270,33 @@ describe('ProfilePage', () => {
     expect(messages.items.map((item) => item.text)).toContain('Contact details saved.')
   })
 
+  it('points a contact-details refusal at the field that held them, until it is edited', async () => {
+    const updateProfile = vi
+      .fn<Api['updateProfile']>()
+      .mockRejectedValue(new ApiError('Contact details can’t be shared here.', 400, 'contact_details', 'bio'))
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
+        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        updateProfile,
+      }),
+    )
+
+    const bio = wrapper.find('textarea[data-field="bio"]')
+    await bio.setValue('WhatsApp me on 56002731')
+    await forms(wrapper).details.trigger('submit.prevent')
+    await flushPromises()
+
+    expect(bio.attributes('aria-invalid')).toBe('true')
+    const items = useMessagesStore().items
+    const toast = items[items.length - 1]!
+    expect(toast.text).toBe('Contact details can’t be shared here.')
+    expect(toast.placement).toMatchObject({ type: 'input' })
+
+    await bio.setValue('History walks')
+    expect(bio.attributes('aria-invalid')).toBeUndefined()
+  })
+
   it('adds an interest via the category/option comboboxes and saves it', async () => {
     const updateProfile = vi.fn<Api['updateProfile']>().mockResolvedValue({ ok: true })
     const wrapper = await mountProfilePage(

@@ -69,6 +69,20 @@ describe('plugins/api call()', () => {
     expect(auth.isAuthenticated).toBe(true)
   })
 
+  it('shows a contact_details refusal in the viewer\'s language, keeping code and field', async () => {
+    setActivePinia(createPinia())
+    FakeWebSocket.respond = () => ({
+      status: 400,
+      body: { error: 'English server text', code: 'contact_details', field: 'bio' },
+    })
+
+    const error = (await api.updateProfile({ bio: 'call 56002731' }).catch((err: unknown) => err)) as ApiError
+    expect(error).toBeInstanceOf(ApiError)
+    expect(error.message).toMatch(/can’t be shared here/)
+    expect(error.code).toBe('contact_details')
+    expect(error.field).toBe('bio')
+  })
+
   it('fails with status 0 when the connection drops mid-request', async () => {
     setActivePinia(createPinia())
     FakeWebSocket.respond = () => null
