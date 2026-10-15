@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import PanelCard from '@/components/PanelCard.vue'
 import ReviewsSection from '@/components/ReviewsSection.vue'
+import StandingBadges from '@/components/StandingBadges.vue'
 import TagList from '@/components/TagList.vue'
 import { t } from '@/i18n'
 import { ApiError, useApi, type PublicProfile } from '@/plugins/api'
@@ -10,6 +11,7 @@ import { useCategoriesStore } from '@/stores/categories'
 import { formatRange, rangeFormatFor } from '@/utils/formatRange'
 import { reportApiError } from '@/utils/reportApiError'
 import { formatRating } from '@/utils/reviews'
+import { standingOf } from '@/utils/standing'
 
 /**
  * A guest's public profile — the guest-side counterpart of
@@ -76,6 +78,7 @@ const backTo = computed(() => (auth.user?.role === 'guide' ? '/guide/discover' :
             <span v-if="visitor.review_count > 0">
               {{ formatRating(visitor.rating_average ?? 0, visitor.review_count) }}
             </span>
+            <StandingBadges :standing="standingOf(visitor)" on-photo />
           </div>
         </div>
 

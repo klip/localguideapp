@@ -129,6 +129,12 @@ export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
    */
   rating_average: number | null
   review_count: number
+  /** Identity checked (`users.verified_at`) — the ✓ Verified badge. */
+  verified: boolean
+  /** ≥ 5 reviews averaging ≥ 4.6 (see `Ranking.php`). */
+  top_rated: boolean
+  /** Finished trips, as guest or guide. */
+  trips_completed: number
   attributes: AttributeMap
   ranges: RangeMap
 }
@@ -229,6 +235,9 @@ export interface MyProfile {
   party: string | null
   duration_hours: number | null
   role: string | null
+  /** Identity checked — set by the ID verification (not by the user). */
+  verified: boolean
+  verification_method: 'id_card' | 'passport' | 'driving_licence' | null
   attributes: AttributeMap
   ranges: RangeMap
 }

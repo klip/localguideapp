@@ -548,6 +548,20 @@ async function changePassword() {
             </div>
             <ImageCropper ref="cropperRef" />
 
+            <!-- Set by the identity check, not editable here (see Ranking.php). -->
+            <p v-if="profile" class="verification tiny" :class="{ 'verification--done': profile.verified }" data-test="verification">
+              <template v-if="profile.verified">
+                <strong><span aria-hidden="true">✓</span> {{ t('profile.verification.verified') }}</strong>
+                <template v-if="profile.verification_method">
+                  · {{ t(`profile.verification.method_${profile.verification_method}`) }}</template
+                >
+              </template>
+              <template v-else>
+                <strong>{{ t('profile.verification.not_yet') }}</strong>
+                {{ t('profile.verification.coming_soon') }}
+              </template>
+            </p>
+
             <button type="submit" class="full" :aria-busy="savingAccount" :disabled="savingAccount">
               {{ savingAccount ? t('profile.contact.saving') : t('profile.contact.submit') }}
             </button>
@@ -804,6 +818,20 @@ label {
   label {
     margin-bottom: 1rem;
   }
+}
+
+.verification {
+  margin: 0.75rem 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--rg-radius-soft);
+  background: var(--rg-orange-50);
+  border: 1px solid var(--rg-orange-200);
+}
+
+.verification--done {
+  background: var(--rg-green-soft);
+  border-color: var(--rg-green-border);
+  color: var(--rg-green);
 }
 
 .current-photo {

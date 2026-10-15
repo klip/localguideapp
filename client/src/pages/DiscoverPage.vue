@@ -278,6 +278,7 @@ function reject(id: string) {
           :tags="categoriesStore.tagsFor(current.attributes)"
           :includes="current.includes"
           :profile-link="{ name: 'guide-profile', params: { id: current.id } }"
+          :standing="current.standing"
           :disabled="cardDisabled"
           @accept="accept(current.id)"
           @reject="reject(current.id)"

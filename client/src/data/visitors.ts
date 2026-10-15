@@ -14,6 +14,7 @@ export const visitors: Visitor[] = [
     attributes: { languages: ['English'], interests: ['history', 'food'] },
     ranges: {},
     durationHours: 6,
+    standing: { verified: true, topRated: true, tripsCompleted: 24 },
     photo: 'var(--rg-photo-visitor)',
   },
   {
@@ -25,6 +26,7 @@ export const visitors: Visitor[] = [
     attributes: { languages: ['English', 'German'], interests: ['family', 'nature'] },
     ranges: {},
     durationHours: 4,
+    standing: { verified: true, topRated: true, tripsCompleted: 24 },
     photo: 'linear-gradient(135deg, #c9d8de, #7f94a3 48%, #dcd9d2)',
   },
   {
@@ -36,6 +38,7 @@ export const visitors: Visitor[] = [
     attributes: { languages: ['Spanish', 'English'], interests: ['history', 'food'] },
     ranges: {},
     durationHours: 8,
+    standing: { verified: true, topRated: true, tripsCompleted: 24 },
     photo: 'linear-gradient(135deg, #ded0c0, #94867a 48%, #d3cfc8)',
   },
 ]

@@ -3,6 +3,7 @@
 // Every class the API service is made of, for its two entry points:
 // `index.php` (internal HTTP, called by the gateway) and `bin/scheduler.php`.
 require_once __DIR__.'/../lib/bootstrap.php';
+require_once __DIR__.'/classes/Ranking.php';
 require_once __DIR__.'/classes/Users.php';
 require_once __DIR__.'/classes/Payments.php';
 require_once __DIR__.'/classes/Badges.php';

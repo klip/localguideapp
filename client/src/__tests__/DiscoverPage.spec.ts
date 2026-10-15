@@ -48,6 +48,9 @@ function guide(id: number, name: string): ProfileAccount {
     duration_hours: null,
     rating_average: null,
     review_count: 0,
+    verified: false,
+    top_rated: false,
+    trips_completed: 0,
     attributes: {},
     ranges: {},
   }

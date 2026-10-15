@@ -192,19 +192,22 @@ class Users
                 OR EXISTS (' . $ownRows . ' AND (' . implode(' OR ', $overlaps) . ')))';
         }
 
+        // Best first — see `Ranking` for the score.
         $rows = $this->db->db_GetArray(
-            'SELECT ' . self::PROFILE_COLUMNS . '
+            'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns() . '
              FROM `users` u
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . self::REVIEW_SUMMARY_JOIN . '
-             WHERE ' . implode(' AND ', $where)
+             ' . Ranking::tripsJoin() . ' ' . Ranking::reviewsJoin() . '
+             WHERE ' . implode(' AND ', $where) . '
+             ' . Ranking::ORDER_BY
         );
 
         $userIds = array_map(fn($row) => (int) $row['id'], $rows);
         $attributes = $profiles->getAttributesFor($userIds);
 
         foreach ($rows as &$row) {
-            $row = $this->castReviewSummary($row);
+            $row = Ranking::castRow($this->castReviewSummary($row));
             $id = (int) $row['id'];
             // Cast so an empty set encodes as a JSON object rather than `[]`
             // — the client types both of these as maps keyed by category.
@@ -232,10 +235,11 @@ class Users
         }
 
         $row = $this->db->db_GetRow(
-            'SELECT ' . self::PROFILE_COLUMNS . '
+            'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns() . '
              FROM `users` u
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
-             ' . self::REVIEW_SUMMARY_JOIN . '
+             ' . self::reviewSummaryJoinFor($userId) . '
+             ' . Ranking::tripsJoin($userId) . ' ' . Ranking::reviewsJoin($userId) . '
              WHERE u.`id` = ' . $userId
         );
         if (!$row) {
@@ -243,7 +247,7 @@ class Users
         }
 
         $attributes = $profiles->getAttributesFor([$userId]);
-        $row = $this->castReviewSummary($row);
+        $row = Ranking::castRow($this->castReviewSummary($row));
         $row['role'] = $role;
         $row['attributes'] = (object) ($attributes['attributes'][$userId] ?? []);
         $row['ranges'] = (object) ($attributes['ranges'][$userId] ?? []);
@@ -272,6 +276,15 @@ class Users
                 SELECT `subject_id`, COUNT(*) AS `review_count`, ROUND(AVG(`rating`), 1) AS `rating_average`
                 FROM `reviews` GROUP BY `subject_id`
              ) rs ON rs.`subject_id` = u.`id`';
+
+    /** `REVIEW_SUMMARY_JOIN` for one person only — a profile page needn't group everyone's reviews. */
+    private static function reviewSummaryJoinFor(int $userId): string
+    {
+        return 'LEFT JOIN (
+                SELECT `subject_id`, COUNT(*) AS `review_count`, ROUND(AVG(`rating`), 1) AS `rating_average`
+                FROM `reviews` WHERE `subject_id` = ' . $userId . ' GROUP BY `subject_id`
+             ) rs ON rs.`subject_id` = u.`id`';
+    }
 
     /** mysqli returns strings; the client types these two as numbers. */
     private function castReviewSummary(array $row): array
@@ -319,6 +332,7 @@ class Users
     {
         $row = $this->db->db_GetRow(
             'SELECT u.`id`, u.`name`, u.`email`, u.`phone`, u.`two_factor_method`, u.`image`, u.`created_at`,
+                    u.`verified_at` IS NOT NULL AS `verified`, u.`verification_method`,
                     p.`date_of_birth`, p.`gender`, p.`headline`, p.`bio`, p.`price_amount`, p.`price_label`, p.`price_note`,
                     p.`includes`, p.`party`, p.`duration_hours`
              FROM `users` u
@@ -330,6 +344,7 @@ class Users
         }
 
         $row['role'] = $this->getRoleName($userId);
+        $row['verified'] = (bool) (int) $row['verified'];
         $row['attributes'] = (object) $profiles->getAttributeValuesFor($userId);
         $row['ranges'] = (object) $profiles->getRangesFor($userId);
 

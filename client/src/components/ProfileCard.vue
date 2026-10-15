@@ -3,6 +3,8 @@ import type { RouteLocationRaw } from 'vue-router'
 import DecisionRow from './DecisionRow.vue'
 import { t } from '@/i18n'
 import TagList from './TagList.vue'
+import StandingBadges from './StandingBadges.vue'
+import type { Standing } from '@/types'
 
 /**
  * The swipeable card. Deliberately domain-agnostic props rather than a `Guide`
@@ -30,6 +32,8 @@ withDefaults(
     wide?: boolean
     decided?: boolean
     disabled?: boolean
+    /** Earned badges (verified, top rated, trips) — see `StandingBadges`. */
+    standing?: Standing
   }>(),
   { tags: () => [], wide: false, decided: false, disabled: false },
 )
@@ -46,6 +50,7 @@ const emit = defineEmits<{
       <div class="photo-copy">
         <strong class="photo-name">{{ name }}, {{ age }}</strong>
         <span v-if="meta">{{ meta }}</span>
+        <StandingBadges v-if="standing" :standing="standing" on-photo class="photo-badges" />
       </div>
     </div>
 
@@ -108,6 +113,10 @@ const emit = defineEmits<{
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+}
+
+.photo-badges {
+  margin-top: 0.3rem;
 }
 
 .photo-name {

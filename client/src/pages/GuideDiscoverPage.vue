@@ -151,6 +151,7 @@ function reject(id: string) {
           :bio="current.bio"
           :tags="categoriesStore.tagsFor(current.attributes)"
           :profile-link="{ name: 'visitor-profile', params: { id: current.id } }"
+          :standing="current.standing"
           @accept="accept(current.id)"
           @reject="reject(current.id)"
         />

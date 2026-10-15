@@ -751,6 +751,34 @@ after each step so the page re-fetches.
   and notification copy live in `Bookings.php`; times in emails are UTC
   ("… UTC"), in the UI the viewer's own zone.
 
+### Ranking & badges (`Ranking.php`, `StandingBadges.vue`)
+
+Both decks are ordered best-first (`Users::searchByRole()` → `ORDER BY
+rank_score DESC, u.id DESC`); the score is computed in the same query and
+**never sent to clients** (`Ranking::castRow()` drops it) — they get the facts
+behind it as badges instead.
+
+- **Score**: +30 verified identity; reviews as a Bayesian average (5 imaginary
+  4.0★ reviews + the real ones, one per *distinct author*) → (avg − 3) × 15;
+  finished trips as 5 × log2(1 + n) capped at 25, counting each *other person*
+  once; +5 photo, +5 bio; +15 for a new account, fading to 0 over 21 days.
+- **Anti-farming**: a guest and a free guide (or one person with two
+  accounts) matching, finishing, reviewing and re-matching gain nothing after
+  the first round — trips and reviews both count distinct people. Many sock
+  puppets still could; ID verification (and its +30) is the answer to that.
+- **Badges** (`ProfileAccount.verified`, `.top_rated` — ≥ 5 distinct
+  reviewers averaging ≥ 4.6 — and `.trips_completed`), rendered by
+  `StandingBadges.vue` on the deck card (`ProfileCard`'s `standing` prop) and
+  both profile heroes, mapped through `utils/standing.ts`. Each badge's
+  explanation is screen-reader text as well as a tooltip.
+- **Verification** (034): `users.verified_at` + `verification_method`
+  (`id_card | passport | driving_licence`). Set by hand for now
+  (`UPDATE users SET verified_at = UTC_TIMESTAMP(), verification_method =
+  'passport' WHERE id = …`); the automated document + selfie check is the next
+  big change. `ProfilePage.vue` shows the status (`myProfile.verified`).
+- Indexes for the two derived tables are in 036; `getPublicProfile()` narrows
+  them to the one user. A `user_stats` table is the next step if decks grow.
+
 ### Messages: chat between matched people (`MessagesPage.vue`, `/messages`)
 
 The channel that replaces swapping phone numbers. `api/classes/Messages.php`,
@@ -1679,7 +1707,7 @@ is a `503` from the gateway.
 | `resendTwoFactor` | no | `api.resendTwoFactor(payload)` | `challengeToken` | `TwoFactorChallenge` | `AccountSecurity::resendLoginCode()` |
 | `requestPasswordReset` | no | `api.requestPasswordReset(payload)` | `email` | `{ ok: true }` always | `AccountSecurity::requestPasswordReset()` |
 | `resetPassword` | no | `api.resetPassword(payload)` | `token, newPassword` (≥8) | `{ ok: true }` | `AccountSecurity::resetPassword()` |
-| `guides` | optional* | `api.guides(filters?, includeDecided?)` | `gender?, attributes?, ranges?, ageRanges?, includeDecided?` | `{ guides: ProfileAccount[] }` | `Users::searchByRole('guide', ...)` |
+| `guides` | optional* | `api.guides(filters?, includeDecided?)` | `gender?, attributes?, ranges?, ageRanges?, includeDecided?` | `{ guides: ProfileAccount[] }` best-first, each with `verified, top_rated, trips_completed` (see "Ranking & badges") | `Users::searchByRole('guide', ...)` |
 | `visitors` | optional* | `api.visitors(filters?, includeDecided?)` | same filter shape as `guides` | `{ visitors: ProfileAccount[] }` | `Users::searchByRole('guest', ...)` |
 | `attributeCategories` | no | `api.attributeCategories()` | — | `{ categories: AttributeCategory[] }` | `Profiles::getCategories()` |
 | `myProfile` | **yes** | `api.myProfile()` | — | `MyProfile` (+ `trusted_device_count`) | `Users::getFullAccount()`, `AccountSecurity::trustedDeviceCount()` |
@@ -1862,6 +1890,9 @@ API service (`api/classes/`):
   `matched_at` and calls `Bookings::onMatched()` on the flip to active;
   `revoke()` enforces the booked-pair rules; `getOverview()`
   masks contact details with `CONTACT_UNLOCKED`.
+- `api/classes/Ranking.php` — the deck's order and badges as SQL fragments
+  (`tripsJoin()`, `reviewsJoin()`, `columns()`, `ORDER_BY`, `castRow()`); see
+  "Ranking & badges".
 - `api/classes/Messages.php` — chat (see "Messages"): `send()`,
   `conversationsFor()`, `threadWith()`, `markReadWith()`, static
   `unreadCounts()` (for `Badges`).
@@ -2034,6 +2065,12 @@ API service (`api/classes/`):
   2026-10-15. Re-runnable.
 - `api/sql/032_message_locations.sql` — `messages.kind`, `latitude`,
   `longitude`, `accuracy_m`. Applied 2026-10-15. Not re-runnable.
+- `api/sql/034_verification.sql` — `users.verified_at`,
+  `users.verification_method`. Applied 2026-10-15. Not re-runnable.
+- `api/sql/035_translations_standing.sql` — badge and verification-status
+  text. Applied 2026-10-15. Re-runnable.
+- `api/sql/036_ranking_indexes.sql` — covering indexes for the ranking.
+  Applied 2026-10-15. Not re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

@@ -15,6 +15,8 @@ const sampleProfile: MyProfile = {
   phone: '+44 7700 900123',
   two_factor_method: 'email',
   trusted_device_count: 0,
+  verified: false,
+  verification_method: null,
   image: null,
   created_at: '2026-01-01 00:00:00',
   date_of_birth: '1996-05-20',
@@ -137,6 +139,7 @@ describe('ProfilePage', () => {
 
     expect(myProfile).toHaveBeenCalledWith()
     expect((wrapper.find('input[type="email"]').element as HTMLInputElement).value).toBe('sofia@example.com')
+    expect(wrapper.find('[data-test="verification"]').text()).toMatch(/Not verified yet/)
     expect((labelled(wrapper, 'Headline').find('input').element as HTMLInputElement).value).toBe(
       'Rock scrambles',
     )
@@ -152,6 +155,22 @@ describe('ProfilePage', () => {
     expect(wrapper.text()).toContain('English')
     expect(wrapper.text()).toContain('Nature')
     expect(wrapper.text()).not.toContain('History')
+  })
+
+  it('shows a verified identity and the document it was checked with', async () => {
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi
+          .fn<Api['myProfile']>()
+          .mockResolvedValue({ ...sampleProfile, verified: true, verification_method: 'passport' }),
+        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+      }),
+    )
+
+    const line = wrapper.find('[data-test="verification"]')
+    expect(line.classes()).toContain('verification--done')
+    expect(line.text()).toContain('Your identity is verified')
+    expect(line.text()).toContain('Passport')
   })
 
   it('leaves the two-factor select unselected for a legacy "none" account instead of offering it as a choice', async () => {

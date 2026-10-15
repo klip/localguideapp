@@ -25,6 +25,17 @@ export type NumericRange = [start: number, end: number]
 export type AttributeMap = Record<string, string[]>
 export type RangeMap = Record<string, NumericRange[]>
 
+/**
+ * What a person has earned on the platform, shown as badges on cards and
+ * profiles (`StandingBadges.vue`) and behind their place in the deck
+ * (`Ranking.php`).
+ */
+export interface Standing {
+  verified: boolean
+  topRated: boolean
+  tripsCompleted: number
+}
+
 /** A local guide, shown to visitors on the visitor discovery deck. */
 export interface Guide {
   id: string
@@ -47,6 +58,7 @@ export interface Guide {
   gender: Gender | null
   attributes: AttributeMap
   ranges: RangeMap
+  standing: Standing
   /** CSS background value standing in for the photo until imagery exists. */
   photo: string
 }
@@ -63,6 +75,7 @@ export interface Visitor {
   durationHours: number
   attributes: AttributeMap
   ranges: RangeMap
+  standing: Standing
   photo: string
 }
 

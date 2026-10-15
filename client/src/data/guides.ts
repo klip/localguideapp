@@ -20,6 +20,7 @@ export const guides: Guide[] = [
     attributes: { languages: ['English', 'Spanish'], interests: ['history', 'food', 'photography'] },
     ranges: {},
     gender: 'female',
+    standing: { verified: true, topRated: true, tripsCompleted: 24 },
     photo: 'var(--rg-photo-guide)',
   },
   {
@@ -36,6 +37,7 @@ export const guides: Guide[] = [
     attributes: { languages: ['English'], interests: ['nature', 'photography', 'history'] },
     ranges: {},
     gender: 'male',
+    standing: { verified: true, topRated: true, tripsCompleted: 24 },
     photo: 'linear-gradient(135deg, #cfe0d2, #7f9a86 48%, #dcd6c6)',
   },
   {
@@ -52,6 +54,7 @@ export const guides: Guide[] = [
     attributes: { languages: ['English', 'Spanish', 'Arabic'], interests: ['food', 'family'] },
     ranges: {},
     gender: 'female',
+    standing: { verified: true, topRated: true, tripsCompleted: 24 },
     photo: 'linear-gradient(135deg, #f4cfae, #b58f7a 48%, #e6d9cd)',
   },
   {
@@ -68,6 +71,7 @@ export const guides: Guide[] = [
     attributes: { languages: ['English', 'Spanish'], interests: ['history'] },
     ranges: {},
     gender: 'male',
+    standing: { verified: true, topRated: true, tripsCompleted: 24 },
     photo: 'linear-gradient(135deg, #d8c3b0, #8a7a6d 48%, #cfc6bd)',
   },
 ]

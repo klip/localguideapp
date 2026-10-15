@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import DecisionRow from '@/components/DecisionRow.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
+import StandingBadges from '@/components/StandingBadges.vue'
 import ReviewsSection from '@/components/ReviewsSection.vue'
 import TagList from '@/components/TagList.vue'
 import { t } from '@/i18n'
@@ -108,6 +109,7 @@ function reject(id: string) {
           <div class="hero-copy">
             <strong class="hero-name">{{ guide.name }}, {{ guide.age }}</strong>
             <span v-if="guide.reviewCount > 0">{{ formatRating(guide.ratingAverage, guide.reviewCount) }}</span>
+            <StandingBadges :standing="guide.standing" on-photo />
           </div>
         </div>
 

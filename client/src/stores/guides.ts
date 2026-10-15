@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { t } from '@/i18n'
 import { useApi, type ProfileAccount, type PublicProfile } from '@/plugins/api'
 import type { DiscoveryFilters, Guide } from '@/types'
+import { standingOf } from '@/utils/standing'
 
 /**
  * Maps a `ProfileAccount` (real `users` + `user_profiles` + friends, via
@@ -32,6 +33,7 @@ export function toGuideCard(account: ProfileAccount | PublicProfile): Guide {
     // (see `stores/categories.ts` for the labels).
     attributes: account.attributes ?? {},
     ranges: account.ranges ?? {},
+    standing: standingOf(account),
     photo: account.image ? `url("${account.image}")` : 'var(--rg-photo-guide)',
   }
 }

@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import { t } from '@/i18n'
 import { useApi, type ProfileAccount } from '@/plugins/api'
 import type { DiscoveryFilters, Visitor } from '@/types'
+import { standingOf } from '@/utils/standing'
 
 /** Same idea as `toGuideCard` in `stores/guides.ts` — see that file's comment. */
 function toVisitorCard(account: ProfileAccount): Visitor {
@@ -15,6 +16,7 @@ function toVisitorCard(account: ProfileAccount): Visitor {
     durationHours: account.duration_hours ?? 0,
     attributes: account.attributes ?? {},
     ranges: account.ranges ?? {},
+    standing: standingOf(account),
     photo: account.image ? `url("${account.image}")` : 'var(--rg-photo-visitor)',
   }
 }

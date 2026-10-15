@@ -48,6 +48,9 @@ const guest: PublicProfile = {
   duration_hours: 4,
   rating_average: 4.5,
   review_count: 2,
+  verified: true,
+  top_rated: false,
+  trips_completed: 3,
   role: 'guest',
   attributes: { languages: ['English'] },
   ranges: {},
@@ -103,6 +106,8 @@ describe('VisitorProfilePage', () => {
     expect(text).toContain('Looking for about 4 hours')
     expect(text).toContain('Female')
     expect(text).toContain('Two of us, first time in Gibraltar.')
+    expect(wrapper.find('.hero-copy [data-test="standing-verified"]').exists()).toBe(true)
+    expect(text).toContain('3 trips')
     expect(text).toContain('English')
     expect(text).not.toContain('@')
 
