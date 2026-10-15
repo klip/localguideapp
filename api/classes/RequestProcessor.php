@@ -170,6 +170,11 @@ class RequestProcessor
             case 'translations':
                 return [200, $this->actionTranslations()];
 
+            // The terms and conditions (with the privacy notice), fetched only
+            // when the registration modal opens — see `LegalDocuments`.
+            case 'legalDocument':
+                return [200, $this->actionLegalDocument()];
+
             // Gateway-only (never routed for a client): what a socket that just
             // signed in should be shown — unread notifications (marked read
             // now) and the current counters.
@@ -615,14 +620,54 @@ class RequestProcessor
      * is translated too. `strings` is always a JSON object, even when the
      * language has no rows yet (the client then shows its bundled English).
      */
+    /**
+     * `scopes` / `except` (optional): key prefixes — `discover`,
+     * `common.app_header` — to fetch only, or to leave out. The client asks
+     * for the page it opens on first and for the rest in the background.
+     */
     private function actionTranslations(): array
     {
-        $language = (string) ($this->readInput()['language'] ?? '');
+        $input = $this->readInput();
+        $language = (string) ($input['language'] ?? '');
 
         return [
             'language' => $language,
-            'strings' => (object) $this->translations->forLanguage($language),
+            'strings' => (object) $this->translations->forLanguage(
+                $language,
+                $this->readScopes($input, 'scopes'),
+                $this->readScopes($input, 'except')
+            ),
         ];
+    }
+
+    /** @return string[]|null */
+    private function readScopes(array $input, string $field): ?array
+    {
+        if (!isset($input[$field])) {
+            return null;
+        }
+        if (!is_array($input[$field]) || count($input[$field]) > 200) {
+            throw new RuntimeException('Invalid ' . $field . '.');
+        }
+        $scopes = [];
+        foreach ($input[$field] as $scope) {
+            if (!is_string($scope) || !preg_match('/^[a-z_]+(\.[a-z_]+)?$/', $scope)) {
+                throw new RuntimeException('Invalid ' . $field . '.');
+            }
+            $scopes[] = $scope;
+        }
+        return $scopes;
+    }
+
+    private function actionLegalDocument(): array
+    {
+        $input = $this->readInput();
+        $language = (string) ($input['language'] ?? 'en');
+        if (!in_array($language, Translations::LANGUAGES, true)) {
+            throw new RuntimeException('Unsupported language.');
+        }
+
+        return (new LegalDocuments($this->db))->current((string) ($input['slug'] ?? ''), $language);
     }
 
     /**

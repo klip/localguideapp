@@ -28,6 +28,10 @@ export interface RegisterPayload {
   name?: string
   /** A `data:image/(png|jpeg|webp);base64,...` string from ImageCropper.vue — see RequestProcessor::validateImage(). */
   image?: string
+  /** The `LegalDocumentView.version` of the terms the user accepted; must be the one in force. */
+  termsVersion: string
+  /** The language the terms were shown in, recorded with the acceptance. */
+  language?: string
 }
 
 export interface LoginPayload {
@@ -444,6 +448,24 @@ export interface TripRow extends BookingView {
   matched_at: string | null
 }
 
+/** A legal document in force (`LegalDocuments::current()`), placeholders already filled. */
+export interface LegalDocumentView {
+  slug: string
+  /** The date it took effect, `YYYY-MM-DD` — sent back as `termsVersion` on register. */
+  version: string
+  /** The language actually served (English when there's no translation). */
+  language: string
+  title: string
+  /** A small Markdown subset — see `components/LegalDocument.vue`. */
+  body: string
+}
+
+/** Narrows a `translations` fetch to key prefixes (`discover`, `common.app_header`), or leaves some out. */
+export interface TranslationScope {
+  scopes?: readonly string[]
+  except?: readonly string[]
+}
+
 /**
  * Reviews and public profiles (`Reviews.php`, 013_reviews.sql).
  *
@@ -506,7 +528,11 @@ export const REVIEWS_PAGE_SIZE = 20
 const AGE_FILTER_KEY = 'age'
 
 function isErrorBody(body: unknown): body is { error: string } {
-  return !!body && typeof body === 'object' && typeof (body as Record<string, unknown>).error === 'string'
+  return (
+    !!body &&
+    typeof body === 'object' &&
+    typeof (body as Record<string, unknown>).error === 'string'
+  )
 }
 
 /**
@@ -554,7 +580,10 @@ async function call<T>(action: string, payload: object = {}): Promise<T> {
       useAuthStore().clear()
       useMessagesStore().sessionExpired()
     }
-    throw new ApiError(isErrorBody(body) ? body.error : t('common.api.something_went_wrong'), status)
+    throw new ApiError(
+      isErrorBody(body) ? body.error : t('common.api.something_went_wrong'),
+      status,
+    )
   }
 
   return body as T
@@ -666,9 +695,15 @@ export const api = {
   submitReview: (payload: SubmitReviewPayload) => call<Review>('submitReview', payload),
   deleteReview: (payload: { reviewId: number }) => call<{ ok: true }>('deleteReview', payload),
 
-  /** Every UI string for one language, `{ key: value }` — see `src/i18n`. No session needed. */
-  translations: (language: string) =>
-    call<{ language: string; strings: Record<string, string> }>('translations', { language }),
+  /** UI strings for one language, `{ key: value }` — all, or a `TranslationScope` of them (see `src/i18n`). No session needed. */
+  translations: (language: string, scope: TranslationScope = {}) =>
+    call<{ language: string; strings: Record<string, string> }>('translations', {
+      language,
+      ...scope,
+    }),
+  /** A legal document in force (`'terms'`), in `language` or else English. Fetched on demand. No session needed. */
+  legalDocument: (slug: 'terms', language: string) =>
+    call<LegalDocumentView>('legalDocument', { slug, language }),
 }
 
 export type Api = typeof api

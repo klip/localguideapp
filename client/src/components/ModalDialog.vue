@@ -15,6 +15,8 @@ const props = defineProps<{
   title: string
   /** Accessible name for the ✕ button. */
   closeLabel?: string
+  /** Room for long text (the terms): wider, and the content scrolls between a fixed header and `#footer`. */
+  wide?: boolean
 }>()
 
 const emit = defineEmits<{ close: [] }>()
@@ -57,7 +59,7 @@ defineExpose({ close })
     @close="emit('close')"
     @click="onDialogClick"
   >
-    <article class="dialog-body">
+    <article class="dialog-body" :class="{ wide }">
       <header>
         <button
           ref="closeButton"
@@ -68,7 +70,12 @@ defineExpose({ close })
         />
         <h2 :id="`${uid}-title`" class="dialog-title">{{ title }}</h2>
       </header>
-      <slot />
+      <div class="dialog-content">
+        <slot />
+      </div>
+      <footer v-if="$slots.footer" class="dialog-footer">
+        <slot name="footer" />
+      </footer>
     </article>
   </dialog>
 </template>
@@ -79,6 +86,31 @@ defineExpose({ close })
   background: var(--rg-surface);
   box-shadow: var(--rg-shadow);
   max-width: 26rem;
+}
+
+.dialog-body.wide {
+  max-width: 44rem;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
+
+  .dialog-content {
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+}
+
+.dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+
+  :deep(button) {
+    margin: 0;
+  }
 }
 
 .dialog-title {

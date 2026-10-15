@@ -32,24 +32,48 @@ class Translations
     }
 
     /**
-     * Every string stored for `$language`, as a flat `{ key: value }` map.
+     * The strings stored for `$language`, as a flat `{ key: value }` map —
+     * all of them, or only keys under `$scopes`, minus any under `$except`.
+     * A scope is a key prefix: a page (`discover`) or a page's widget
+     * (`common.app_header`); the caller validates their shape.
      *
+     * @param string[]|null $scopes
+     * @param string[]|null $except
      * @return array<string, string>
      */
-    public function forLanguage(string $language): array
+    public function forLanguage(string $language, ?array $scopes = null, ?array $except = null): array
     {
         if (!in_array($language, self::LANGUAGES, true)) {
             throw new RuntimeException('Unsupported language.');
         }
 
-        $rows = $this->db->db_GetArray(
-            "SELECT `key`, `value` FROM `translations` WHERE `language` = '" . $this->db->db_Escape($language) . "'"
-        );
+        $where = "`language` = '" . $this->db->db_Escape($language) . "'";
+        if ($scopes !== null) {
+            if (!$scopes) {
+                return [];
+            }
+            $where .= ' AND ' . $this->prefixMatch($scopes);
+        }
+        if ($except) {
+            $where .= ' AND NOT ' . $this->prefixMatch($except);
+        }
+
+        $rows = $this->db->db_GetArray("SELECT `key`, `value` FROM `translations` WHERE {$where}");
 
         $strings = [];
         foreach ($rows ?: [] as $row) {
             $strings[$row['key']] = $row['value'];
         }
         return $strings;
+    }
+
+    /** `(key LIKE 'a.%' OR ...)`, with `_` escaped so it isn't LIKE's one-character wildcard. */
+    private function prefixMatch(array $scopes): string
+    {
+        $likes = [];
+        foreach ($scopes as $scope) {
+            $likes[] = "`key` LIKE '" . str_replace('_', '\\_', $this->db->db_Escape($scope)) . ".%'";
+        }
+        return '(' . implode(' OR ', $likes) . ')';
     }
 }

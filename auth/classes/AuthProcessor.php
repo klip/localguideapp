@@ -25,6 +25,8 @@ class AuthProcessor
     private $sessions;
     /** @var AccountSecurity */
     private $security;
+    /** @var LegalDocuments */
+    private $legal;
     /** @var array */
     private $input = [];
     /** @var array{userId: ?int, userAgent: string, requestId: string} */
@@ -36,6 +38,7 @@ class AuthProcessor
         $this->accounts = new Accounts($db);
         $this->sessions = new Session($redis);
         $this->security = new AccountSecurity($db, $this->accounts, new MailQueue($db, $redis), $this->sessions);
+        $this->legal = new LegalDocuments($db);
     }
 
     /**
@@ -108,8 +111,28 @@ class AuthProcessor
             throw new RuntimeException('Password must be at least 8 characters.');
         }
 
-        $userId = $this->accounts->register($email, $password, $role, $name, $image);
-        Log::info('Account registered', ['user_id' => $userId, 'role' => $role]);
+        // The account exists only together with its acceptance of the terms
+        // in force: `termsVersion` is the version the registration modal
+        // showed, so a document published in between is refused (the client
+        // fetches it again) rather than recorded as accepted unseen.
+        $termsVersion = (string) ($this->input['termsVersion'] ?? '');
+        $currentTerms = $this->legal->currentVersion(LegalDocuments::TERMS);
+        if ($currentTerms === null || $termsVersion !== $currentTerms) {
+            throw new RuntimeException('Please accept the current terms and conditions.');
+        }
+        $language = (string) ($this->input['language'] ?? 'en');
+        $language = preg_match('/^[a-z]{2}$/', $language) ? $language : 'en';
+
+        $this->db->db_Execute('START TRANSACTION');
+        try {
+            $userId = $this->accounts->register($email, $password, $role, $name, $image);
+            $this->legal->recordAcceptance($userId, LegalDocuments::TERMS, $currentTerms, $language, (string) $this->context['userAgent']);
+            $this->db->db_Execute('COMMIT');
+        } catch (Throwable $e) {
+            $this->db->db_Execute('ROLLBACK');
+            throw $e;
+        }
+        Log::info('Account registered', ['user_id' => $userId, 'role' => $role, 'terms_version' => $currentTerms]);
 
         return ['id' => $userId, 'email' => $email, 'role' => $role, 'sessionHash' => $this->sessions->create($userId)];
     }

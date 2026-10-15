@@ -1,5 +1,15 @@
 import { afterEach, describe, it, expect, vi } from 'vitest'
-import { currentLanguage, initialLanguage, setLanguage, t, tn, type Messages } from '@/i18n'
+import {
+  currentLanguage,
+  ensureScopes,
+  initialLanguage,
+  scopesForRoute,
+  setLanguage,
+  t,
+  tn,
+  type Messages,
+  type Scope,
+} from '@/i18n'
 
 /** A fetcher serving fixed tables per language, the way `api.translations()` would. */
 function fetcher(tables: Record<string, Messages>) {
@@ -70,5 +80,50 @@ describe('i18n', () => {
 
     await setLanguage('de', fetcher({}))
     expect(document.documentElement.dir).toBe('ltr')
+  })
+
+  it('with scopes, waits only for those and fetches the rest of the language in the background', async () => {
+    const table: Messages = {
+      'common.app_header.discover': 'Descubrir',
+      'register.form.submit': 'Continuar',
+      'matches.tabs.matched': 'Coincidencias',
+    }
+    let releaseRest: () => void = () => {}
+    const restGate = new Promise<void>((resolve) => (releaseRest = resolve))
+    const prefixed = (key: string, prefixes: readonly string[]) =>
+      prefixes.some((p) => key.startsWith(`${p}.`))
+    const fetch = vi.fn<(code: string, scope?: Scope) => Promise<Messages>>(async (code, scope) => {
+      if (code !== 'es') return {}
+      if (scope?.scopes)
+        return Object.fromEntries(Object.entries(table).filter(([k]) => prefixed(k, scope.scopes!)))
+      await restGate
+      return Object.fromEntries(
+        Object.entries(table).filter(([k]) => !prefixed(k, scope?.except ?? [])),
+      )
+    })
+
+    await setLanguage('es', fetch, ['common.app_header', 'register.form'])
+
+    expect(fetch).toHaveBeenCalledWith('es', { scopes: ['common.app_header', 'register.form'] })
+    expect(fetch).toHaveBeenCalledWith('es', { except: ['common.app_header', 'register.form'] })
+    expect(t('register.form.submit')).toBe('Continuar')
+    // Not loaded yet: the bundled English stands in.
+    expect(t('matches.tabs.matched')).toBe('Matched')
+
+    // A route whose text is loaded doesn't wait; one whose isn't waits for the rest.
+    await ensureScopes(['register.form'], 10)
+    const waiting = ensureScopes(['matches.tabs'], 5000)
+    releaseRest()
+    await waiting
+    expect(t('matches.tabs.matched')).toBe('Coincidencias')
+    expect(t('register.form.submit')).toBe('Continuar')
+  })
+
+  it('names the shell plus the route as a page’s scopes', () => {
+    const scopes = scopesForRoute('register')
+    expect(scopes).toContain('common.app_header')
+    expect(scopes).toContain('register.terms')
+    expect(scopes).not.toContain('matches.tabs')
+    expect(scopesForRoute(undefined)).toContain('common.app_header')
   })
 })

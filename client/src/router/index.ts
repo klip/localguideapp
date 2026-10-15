@@ -42,7 +42,11 @@ function resolveUrlLanguage(): Language {
 
   const language = initialLanguage()
   const { search, hash } = window.location
-  window.history.replaceState(window.history.state, '', `${base}${language}/${rest}${search}${hash}`)
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${base}${language}/${rest}${search}${hash}`,
+  )
   return language
 }
 
@@ -149,5 +153,46 @@ const router = createRouter({
     return { top: 0 }
   },
 })
+
+/**
+ * A page's code is a separate chunk. After a deploy (or a dev-server reload)
+ * the chunk a tab still points at may be gone, the import fails, and the
+ * navigation silently ends on an empty page. Load the target as a fresh page
+ * instead — at most once every 10 s, so a server that's really down can't
+ * put the tab in a reload loop.
+ */
+const CHUNK_RELOAD_KEY = 'rockguide.chunkReloadAt'
+const CHUNK_RELOAD_EVERY_MS = 10_000
+
+router.onError((error, to) => {
+  const message = error instanceof Error ? error.message : String(error)
+  if (!/dynamically imported module|Importing a module script failed/i.test(message)) return
+  try {
+    const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) ?? 0)
+    if (Date.now() - last < CHUNK_RELOAD_EVERY_MS) return
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()))
+  } catch {
+    // Storage blocked: reload anyway — a loop needs the same failure each time.
+  }
+  window.location.assign(router.resolve(to).href)
+})
+
+/**
+ * The name of the route the page was opened on, following redirects (`/` →
+ * `discover`) — known before the router has navigated, so main.ts can fetch
+ * that page's text in parallel with loading its code.
+ */
+export function initialRouteName(): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  const base = `${import.meta.env.BASE_URL}${urlLanguage}/`
+  let location: string = `/${window.location.pathname.slice(base.length)}`
+  for (let hops = 0; hops < 5; hops++) {
+    const route = router.resolve(location)
+    const redirect = route.matched[route.matched.length - 1]?.redirect
+    if (typeof redirect !== 'string') return typeof route.name === 'string' ? route.name : undefined
+    location = redirect
+  }
+  return undefined
+}
 
 export default router

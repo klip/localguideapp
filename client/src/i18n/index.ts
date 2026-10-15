@@ -1,16 +1,25 @@
 import { computed, ref } from 'vue'
-import en from './en.json'
+import scopeMap from './scopes.json'
 
 /**
  * UI text. Every string lives in the `translations` table (see
  * `api/sql/018_translations.sql`), keyed `{page}.{widget}.{key}`, and is
  * fetched one language at a time through `api.translations()`.
  *
+ * **Loaded in two steps.** At boot only the text the first page needs is
+ * fetched — the shell's widgets plus that route's (`scopes.json`, generated
+ * by `scripts/i18n-scopes.mjs` from the imports of App.vue and each page) —
+ * and the rest of the language follows in the background. A navigation
+ * before that arrives waits for it briefly (`ensureScopes()`, from the
+ * router). The legal text isn't UI text: it's fetched only when shown.
+ *
  * The database is the source of truth for every language, English included
- * (so a future CMS can edit it). `en.json` is a bundled copy of the English,
- * used only when the server's text isn't there: tests, a fetch that's slow or
- * fails, and any key a language hasn't translated yet — so a half-translated
- * language degrades to English key by key rather than to raw keys.
+ * (so a future CMS can edit it). Its English is the fallback for keys a
+ * language hasn't translated (fetched in the background too). `en.json` is
+ * a bundled copy of the English, in its own chunk, loaded only when a key is
+ * missing from both — a failed or slow fetch, a key not yet in the database,
+ * tests — so a half-translated language degrades to English key by key
+ * rather than to raw keys.
  *
  * State is module-level rather than a Pinia store so `t()` works anywhere —
  * templates, plain helpers, other stores — with nothing to install, and stays
@@ -46,14 +55,55 @@ export type Language = (typeof LANGUAGES)[number]['code']
 
 export type Messages = Record<string, string>
 
+/** What a `translations` fetch asks for: key prefixes to fetch only, or to leave out. */
+export interface Scope {
+  scopes?: readonly string[]
+  except?: readonly string[]
+}
+
+/** Fetches strings for a language — the API call, passed in so this module doesn't depend on the request layer. */
+export type Fetcher = (code: Language, scope?: Scope) => Promise<Messages>
+
 const STORAGE_KEY = 'rockguide.language'
-const FALLBACK: Messages = en
+/** How long a navigation waits for the rest of the language before rendering with what it has. */
+const NAVIGATION_WAIT_MS = 1500
 
 const language = ref<Language>('en')
 /** The current language's strings, from the database. */
 const messages = ref<Messages>({})
 /** English from the database — the fallback for keys a language hasn't translated. */
 const english = ref<Messages>({})
+/** The bundled `en.json`, once its chunk has loaded (see `loadBundledEnglish()`). */
+const bundled = ref<Messages>({})
+let bundledLoad: Promise<void> | null = null
+
+/** Which prefixes of the current language are in `messages` — `'all'` once the background fetch landed. */
+let loaded: Set<string> | 'all' = new Set()
+/** The background fetch of the rest of the language, while it runs. */
+let rest: Promise<void> = Promise.resolve()
+
+/** The shell's prefixes plus `routeName`'s — what that page needs to render. */
+export function scopesForRoute(routeName: unknown): string[] {
+  const routes = scopeMap.routes as Record<string, string[]>
+  return [...scopeMap.shell, ...(typeof routeName === 'string' ? (routes[routeName] ?? []) : [])]
+}
+
+/**
+ * Loads the bundled English (its own chunk) — called on the first key
+ * missing from the database's text, or straight away when a fetch fails.
+ * Tests await it in their setup file.
+ */
+export function loadBundledEnglish(): Promise<void> {
+  bundledLoad ??= import('./en.json').then(
+    (module) => {
+      bundled.value = module.default
+    },
+    () => {
+      bundledLoad = null
+    },
+  )
+  return bundledLoad
+}
 
 export const currentLanguage = computed(() => language.value)
 
@@ -71,14 +121,17 @@ function interpolate(text: string, params?: Params) {
 }
 
 function lookup(key: string): string | undefined {
-  return messages.value[key] ?? english.value[key] ?? FALLBACK[key]
+  return messages.value[key] ?? english.value[key] ?? bundled.value[key]
 }
 
 /** The text for `key` in the current language, with `{placeholders}` filled from `params`. */
 export function t(key: string, params?: Params): string {
   const text = lookup(key)
   if (text === undefined) {
-    if (import.meta.env.DEV) console.warn(`[i18n] missing key: ${key}`)
+    // Reactive: whoever rendered this re-renders once the bundled copy lands.
+    if (!bundledLoad) void loadBundledEnglish()
+    else if (import.meta.env.DEV && Object.keys(bundled.value).length)
+      console.warn(`[i18n] missing key: ${key}`)
     return key
   }
   return interpolate(text, params)
@@ -131,27 +184,79 @@ function applyDocumentLanguage(code: Language) {
 }
 
 /**
- * Switches to `code`: fetches its strings with `fetcher` (the API call, passed
- * in so this module doesn't depend on the request layer), then swaps them in,
- * so the UI changes in one go rather than key by key. English is fetched like
- * any other language — the database copy wins over the bundled one. Remembered in
+ * Switches to `code`: fetches its strings with `fetcher`, then swaps them in,
+ * so the UI changes in one go rather than key by key. Remembered in
  * localStorage for the next visit. A failed fetch keeps the language choice
  * and falls back to English text (the database's, else the bundled copy).
+ *
+ * With `scopes` (main.ts passes the first route's), only those prefixes are
+ * awaited; the rest of the language — and, for any language but English,
+ * the database's English — is fetched in the background. Without them,
+ * everything is fetched up front (tests).
  */
-export async function setLanguage(code: Language, fetcher: (code: Language) => Promise<Messages>) {
+export async function setLanguage(code: Language, fetcher: Fetcher, scopes?: readonly string[]) {
   rememberLanguage(code)
   language.value = code
   applyDocumentLanguage(code)
-  // English is the fallback layer for every other language, so it's fetched
-  // once alongside the first non-English one (and is itself the first fetch
-  // when English is chosen).
+
+  const failed = (): Messages => {
+    void loadBundledEnglish()
+    return {}
+  }
+
+  if (!scopes) {
+    const needEnglish = code !== 'en' && Object.keys(english.value).length === 0
+    const [fetched, fetchedEnglish] = await Promise.all([
+      fetcher(code).catch(failed),
+      needEnglish ? fetcher('en').catch(failed) : Promise.resolve(null),
+    ])
+    if (fetchedEnglish) english.value = fetchedEnglish
+    if (code === 'en') english.value = fetched
+    // A later switch may have finished first; don't overwrite it.
+    if (language.value === code) {
+      messages.value = fetched
+      loaded = 'all'
+    }
+    return
+  }
+
+  const first = await fetcher(code, { scopes }).catch(failed)
+  if (language.value !== code) return
+  messages.value = first
+  loaded = new Set(scopes)
+  rest = loadRest(code, fetcher, scopes)
+}
+
+/** The background half of `setLanguage()`: everything outside `scopes`, plus the English fallback layer. */
+async function loadRest(code: Language, fetcher: Fetcher, scopes: readonly string[]) {
   const needEnglish = code !== 'en' && Object.keys(english.value).length === 0
-  const [fetched, fetchedEnglish] = await Promise.all([
-    fetcher(code).catch(() => ({}) as Messages),
-    needEnglish ? fetcher('en').catch(() => ({}) as Messages) : Promise.resolve(null),
+  const [others, fetchedEnglish] = await Promise.all([
+    fetcher(code, { except: scopes }).catch(() => null),
+    needEnglish ? fetcher('en').catch(() => null) : Promise.resolve(null),
   ])
+  if (language.value !== code) return
   if (fetchedEnglish) english.value = fetchedEnglish
-  if (code === 'en') english.value = fetched
-  // A later switch may have finished first; don't overwrite it.
-  if (language.value === code) messages.value = fetched
+  if (others) {
+    messages.value = { ...others, ...messages.value }
+    if (code === 'en') english.value = messages.value
+  } else {
+    void loadBundledEnglish()
+  }
+  // Even after a failure: what's missing now comes from the bundled copy.
+  loaded = 'all'
+}
+
+/**
+ * Resolves once `scopes` are loaded for the current language — at once if
+ * they already are, else when the background fetch lands or after
+ * `timeoutMs`, whichever is first (the page then renders and swaps text in
+ * as it arrives). The router calls it before each navigation.
+ */
+export function ensureScopes(
+  scopes: readonly string[],
+  timeoutMs = NAVIGATION_WAIT_MS,
+): Promise<void> {
+  const ready = loaded
+  if (ready === 'all' || scopes.every((scope) => ready.has(scope))) return Promise.resolve()
+  return Promise.race([rest, new Promise<void>((resolve) => setTimeout(resolve, timeoutMs))])
 }

@@ -45,7 +45,8 @@ Measured by reading the code, not a load test, so treat as estimates:
 4. **Writes per request**: removed. Sessions used to update
    `sessions.last_active_at` on *every* request, and the booking sweep ran
    at the start of every request. Both are gone (Redis, the scheduler).
-5. Translations: ~670 rows per language, read once per page load per visitor.
+5. Translations: ~650 rows per language per visitor, in two requests: the
+   first page's 25–180 at boot, the rest in the background.
 
 ## Proposals, in order of payoff
 
@@ -92,6 +93,8 @@ Ownership already follows the services:
 - **api**: profiles, attributes, selections, bookings, reviews, payments,
   notifications, translations.
 - **mailer**: `email_outbox`.
+- **legal** (`legal_documents`, `legal_placeholders`) is read by api and
+  auth; `user_legal_acceptances` belongs with auth.
 - `users` is shared today. Split it into an auth-owned identity row
   (`id, email, role, two_factor_method`) and an api-owned profile row, and
   publish `user.created` / `user.email_changed` events (Pub/Sub) so each side

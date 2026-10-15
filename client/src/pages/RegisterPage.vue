@@ -3,8 +3,9 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import TermsDialog from '@/components/TermsDialog.vue'
 import { t } from '@/i18n'
-import { ApiError, useApi } from '@/plugins/api'
+import { ApiError, useApi, type LegalDocumentView } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { formMessagePlacement } from '@/utils/formMessagePlacement'
@@ -31,8 +32,22 @@ const formRef = ref<HTMLFormElement | null>(null)
 const emailInputRef = ref<HTMLInputElement | null>(null)
 const passwordInputRef = ref<HTMLInputElement | null>(null)
 
-async function submit() {
+/**
+ * "Continue" doesn't create the account: it opens the terms and conditions
+ * (fetched only now, in the page's language), and "Accept" registers —
+ * sending the version that was shown, which the server records as accepted
+ * (and refuses if a newer one has been published since).
+ */
+const termsOpen = ref(false)
+const termsDialog = ref<InstanceType<typeof TermsDialog> | null>(null)
+
+function submit() {
   if (submitting.value) return
+  termsOpen.value = true
+}
+
+async function accept(terms: LegalDocumentView | null) {
+  if (submitting.value || !terms) return
   submitting.value = true
 
   try {
@@ -40,12 +55,22 @@ async function submit() {
       email: email.value,
       password: password.value,
       role: role.value,
+      termsVersion: terms.version,
+      language: terms.language,
     })
+    termsOpen.value = false
     auth.setUser(user)
     messages.success(t('register.toast.created'), anchorTo('element', formRef.value))
-    // A visitor lands back on the deck, which asks for the first pack itself.
-    router.push(isGuide.value ? '/guide/discover' : '/discover')
+    // A guide's card is empty until they fill it in, so they start on their
+    // profile. A visitor lands back on the deck, which asks for the first
+    // pack itself.
+    router.push(isGuide.value ? '/profile' : '/discover')
   } catch (err) {
+    // Back to the form, where the message points at the field to fix. The
+    // terms are fetched again next time, in case a newer version was the
+    // problem.
+    termsOpen.value = false
+    termsDialog.value?.forget()
     const text = err instanceof ApiError ? err.message : t('register.toast.failed')
     messages.error(
       text,
@@ -90,10 +115,12 @@ async function submit() {
           />
         </label>
 
-        <button type="submit" class="full" :aria-busy="submitting" :disabled="submitting">
-          {{ submitting ? t('register.form.submitting') : t('register.form.submit') }}
+        <button type="submit" class="full" :disabled="submitting">
+          {{ t('register.form.submit') }}
         </button>
-        <button type="button" class="soft-btn full">{{ t('common.form.continue_with_apple') }}</button>
+        <button type="button" class="soft-btn full">
+          {{ t('common.form.continue_with_apple') }}
+        </button>
 
         <p class="tiny muted centred">
           {{ t('register.form.already_registered') }}
@@ -101,12 +128,37 @@ async function submit() {
         </p>
 
         <p class="tiny muted centred">
-           <RouterLink :to="url" class="secondary">{{
+          <RouterLink :to="url" class="secondary">{{
             isGuide ? t('register.form.switch_to_visitor') : t('register.form.switch_to_guide')
           }}</RouterLink>
         </p>
       </form>
     </PanelCard>
+
+    <TermsDialog ref="termsDialog" :open="termsOpen" @close="termsOpen = false">
+      <template #intro>
+        <p class="muted">{{ t('register.terms.intro') }}</p>
+      </template>
+      <template #footer="{ terms }">
+        <button
+          type="button"
+          class="secondary outline"
+          :disabled="submitting"
+          @click="termsOpen = false"
+        >
+          {{ t('register.terms.cancel') }}
+        </button>
+        <button
+          type="button"
+          class="accept"
+          :disabled="!terms || submitting"
+          :aria-busy="submitting"
+          @click="accept(terms)"
+        >
+          {{ submitting ? t('register.form.submitting') : t('register.terms.accept') }}
+        </button>
+      </template>
+    </TermsDialog>
   </section>
 </template>
 

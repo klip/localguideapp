@@ -2,10 +2,13 @@
 import { onMounted, watch } from 'vue'
 import AppFooter from '@/components/AppFooter.vue'
 import AppHeader from '@/components/AppHeader.vue'
+import CookieNotice from '@/components/CookieNotice.vue'
+import TermsDialog from '@/components/TermsDialog.vue'
 import MessageToaster from '@/components/MessageToaster.vue'
 import { useApi, type AppNotification } from '@/plugins/api'
 import { socket } from '@/plugins/socket'
 import { useBadgesStore } from '@/stores/badges'
+import { useLegalStore } from '@/stores/legal'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
 import { useMatchesStore } from '@/stores/matches'
@@ -28,6 +31,7 @@ const api = useApi()
 const auth = useAuthStore()
 const matchesStore = useMatchesStore()
 const messages = useMessagesStore()
+const legal = useLegalStore()
 
 /**
  * The server pushes over the API's socket (`plugins/socket.ts`):
@@ -113,5 +117,8 @@ onMounted(async () => {
       <RouterView />
     </main>
     <AppFooter />
+    <CookieNotice />
+    <!-- The footer's and the cookie notice's terms; registration has its own, with Accept. -->
+    <TermsDialog :open="legal.termsOpen" :section="legal.section" @close="legal.hideTerms()" />
   </div>
 </template>

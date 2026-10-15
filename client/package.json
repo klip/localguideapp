@@ -17,7 +17,8 @@
     "lint": "run-s \"lint:*\"",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "oxfmt src/"
+    "format": "oxfmt src/",
+    "i18n:scopes": "node scripts/i18n-scopes.mjs"
   },
   "dependencies": {
     "@picocss/pico": "^2.1.1",

@@ -55,6 +55,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
     submitReview: vi.fn<Api['submitReview']>(),
     deleteReview: vi.fn<Api['deleteReview']>(),
     translations: vi.fn<Api['translations']>(),
+    legalDocument: vi.fn<Api['legalDocument']>(),
     ...overrides,
   }
 }
