@@ -12,6 +12,7 @@ import { useLegalStore } from '@/stores/legal'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
 import { useMatchesStore } from '@/stores/matches'
+import { notificationLink } from '@/utils/notificationLink'
 import { syncPendingRejects } from '@/utils/pendingRejects'
 import { t } from '@/i18n'
 import { useRoute } from 'vue-router'
@@ -51,7 +52,7 @@ const currentRoute = useRoute()
 socket.on('notification', (message) => {
   const note = message.notification as AppNotification | undefined
   if (!note) return
-  messages.info(note.message, undefined, NOTIFICATION_TOAST_MS)
+  messages.info(note.message, undefined, NOTIFICATION_TOAST_MS, undefined, notificationLink(note, auth.user?.role))
   badges.bump()
 })
 socket.on('badges', (message) => badges.set(message))
@@ -66,6 +67,8 @@ socket.on('message', (payload) => {
     t('common.chat.new_message', { name: message.sender_name || t('common.chat.someone') }),
     undefined,
     NOTIFICATION_TOAST_MS,
+    undefined,
+    `/messages/${message.sender_id}`,
   )
 })
 

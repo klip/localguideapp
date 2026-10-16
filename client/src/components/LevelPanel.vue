@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import PanelCard from './PanelCard.vue'
 import { t, tn } from '@/i18n'
 import { useApi, type BonusGrant, type LevelState } from '@/plugins/api'
@@ -20,6 +20,7 @@ const api = useApi()
 const messages = useMessagesStore()
 const matchesStore = useMatchesStore()
 
+const panel = ref<InstanceType<typeof PanelCard> | null>(null)
 const state = ref<LevelState | null>(null)
 const claiming = ref<number | null>(null)
 
@@ -73,11 +74,25 @@ function bonusReason(bonus: BonusGrant) {
   return ''
 }
 
-onMounted(load)
+onMounted(() => {
+  void load()
+  // A level-up / bonus notification links to /profile#level, but the page
+  // renders this panel only after loading the profile — too late for the
+  // router's own scroll — so it brings itself into view.
+  if (window.location.hash === '#level') {
+    void nextTick(() => (panel.value?.$el as HTMLElement | undefined)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }))
+  }
+})
 </script>
 
 <template>
-  <PanelCard :title="t('profile.level.title')" :subtitle="t('profile.level.subtitle')" data-test="level-panel">
+  <PanelCard
+    id="level"
+    ref="panel"
+    :title="t('profile.level.title')"
+    :subtitle="t('profile.level.subtitle')"
+    data-test="level-panel"
+  >
     <p v-if="!state" class="muted">{{ t('profile.level.loading') }}</p>
     <template v-else>
       <p class="level-line">

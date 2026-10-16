@@ -49,6 +49,17 @@ describe('LevelPanel', () => {
     expect(bonus.find('button').text()).toBe('Claim')
   })
 
+  it('scrolls itself into view when a notification linked to /profile#level', async () => {
+    const scrollIntoView = vi.fn<(arg?: boolean | ScrollIntoViewOptions) => void>()
+    Element.prototype.scrollIntoView = scrollIntoView
+    history.replaceState(null, '', '#level')
+    mountPanel(fakeApi({ myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(state()) }))
+    await flushPromises()
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    history.replaceState(null, '', location.pathname)
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  })
+
   it('names the level the next trips earn, not the sanctioned badge + 1', async () => {
     const sanctioned = state({
       level: 1,

@@ -60,6 +60,7 @@ function row(overrides: Partial<MatchOverviewRow>): MatchOverviewRow {
     finished_at: null,
     auto_finish: false,
     location: null,
+    location_pin: null,
     ...overrides,
   }
 }

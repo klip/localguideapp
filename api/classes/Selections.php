@@ -162,6 +162,7 @@ class Selections
                     b.`id` AS `booking_id`, b.`status` AS `booking_status`, b.`payment_status`,
                     b.`amount` AS `booking_amount`, b.`meeting_at`, b.`refund_amount`, b.`trip_status`,
                     b.`duration_hours` AS `booking_duration_hours`, b.`location`, b.`accepted_at`,
+                    b.`location_lat`, b.`location_lng`,
                     b.`cancel_requested_at`, b.`cancel_request_reason`,
                     b.`finish_requested_by`, b.`finished_at`,
                     ' . ($own === 'guide'
@@ -196,6 +197,7 @@ class Selections
                 ? null
                 : ((int) $row['finish_requested_by'] === $userId ? 'me' : 'them');
             $row['auto_finish'] = Bookings::finishesAutomatically(['meeting_at' => $row['meeting_at'], 'duration_hours' => $row['booking_duration_hours']]);
+            $row = Bookings::withPin($row);
 
             $open = $row['booking_status'] === 'confirmed' && $row['trip_status'] !== 'finished';
             $paidAndOpen = $open && $row['payment_status'] === 'paid';

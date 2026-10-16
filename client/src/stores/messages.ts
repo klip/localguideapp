@@ -26,6 +26,8 @@ export interface AppMessage {
   text: string
   placement: MessagePlacement
   onDismiss?: () => void
+  /** Clicking/tapping the toast goes here (and closes it) — e.g. a notification's page. */
+  to?: string
 }
 
 const DEFAULT_DURATION_MS = 5000
@@ -57,6 +59,30 @@ export function anchorTo(kind: 'element' | 'input', el: Element | null | undefin
  */
 export const useMessagesStore = defineStore('messages', () => {
   const items = ref<AppMessage[]>([])
+  /** Each auto-dismissing toast's timer — paused while it's hovered or focused (`MessageToaster`). */
+  const timers = new Map<number, { handle?: ReturnType<typeof setTimeout>; remaining: number; started: number }>()
+
+  function arm(id: number, ms: number) {
+    timers.set(id, { handle: setTimeout(() => dismiss(id), ms), remaining: ms, started: Date.now() })
+  }
+
+  /** Holds a toast open — someone is pointing at it or has tabbed to its link. */
+  function pause(id: number) {
+    const timer = timers.get(id)
+    if (!timer || timer.handle === undefined) return
+    clearTimeout(timer.handle)
+    timer.handle = undefined
+    timer.remaining -= Date.now() - timer.started
+  }
+
+  /** Lets it run out again — never in less than a second, so it doesn't vanish the moment the pointer leaves. */
+  function resume(id: number) {
+    const timer = timers.get(id)
+    if (!timer || timer.handle !== undefined) return
+    timer.started = Date.now()
+    timer.remaining = Math.max(1000, timer.remaining)
+    timer.handle = setTimeout(() => dismiss(id), timer.remaining)
+  }
 
   function push(
     kind: MessageKind,
@@ -64,18 +90,20 @@ export const useMessagesStore = defineStore('messages', () => {
     placement: MessagePlacement = PAGE_PLACEMENT,
     durationMs = DEFAULT_DURATION_MS,
     onDismiss?: () => void,
+    to?: string | null,
   ): number {
     const id = ++nextId
-    items.value.push({ id, kind, text, placement, onDismiss })
-    if (durationMs > 0) {
-      setTimeout(() => dismiss(id), durationMs)
-    }
+    items.value.push({ id, kind, text, placement, onDismiss, ...(to ? { to } : {}) })
+    if (durationMs > 0) arm(id, durationMs)
     return id
   }
 
   /** Runs the message's `onDismiss` (if any) whether it was closed by timeout or the toast's own "✕" button — both go through here. */
   function dismiss(id: number) {
     const item = items.value.find((candidate) => candidate.id === id)
+    if (!item) return
+    clearTimeout(timers.get(id)?.handle)
+    timers.delete(id)
     items.value = items.value.filter((candidate) => candidate.id !== id)
     item?.onDismiss?.()
   }
@@ -88,8 +116,14 @@ export const useMessagesStore = defineStore('messages', () => {
     return push('error', text, placement, durationMs, onDismiss)
   }
 
-  function info(text: string, placement?: MessagePlacement, durationMs?: number, onDismiss?: () => void) {
-    return push('info', text, placement, durationMs, onDismiss)
+  function info(
+    text: string,
+    placement?: MessagePlacement,
+    durationMs?: number,
+    onDismiss?: () => void,
+    to?: string | null,
+  ) {
+    return push('info', text, placement, durationMs, onDismiss, to)
   }
 
   /**
@@ -116,5 +150,5 @@ export const useMessagesStore = defineStore('messages', () => {
     })
   }
 
-  return { items, push, success, error, info, dismiss, sessionExpired }
+  return { items, push, success, error, info, dismiss, pause, resume, sessionExpired }
 })

@@ -302,6 +302,8 @@ own — every one just takes props/emits):
   cards" below for why it only ever renders on `ProfilePage.vue`).
 - `FeatureCard.vue` — a numbered explainer tile, `HomePage.vue`'s "how it
   works" row only.
+- `MapPinLinks.vue` — "Open in Apple Maps · Open in Google Maps" for a map
+  pin, the viewer's own maps app first (a booking's meeting pin).
 - `ProtectedNotice.vue` — "Protected by RockGuide" before every payment
   (see "Terms and conditions"); opens the terms at 5.1.
 - `PriceBox.vue` — the warm-gradient £5 price panel; full-width on
@@ -341,7 +343,13 @@ own — every one just takes props/emits):
   confirm something worked) calls `useMessagesStore().error(text)` /
   `.success(text)` / `.info(text)`; `MessageToaster`, mounted once in
   `App.vue`, renders the queue as auto-dismissing (5s) toasts. Nothing pushes
-  to this store automatically — callers decide the wording. Each toast also
+  to this store automatically — callers decide the wording. A toast can carry
+  a `to` (route path, `.info()`'s 5th argument): it then renders as a link —
+  tapping it opens that page and closes the toast (notifications and chat
+  messages use this, see "In-app notifications"). Page-level toasts stack in a
+  column sized to their text; anchored ones still assume a 48 px height. A
+  toast's timer pauses while it's hovered or has focus (`pause()`/`resume()`),
+  so a keyboard user can reach its link. Each toast also
   carries a `MessagePlacement`, passed as the second arg to `.error()`/
   `.success()`/`.info()` and defaulting to page-level (top-middle of the
   viewport) when omitted — the right default for general/API-level messages
@@ -741,10 +749,20 @@ after each step so the page re-fetches.
   `Bookings::ensureFreeBookingsFor()`. The guest can cancel a free trip
   ("Cancel trip" on the trip card → `revokeSelection`); the guide is told
   and the match dissolves on both sides.
-- **Meeting place** (`bookings.location`, ≤160 chars, free text): optional
-  when paying; either side can set, change or clear it while the booking is
-  open (`bookingAction` op `setLocation` + `location`), and the other side
-  is notified (`trip_location`).
+- **Meeting place** (`bookings.location`, ≤160 chars, free text, and/or a
+  map pin `location_lat`/`location_lng`, 043): optional when paying; either
+  side can set, change or clear it while the booking is open (`bookingAction`
+  op `setLocation` + `location` and/or `latitude`/`longitude` — each call
+  replaces both, so send neither to clear), and the other side is notified
+  (`request_location` while pending, `trip_location` once confirmed — the
+  email carries a Google Maps link to the pin). The pin is dropped like
+  chat's "Share my location": "Pin where I am now" in `BookingPanel`'s pay and
+  meeting-place forms reads the device once (`composables/useCurrentPosition.ts`,
+  shared with chat) and only fills the form — Save sends it. Rows carry it as
+  `location_pin: { latitude, longitude } | null` (`Bookings::withPin()`), and
+  `MapPinLinks.vue` opens it in the viewer's own maps app (`utils/mapsLink.ts`)
+  on the Matches summary line and the trip card; the form control is
+  `MeetingPinField.vue`.
 - **Unmatching a booked pair** is otherwise refused by `Selections::revoke()`
   — decline/withdraw a pending one, cancel a confirmed one. `BookingPanel`
   and `MatchesPage`'s `canUnmatch()` mirror those rules so the buttons
@@ -965,7 +983,8 @@ email) are what a user hears about while they weren't looking — currently
 `booking_withdrawn`, `booking_expired`, `booking_free`, `booking_cancelled`,
 `cancel_requested`, `cancel_request_withdrawn`, `cancel_approved`,
 `cancel_refused`, `finish_requested`, `finish_refused`, `trip_finished`,
-`trip_location`, plus `match` (a new match with a paid guide, sent to the
+`trip_location` (confirmed trip) / `request_location` (pending request),
+plus `match` (a new match with a paid guide, sent to the
 side that *didn't* make the completing decision — `Bookings::onMatched()`;
 for a free guide `booking_free` covers it, to both sides), `level_up` and
 `bonus_granted` (`Levels::sync()`, see "Levels, fees & bonus packages") and
@@ -977,7 +996,14 @@ about a pending request to "Matches". Each row is **published to Redis**
 the moment it's written (`Push`, see "Realtime") and marked read if a
 gateway took it; a user who isn't connected gets their unread rows on their
 next sign-in (`pushState`). `App.vue` shows each
-as a 10 s info toast. The copy is English only (server text, not in
+as a 10 s info toast that **links to what it's about** (`utils/notificationLink.ts`):
+pending requests → Matches, confirmed/finished trips → My trips, `match` → the
+chat with them, `profile_updated` → their profile, `level_up`/`bonus_granted`
+→ `/profile#level` (LevelPanel scrolls itself there once the page has loaded);
+an unknown kind is a plain toast. The person comes from
+`notifications.about_user_id` (043, the optional last argument of `notify()`/
+`notifyInApp()` — set for `match`, `profile_updated` and the meeting-place
+kinds). A chat message's toast opens that conversation. The copy is English only (server text, not in
 `translations`). The contact channel is **email only for now** —
 `Notifications::deliver()` is the one place to branch on a preferred
 channel when SMS/WhatsApp exist.
@@ -1815,10 +1841,10 @@ is a `503` from the gateway.
 | `paymentState` | **yes** | `api.paymentState()` | — | `PaymentState` | `paymentStateFor()` |
 | `decide` | **yes** | `api.decide(payload)` | `targetId, decision` (`'interested' \| 'pass'`) | `SelectionRow` (`id, guest_id, guide_id, guest_decision, guide_decision, active, created_at, updated_at`) | `Selections::decide()` |
 | `revokeSelection` | **yes** | `api.revokeSelection(payload)` | `targetId` | `SelectionRow` | `Selections::revoke()` |
-| `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, location, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
-| `trips` | **yes** | `api.trips()` | — | `{ trips: TripRow[] }` (booking `id`, `selection_id, counterpart_id, phase, is_latest, name, image, active, fee_amount, booking_status, payment_status, booking_amount, meeting_at, booking_duration_hours, location, refund_amount, trip_status, accepted_at, cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason, finish_requested_by, finished_at, matched_at, auto_finish, refund_if_cancelled, refund_if_guest_cancels` — newest first) | `Bookings::tripsFor()` |
-| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year), `durationHours?` (0.5–24), `location?` (≤160 chars) | `Booking` (`status: 'pending'` — waits for the guide) | `actionPayGuideFee()` → `Bookings::pay()` |
-| `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation), `location?` (setLocation; empty clears) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/setLocation()/…` |
+| `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, location, location_pin, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
+| `trips` | **yes** | `api.trips()` | — | `{ trips: TripRow[] }` (booking `id`, `selection_id, counterpart_id, phase, is_latest, name, image, active, fee_amount, booking_status, payment_status, booking_amount, meeting_at, booking_duration_hours, location, location_pin, refund_amount, trip_status, accepted_at, cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason, finish_requested_by, finished_at, matched_at, auto_finish, refund_if_cancelled, refund_if_guest_cancels` — newest first) | `Bookings::tripsFor()` |
+| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year), `durationHours?` (0.5–24), `location?` (≤160 chars), `latitude?`/`longitude?` (a pin — both numbers or neither) | `Booking` (`status: 'pending'` — waits for the guide; `location_pin`) | `actionPayGuideFee()` → `Bookings::pay()` |
+| `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation), `location?`, `latitude?`/`longitude?` (setLocation: replaces text and pin; neither clears) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/setLocation()/…` |
 | `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
 | `conversations` | **yes** | `api.conversations()` | — | `{ conversations: Conversation[] }` (`counterpart_id, name, image, role, can_send, unread, last_message`) | `Messages::conversationsFor()` |
 | `messages` | **yes** | `api.messages(payload)` | `targetId, beforeId?` | `ChatThread` (`counterpart, can_send, has_more, messages` oldest first, ≤50) — the newest page marks read | `Messages::threadWith()` |
@@ -2194,6 +2220,11 @@ API service (`api/classes/`):
   fees & bonus packages"). Applied 2026-10-16. Not re-runnable.
 - `api/sql/042_translations_levels.sql` — level, perk, bonus and fee text.
   Applied 2026-10-16. Re-runnable.
+- `api/sql/043_meeting_pin_notification_links.sql` — `bookings.location_lat`/
+  `location_lng`, `notifications.about_user_id`. Applied 2026-10-16. Not
+  re-runnable.
+- `api/sql/044_translations_meeting_pin.sql` — the meeting pin and
+  `common.map_links.*`. Applied 2026-10-16. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,
@@ -2278,7 +2309,7 @@ against throwaway `@example.test` accounts with the mail worker stopped.
   guest's interests. **Every** category is filterable — nothing is
   special-cased by key any more.
 - `bookings` (id, selection_id, guest_id, guide_id, amount, meeting_at,
-  duration_hours, location, status `pending|confirmed|declined|withdrawn|cancelled`,
+  duration_hours, location, location_lat, location_lng (the meeting pin, 043), status `pending|confirmed|declined|withdrawn|cancelled`,
   payment_status `none|paid|refunded`, accepted_at, refund_amount,
   cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason,
   trip_status `pending|started|finished`, finish_requested_by,
@@ -2286,7 +2317,8 @@ against throwaway `@example.test` accounts with the mail worker stopped.
   `open_pair`) — at most one open (pending, or confirmed and unfinished) booking per pair,
   enforced by a UNIQUE index on `open_pair`. Date-times are UTC (MySQL,
   PHP and the containers all run in UTC).
-- `notifications` (id, user_id, kind, message, read_at, created_at).
+- `notifications` (id, user_id, kind, about_user_id — the person it's about,
+  043 — message, read_at, created_at).
 - `selections.matched_at` — when the pair last became active (UTC).
 - `reviews` (id, booking_id, author_id, subject_id, rating, comment,
   created_at, updated_at) — unique on (booking_id, author_id); see

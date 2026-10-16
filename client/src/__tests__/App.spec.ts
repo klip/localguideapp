@@ -143,6 +143,8 @@ describe('App', () => {
     fakeSocket.push('badges', { matches: 2, trips: 1 })
 
     expect(useMessagesStore().items.map((item) => item.text)).toContain('Ana paid your £50.00 fee.')
+    // …and tapping it opens the page it's about.
+    expect(useMessagesStore().items.find((item) => item.text.startsWith('Ana'))?.to).toBe('/matches')
     expect(useBadgesStore().matches).toBe(2)
     expect(useBadgesStore().trips).toBe(1)
     expect(useBadgesStore().revision).toBe(1)
@@ -184,6 +186,7 @@ describe('App', () => {
 
     fakeSocket.push('message', chat({}))
     expect(texts()).toContain('New message from Gina')
+    expect(useMessagesStore().items[0]?.to).toBe('/messages/101')
 
     useMessagesStore().items.splice(0)
     fakeSocket.push('message', chat({ id: 2, mine: true, sender_id: 7, recipient_id: 101 }))

@@ -44,6 +44,7 @@ function trip(overrides: Partial<TripRow> = {}): TripRow {
     meeting_at: '2030-01-02 10:00:00',
     booking_duration_hours: 3,
     location: 'Casemates Square',
+    location_pin: null,
     trip_status: 'pending',
     refund_amount: null,
     refund_if_cancelled: null,
@@ -176,6 +177,18 @@ describe('TripsPage', () => {
 
     expect(wrapper.find('a.who-name').attributes('href')).toBe('/visitors/7')
     expect(wrapper.text()).toContain('£50.00 fee')
+  })
+
+  it('shows a pinned meeting place with links to the viewer’s maps app', async () => {
+    const pinned = trip({ location: null, location_pin: { latitude: 36.1408, longitude: -5.3536 } })
+    const api = fakeApi({
+      trips: vi.fn<Api['trips']>().mockResolvedValue({ trips: [pinned] }),
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState()),
+    })
+    const wrapper = await mountPage(api, 'guest')
+
+    expect(wrapper.text()).toContain('Pinned on the map')
+    expect(wrapper.find('.trip-pin a[data-provider="google"]').attributes('href')).toContain('-5.353600')
   })
 
   it('fills in placeholders for a free trip with no date or place yet', async () => {

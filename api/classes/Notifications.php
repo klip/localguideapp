@@ -30,10 +30,11 @@ class Notifications
     /**
      * Records the in-app notification and sends the email. `$inApp` is the
      * short line the toast shows; `$subject`/`$body` are the email.
+     * `$aboutUserId` is the person it's about, if one — the toast links there.
      */
-    public function notify(int $userId, string $kind, string $inApp, string $subject, string $body): void
+    public function notify(int $userId, string $kind, string $inApp, string $subject, string $body, ?int $aboutUserId = null): void
     {
-        $this->record($userId, $kind, mb_substr($inApp, 0, 512));
+        $this->record($userId, $kind, mb_substr($inApp, 0, 512), $aboutUserId);
         $this->deliver($userId, $kind, $subject, $body);
     }
 
@@ -52,7 +53,7 @@ class Notifications
      * unread, or went out in the last 10 minutes, isn't added again — a few
      * saves in a row leave the other person one line, not several.
      */
-    public function notifyInApp(int $userId, string $kind, string $inApp): void
+    public function notifyInApp(int $userId, string $kind, string $inApp, ?int $aboutUserId = null): void
     {
         $message = mb_substr($inApp, 0, 512);
         $waiting = $this->db->db_GetRow(
@@ -66,7 +67,7 @@ class Notifications
             return;
         }
 
-        $this->record($userId, $kind, $message);
+        $this->record($userId, $kind, $message, $aboutUserId);
     }
 
     /**
@@ -74,7 +75,7 @@ class Notifications
      * the same call — the backlog a gateway sends when a user signs in.
      *
      * @param int[] $userIds
-     * @return array<int, array<int, array{id: int, kind: string, message: string, created_at: string}>> by user id
+     * @return array<int, array<int, array{id: int, kind: string, about_user_id: ?int, message: string, created_at: string}>> by user id
      */
     public function takeUnreadFor(array $userIds): array
     {
@@ -84,7 +85,7 @@ class Notifications
         }
 
         $rows = $this->db->db_GetArray(
-            'SELECT `id`, `user_id`, `kind`, `message`, `created_at` FROM `notifications`
+            'SELECT `id`, `user_id`, `kind`, `about_user_id`, `message`, `created_at` FROM `notifications`
              WHERE `user_id` IN (' . implode(',', $ids) . ') AND `read_at` IS NULL
              ORDER BY `id` ASC LIMIT 200'
         );
@@ -104,6 +105,7 @@ class Notifications
             $byUser[(int) $row['user_id']][] = [
                 'id' => (int) $row['id'],
                 'kind' => $row['kind'],
+                'about_user_id' => $row['about_user_id'] === null ? null : (int) $row['about_user_id'],
                 'message' => $row['message'],
                 'created_at' => $row['created_at'],
             ];
@@ -117,13 +119,13 @@ class Notifications
      * user has it on screen), otherwise it waits for their next sign-in.
      * Their counters are refreshed at the end of the request either way.
      */
-    private function record(int $userId, string $kind, string $message): void
+    private function record(int $userId, string $kind, string $message, ?int $aboutUserId = null): void
     {
-        $id = (int) $this->db->db_Insert('notifications', [
-            'user_id' => $userId,
-            'kind' => $kind,
-            'message' => $message,
-        ]);
+        $fields = ['user_id' => $userId, 'kind' => $kind, 'message' => $message];
+        if ($aboutUserId) {
+            $fields['about_user_id'] = $aboutUserId;
+        }
+        $id = (int) $this->db->db_Insert('notifications', $fields);
         $this->push->touch($userId);
         if (!$id) {
             return;
@@ -132,6 +134,7 @@ class Notifications
         $delivered = $this->push->toUser($userId, ['type' => 'notification', 'notification' => [
             'id' => $id,
             'kind' => $kind,
+            'about_user_id' => $aboutUserId ?: null,
             'message' => $message,
             'created_at' => gmdate('Y-m-d H:i:s'),
         ]]);

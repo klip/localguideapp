@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import BookingPanel from '@/components/BookingPanel.vue'
+import MapPinLinks from '@/components/MapPinLinks.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
@@ -230,8 +231,15 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
               </div>
               <div class="wide">
                 <dt>{{ t('trips.card.location') }}</dt>
-                <dd :class="{ muted: !trip.location }">
-                  {{ trip.location || t('trips.card.location_not_set') }}
+                <dd :class="{ muted: !trip.location && !trip.location_pin }">
+                  {{ trip.location || (trip.location_pin ? t('trips.card.location_pinned') : t('trips.card.location_not_set')) }}
+                  <MapPinLinks
+                    v-if="trip.location_pin"
+                    class="trip-pin"
+                    :latitude="trip.location_pin.latitude"
+                    :longitude="trip.location_pin.longitude"
+                    :label="t('trips.card.location')"
+                  />
                 </dd>
               </div>
               <div class="wide">
@@ -446,5 +454,10 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
 
 .trip-card :deep(.booking) {
   margin-top: 0.4rem;
+}
+
+.trip-pin {
+  display: flex;
+  margin-top: 0.2rem;
 }
 </style>

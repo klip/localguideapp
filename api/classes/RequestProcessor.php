@@ -389,7 +389,9 @@ class RequestProcessor
             $guideId,
             (string) ($input['meetingAt'] ?? ''),
             $input['durationHours'] ?? null,
-            (string) ($input['location'] ?? '')
+            (string) ($input['location'] ?? ''),
+            $input['latitude'] ?? null,
+            $input['longitude'] ?? null
         );
     }
 
@@ -452,7 +454,14 @@ class RequestProcessor
             case 'dismissFinish':
                 return $this->bookings->dismissFinish($userId, $guestId, $guideId);
             case 'setLocation':
-                return $this->bookings->setLocation($userId, $guestId, $guideId, (string) ($input['location'] ?? ''));
+                return $this->bookings->setLocation(
+                    $userId,
+                    $guestId,
+                    $guideId,
+                    (string) ($input['location'] ?? ''),
+                    $input['latitude'] ?? null,
+                    $input['longitude'] ?? null
+                );
         }
 
         throw new RuntimeException('Unknown booking step "' . $op . '". Expected one of: '

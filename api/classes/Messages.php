@@ -101,8 +101,12 @@ class Messages
         return $selection;
     }
 
-    /** A finite number within ±`$limit` (JSON `true` and numeric strings refused), else null. */
-    private static function coordinate($value, int $limit): ?float
+    /**
+     * A finite number within ±`$limit` (JSON `true` and numeric strings
+     * refused), else null — a latitude (90) or longitude (180). Shared with
+     * `Bookings`' meeting pin.
+     */
+    public static function coordinate($value, int $limit): ?float
     {
         if (!is_int($value) && !is_float($value)) {
             return null;

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import MapPinLinks from '@/components/MapPinLinks.vue'
+import MeetingPinField from '@/components/MeetingPinField.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import ProtectedNotice from '@/components/ProtectedNotice.vue'
 import { t } from '@/i18n'
-import { useApi, type BookingOp, type BookingView } from '@/plugins/api'
+import { useApi, type BookingOp, type BookingView, type MapPin } from '@/plugins/api'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { formatHours, formatMoney, formatWhen, tripEnd, utcDate } from '@/utils/bookingTime'
 import { percent } from '@/utils/levels'
@@ -24,7 +26,9 @@ import { reportApiError } from '@/utils/reportApiError'
  *                   the trip finishes on its own (time + length known)
  *   finished        Leave a review; the guest can book again (`allowBooking`)
  *
- * While a booking is open, either side can set or change the meeting place.
+ * While a booking is open, either side can set or change the meeting place:
+ * a description and/or a pin dropped where they're standing (like chat's
+ * "Share my location"), which the other side opens in their own maps app.
  */
 const props = withDefaults(
   defineProps<{
@@ -52,6 +56,8 @@ const openForm = ref<FormKind | null>(null)
 const meetingAt = ref('')
 const durationHours = ref<number | ''>('')
 const location = ref('')
+/** The meeting pin in the open form — from the device, or the booking's current one. */
+const pin = ref<MapPin | null>(null)
 const reason = ref('')
 
 /** Matches `Bookings::MAX_LOCATION_LENGTH`. */
@@ -107,8 +113,11 @@ function show(kind: FormKind) {
   meetingAt.value = ''
   durationHours.value = ''
   location.value = kind === 'location' ? (props.row.location ?? '') : ''
+  pin.value = kind === 'location' ? (props.row.location_pin ?? null) : null
   reason.value = ''
 }
+
+const pinFields = () => (pin.value ? { latitude: pin.value.latitude, longitude: pin.value.longitude } : {})
 
 /** Runs one server step, then closes any form, tells the page to reload, and confirms. */
 async function run(step: () => Promise<unknown>, success: string, failure: string) {
@@ -156,6 +165,7 @@ function pay() {
         meetingAt: when.toISOString(),
         ...(hours !== undefined ? { durationHours: hours } : {}),
         ...(place ? { location: place } : {}),
+        ...pinFields(),
       }),
     t('common.booking_panel.paid', {
       amount: money(props.row.fee_amount),
@@ -169,8 +179,8 @@ function saveLocation() {
   const place = location.value.trim()
   return run(
     () =>
-      api.bookingAction({ targetId: props.row.counterpart_id, op: 'setLocation', location: place }),
-    place
+      api.bookingAction({ targetId: props.row.counterpart_id, op: 'setLocation', location: place, ...pinFields() }),
+    place || pin.value
       ? t('common.booking_panel.location_saved', { name: props.name })
       : t('common.booking_panel.location_removed'),
     t('common.booking_panel.location_failed'),
@@ -231,6 +241,12 @@ function guideCancel() {
           {{ t('common.booking_panel.paid_on', { amount: money(row.booking_amount), when: meetingLabel }) }}<template v-if="durationLabel"> · {{ durationLabel }}</template
           ><template v-if="row.location"> · {{ row.location }}</template>
         </span>
+        <MapPinLinks
+          v-if="row.location_pin"
+          :latitude="row.location_pin.latitude"
+          :longitude="row.location_pin.longitude"
+          data-test="summary-pin"
+        />
       </p>
       <p v-else-if="paid" class="booking-line">
         <PillBadge>{{ t('common.booking_panel.paid_badge', { amount: money(row.booking_amount) }) }}</PillBadge>
@@ -520,6 +536,7 @@ function guideCancel() {
           :placeholder="t('common.booking_panel.location_placeholder')"
         />
       </label>
+      <MeetingPinField v-model="pin" />
       <p class="tiny muted">
         {{
           t('common.booking_panel.pay_note', {
@@ -612,8 +629,9 @@ function guideCancel() {
           :placeholder="t('common.booking_panel.location_placeholder')"
         />
       </label>
+      <MeetingPinField v-model="pin" />
       <p class="tiny muted">
-        {{ t('common.booking_panel.location_note', { name }) }}
+        {{ t('common.booking_panel.location_note', { name }) }} {{ t('common.booking_panel.pin_note', { name }) }}
       </p>
       <div class="form-actions">
         <button type="submit" class="accept" :aria-busy="busy" :disabled="busy">
@@ -793,4 +811,5 @@ function guideCancel() {
     color: var(--rg-red);
   }
 }
+
 </style>

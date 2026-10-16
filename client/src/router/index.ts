@@ -157,7 +157,11 @@ const router = createRouter({
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) return savedPosition
     // The header links to /about#how, so in-page anchors have to keep working.
-    if (to.hash) return { el: to.hash, behavior: 'smooth' }
+    // A section that renders after its data loads (Profile's #level) scrolls
+    // itself into view instead — see LevelPanel.vue.
+    if (to.hash && document.getElementById(decodeURIComponent(to.hash.slice(1)))) {
+      return { el: to.hash, behavior: 'smooth' }
+    }
     return { top: 0 }
   },
 })

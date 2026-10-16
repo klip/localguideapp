@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import { useCurrentPosition } from '@/composables/useCurrentPosition'
 import { useMediaQuery, LG_QUERY } from '@/composables/useMediaQuery'
 import { t, tn } from '@/i18n'
 import { ApiError, useApi, type ChatMessage, type Conversation, type ChatThread } from '@/plugins/api'
@@ -139,72 +140,49 @@ async function send() {
  * tracking, nothing kept running afterwards.
  */
 const confirmingLocation = ref(false)
-const locating = ref(false)
-
 /**
- * The location request in flight, if any. Leaving the conversation (or the
- * page) cancels it, so a permission prompt answered later never sends your
- * position to someone you've moved away from.
+ * The position request (`useCurrentPosition`). Leaving the conversation (or
+ * the page) cancels it, so a permission prompt answered later never sends
+ * your position to someone you've moved away from.
  */
-let locationRequest = 0
-let locationWatchdog: ReturnType<typeof setTimeout> | undefined
-/** Some browsers never answer when a permission prompt is just dismissed. */
-const LOCATION_WATCHDOG_MS = 60_000
+const position = useCurrentPosition()
+const sendingLocation = ref(false)
+/** Bumped on every share and every cancel: a send that returns after either is ignored. */
+let shareRequest = 0
+const locating = computed(() => position.locating.value || sendingLocation.value)
 
 function cancelLocation() {
-  locationRequest++
-  clearTimeout(locationWatchdog)
-  locating.value = false
+  shareRequest++
+  position.cancel()
+  sendingLocation.value = false
   confirmingLocation.value = false
 }
 
-function shareLocation() {
+async function shareLocation() {
   const id = openId.value
   confirmingLocation.value = false
   // The confirm panel (which had focus) is gone; keep focus in the composer.
   void nextTick(() => composerRef.value?.focus())
   if (!id || locating.value) return
-  if (!('geolocation' in navigator) || !window.isSecureContext) {
-    reportApiError(null, t('messages.location.unsupported'))
+
+  const request = ++shareRequest
+  const result = await position.locate()
+  if (!result || request !== shareRequest || openId.value !== id) return
+  if (!result.ok) {
+    reportApiError(null, t(`messages.location.${result.reason}`))
     return
   }
-
-  const request = ++locationRequest
-  const settle = () => {
-    clearTimeout(locationWatchdog)
-    locating.value = false
+  sendingLocation.value = true
+  try {
+    const { latitude, longitude, accuracy } = result.position
+    const message = await api.shareLocation({ targetId: id, latitude, longitude, ...(accuracy !== null ? { accuracy } : {}) })
+    // Sent either way; only shown here if this conversation is still the one open.
+    if (request === shareRequest) receive(message)
+  } catch (err) {
+    reportApiError(err, t('messages.toast.location_failed'))
+  } finally {
+    if (request === shareRequest) sendingLocation.value = false
   }
-  locating.value = true
-  locationWatchdog = setTimeout(() => {
-    if (request !== locationRequest) return
-    locationRequest++
-    settle()
-    reportApiError(null, t('messages.location.timeout'))
-  }, LOCATION_WATCHDOG_MS)
-
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      if (request !== locationRequest) return
-      clearTimeout(locationWatchdog)
-      try {
-        const { latitude, longitude, accuracy } = position.coords
-        const message = await api.shareLocation({ targetId: id, latitude, longitude, accuracy })
-        receive(message)
-      } catch (err) {
-        reportApiError(err, t('messages.toast.location_failed'))
-      } finally {
-        if (request === locationRequest) settle()
-      }
-    },
-    (error) => {
-      if (request !== locationRequest) return
-      settle()
-      const reason =
-        error.code === error.PERMISSION_DENIED ? 'denied' : error.code === error.TIMEOUT ? 'timeout' : 'unavailable'
-      reportApiError(null, t(`messages.location.${reason}`))
-    },
-    { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 },
-  )
 }
 
 /** Links for a shared point, the viewer's own device's maps app first. */

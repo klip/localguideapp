@@ -112,7 +112,8 @@ class Bookings
                     "New match: {$guestName}",
                     self::greeting($guide)
                     . "{$guestName} is interested too, so you're a match. You can chat in Messages on RockGuide straight away. "
-                    . 'They can pay your ' . self::money($fee) . " fee to request a date; you'll hear from us when they do.\n\nRockGuide"
+                    . 'They can pay your ' . self::money($fee) . " fee to request a date; you'll hear from us when they do.\n\nRockGuide",
+                    (int) $guest['id']
                 );
             } else {
                 $this->notifications->notify(
@@ -122,7 +123,8 @@ class Bookings
                     "It's a match: {$guideName}",
                     self::greeting($guest)
                     . "{$guideName} is interested too, so you're a match. You can chat in Messages on RockGuide straight away, "
-                    . 'and pay their ' . self::money($fee) . " fee on the Matches page to request a date.\n\nRockGuide"
+                    . 'and pay their ' . self::money($fee) . " fee on the Matches page to request a date.\n\nRockGuide",
+                    (int) $guide['id']
                 );
             }
             return;
@@ -171,7 +173,7 @@ class Bookings
              WHERE (`guest_id` = ' . $userId . ' OR `guide_id` = ' . $userId . ') AND `active` = 1'
         );
         foreach ($rows ?: [] as $row) {
-            $this->notifications->notifyInApp((int) $row['other'], 'profile_updated', "{$name} updated their details.");
+            $this->notifications->notifyInApp((int) $row['other'], 'profile_updated', "{$name} updated their details.", $userId);
         }
     }
 
@@ -206,11 +208,12 @@ class Bookings
     /**
      * The guest pays the guide's fee for an active match. `$meetingAt` is an
      * ISO 8601 date-time (the client sends UTC) in the future; `$durationHours`
-     * is optional — with it, the trip finishes on its own; so is `$location`,
-     * a short description of where to meet. The booking waits for the guide
+     * is optional — with it, the trip finishes on its own; so are `$location`,
+     * a short description of where to meet, and `$latitude`/`$longitude`, a
+     * map pin shared from the guest's device. The booking waits for the guide
      * to accept it. Returns the new booking.
      */
-    public function pay(int $guestId, int $guideId, string $meetingAt, $durationHours = null, string $location = ''): array
+    public function pay(int $guestId, int $guideId, string $meetingAt, $durationHours = null, string $location = '', $latitude = null, $longitude = null): array
     {
         $selection = $this->activeSelection($guestId, $guideId);
 
@@ -225,6 +228,7 @@ class Bookings
         $meeting = self::parseMeeting($meetingAt);
         $duration = self::parseDuration($durationHours);
         $location = self::parseLocation($location);
+        $pin = self::parsePin($latitude, $longitude);
 
         $fields = [
             'selection_id' => (int) $selection['id'],
@@ -240,6 +244,9 @@ class Bookings
         }
         if ($location !== null) {
             $fields['location'] = $location;
+        }
+        if ($pin !== null) {
+            [$fields['location_lat'], $fields['location_lng']] = $pin;
         }
         // The platform fee, fixed now: by the guide's level, or none during a
         // no-fee bonus (`Levels`). What the guide receives is the rest.
@@ -272,7 +279,7 @@ class Bookings
             . ($duration !== null ? " ({$duration} hours)" : '') . ".\n"
             . (isset($fields['guide_payout']) ? 'You receive ' . self::money((float) $fields['guide_payout']) . ' after the RockGuide fee of '
                 . self::percent((float) $fields['commission_rate']) . ".\n" : '')
-            . ($location !== null ? "Meeting place: {$location}\n" : '') . "\n"
+            . self::placeLines($location, $pin) . "\n"
             . "Accept it on your Matches page to confirm the date, and plan the details together in Messages. "
             . "If you can't make it, decline and they're refunded in full. If you don't answer before the meeting time, it's declined automatically.\n\nRockGuide"
         );
@@ -352,34 +359,47 @@ class Bookings
     }
 
     /**
-     * Either side sets (or clears, with an empty string) where an open
-     * booking's trip meets. The other side is told.
+     * Either side sets where an open booking's trip meets — a description,
+     * a map pin from their device (`$latitude`/`$longitude`), or both — or
+     * clears it (neither). Each call replaces both. The other side is told.
      */
-    public function setLocation(int $actingUserId, int $guestId, int $guideId, string $location): array
+    public function setLocation(int $actingUserId, int $guestId, int $guideId, string $location, $latitude = null, $longitude = null): array
     {
         $booking = $this->openFor($guestId, $guideId);
         if (!$booking) {
             throw new RuntimeException('There is no upcoming trip to set a meeting place for.');
         }
         $location = self::parseLocation($location);
+        $pin = self::parsePin($latitude, $longitude);
 
         $this->db->db_Execute(
             'UPDATE `bookings` SET `location` = '
             . ($location === null ? 'NULL' : '"' . $this->db->db_Escape($location) . '"')
+            . ', `location_lat` = ' . ($pin === null ? 'NULL' : $pin[0])
+            . ', `location_lng` = ' . ($pin === null ? 'NULL' : $pin[1])
             . ' WHERE `id` = ' . $booking['id']
         );
 
         $otherId = $actingUserId === $guestId ? $guideId : $guestId;
         $actorName = self::nameOf($this->user($actingUserId), 'Your match');
-        $message = $location === null
-            ? "{$actorName} removed the meeting place for your trip on " . self::formatMeeting($booking['meeting_at']) . '.'
-            : "{$actorName} set the meeting place for your trip on " . self::formatMeeting($booking['meeting_at']) . ": {$location}";
+        $when = self::formatMeeting($booking['meeting_at']);
+        if ($location === null && $pin === null) {
+            $message = "{$actorName} removed the meeting place for your trip on {$when}.";
+        } elseif ($location === null) {
+            $message = "{$actorName} pinned the meeting place for your trip on {$when} on the map.";
+        } else {
+            $message = "{$actorName} set the meeting place for your trip on {$when}: {$location}" . ($pin !== null ? ' (pinned on the map)' : '');
+        }
+        // A request still waiting on the guide lives on Matches, a confirmed
+        // trip on My trips — the kind tells the toast where to link.
         $this->notifications->notify(
             $otherId,
-            'trip_location',
+            $booking['status'] === 'pending' ? 'request_location' : 'trip_location',
             $message,
             "{$actorName} updated your trip's meeting place",
-            self::greeting($this->user($otherId)) . $message . "\n\nRockGuide"
+            self::greeting($this->user($otherId)) . $message . "\n"
+            . ($pin !== null ? 'Map: ' . self::pinUrl($pin) . "\n" : '') . "\nRockGuide",
+            $actingUserId
         );
 
         return $this->find($booking['id']);
@@ -760,6 +780,7 @@ class Bookings
             'SELECT b.`id`, b.`selection_id`, b.`' . $their . '_id` AS `counterpart_id`,
                     b.`status` AS `booking_status`, b.`payment_status`, b.`amount` AS `booking_amount`,
                     b.`meeting_at`, b.`duration_hours` AS `booking_duration_hours`, b.`location`,
+                    b.`location_lat`, b.`location_lng`,
                     b.`refund_amount`, b.`trip_status`, b.`accepted_at`,
                     b.`cancel_reason`, b.`cancelled_at`, b.`cancel_requested_at`, b.`cancel_request_reason`,
                     b.`finish_requested_by`, b.`finished_at`,
@@ -798,6 +819,7 @@ class Bookings
 
             $open = $row['booking_status'] === 'confirmed' && $row['trip_status'] !== 'finished';
             $row['phase'] = !$open ? 'past' : ($row['trip_status'] === 'started' ? 'current' : 'scheduled');
+            $row = self::withPin($row);
 
             $paidAndOpen = $open && $row['payment_status'] === 'paid';
             $row['refund_if_cancelled'] = $own === 'guide' && $paidAndOpen
@@ -1026,6 +1048,53 @@ class Bookings
         return mb_substr(ContactFilter::mask($value, 'location'), 0, self::MAX_LOCATION_LENGTH);
     }
 
+    /**
+     * A map pin: both coordinates as JSON numbers, or neither (null). Stored
+     * to 6 decimals (~10 cm), like a chat location (`Messages::coordinate()`).
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private static function parsePin($latitude, $longitude): ?array
+    {
+        if ($latitude === null && $longitude === null) {
+            return null;
+        }
+        $lat = Messages::coordinate($latitude, 90);
+        $lng = Messages::coordinate($longitude, 180);
+        if ($lat === null || $lng === null) {
+            throw new RuntimeException('That location isn’t valid.');
+        }
+
+        return [number_format($lat, 6, '.', ''), number_format($lng, 6, '.', '')];
+    }
+
+    /** A Google Maps link for a pin — what emails carry (they can't know the reader's device). */
+    private static function pinUrl(array $pin): string
+    {
+        return 'https://www.google.com/maps/search/?api=1&query=' . $pin[0] . '%2C' . $pin[1];
+    }
+
+    /** The meeting-place lines of an email. */
+    private static function placeLines(?string $location, ?array $pin): string
+    {
+        return ($location !== null ? "Meeting place: {$location}\n" : '')
+            . ($pin !== null ? 'Meeting point on the map: ' . self::pinUrl($pin) . "\n" : '');
+    }
+
+    /**
+     * Folds a row's `location_lat`/`location_lng` into `location_pin`
+     * (`{latitude, longitude}` or null), the shape the client reads.
+     */
+    public static function withPin(array $row): array
+    {
+        $row['location_pin'] = isset($row['location_lat'], $row['location_lng'])
+            ? ['latitude' => (float) $row['location_lat'], 'longitude' => (float) $row['location_lng']]
+            : null;
+        unset($row['location_lat'], $row['location_lng']);
+
+        return $row;
+    }
+
     /** A decline/cancellation note, shown to the other side — contact details masked (see `ContactFilter`). */
     private static function reason(string $reason): string
     {
@@ -1052,7 +1121,7 @@ class Bookings
         // trips rows carry it (`commission_*`, `guide_payout`).
         unset($row['open_pair'], $row['commission_rate'], $row['commission_amount'], $row['guide_payout']);
 
-        return $row;
+        return self::withPin($row);
     }
 
     private static function nameOf(array $user, string $fallback): string

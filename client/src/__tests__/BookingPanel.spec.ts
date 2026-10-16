@@ -26,6 +26,7 @@ function booking(overrides: Partial<Booking> = {}): Booking {
     meeting_at: '2030-01-02 10:00:00',
     duration_hours: null,
     location: null,
+    location_pin: null,
     status: 'pending',
     payment_status: 'paid',
     accepted_at: null,
@@ -79,6 +80,7 @@ function row(overrides: Partial<MatchOverviewRow> = {}): MatchOverviewRow {
     finished_at: null,
     auto_finish: false,
     location: null,
+    location_pin: null,
     ...overrides,
   }
 }
@@ -423,6 +425,68 @@ describe('BookingPanel — meeting place', () => {
       location: 'Cable car, top station',
     })
     expect(toasts()).toContain('Meeting place saved — Igor has been told.')
+  })
+
+  it('drops a pin where the device is, saved with the meeting place, and shows it with maps links', async () => {
+    const getCurrentPosition = vi.fn<Geolocation['getCurrentPosition']>((success) =>
+      success({ coords: { latitude: 36.1408, longitude: -5.3536, accuracy: 12 } } as GeolocationPosition),
+    )
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    vi.stubGlobal('isSecureContext', true)
+    const api = fakeApi()
+    const wrapper = mountPanel(api, confirmedBooking, true)
+
+    await button(wrapper, 'Set meeting place').trigger('click')
+    await wrapper.find('[data-test="pin-here"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="pin-field"]').text()).toContain('Pinned on the map')
+    expect(wrapper.find('[data-test="pin-field"] a[data-provider="google"]').attributes('href')).toContain('36.140800')
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(api.bookingAction).toHaveBeenCalledWith({
+      targetId: 7,
+      op: 'setLocation',
+      location: '',
+      latitude: 36.1408,
+      longitude: -5.3536,
+    })
+    expect(toasts()).toContain('Meeting place saved — Igor has been told.')
+    Reflect.deleteProperty(navigator, 'geolocation')
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps an existing pin when editing, and removing it clears it on save', async () => {
+    const api = fakeApi()
+    const pinned = { ...pendingBooking, location: 'Main gate', location_pin: { latitude: 36.1408, longitude: -5.3536 } }
+    const wrapper = mountPanel(api, pinned, true)
+
+    // The summary line offers the pin in the viewer's maps app.
+    expect(wrapper.find('[data-test="summary-pin"] a').exists()).toBe(true)
+
+    await button(wrapper, 'Change meeting place').trigger('click')
+    await button(wrapper, 'Remove pin').trigger('click')
+    expect(wrapper.find('[data-test="pin-here"]').exists()).toBe(true)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(api.bookingAction).toHaveBeenCalledWith({ targetId: 7, op: 'setLocation', location: 'Main gate' })
+  })
+
+  it('explains a blocked location permission instead of pinning anything', async () => {
+    const getCurrentPosition = vi.fn<Geolocation['getCurrentPosition']>((_success, failure) =>
+      failure?.({ code: 1, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3, message: '' } as GeolocationPositionError),
+    )
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    vi.stubGlobal('isSecureContext', true)
+    const wrapper = mountPanel(fakeApi(), confirmedBooking, false)
+
+    await button(wrapper, 'Set meeting place').trigger('click')
+    await wrapper.find('[data-test="pin-here"]').trigger('click')
+    await flushPromises()
+    expect(toasts()).toContain('Location access is blocked')
+    expect(wrapper.find('[data-test="pin-field"]').text()).not.toContain('Pinned on the map')
+    Reflect.deleteProperty(navigator, 'geolocation')
+    vi.unstubAllGlobals()
   })
 
   it('offers no meeting place once the trip is finished', () => {

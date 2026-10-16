@@ -325,6 +325,8 @@ export interface Booking {
   duration_hours: number | null
   /** Short free-text meeting place; `null` until someone sets it. */
   location: string | null
+  /** A map pin for the meeting place, shared from someone's device. */
+  location_pin: MapPin | null
   status: BookingStatus
   payment_status: BookingPaymentStatus
   accepted_at: string | null
@@ -344,10 +346,18 @@ export interface Booking {
   updated_at: string
 }
 
+/** A point on the map (a booking's meeting pin). */
+export interface MapPin {
+  latitude: number
+  longitude: number
+}
+
 /** An in-app notification, pushed over the socket once (`Realtime`) — `App.vue` shows it as a toast. */
 export interface AppNotification {
   id: number
   kind: string
+  /** The person it's about, when there is one — its toast links to them. */
+  about_user_id?: number | null
   message: string
   created_at: string
 }
@@ -412,6 +422,8 @@ export interface MatchOverviewRow {
   booking_duration_hours: number | null
   /** Where the trip meets — short free text, either side can set it while the booking is open. */
   location: string | null
+  /** …and/or a map pin, shared from a device (`useCurrentPosition`). */
+  location_pin: MapPin | null
   accepted_at: string | null
   cancel_requested_at: string | null
   cancel_request_reason: string | null
@@ -438,6 +450,7 @@ export type BookingView = Pick<
   | 'meeting_at'
   | 'booking_duration_hours'
   | 'location'
+  | 'location_pin'
   | 'trip_status'
   | 'refund_if_cancelled'
   | 'refund_if_guest_cancels'
@@ -769,13 +782,18 @@ export const api = {
     meetingAt: string
     durationHours?: number
     location?: string
+    latitude?: number
+    longitude?: number
   }) => call<Booking>('payGuideFee', payload),
   /** Every other booking step — accept/decline, withdraw, cancellation requests, finishing the trip, the meeting place (`setLocation` + `location`). */
   bookingAction: (payload: {
     targetId: number
     op: BookingOp
     reason?: string
+    /** `setLocation` replaces the text and the pin together; send neither to clear both. */
     location?: string
+    latitude?: number
+    longitude?: number
   }) => call<Booking>('bookingAction', payload),
   /** Every confirmed trip the caller has had, newest first — see `TripRow`. */
   trips: () => call<{ trips: TripRow[] }>('trips'),
