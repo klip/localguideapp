@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import PriceBox from '@/components/PriceBox.vue'
+import ProtectedNotice from '@/components/ProtectedNotice.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import { t } from '@/i18n'
 import { useApi } from '@/plugins/api'
@@ -72,6 +73,8 @@ async function pay() {
             <PillBadge>{{ t('unlock.price.picks', { count: PACK_SIZE }) }}</PillBadge>
           </div>
         </PriceBox>
+
+        <ProtectedNotice kind="pack" />
 
         <button type="button" class="full" :aria-busy="paying" :disabled="paying" @click="pay">
           {{ paying ? t('unlock.panel.paying') : t('unlock.panel.pay') }}

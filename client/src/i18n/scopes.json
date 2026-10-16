@@ -48,6 +48,7 @@
     ],
     "unlock": [
       "common.price_box",
+      "common.protected_notice",
       "unlock.header",
       "unlock.panel",
       "unlock.price",
@@ -61,6 +62,7 @@
       "common.guide_card",
       "common.price_box",
       "common.profile_card",
+      "common.protected_notice",
       "common.range_picker",
       "common.rating",
       "common.standing",
@@ -131,6 +133,7 @@
     "matches": [
       "common.booking_panel",
       "common.booking_time",
+      "common.protected_notice",
       "matches.actions",
       "matches.empty",
       "matches.header",
@@ -144,6 +147,7 @@
     "trips": [
       "common.booking_panel",
       "common.booking_time",
+      "common.protected_notice",
       "trips.card",
       "trips.empty",
       "trips.header",

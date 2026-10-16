@@ -10,7 +10,7 @@ En créant un compte, vous acceptez ces conditions et confirmez avoir au moins 1
 
 ## 2. Ce que fait la plateforme
 
-RockGuide est un lieu de rencontre. Elle aide visiteurs et guides à se trouver, à manifester un intérêt mutuel et à échanger leurs coordonnées. Toute visite, activité ou autre prestation est convenue directement entre le visiteur et le guide. Nous ne sommes pas partie à cet accord. Nous n'employons pas les guides et n'agissons pas en tant que leur agent, et nous n'organisons, ne supervisons ni ne vérifions les prestations qu'ils fournissent.
+RockGuide est un lieu de rencontre. Elle aide visiteurs et guides à se trouver, à manifester un intérêt mutuel et à échanger via la messagerie de la plateforme. Les coordonnées ne sont pas partagées. Toute visite, activité ou autre prestation est convenue directement entre le visiteur et le guide. Nous ne sommes pas partie à cet accord. Nous n'employons pas les guides et n'agissons pas en tant que leur agent, et nous n'organisons, ne supervisons ni ne vérifions les prestations qu'ils fournissent.
 
 ## 3. Aucune responsabilité quant aux prestations ou aux comportements
 
@@ -30,7 +30,8 @@ Les visiteurs comme les guides s'engagent à :
 - fournir des informations exactes, les tenir à jour et n'utiliser que leur propre compte ;
 - traiter les autres utilisateurs avec respect, sans jamais harceler, menacer, discriminer, tromper ou mettre quiconque en danger ;
 - respecter la loi, y compris les obligations de licence, d'autorisation, de fiscalité ou d'assurance applicables aux prestations qu'ils proposent ou utilisent ;
-- n'utiliser la plateforme que pour organiser des prestations de guide, et ne pas publier de contenu faux, offensant ou portant atteinte aux droits d'autrui.
+- n'utiliser la plateforme que pour organiser des prestations de guide, et ne pas publier de contenu faux, offensant ou portant atteinte aux droits d'autrui ;
+- garder les échanges de coordonnées et les paiements sur la plateforme : ne pas mettre de numéros de téléphone, d’adresses e-mail, de liens ni de pseudos de réseaux sociaux dans les profils, avis ou messages, et ne pas demander ni effectuer le paiement d’une réservation en dehors de RockGuide.
 
 Les guides sont seuls responsables des prestations qu'ils proposent, de leurs prix et du respect des réservations qu'ils acceptent.
 
@@ -38,15 +39,28 @@ Les guides sont seuls responsables des prestations qu'ils proposent, de leurs pr
 
 Le prix des packs de sélections et les tarifs des guides sont affichés avant le paiement. Les règles d'annulation et de remboursement affichées dans l'application au moment de la réservation font partie de ces conditions.
 
+### 5.1 Protection RockGuide
+
+Les réservations effectuées via RockGuide (et payées ici lorsque le guide demande un tarif) sont protégées :
+
+- Remboursements selon les règles affichées dans l’appli : vous êtes remboursé intégralement si vous retirez votre réservation avant que le guide l’accepte, ou si le guide refuse ou ne répond pas avant l’heure du rendez-vous ; si le guide annule une réservation confirmée, vous êtes remboursé intégralement, plus 5 % s’il annule tardivement (moins de 24 heures avant le rendez-vous, ou moins de 2 heures si votre match date de moins d’un jour) ; si vous demandez l’annulation et que le guide accepte, vous êtes remboursé du tarif moins 5 %.
+- De l’aide en cas de problème : lors du traitement d’une réclamation (section 6), nous pouvons consulter la réservation, son lieu de rendez-vous et vos messages sur la plateforme.
+- Des avis honnêtes : seules les personnes ayant réellement terminé un voyage ensemble peuvent s’évaluer.
+
+Ce qui est convenu en dehors de la plateforme n’est pas protégé : si vous payez un guide directement ou poursuivez la conversation ailleurs, nous ne pouvons ni vous rembourser ni vous aider en cas de litige, et ce voyage ne compte ni pour les avis, ni pour les niveaux, ni pour votre position dans les résultats.
+
 ## 6. Réclamations et sanctions
 
 Si vous rencontrez un problème avec un autre utilisateur, signalez-le à {{contact_email}}. Chaque réclamation est traitée individuellement, selon les faits qui lui sont propres. Nous pouvons demander aux deux parties leur version des faits et tout élément de preuve.
+
+Vous pouvez aussi utiliser le bouton Signaler sur le profil de la personne, qui parvient à la même équipe.
 
 Selon l'issue, nous pouvons prendre une ou plusieurs des mesures suivantes :
 
 - un avertissement ;
 - la suppression de contenu ;
 - la suspension temporaire du compte ;
+- l’abaissement de votre niveau, de vos avantages ou de votre position dans les résultats de recherche ;
 - l'exclusion définitive de la personne de la plateforme.
 
 Dans les cas graves, nous pouvons agir immédiatement et sans préavis, et signaler les faits aux autorités. Une personne exclue ne peut pas ouvrir de nouveau compte. Nous vous informerons de toute décision concernant votre compte et de ses motifs, sauf si la loi ou la sécurité d'autrui s'y oppose, et vous pourrez nous demander de la réexaminer en répondant à ce message.
@@ -75,6 +89,7 @@ Nous pouvons mettre à jour ces conditions. Si une modification est importante, 
 - Données de compte : adresse e-mail, mot de passe (conservé uniquement sous forme de hachage sécurisé), rôle, nom, numéro de téléphone et photo.
 - Données de profil : date de naissance, genre, description, langues, centres d'intérêt, horaires de travail, tarifs et toute autre information que vous ajoutez. Les allergies alimentaires sont des données de santé : nous ne les traitons qu'avec votre consentement explicite, que vous donnez en les ajoutant, et vous pouvez les supprimer à tout moment.
 - Données d'activité : vos choix et correspondances, réservations, paiements, avis et notifications.
+- Messages et positions partagées : ce que vous écrivez aux personnes avec qui vous avez un match et toute position que vous choisissez de leur partager (les coordonnées sont masquées automatiquement), utilisés pour fournir la messagerie et traiter les réclamations ; ainsi que la trace qu’une tentative de partager des coordonnées a été bloquée ou masquée (jamais son texte).
 - Données techniques et de sécurité : codes de connexion, appareils mémorisés (y compris l'agent utilisateur du navigateur), identifiants de session et journaux du serveur.
 
 ### 9.3 Finalités et bases juridiques
@@ -95,6 +110,8 @@ Lorsque des données sont transférées hors de l'EEE ou du Royaume-Uni, nous no
 ### 9.6 Durée de conservation
 
 Nous conservons les données de compte et de profil tant que votre compte est ouvert. Après sa fermeture, nous les supprimons ou les anonymisons dans un délai de {{retention_period}}, sauf si la loi nous impose de les conserver plus longtemps ou si nous en avons besoin pour une réclamation en cours. Les journaux du serveur sont conservés 7 jours et les traces d'envoi d'e-mails 30 jours. Les sessions prennent fin après 5 minutes d'inactivité.
+
+Les messages et positions partagées sont conservés tant que les deux comptes de la conversation sont ouverts, et supprimés dès que l’un d’eux est supprimé. Les signalements (réclamations) sont conservés le temps nécessaire à leur traitement et à leur suivi.
 
 ### 9.7 Vos droits
 

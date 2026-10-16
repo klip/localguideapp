@@ -134,6 +134,8 @@ describe('BookingPanel — paying', () => {
     const wrapper = mountPanel(api, {}, true)
 
     await button(wrapper, 'Pay £50.00').trigger('click')
+    // What paying here covers, right before the payment is confirmed.
+    expect(wrapper.find('form [data-test="protected-notice"]').text()).toContain('Protected by RockGuide')
     await wrapper.find('input[type="datetime-local"]').setValue('2030-01-02T10:00')
     await wrapper.find('input[type="number"]').setValue('3')
     await wrapper.find('form').trigger('submit')

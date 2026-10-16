@@ -10,7 +10,7 @@ Creando un account accetti questi termini e confermi di avere almeno 18 anni, o 
 
 ## 2. Cosa fa la piattaforma
 
-RockGuide è un luogo d'incontro. Aiuta visitatori e guide a trovarsi, a manifestare un interesse reciproco e a scambiarsi i contatti. Qualsiasi visita, attività o altro servizio viene concordato direttamente tra il visitatore e la guida. Non siamo parte di tale accordo. Non impieghiamo le guide né agiamo come loro agenti, e non organizziamo, supervisioniamo o verifichiamo i servizi che forniscono.
+RockGuide è un luogo d'incontro. Aiuta visitatori e guide a trovarsi, a manifestare un interesse reciproco e a parlarsi tramite la chat della piattaforma. I contatti non vengono condivisi. Qualsiasi visita, attività o altro servizio viene concordato direttamente tra il visitatore e la guida. Non siamo parte di tale accordo. Non impieghiamo le guide né agiamo come loro agenti, e non organizziamo, supervisioniamo o verifichiamo i servizi che forniscono.
 
 ## 3. Nessuna responsabilità per i servizi o i comportamenti
 
@@ -30,7 +30,8 @@ Visitatori e guide si impegnano allo stesso modo a:
 - fornire informazioni corrette, mantenerle aggiornate e usare solo il proprio account;
 - trattare gli altri utenti con rispetto e non molestare, minacciare, discriminare, ingannare o mettere in pericolo nessuno;
 - rispettare la legge, compresi eventuali obblighi di licenza, autorizzazione, fiscali o assicurativi applicabili ai servizi che offrono o utilizzano;
-- usare la piattaforma solo per organizzare servizi di guida e non pubblicare contenuti falsi, offensivi o lesivi dei diritti altrui.
+- usare la piattaforma solo per organizzare servizi di guida e non pubblicare contenuti falsi, offensivi o lesivi dei diritti altrui;
+- mantenere contatti e pagamenti sulla piattaforma: non inserire numeri di telefono, indirizzi email, link o nomi utente social in profili, recensioni o messaggi, e non chiedere né effettuare il pagamento di una prenotazione al di fuori di RockGuide.
 
 Le guide sono le sole responsabili dei servizi che offrono, dei loro prezzi e del rispetto delle prenotazioni che accettano.
 
@@ -38,15 +39,28 @@ Le guide sono le sole responsabili dei servizi che offrono, dei loro prezzi e de
 
 I prezzi dei pacchetti di selezioni e le tariffe delle guide sono indicati prima del pagamento. Le regole di cancellazione e rimborso mostrate nell'app al momento della prenotazione fanno parte di questi termini.
 
+### 5.1 Protezione RockGuide
+
+Le prenotazioni effettuate tramite RockGuide (e pagate qui, quando la guida chiede una tariffa) sono protette:
+
+- Rimborsi secondo le regole mostrate nell’app: vieni rimborsato per intero se ritiri la prenotazione prima che la guida la accetti, oppure se la guida rifiuta o non risponde prima dell’orario dell’incontro; se la guida annulla una prenotazione confermata vieni rimborsato per intero, più il 5% se annulla in ritardo (meno di 24 ore prima dell’incontro, o meno di 2 ore se il vostro match ha meno di un giorno); se chiedi di annullare e la guida accetta, vieni rimborsato della tariffa meno il 5%.
+- Aiuto quando qualcosa va storto: quando gestiamo un reclamo (sezione 6) possiamo esaminare la prenotazione, il punto d’incontro e i vostri messaggi sulla piattaforma.
+- Recensioni oneste: solo chi ha davvero concluso un viaggio insieme può recensirsi.
+
+Gli accordi presi fuori dalla piattaforma non sono protetti: se paghi direttamente una guida o sposti la conversazione altrove, non possiamo rimborsarti né aiutarti in una controversia, e quel viaggio non conta per recensioni, livelli o la tua posizione nei risultati.
+
 ## 6. Reclami e sanzioni
 
 Se hai un problema con un altro utente, segnalalo a {{contact_email}}. Ogni reclamo viene trattato individualmente, in base ai fatti specifici. Possiamo chiedere a entrambe le parti la loro versione dei fatti ed eventuali prove.
+
+Puoi anche usare il pulsante Segnala sul profilo della persona, che arriva allo stesso team.
 
 A seconda dell'esito, possiamo adottare una o più delle seguenti misure:
 
 - un avvertimento;
 - la rimozione di contenuti;
 - la sospensione temporanea dell'account;
+- l’abbassamento del tuo livello, dei tuoi vantaggi o della tua posizione nei risultati di ricerca;
 - l'esclusione permanente della persona dalla piattaforma.
 
 Nei casi gravi possiamo intervenire immediatamente e senza preavviso, e segnalare il fatto alle autorità. Una persona esclusa non può aprire un nuovo account. Ti informeremo di qualsiasi decisione che riguardi il tuo account e dei relativi motivi, salvo che la legge o la sicurezza altrui lo impediscano, e potrai chiederci di riesaminarla rispondendo a quel messaggio.
@@ -75,6 +89,7 @@ Possiamo aggiornare questi termini. Se una modifica è rilevante, te lo comunich
 - Dati dell'account: indirizzo email, password (conservata solo come hash sicuro), ruolo, nome, numero di telefono e foto.
 - Dati del profilo: data di nascita, genere, descrizione, lingue, interessi, orari di lavoro, prezzi e qualsiasi altra informazione tu aggiunga. Le allergie alimentari sono dati relativi alla salute: le trattiamo solo con il tuo consenso esplicito, che dai aggiungendole, e puoi rimuoverle in qualsiasi momento.
 - Dati di attività: le tue scelte e corrispondenze, prenotazioni, pagamenti, recensioni e notifiche.
+- Messaggi e posizioni condivise: ciò che scrivi alle persone con cui hai un match e qualsiasi posizione che scegli di condividere con loro (i recapiti vengono nascosti automaticamente), usati per fornire la chat e gestire i reclami; e la registrazione che un tentativo di condividere recapiti è stato bloccato o nascosto (mai il suo testo).
 - Dati tecnici e di sicurezza: codici di accesso, dispositivi memorizzati (incluso lo user agent del browser), identificativi di sessione e log del server.
 
 ### 9.3 Finalità e basi giuridiche
@@ -95,6 +110,8 @@ Quando i dati sono trasferiti al di fuori del SEE o del Regno Unito, ci basiamo 
 ### 9.6 Per quanto tempo li conserviamo
 
 Conserviamo i dati dell'account e del profilo finché il tuo account è attivo. Dopo la chiusura, li cancelliamo o li rendiamo anonimi entro {{retention_period}}, salvo che la legge ci imponga di conservarli più a lungo o che ci servano per un reclamo in corso. I log del server sono conservati per 7 giorni e i registri di invio delle email per 30 giorni. Le sessioni terminano dopo 5 minuti di inattività.
+
+Messaggi e posizioni condivise sono conservati finché entrambi gli account della conversazione sono aperti, ed eliminati quando uno dei due viene eliminato. Le segnalazioni (reclami) sono conservate per il tempo necessario a gestirle e seguirle.
 
 ### 9.7 I tuoi diritti
 

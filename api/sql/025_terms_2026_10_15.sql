@@ -16,7 +16,7 @@ By creating an account you accept these terms and confirm that you are at least 
 
 ## 2. What the platform does
 
-RockGuide is a meeting place. It helps visitors and guides find each other, show mutual interest and exchange contact details. Any tour, activity or other service is agreed directly between the visitor and the guide. We are not a party to that agreement. We do not employ guides or act as their agent, and we do not organise, supervise or check the services they provide.
+RockGuide is a meeting place. It helps visitors and guides find each other, show mutual interest and talk to each other through the platform’s chat. Contact details are not shared. Any tour, activity or other service is agreed directly between the visitor and the guide. We are not a party to that agreement. We do not employ guides or act as their agent, and we do not organise, supervise or check the services they provide.
 
 ## 3. No responsibility for services or behaviour
 
@@ -36,7 +36,8 @@ Visitors and guides alike agree to:
 - give accurate information, keep it up to date and use only their own account;
 - treat other users with respect, and never harass, threaten, discriminate against, deceive or endanger anyone;
 - obey the law, including any licence, permit, tax or insurance requirements that apply to the services they offer or use;
-- use the platform only to arrange guiding services, and not post content that is false, offensive or infringes anyone else''s rights.
+- use the platform only to arrange guiding services, and not post content that is false, offensive or infringes anyone else''s rights;
+- keep contact and payment on the platform: not put phone numbers, email addresses, links or social media handles in profiles, reviews or messages, and not ask for or make payment for a booking outside RockGuide.
 
 Guides are solely responsible for the services they offer, their prices and honouring the bookings they accept.
 
@@ -44,15 +45,28 @@ Guides are solely responsible for the services they offer, their prices and hono
 
 Prices for selection packs and guide fees are shown before you pay. The cancellation and refund rules shown in the app when you book form part of these terms.
 
+### 5.1 Protected by RockGuide
+
+Bookings made through RockGuide (and paid here, where the guide charges a fee) are protected:
+
+- Refunds by the rules shown in the app: you are refunded in full if you withdraw before the guide accepts, or if the guide declines or doesn''t answer before the meeting time; if the guide cancels a confirmed booking you are refunded in full, plus 5% when they cancel late — less than 24 hours before the meeting, or less than 2 hours if you matched less than a day earlier; if you ask to cancel and the guide agrees, you are refunded the fee minus 5%.
+- Help when something goes wrong: we can look at the booking, its meeting place and your messages on the platform when we deal with a complaint (section 6).
+- Honest reviews: only people who actually finished a trip together can review each other.
+
+Arrangements made outside the platform are not protected: if you pay a guide directly or move the conversation elsewhere, we cannot refund you or help with a dispute, and that trip does not count towards reviews, levels or your place in search results.
+
 ## 6. Complaints and sanctions
 
 If you have a problem with another user, report it to {{contact_email}}. Every complaint is dealt with individually, on its own facts. We may ask both parties for their account of events and any evidence.
+
+You can also use the Report button on the person''s profile, which reaches the same team.
 
 Depending on the outcome, we may take one or more of these measures:
 
 - a warning;
 - removing content;
 - temporarily suspending the account;
+- lowering your level, your benefits or your place in search results;
 - permanently banning the person from the platform.
 
 In serious cases we may act immediately and without notice, and report the matter to the authorities. A person who has been banned may not open a new account. We will tell you about a decision that affects your account and why, unless the law or the safety of others prevents it, and you can ask us to review it by replying to that message.
@@ -81,6 +95,7 @@ We may update these terms. If a change is significant, we will tell you in the a
 - Account data: email address, password (stored only as a secure hash), role, name, phone number and photo.
 - Profile data: date of birth, gender, description, languages, interests, working hours, prices and any other details you add. Food allergies count as health data: we process them only with your explicit consent, which you give by adding them, and you can remove them at any time.
 - Activity data: your choices and matches, bookings, payments, reviews and notifications.
+- Messages and shared locations: what you write to the people you are matched with, and any location you choose to share with them (contact details are hidden automatically), used to provide the chat and to deal with complaints; and a record that an attempt to share contact details was blocked or hidden (never its text).
 - Security and technical data: login codes, remembered devices (including the browser''s user agent), session identifiers and server logs.
 
 ### 9.3 Why we use it and our legal basis
@@ -101,6 +116,8 @@ Where data is transferred outside the EEA or the UK, we rely on an adequacy deci
 ### 9.6 How long we keep it
 
 We keep account and profile data while your account is open. After it is closed, we delete or anonymise it within {{retention_period}}, unless the law requires us to keep it longer or we need it for an open complaint. Server logs are kept for 7 days and email delivery records for 30 days. Sessions end after 5 minutes of inactivity.
+
+Messages and shared locations are kept while both accounts in the conversation are open, and deleted when either is deleted. Reports (complaints) are kept for as long as they are needed to deal with them and any follow-up.
 
 ### 9.7 Your rights
 
@@ -123,7 +140,7 @@ Al crear una cuenta aceptas estos términos y confirmas que tienes al menos 18 a
 
 ## 2. Qué hace la plataforma
 
-RockGuide es un punto de encuentro. Ayuda a visitantes y guías a encontrarse, mostrar interés mutuo e intercambiar datos de contacto. Cualquier visita, actividad u otro servicio se acuerda directamente entre el visitante y el guía. No somos parte de ese acuerdo. No empleamos a los guías ni actuamos como sus agentes, y no organizamos, supervisamos ni comprobamos los servicios que prestan.
+RockGuide es un punto de encuentro. Ayuda a visitantes y guías a encontrarse, mostrar interés mutuo y hablar a través del chat de la plataforma. No se comparten datos de contacto. Cualquier visita, actividad u otro servicio se acuerda directamente entre el visitante y el guía. No somos parte de ese acuerdo. No empleamos a los guías ni actuamos como sus agentes, y no organizamos, supervisamos ni comprobamos los servicios que prestan.
 
 ## 3. Sin responsabilidad por los servicios ni por el comportamiento
 
@@ -143,7 +160,8 @@ Tanto visitantes como guías se comprometen a:
 - facilitar información veraz, mantenerla actualizada y usar únicamente su propia cuenta;
 - tratar a los demás usuarios con respeto y no acosar, amenazar, discriminar, engañar ni poner en peligro a nadie;
 - cumplir la ley, incluidos los requisitos de licencias, permisos, impuestos o seguros aplicables a los servicios que ofrecen o utilizan;
-- usar la plataforma solo para concertar servicios de guía y no publicar contenido falso, ofensivo o que vulnere derechos de terceros.
+- usar la plataforma solo para concertar servicios de guía y no publicar contenido falso, ofensivo o que vulnere derechos de terceros;
+- mantener el contacto y el pago en la plataforma: no incluir números de teléfono, correos electrónicos, enlaces ni usuarios de redes sociales en perfiles, reseñas o mensajes, y no pedir ni hacer el pago de una reserva fuera de RockGuide.
 
 Los guías son los únicos responsables de los servicios que ofrecen, de sus precios y de cumplir las reservas que aceptan.
 
@@ -151,15 +169,28 @@ Los guías son los únicos responsables de los servicios que ofrecen, de sus pre
 
 Los precios de los paquetes de selecciones y las tarifas de los guías se muestran antes de pagar. Las normas de cancelación y reembolso que muestra la aplicación al reservar forman parte de estos términos.
 
+### 5.1 Protección RockGuide
+
+Las reservas hechas a través de RockGuide (y pagadas aquí, cuando el guía cobra una tarifa) están protegidas:
+
+- Reembolsos según las reglas mostradas en la app: se te reembolsa todo si retiras la reserva antes de que el guía la acepte, o si el guía la rechaza o no responde antes de la hora del encuentro; si el guía cancela una reserva confirmada, se te reembolsa todo, más un 5 % si cancela tarde (menos de 24 horas antes del encuentro, o menos de 2 horas si hicisteis match hace menos de un día); si pides cancelar y el guía acepta, se te reembolsa la tarifa menos un 5 %.
+- Ayuda cuando algo sale mal: al tratar una queja (sección 6) podemos revisar la reserva, su punto de encuentro y vuestros mensajes en la plataforma.
+- Reseñas honestas: solo quienes han terminado un viaje juntos pueden valorarse.
+
+Lo que se acuerde fuera de la plataforma no está protegido: si pagas directamente a un guía o la conversación sigue en otro sitio, no podemos reembolsarte ni ayudarte con una disputa, y ese viaje no cuenta para reseñas, niveles ni tu posición en los resultados.
+
 ## 6. Quejas y sanciones
 
 Si tienes un problema con otro usuario, comunícalo a {{contact_email}}. Cada queja se trata de forma individual, según sus propios hechos. Podemos pedir a ambas partes su versión de lo ocurrido y cualquier prueba.
+
+También puedes usar el botón Denunciar del perfil de esa persona, que llega al mismo equipo.
 
 Según el resultado, podemos adoptar una o varias de estas medidas:
 
 - una advertencia;
 - la retirada de contenido;
 - la suspensión temporal de la cuenta;
+- bajar tu nivel, tus ventajas o tu posición en los resultados de búsqueda;
 - la expulsión permanente de la persona de la plataforma.
 
 En casos graves podemos actuar de inmediato y sin previo aviso, y comunicar el asunto a las autoridades. Una persona expulsada no puede abrir una cuenta nueva. Te informaremos de cualquier decisión que afecte a tu cuenta y de sus motivos, salvo que la ley o la seguridad de otras personas lo impidan, y podrás pedirnos que la revisemos respondiendo a ese mensaje.
@@ -188,6 +219,7 @@ Podemos actualizar estos términos. Si un cambio es importante, te lo comunicare
 - Datos de la cuenta: dirección de correo electrónico, contraseña (guardada solo como hash seguro), rol, nombre, número de teléfono y foto.
 - Datos del perfil: fecha de nacimiento, género, descripción, idiomas, intereses, horario de trabajo, precios y cualquier otro dato que añadas. Las alergias alimentarias se consideran datos de salud: solo las tratamos con tu consentimiento explícito, que das al añadirlas, y puedes eliminarlas en cualquier momento.
 - Datos de actividad: tus elecciones y coincidencias, reservas, pagos, reseñas y notificaciones.
+- Mensajes y ubicaciones compartidas: lo que escribes a las personas con las que tienes match y cualquier ubicación que decidas compartir con ellas (los datos de contacto se ocultan automáticamente), que usamos para ofrecer el chat y tramitar quejas; y el registro de que se bloqueó u ocultó un intento de compartir datos de contacto (nunca su texto).
 - Datos técnicos y de seguridad: códigos de inicio de sesión, dispositivos recordados (incluido el agente de usuario del navegador), identificadores de sesión y registros del servidor.
 
 ### 9.3 Para qué los usamos y base jurídica
@@ -208,6 +240,8 @@ Cuando se transfieren datos fuera del EEE o del Reino Unido, nos basamos en una 
 ### 9.6 Durante cuánto tiempo los conservamos
 
 Conservamos los datos de la cuenta y del perfil mientras tu cuenta está abierta. Tras su cierre, los eliminamos o anonimizamos en un plazo de {{retention_period}}, salvo que la ley nos obligue a conservarlos más tiempo o los necesitemos para una queja abierta. Los registros del servidor se conservan 7 días y los registros de envío de correo, 30 días. Las sesiones finalizan tras 5 minutos de inactividad.
+
+Los mensajes y las ubicaciones compartidas se conservan mientras las dos cuentas de la conversación sigan abiertas y se eliminan cuando se elimina cualquiera de ellas. Las denuncias (quejas) se conservan el tiempo necesario para tramitarlas y su seguimiento.
 
 ### 9.7 Tus derechos
 
@@ -230,7 +264,7 @@ En créant un compte, vous acceptez ces conditions et confirmez avoir au moins 1
 
 ## 2. Ce que fait la plateforme
 
-RockGuide est un lieu de rencontre. Elle aide visiteurs et guides à se trouver, à manifester un intérêt mutuel et à échanger leurs coordonnées. Toute visite, activité ou autre prestation est convenue directement entre le visiteur et le guide. Nous ne sommes pas partie à cet accord. Nous n''employons pas les guides et n''agissons pas en tant que leur agent, et nous n''organisons, ne supervisons ni ne vérifions les prestations qu''ils fournissent.
+RockGuide est un lieu de rencontre. Elle aide visiteurs et guides à se trouver, à manifester un intérêt mutuel et à échanger via la messagerie de la plateforme. Les coordonnées ne sont pas partagées. Toute visite, activité ou autre prestation est convenue directement entre le visiteur et le guide. Nous ne sommes pas partie à cet accord. Nous n''employons pas les guides et n''agissons pas en tant que leur agent, et nous n''organisons, ne supervisons ni ne vérifions les prestations qu''ils fournissent.
 
 ## 3. Aucune responsabilité quant aux prestations ou aux comportements
 
@@ -250,7 +284,8 @@ Les visiteurs comme les guides s''engagent à :
 - fournir des informations exactes, les tenir à jour et n''utiliser que leur propre compte ;
 - traiter les autres utilisateurs avec respect, sans jamais harceler, menacer, discriminer, tromper ou mettre quiconque en danger ;
 - respecter la loi, y compris les obligations de licence, d''autorisation, de fiscalité ou d''assurance applicables aux prestations qu''ils proposent ou utilisent ;
-- n''utiliser la plateforme que pour organiser des prestations de guide, et ne pas publier de contenu faux, offensant ou portant atteinte aux droits d''autrui.
+- n''utiliser la plateforme que pour organiser des prestations de guide, et ne pas publier de contenu faux, offensant ou portant atteinte aux droits d''autrui ;
+- garder les échanges de coordonnées et les paiements sur la plateforme : ne pas mettre de numéros de téléphone, d’adresses e-mail, de liens ni de pseudos de réseaux sociaux dans les profils, avis ou messages, et ne pas demander ni effectuer le paiement d’une réservation en dehors de RockGuide.
 
 Les guides sont seuls responsables des prestations qu''ils proposent, de leurs prix et du respect des réservations qu''ils acceptent.
 
@@ -258,15 +293,28 @@ Les guides sont seuls responsables des prestations qu''ils proposent, de leurs p
 
 Le prix des packs de sélections et les tarifs des guides sont affichés avant le paiement. Les règles d''annulation et de remboursement affichées dans l''application au moment de la réservation font partie de ces conditions.
 
+### 5.1 Protection RockGuide
+
+Les réservations effectuées via RockGuide (et payées ici lorsque le guide demande un tarif) sont protégées :
+
+- Remboursements selon les règles affichées dans l’appli : vous êtes remboursé intégralement si vous retirez votre réservation avant que le guide l’accepte, ou si le guide refuse ou ne répond pas avant l’heure du rendez-vous ; si le guide annule une réservation confirmée, vous êtes remboursé intégralement, plus 5 % s’il annule tardivement (moins de 24 heures avant le rendez-vous, ou moins de 2 heures si votre match date de moins d’un jour) ; si vous demandez l’annulation et que le guide accepte, vous êtes remboursé du tarif moins 5 %.
+- De l’aide en cas de problème : lors du traitement d’une réclamation (section 6), nous pouvons consulter la réservation, son lieu de rendez-vous et vos messages sur la plateforme.
+- Des avis honnêtes : seules les personnes ayant réellement terminé un voyage ensemble peuvent s’évaluer.
+
+Ce qui est convenu en dehors de la plateforme n’est pas protégé : si vous payez un guide directement ou poursuivez la conversation ailleurs, nous ne pouvons ni vous rembourser ni vous aider en cas de litige, et ce voyage ne compte ni pour les avis, ni pour les niveaux, ni pour votre position dans les résultats.
+
 ## 6. Réclamations et sanctions
 
 Si vous rencontrez un problème avec un autre utilisateur, signalez-le à {{contact_email}}. Chaque réclamation est traitée individuellement, selon les faits qui lui sont propres. Nous pouvons demander aux deux parties leur version des faits et tout élément de preuve.
+
+Vous pouvez aussi utiliser le bouton Signaler sur le profil de la personne, qui parvient à la même équipe.
 
 Selon l''issue, nous pouvons prendre une ou plusieurs des mesures suivantes :
 
 - un avertissement ;
 - la suppression de contenu ;
 - la suspension temporaire du compte ;
+- l’abaissement de votre niveau, de vos avantages ou de votre position dans les résultats de recherche ;
 - l''exclusion définitive de la personne de la plateforme.
 
 Dans les cas graves, nous pouvons agir immédiatement et sans préavis, et signaler les faits aux autorités. Une personne exclue ne peut pas ouvrir de nouveau compte. Nous vous informerons de toute décision concernant votre compte et de ses motifs, sauf si la loi ou la sécurité d''autrui s''y oppose, et vous pourrez nous demander de la réexaminer en répondant à ce message.
@@ -295,6 +343,7 @@ Nous pouvons mettre à jour ces conditions. Si une modification est importante, 
 - Données de compte : adresse e-mail, mot de passe (conservé uniquement sous forme de hachage sécurisé), rôle, nom, numéro de téléphone et photo.
 - Données de profil : date de naissance, genre, description, langues, centres d''intérêt, horaires de travail, tarifs et toute autre information que vous ajoutez. Les allergies alimentaires sont des données de santé : nous ne les traitons qu''avec votre consentement explicite, que vous donnez en les ajoutant, et vous pouvez les supprimer à tout moment.
 - Données d''activité : vos choix et correspondances, réservations, paiements, avis et notifications.
+- Messages et positions partagées : ce que vous écrivez aux personnes avec qui vous avez un match et toute position que vous choisissez de leur partager (les coordonnées sont masquées automatiquement), utilisés pour fournir la messagerie et traiter les réclamations ; ainsi que la trace qu’une tentative de partager des coordonnées a été bloquée ou masquée (jamais son texte).
 - Données techniques et de sécurité : codes de connexion, appareils mémorisés (y compris l''agent utilisateur du navigateur), identifiants de session et journaux du serveur.
 
 ### 9.3 Finalités et bases juridiques
@@ -315,6 +364,8 @@ Lorsque des données sont transférées hors de l''EEE ou du Royaume-Uni, nous n
 ### 9.6 Durée de conservation
 
 Nous conservons les données de compte et de profil tant que votre compte est ouvert. Après sa fermeture, nous les supprimons ou les anonymisons dans un délai de {{retention_period}}, sauf si la loi nous impose de les conserver plus longtemps ou si nous en avons besoin pour une réclamation en cours. Les journaux du serveur sont conservés 7 jours et les traces d''envoi d''e-mails 30 jours. Les sessions prennent fin après 5 minutes d''inactivité.
+
+Les messages et positions partagées sont conservés tant que les deux comptes de la conversation sont ouverts, et supprimés dès que l’un d’eux est supprimé. Les signalements (réclamations) sont conservés le temps nécessaire à leur traitement et à leur suivi.
 
 ### 9.7 Vos droits
 
@@ -337,7 +388,7 @@ Mit der Erstellung eines Kontos akzeptierst du diese Bedingungen und bestätigst
 
 ## 2. Was die Plattform tut
 
-RockGuide ist ein Treffpunkt. Die Plattform hilft Besuchern und Guides, einander zu finden, gegenseitiges Interesse zu zeigen und Kontaktdaten auszutauschen. Jede Führung, Aktivität oder sonstige Leistung wird direkt zwischen Besucher und Guide vereinbart. Wir sind nicht Partei dieser Vereinbarung. Wir beschäftigen keine Guides, handeln nicht als ihre Vertreter und organisieren, beaufsichtigen oder prüfen die von ihnen erbrachten Leistungen nicht.
+RockGuide ist ein Treffpunkt. Die Plattform hilft Besuchern und Guides, einander zu finden, gegenseitiges Interesse zu zeigen und sich über den Chat der Plattform auszutauschen. Kontaktdaten werden nicht geteilt. Jede Führung, Aktivität oder sonstige Leistung wird direkt zwischen Besucher und Guide vereinbart. Wir sind nicht Partei dieser Vereinbarung. Wir beschäftigen keine Guides, handeln nicht als ihre Vertreter und organisieren, beaufsichtigen oder prüfen die von ihnen erbrachten Leistungen nicht.
 
 ## 3. Keine Verantwortung für Leistungen oder Verhalten
 
@@ -357,7 +408,8 @@ Besucher und Guides verpflichten sich gleichermaßen,
 - zutreffende Angaben zu machen, sie aktuell zu halten und nur ihr eigenes Konto zu nutzen;
 - andere Nutzer respektvoll zu behandeln und niemanden zu belästigen, zu bedrohen, zu diskriminieren, zu täuschen oder zu gefährden;
 - die Gesetze einzuhalten, einschließlich aller Lizenz-, Genehmigungs-, Steuer- oder Versicherungspflichten, die für die angebotenen oder genutzten Leistungen gelten;
-- die Plattform nur zur Vereinbarung von Guide-Leistungen zu nutzen und keine Inhalte zu veröffentlichen, die falsch oder beleidigend sind oder Rechte Dritter verletzen.
+- die Plattform nur zur Vereinbarung von Guide-Leistungen zu nutzen und keine Inhalte zu veröffentlichen, die falsch oder beleidigend sind oder Rechte Dritter verletzen;
+- Kontakt und Zahlung auf der Plattform halten: keine Telefonnummern, E-Mail-Adressen, Links oder Social-Media-Namen in Profile, Bewertungen oder Nachrichten schreiben und die Zahlung für eine Buchung nicht außerhalb von RockGuide verlangen oder leisten.
 
 Guides sind allein verantwortlich für die angebotenen Leistungen, ihre Preise und die Einhaltung der Buchungen, die sie annehmen.
 
@@ -365,15 +417,28 @@ Guides sind allein verantwortlich für die angebotenen Leistungen, ihre Preise u
 
 Die Preise für Auswahlpakete und die Gebühren der Guides werden vor der Zahlung angezeigt. Die Stornierungs- und Erstattungsregeln, die die App bei der Buchung anzeigt, sind Bestandteil dieser Bedingungen.
 
+### 5.1 RockGuide-Schutz
+
+Über RockGuide gebuchte Touren (und hier bezahlte, wenn der Guide eine Gebühr verlangt) sind geschützt:
+
+- Erstattungen nach den in der App angezeigten Regeln: Du erhältst den vollen Betrag zurück, wenn du deine Buchung zurückziehst, bevor der Guide annimmt, oder wenn der Guide ablehnt oder vor dem vereinbarten Termin nicht antwortet; storniert der Guide eine bestätigte Buchung, erhältst du den vollen Betrag zurück, bei später Stornierung zuzüglich 5 % (weniger als 24 Stunden vor dem Termin oder weniger als 2 Stunden, wenn euer Match weniger als einen Tag alt ist); bittest du um Stornierung und der Guide stimmt zu, erhältst du die Gebühr abzüglich 5 % zurück.
+- Hilfe, wenn etwas schiefgeht: Bei einer Beschwerde (Abschnitt 6) können wir die Buchung, ihren Treffpunkt und eure Nachrichten auf der Plattform einsehen.
+- Ehrliche Bewertungen: Nur wer tatsächlich eine Tour gemeinsam beendet hat, kann sich gegenseitig bewerten.
+
+Absprachen außerhalb der Plattform sind nicht geschützt: Wenn du einen Guide direkt bezahlst oder das Gespräch woanders weiterführst, können wir weder erstatten noch bei einem Streit helfen, und diese Tour zählt nicht für Bewertungen, Level oder deine Position in den Suchergebnissen.
+
 ## 6. Beschwerden und Sanktionen
 
 Wenn du ein Problem mit einem anderen Nutzer hast, melde es an {{contact_email}}. Jede Beschwerde wird einzeln und anhand ihres konkreten Sachverhalts behandelt. Wir können beide Seiten um ihre Darstellung der Ereignisse und um Belege bitten.
+
+Du kannst auch die Schaltfläche „Melden“ im Profil der Person nutzen; sie erreicht dasselbe Team.
 
 Je nach Ergebnis können wir eine oder mehrere der folgenden Maßnahmen ergreifen:
 
 - eine Verwarnung;
 - das Entfernen von Inhalten;
 - die vorübergehende Sperrung des Kontos;
+- Herabsetzung deines Levels, deiner Vorteile oder deiner Position in den Suchergebnissen;
 - den dauerhaften Ausschluss der Person von der Plattform.
 
 In schweren Fällen können wir sofort und ohne Vorankündigung handeln und den Vorfall den Behörden melden. Eine ausgeschlossene Person darf kein neues Konto eröffnen. Wir informieren dich über jede Entscheidung, die dein Konto betrifft, und über die Gründe, sofern nicht das Gesetz oder die Sicherheit anderer dem entgegensteht, und du kannst eine Überprüfung verlangen, indem du auf diese Nachricht antwortest.
@@ -402,6 +467,7 @@ Wir können diese Bedingungen aktualisieren. Ist eine Änderung wesentlich, info
 - Kontodaten: E-Mail-Adresse, Passwort (nur als sicherer Hash gespeichert), Rolle, Name, Telefonnummer und Foto.
 - Profildaten: Geburtsdatum, Geschlecht, Beschreibung, Sprachen, Interessen, Arbeitszeiten, Preise und alle weiteren Angaben, die du hinzufügst. Lebensmittelallergien sind Gesundheitsdaten: Wir verarbeiten sie nur mit deiner ausdrücklichen Einwilligung, die du durch das Hinzufügen erteilst, und du kannst sie jederzeit entfernen.
 - Aktivitätsdaten: deine Auswahlen und Matches, Buchungen, Zahlungen, Bewertungen und Benachrichtigungen.
+- Nachrichten und geteilte Standorte: was du den Personen schreibst, mit denen du ein Match hast, und jeder Standort, den du mit ihnen teilst (Kontaktdaten werden automatisch ausgeblendet), genutzt für den Chat und zur Bearbeitung von Beschwerden; außerdem ein Vermerk, dass ein Versuch, Kontaktdaten zu teilen, blockiert oder ausgeblendet wurde (nie dessen Text).
 - Sicherheits- und technische Daten: Anmeldecodes, gemerkte Geräte (einschließlich des User-Agents des Browsers), Sitzungskennungen und Serverprotokolle.
 
 ### 9.3 Zwecke und Rechtsgrundlagen
@@ -422,6 +488,8 @@ Werden Daten außerhalb des EWR oder des Vereinigten Königreichs übermittelt, 
 ### 9.6 Wie lange wir Daten speichern
 
 Konto- und Profildaten speichern wir, solange dein Konto besteht. Nach der Schließung löschen oder anonymisieren wir sie innerhalb von {{retention_period}}, sofern uns das Gesetz nicht zu längerer Aufbewahrung verpflichtet oder wir sie für eine offene Beschwerde benötigen. Serverprotokolle werden 7 Tage und E-Mail-Zustellprotokolle 30 Tage aufbewahrt. Sitzungen enden nach 5 Minuten Inaktivität.
+
+Nachrichten und geteilte Standorte werden gespeichert, solange beide Konten des Gesprächs bestehen, und gelöscht, sobald eines davon gelöscht wird. Meldungen (Beschwerden) werden so lange aufbewahrt, wie es für ihre Bearbeitung und Nachverfolgung nötig ist.
 
 ### 9.7 Deine Rechte
 
@@ -444,7 +512,7 @@ RockGuide（“本平台”“我们”）由 {{operator_name}}（{{operator_add
 
 ## 2. 本平台的作用
 
-RockGuide 是一个相识的场所。它帮助游客和导游找到彼此、表达相互兴趣并交换联系方式。任何导览、活动或其他服务均由游客与导游直接约定。我们不是该约定的一方。我们不雇用导游，也不担任其代理人，不组织、监督或核查他们提供的服务。
+RockGuide 是一个相识的场所。它帮助游客和导游找到彼此、表达相互兴趣并通过平台聊天沟通。联系方式不会被分享。任何导览、活动或其他服务均由游客与导游直接约定。我们不是该约定的一方。我们不雇用导游，也不担任其代理人，不组织、监督或核查他们提供的服务。
 
 ## 3. 对服务和行为不承担责任
 
@@ -464,7 +532,8 @@ RockGuide 是一个相识的场所。它帮助游客和导游找到彼此、表�
 - 提供真实信息并及时更新，且只使用本人的账户；
 - 尊重其他用户，不骚扰、威胁、歧视、欺骗任何人或使任何人陷入危险；
 - 遵守法律，包括适用于其提供或使用的服务的执照、许可、税务或保险要求；
-- 仅将本平台用于安排导游服务，不发布虚假、冒犯性或侵犯他人权利的内容。
+- 仅将本平台用于安排导游服务，不发布虚假、冒犯性或侵犯他人权利的内容；
+- 将联系与付款保留在平台内：不在个人资料、评价或消息中填写电话号码、电子邮件、链接或社交媒体账号，也不在 RockGuide 之外索要或支付预订费用。
 
 导游对其提供的服务、价格以及履行其接受的预订承担全部责任。
 
@@ -472,15 +541,28 @@ RockGuide 是一个相识的场所。它帮助游客和导游找到彼此、表�
 
 选择包的价格和导游费用会在付款前显示。预订时应用内显示的取消和退款规则构成本条款的一部分。
 
+### 5.1 RockGuide 保障
+
+通过 RockGuide 预订的行程（以及在导游收费时于此付款的行程）受到保障：
+
+- 按应用中显示的规则退款：如果你在导游接受前撤回预订，或导游拒绝、在会面时间前未回复，你将获得全额退款；如果导游取消已确认的预订，你将获得全额退款，若取消较晚（会面前不足 24 小时；若配对不足一天则为不足 2 小时）另加 5%；如果你申请取消且导游同意，你将获得扣除 5% 后的费用退款。
+- 出问题时提供帮助：处理投诉时（第 6 节），我们可以查看该预订、集合地点以及你们在平台上的消息。
+- 真实的评价：只有真正一起完成行程的人才能互相评价。
+
+在平台之外达成的安排不受保障：如果你直接向导游付款或在其他地方继续沟通，我们无法为你退款或协助处理纠纷，该行程也不计入评价、等级或你在搜索结果中的排名。
+
 ## 6. 投诉与处罚
 
 如果你与其他用户之间出现问题，请发送至 {{contact_email}} 进行举报。每一项投诉都会根据其具体事实单独处理。我们可能会请双方说明情况并提供证据。
+
+你也可以使用对方个人资料上的“举报”按钮，它会送达同一团队。
 
 根据处理结果，我们可能采取以下一项或多项措施：
 
 - 警告；
 - 删除内容；
 - 暂时停用账户；
+- 降低你的等级、权益或在搜索结果中的排名；
 - 永久禁止该用户使用本平台。
 
 情节严重的，我们可能立即采取行动而不事先通知，并向有关当局报告。被禁止的用户不得开设新账户。我们会告知你影响你账户的决定及其理由，除非法律或他人安全不允许；你可以回复该消息要求我们复核。
@@ -509,6 +591,7 @@ RockGuide 是一个相识的场所。它帮助游客和导游找到彼此、表�
 - 账户数据：电子邮箱、密码（仅以安全哈希形式存储）、角色、姓名、电话号码和照片。
 - 个人资料数据：出生日期、性别、简介、语言、兴趣、工作时间、价格以及你添加的其他信息。食物过敏属于健康数据：我们仅在你明确同意的情况下处理这类数据，你添加即表示同意，并可随时删除。
 - 活动数据：你的选择和配对、预订、付款、评价和通知。
+- 消息和共享位置：你发给配对对象的内容，以及你选择与其共享的任何位置（联系方式会被自动隐藏），用于提供聊天功能和处理投诉；以及分享联系方式的尝试被拦截或隐藏的记录（绝不包含其内容）。
 - 安全和技术数据：登录验证码、已记住的设备（包括浏览器的用户代理）、会话标识符和服务器日志。
 
 ### 9.3 使用目的和法律依据
@@ -529,6 +612,8 @@ RockGuide 是一个相识的场所。它帮助游客和导游找到彼此、表�
 ### 9.6 保存期限
 
 在你的账户存续期间，我们保存账户和个人资料数据。账户注销后，我们会在 {{retention_period}} 内删除或匿名化这些数据，除非法律要求我们保存更长时间或处理未结投诉需要使用。服务器日志保存 7 天，邮件发送记录保存 30 天。会话在 5 分钟无操作后结束。
+
+消息和共享位置在对话双方账户均存续期间保留，任一账户被删除时随之删除。举报（投诉）在处理及后续跟进所需期间内保留。
 
 ### 9.7 你的权利
 
@@ -551,7 +636,7 @@ Creando un account accetti questi termini e confermi di avere almeno 18 anni, o 
 
 ## 2. Cosa fa la piattaforma
 
-RockGuide è un luogo d''incontro. Aiuta visitatori e guide a trovarsi, a manifestare un interesse reciproco e a scambiarsi i contatti. Qualsiasi visita, attività o altro servizio viene concordato direttamente tra il visitatore e la guida. Non siamo parte di tale accordo. Non impieghiamo le guide né agiamo come loro agenti, e non organizziamo, supervisioniamo o verifichiamo i servizi che forniscono.
+RockGuide è un luogo d''incontro. Aiuta visitatori e guide a trovarsi, a manifestare un interesse reciproco e a parlarsi tramite la chat della piattaforma. I contatti non vengono condivisi. Qualsiasi visita, attività o altro servizio viene concordato direttamente tra il visitatore e la guida. Non siamo parte di tale accordo. Non impieghiamo le guide né agiamo come loro agenti, e non organizziamo, supervisioniamo o verifichiamo i servizi che forniscono.
 
 ## 3. Nessuna responsabilità per i servizi o i comportamenti
 
@@ -571,7 +656,8 @@ Visitatori e guide si impegnano allo stesso modo a:
 - fornire informazioni corrette, mantenerle aggiornate e usare solo il proprio account;
 - trattare gli altri utenti con rispetto e non molestare, minacciare, discriminare, ingannare o mettere in pericolo nessuno;
 - rispettare la legge, compresi eventuali obblighi di licenza, autorizzazione, fiscali o assicurativi applicabili ai servizi che offrono o utilizzano;
-- usare la piattaforma solo per organizzare servizi di guida e non pubblicare contenuti falsi, offensivi o lesivi dei diritti altrui.
+- usare la piattaforma solo per organizzare servizi di guida e non pubblicare contenuti falsi, offensivi o lesivi dei diritti altrui;
+- mantenere contatti e pagamenti sulla piattaforma: non inserire numeri di telefono, indirizzi email, link o nomi utente social in profili, recensioni o messaggi, e non chiedere né effettuare il pagamento di una prenotazione al di fuori di RockGuide.
 
 Le guide sono le sole responsabili dei servizi che offrono, dei loro prezzi e del rispetto delle prenotazioni che accettano.
 
@@ -579,15 +665,28 @@ Le guide sono le sole responsabili dei servizi che offrono, dei loro prezzi e de
 
 I prezzi dei pacchetti di selezioni e le tariffe delle guide sono indicati prima del pagamento. Le regole di cancellazione e rimborso mostrate nell''app al momento della prenotazione fanno parte di questi termini.
 
+### 5.1 Protezione RockGuide
+
+Le prenotazioni effettuate tramite RockGuide (e pagate qui, quando la guida chiede una tariffa) sono protette:
+
+- Rimborsi secondo le regole mostrate nell’app: vieni rimborsato per intero se ritiri la prenotazione prima che la guida la accetti, oppure se la guida rifiuta o non risponde prima dell’orario dell’incontro; se la guida annulla una prenotazione confermata vieni rimborsato per intero, più il 5% se annulla in ritardo (meno di 24 ore prima dell’incontro, o meno di 2 ore se il vostro match ha meno di un giorno); se chiedi di annullare e la guida accetta, vieni rimborsato della tariffa meno il 5%.
+- Aiuto quando qualcosa va storto: quando gestiamo un reclamo (sezione 6) possiamo esaminare la prenotazione, il punto d’incontro e i vostri messaggi sulla piattaforma.
+- Recensioni oneste: solo chi ha davvero concluso un viaggio insieme può recensirsi.
+
+Gli accordi presi fuori dalla piattaforma non sono protetti: se paghi direttamente una guida o sposti la conversazione altrove, non possiamo rimborsarti né aiutarti in una controversia, e quel viaggio non conta per recensioni, livelli o la tua posizione nei risultati.
+
 ## 6. Reclami e sanzioni
 
 Se hai un problema con un altro utente, segnalalo a {{contact_email}}. Ogni reclamo viene trattato individualmente, in base ai fatti specifici. Possiamo chiedere a entrambe le parti la loro versione dei fatti ed eventuali prove.
+
+Puoi anche usare il pulsante Segnala sul profilo della persona, che arriva allo stesso team.
 
 A seconda dell''esito, possiamo adottare una o più delle seguenti misure:
 
 - un avvertimento;
 - la rimozione di contenuti;
 - la sospensione temporanea dell''account;
+- l’abbassamento del tuo livello, dei tuoi vantaggi o della tua posizione nei risultati di ricerca;
 - l''esclusione permanente della persona dalla piattaforma.
 
 Nei casi gravi possiamo intervenire immediatamente e senza preavviso, e segnalare il fatto alle autorità. Una persona esclusa non può aprire un nuovo account. Ti informeremo di qualsiasi decisione che riguardi il tuo account e dei relativi motivi, salvo che la legge o la sicurezza altrui lo impediscano, e potrai chiederci di riesaminarla rispondendo a quel messaggio.
@@ -616,6 +715,7 @@ Possiamo aggiornare questi termini. Se una modifica è rilevante, te lo comunich
 - Dati dell''account: indirizzo email, password (conservata solo come hash sicuro), ruolo, nome, numero di telefono e foto.
 - Dati del profilo: data di nascita, genere, descrizione, lingue, interessi, orari di lavoro, prezzi e qualsiasi altra informazione tu aggiunga. Le allergie alimentari sono dati relativi alla salute: le trattiamo solo con il tuo consenso esplicito, che dai aggiungendole, e puoi rimuoverle in qualsiasi momento.
 - Dati di attività: le tue scelte e corrispondenze, prenotazioni, pagamenti, recensioni e notifiche.
+- Messaggi e posizioni condivise: ciò che scrivi alle persone con cui hai un match e qualsiasi posizione che scegli di condividere con loro (i recapiti vengono nascosti automaticamente), usati per fornire la chat e gestire i reclami; e la registrazione che un tentativo di condividere recapiti è stato bloccato o nascosto (mai il suo testo).
 - Dati tecnici e di sicurezza: codici di accesso, dispositivi memorizzati (incluso lo user agent del browser), identificativi di sessione e log del server.
 
 ### 9.3 Finalità e basi giuridiche
@@ -636,6 +736,8 @@ Quando i dati sono trasferiti al di fuori del SEE o del Regno Unito, ci basiamo 
 ### 9.6 Per quanto tempo li conserviamo
 
 Conserviamo i dati dell''account e del profilo finché il tuo account è attivo. Dopo la chiusura, li cancelliamo o li rendiamo anonimi entro {{retention_period}}, salvo che la legge ci imponga di conservarli più a lungo o che ci servano per un reclamo in corso. I log del server sono conservati per 7 giorni e i registri di invio delle email per 30 giorni. Le sessioni terminano dopo 5 minuti di inattività.
+
+Messaggi e posizioni condivise sono conservati finché entrambi gli account della conversazione sono aperti, ed eliminati quando uno dei due viene eliminato. Le segnalazioni (reclami) sono conservate per il tempo necessario a gestirle e seguirle.
 
 ### 9.7 I tuoi diritti
 
@@ -658,7 +760,7 @@ RockGuide（以下「本プラットフォーム」「当社」）は、{{operat
 
 ## 2. 本プラットフォームの役割
 
-RockGuide は出会いの場です。旅行者とガイドがお互いを見つけ、相互の関心を示し、連絡先を交換できるようにします。ツアー、アクティビティその他のサービスは、旅行者とガイドの間で直接取り決められます。当社はその取り決めの当事者ではありません。当社はガイドを雇用しておらず、その代理人でもなく、ガイドが提供するサービスを企画、監督または確認することはありません。
+RockGuide は出会いの場です。旅行者とガイドがお互いを見つけ、相互の関心を示し、プラットフォームのチャットでやり取りできるようにします。連絡先は共有されません。ツアー、アクティビティその他のサービスは、旅行者とガイドの間で直接取り決められます。当社はその取り決めの当事者ではありません。当社はガイドを雇用しておらず、その代理人でもなく、ガイドが提供するサービスを企画、監督または確認することはありません。
 
 ## 3. サービスおよび行為についての免責
 
@@ -679,6 +781,7 @@ RockGuide は出会いの場です。旅行者とガイドがお互いを見つ�
 - 他の利用者を尊重し、誰に対しても嫌がらせ、脅迫、差別、欺罔または危険にさらす行為をしないこと。
 - 提供または利用するサービスに適用される免許、許可、税務または保険に関する要件を含め、法令を遵守すること。
 - ガイドサービスの手配のためにのみ本プラットフォームを利用し、虚偽の内容、不快な内容または他者の権利を侵害する内容を投稿しないこと。
+- 連絡と支払いをプラットフォーム内で行うこと：プロフィール、レビュー、メッセージに電話番号、メールアドレス、リンク、SNS アカウントを書かず、予約の支払いを RockGuide の外で求めたり行ったりしないこと。
 
 ガイドは、自らが提供するサービス、その料金、および承諾した予約の履行について単独で責任を負います。
 
@@ -686,15 +789,28 @@ RockGuide は出会いの場です。旅行者とガイドがお互いを見つ�
 
 選択パックの価格およびガイドの料金は、支払い前に表示されます。予約時にアプリに表示されるキャンセルおよび返金のルールは、本規約の一部を構成します。
 
+### 5.1 RockGuide の保護
+
+RockGuide で予約した予約（ガイドが料金を設定している場合はここで支払ったもの）は保護されます：
+
+- アプリに表示されたルールに基づく返金：ガイドが承諾する前にあなたが予約を取り下げた場合、またはガイドが断った・集合時刻までに返答がなかった場合は全額返金。ガイドが確定済みの予約をキャンセルした場合は全額返金され、直前のキャンセル（集合の 24 時間前未満、マッチから 1 日未満なら 2 時間前未満）なら 5% が上乗せされます。あなたがキャンセルを申し出てガイドが同意した場合は、料金から 5% を差し引いて返金されます。
+- 問題が起きたときのサポート：苦情（第 6 条）の対応時に、予約、集合場所、プラットフォーム上のメッセージを確認できます。
+- 信頼できるレビュー：実際に一緒にツアーを終えた人だけが互いにレビューできます。
+
+プラットフォーム外での取り決めは保護されません。ガイドに直接支払ったり、別の場所でやり取りを続けたりした場合、返金や紛争の支援はできず、そのツアーはレビュー、レベル、検索結果の順位にも反映されません。
+
 ## 6. 苦情および制裁措置
 
 他の利用者との間で問題が生じた場合は、{{contact_email}} までご報告ください。すべての苦情は、その個別の事実に基づいて一件ずつ対応します。当社は双方に事実関係の説明や証拠の提出を求めることがあります。
+
+相手のプロフィールにある「報告」ボタンからも報告でき、同じチームに届きます。
 
 結果に応じて、当社は次の措置のうち一つまたは複数をとることがあります。
 
 - 警告
 - コンテンツの削除
 - アカウントの一時停止
+- レベル、特典、または検索結果での順位の引き下げ
 - 本プラットフォームからの永久追放
 
 重大な場合には、事前の通知なく直ちに措置をとり、当局に通報することがあります。追放された方は新しいアカウントを開設することはできません。法律または他者の安全上の理由により妨げられる場合を除き、あなたのアカウントに影響する決定とその理由をお知らせします。そのメッセージに返信することで、決定の再検討を求めることができます。
@@ -723,6 +839,7 @@ RockGuide は出会いの場です。旅行者とガイドがお互いを見つ�
 - アカウントデータ：メールアドレス、パスワード（安全なハッシュとしてのみ保存）、役割、氏名、電話番号および写真。
 - プロフィールデータ：生年月日、性別、自己紹介、言語、興味、勤務時間、料金、その他あなたが追加する情報。食物アレルギーは健康に関するデータです。あなたの明示的な同意がある場合にのみ処理し、追加することで同意したものとみなされます。いつでも削除できます。
 - 活動データ：あなたの選択とマッチ、予約、支払い、レビューおよび通知。
+- メッセージと共有した位置情報：マッチした相手に書いた内容と、あなたが共有を選んだ位置情報（連絡先は自動的に非表示になります）。チャットの提供と苦情対応に使います。また、連絡先を共有しようとして遮断・非表示にされた記録（内容は保存しません）。
 - セキュリティおよび技術データ：ログインコード、記憶された端末（ブラウザのユーザーエージェントを含む）、セッション識別子およびサーバーログ。
 
 ### 9.3 利用目的と法的根拠
@@ -743,6 +860,8 @@ RockGuide は出会いの場です。旅行者とガイドがお互いを見つ�
 ### 9.6 保存期間
 
 アカウントが存続している間、アカウントおよびプロフィールのデータを保存します。閉鎖後は、法律によりそれ以上の保存が求められる場合や未解決の苦情に必要な場合を除き、{{retention_period}} 以内に削除または匿名化します。サーバーログは 7 日間、メール送信記録は 30 日間保存されます。セッションは 5 分間操作がないと終了します。
+
+メッセージと共有した位置情報は、会話の両者のアカウントが存続する間保存され、いずれかのアカウントが削除されると削除されます。報告（苦情）は、その対応とフォローに必要な期間保存されます。
 
 ### 9.7 あなたの権利
 
@@ -765,7 +884,7 @@ RockGuide は出会いの場です。旅行者とガイドがお互いを見つ�
 
 ## 2. Что делает платформа
 
-RockGuide — это место знакомства. Платформа помогает путешественникам и гидам найти друг друга, проявить взаимный интерес и обменяться контактами. Любая экскурсия, занятие или иная услуга согласуется непосредственно между путешественником и гидом. Мы не являемся стороной этой договорённости. Мы не нанимаем гидов и не действуем как их агенты, а также не организуем, не контролируем и не проверяем услуги, которые они оказывают.
+RockGuide — это место знакомства. Платформа помогает путешественникам и гидам найти друг друга, проявить взаимный интерес и общаться в чате платформы. Контактные данные не передаются. Любая экскурсия, занятие или иная услуга согласуется непосредственно между путешественником и гидом. Мы не являемся стороной этой договорённости. Мы не нанимаем гидов и не действуем как их агенты, а также не организуем, не контролируем и не проверяем услуги, которые они оказывают.
 
 ## 3. Мы не отвечаем за услуги и поведение
 
@@ -785,7 +904,8 @@ RockGuide — это место знакомства. Платформа пом�
 - указывать достоверные сведения, поддерживать их в актуальном состоянии и пользоваться только своим аккаунтом;
 - уважительно относиться к другим пользователям и никого не преследовать, не угрожать, не дискриминировать, не обманывать и не подвергать опасности;
 - соблюдать закон, включая требования о лицензиях, разрешениях, налогах или страховании, применимые к услугам, которые они предлагают или получают;
-- использовать платформу только для договорённостей об услугах гида и не размещать ложные, оскорбительные материалы или материалы, нарушающие права других лиц.
+- использовать платформу только для договорённостей об услугах гида и не размещать ложные, оскорбительные материалы или материалы, нарушающие права других лиц;
+- вести общение и расчёты на платформе: не указывать номера телефонов, email, ссылки или аккаунты соцсетей в профилях, отзывах и сообщениях и не просить и не вносить оплату за бронирование вне RockGuide.
 
 Гиды несут единоличную ответственность за предлагаемые услуги, свои цены и выполнение принятых бронирований.
 
@@ -793,15 +913,28 @@ RockGuide — это место знакомства. Платформа пом�
 
 Цены пакетов выбора и стоимость услуг гидов показываются до оплаты. Правила отмены и возврата средств, которые приложение показывает при бронировании, являются частью этих условий.
 
+### 5.1 Защита RockGuide
+
+Бронирования, оформленные через RockGuide (и оплаченные здесь, если гид берёт плату), защищены:
+
+- Возвраты по правилам, показанным в приложении: полный возврат, если вы отозвали бронирование до того, как гид его принял, или если гид отклонил его либо не ответил до времени встречи; если гид отменил подтверждённое бронирование — полный возврат плюс 5% при поздней отмене (менее чем за 24 часа до встречи или менее чем за 2 часа, если мэтчу меньше суток); если вы попросили отмену и гид согласился — возврат стоимости за вычетом 5%.
+- Помощь, если что-то пошло не так: при рассмотрении жалобы (раздел 6) мы можем посмотреть бронирование, место встречи и вашу переписку на платформе.
+- Честные отзывы: оставлять отзывы друг другу могут только те, кто действительно завершил поездку вместе.
+
+Договорённости вне платформы не защищены: если вы платите гиду напрямую или продолжаете общение в другом месте, мы не сможем вернуть деньги или помочь в споре, а эта поездка не учитывается в отзывах, уровнях и вашем месте в результатах поиска.
+
 ## 6. Жалобы и санкции
 
 Если у вас возникла проблема с другим пользователем, сообщите о ней по адресу {{contact_email}}. Каждая жалоба рассматривается индивидуально, с учётом конкретных обстоятельств. Мы можем попросить обе стороны изложить свою версию событий и предоставить доказательства.
+
+Можно также воспользоваться кнопкой «Пожаловаться» в профиле человека — жалоба попадёт к той же команде.
 
 В зависимости от результата мы можем применить одну или несколько мер:
 
 - предупреждение;
 - удаление материалов;
 - временную блокировку аккаунта;
+- понижение вашего уровня, преимуществ или места в результатах поиска;
 - бессрочный запрет на пользование платформой.
 
 В серьёзных случаях мы можем действовать немедленно и без предупреждения, а также сообщить о случившемся властям. Человек, получивший бессрочный запрет, не может открыть новый аккаунт. Мы сообщим вам о решении, затрагивающем ваш аккаунт, и о его причинах, если этому не препятствуют закон или безопасность других людей, а вы можете попросить пересмотреть решение, ответив на это сообщение.
@@ -830,6 +963,7 @@ RockGuide — это место знакомства. Платформа пом�
 - Данные аккаунта: адрес электронной почты, пароль (хранится только в виде защищённого хеша), роль, имя, номер телефона и фото.
 - Данные профиля: дата рождения, пол, описание, языки, интересы, рабочие часы, цены и другие сведения, которые вы добавляете. Пищевая аллергия относится к данным о здоровье: мы обрабатываем их только с вашего явного согласия, которое вы даёте, добавляя их, и вы можете удалить их в любой момент.
 - Данные об активности: ваши выборы и совпадения, бронирования, платежи, отзывы и уведомления.
+- Сообщения и переданные местоположения: то, что вы пишете людям, с которыми у вас мэтч, и любое местоположение, которым вы решили с ними поделиться (контактные данные скрываются автоматически), — для работы чата и рассмотрения жалоб; а также отметка о том, что попытка передать контактные данные была заблокирована или скрыта (без самого текста).
 - Данные безопасности и технические данные: коды входа, запомненные устройства (включая user agent браузера), идентификаторы сеансов и журналы сервера.
 
 ### 9.3 Цели и правовые основания
@@ -850,6 +984,8 @@ RockGuide — это место знакомства. Платформа пом�
 ### 9.6 Сколько мы храним данные
 
 Данные аккаунта и профиля хранятся, пока ваш аккаунт открыт. После его закрытия мы удаляем или обезличиваем их в течение {{retention_period}}, если закон не требует хранить их дольше или они не нужны нам для рассмотрения открытой жалобы. Журналы сервера хранятся 7 дней, записи об отправке писем — 30 дней. Сеанс завершается после 5 минут бездействия.
+
+Сообщения и переданные местоположения хранятся, пока открыты оба аккаунта участников переписки, и удаляются при удалении любого из них. Жалобы хранятся столько, сколько нужно для их рассмотрения и последующих действий.
 
 ### 9.7 Ваши права
 
@@ -872,7 +1008,7 @@ RockGuide(이하 "플랫폼", "당사")는 {{operator_name}}({{operator_address}
 
 ## 2. 플랫폼의 역할
 
-RockGuide는 만남의 장소입니다. 여행자와 가이드가 서로를 찾고, 상호 관심을 표시하고, 연락처를 교환할 수 있도록 돕습니다. 투어, 활동 또는 기타 서비스는 여행자와 가이드가 직접 합의합니다. 당사는 그 합의의 당사자가 아닙니다. 당사는 가이드를 고용하거나 그 대리인으로 활동하지 않으며, 가이드가 제공하는 서비스를 기획, 감독 또는 확인하지 않습니다.
+RockGuide는 만남의 장소입니다. 여행자와 가이드가 서로를 찾고, 상호 관심을 표시하고, 플랫폼 채팅으로 대화할 수 있도록 돕습니다. 연락처는 공유되지 않습니다. 투어, 활동 또는 기타 서비스는 여행자와 가이드가 직접 합의합니다. 당사는 그 합의의 당사자가 아닙니다. 당사는 가이드를 고용하거나 그 대리인으로 활동하지 않으며, 가이드가 제공하는 서비스를 기획, 감독 또는 확인하지 않습니다.
 
 ## 3. 서비스 및 행위에 대한 책임 없음
 
@@ -893,6 +1029,7 @@ RockGuide는 만남의 장소입니다. 여행자와 가이드가 서로를 찾�
 - 다른 이용자를 존중하고, 누구도 괴롭히거나 위협하거나 차별하거나 속이거나 위험에 빠뜨리지 않을 것
 - 제공하거나 이용하는 서비스에 적용되는 면허, 허가, 세금 또는 보험 요건을 포함하여 법을 준수할 것
 - 가이드 서비스를 주선하는 목적으로만 플랫폼을 이용하고, 허위이거나 불쾌하거나 타인의 권리를 침해하는 콘텐츠를 게시하지 않을 것
+- 연락과 결제를 플랫폼 안에서 할 것: 프로필, 리뷰, 메시지에 전화번호, 이메일 주소, 링크, SNS 계정을 적지 않고, 예약 대금을 RockGuide 밖에서 요구하거나 지불하지 않을 것
 
 가이드는 자신이 제공하는 서비스, 요금 및 수락한 예약의 이행에 대해 전적으로 책임을 집니다.
 
@@ -900,15 +1037,28 @@ RockGuide는 만남의 장소입니다. 여행자와 가이드가 서로를 찾�
 
 선택 패키지 가격과 가이드 요금은 결제 전에 표시됩니다. 예약 시 앱에 표시되는 취소 및 환불 규정은 본 약관의 일부를 구성합니다.
 
+### 5.1 RockGuide 보호
+
+RockGuide를 통해 한 예약(가이드가 요금을 받는 경우 여기서 결제한 예약)은 보호됩니다:
+
+- 앱에 표시된 규칙에 따른 환불: 가이드가 수락하기 전에 예약을 철회하거나, 가이드가 거절하거나 만남 시간 전까지 응답하지 않으면 전액 환불됩니다. 가이드가 확정된 예약을 취소하면 전액 환불되며, 늦게 취소한 경우(만남 24시간 전 이내, 매칭된 지 하루가 안 되었다면 2시간 전 이내) 5%가 추가됩니다. 내가 취소를 요청하고 가이드가 동의하면 요금에서 5%를 뺀 금액이 환불됩니다.
+- 문제가 생겼을 때의 도움: 신고(제6조)를 처리할 때 예약, 만남 장소, 플랫폼 내 메시지를 확인할 수 있습니다.
+- 정직한 리뷰: 실제로 함께 여행을 마친 사람만 서로 리뷰할 수 있습니다.
+
+플랫폼 밖에서 정한 내용은 보호되지 않습니다. 가이드에게 직접 결제하거나 다른 곳에서 대화를 이어가면 환불이나 분쟁 지원을 할 수 없으며, 그 여행은 리뷰, 레벨, 검색 순위에 반영되지 않습니다.
+
 ## 6. 신고 및 제재
 
 다른 이용자와 문제가 있으면 {{contact_email}}(으)로 신고해 주세요. 모든 신고는 개별 사실관계에 따라 하나하나 처리됩니다. 당사는 양측에 경위 설명과 증거를 요청할 수 있습니다.
+
+상대방 프로필의 신고 버튼을 사용해도 같은 팀에 전달됩니다.
 
 결과에 따라 당사는 다음 조치 중 하나 이상을 취할 수 있습니다.
 
 - 경고
 - 콘텐츠 삭제
 - 계정 일시 정지
+- 레벨, 혜택 또는 검색 결과 순위의 하향
 - 플랫폼 영구 이용 금지
 
 심각한 경우 당사는 사전 통지 없이 즉시 조치하고 관계 당국에 신고할 수 있습니다. 영구 이용 금지된 사람은 새 계정을 만들 수 없습니다. 법률이나 다른 사람의 안전 때문에 불가능한 경우가 아니라면, 귀하의 계정에 영향을 주는 결정과 그 이유를 알려 드리며, 해당 메시지에 답장하여 재검토를 요청할 수 있습니다.
@@ -937,6 +1087,7 @@ RockGuide는 만남의 장소입니다. 여행자와 가이드가 서로를 찾�
 - 계정 정보: 이메일 주소, 비밀번호(안전한 해시로만 저장), 역할, 이름, 전화번호 및 사진
 - 프로필 정보: 생년월일, 성별, 소개, 언어, 관심사, 근무 시간, 요금 및 귀하가 추가하는 기타 정보. 음식 알레르기는 건강 정보에 해당하며, 귀하의 명시적 동의가 있을 때만 처리합니다. 정보를 추가하는 것으로 동의하게 되며 언제든지 삭제할 수 있습니다.
 - 활동 정보: 귀하의 선택과 매칭, 예약, 결제, 후기 및 알림
+- 메시지와 공유한 위치: 매칭된 사람에게 쓴 내용과 내가 공유하기로 한 위치(연락처는 자동으로 가려집니다). 채팅 제공과 신고 처리에 사용합니다. 또한 연락처 공유 시도가 차단되거나 가려졌다는 기록(내용은 저장하지 않음).
 - 보안 및 기술 정보: 로그인 코드, 기억된 기기(브라우저의 사용자 에이전트 포함), 세션 식별자 및 서버 로그
 
 ### 9.3 이용 목적과 법적 근거
@@ -957,6 +1108,8 @@ RockGuide는 만남의 장소입니다. 여행자와 가이드가 서로를 찾�
 ### 9.6 보관 기간
 
 계정이 유지되는 동안 계정 및 프로필 정보를 보관합니다. 계정 해지 후에는 법률상 더 오래 보관해야 하거나 처리 중인 신고에 필요한 경우를 제외하고 {{retention_period}} 이내에 삭제하거나 익명화합니다. 서버 로그는 7일, 이메일 발송 기록은 30일 동안 보관됩니다. 세션은 5분 동안 활동이 없으면 종료됩니다.
+
+메시지와 공유한 위치는 대화 당사자 두 명의 계정이 모두 유지되는 동안 보관되며, 어느 한쪽 계정이 삭제되면 함께 삭제됩니다. 신고(불만)는 처리와 후속 조치에 필요한 기간 동안 보관됩니다.
 
 ### 9.7 귀하의 권리
 
@@ -979,7 +1132,7 @@ RockGuide는 만남의 장소입니다. 여행자와 가이드가 서로를 찾�
 
 ## 2. ما الذي تقدّمه المنصة
 
-RockGuide مكان للتعارف. تساعد المنصة الزوار والمرشدين على العثور على بعضهم وإبداء الاهتمام المتبادل وتبادل بيانات التواصل. يُتّفق على أي جولة أو نشاط أو خدمة أخرى مباشرةً بين الزائر والمرشد، ولسنا طرفًا في هذا الاتفاق. نحن لا نوظّف المرشدين ولا نعمل وكلاءً عنهم، ولا ننظّم الخدمات التي يقدّمونها ولا نشرف عليها ولا نتحقق منها.
+RockGuide مكان للتعارف. تساعد المنصة الزوار والمرشدين على العثور على بعضهم وإبداء الاهتمام المتبادل والتحدث عبر محادثة المنصة. لا تتم مشاركة بيانات التواصل. يُتّفق على أي جولة أو نشاط أو خدمة أخرى مباشرةً بين الزائر والمرشد، ولسنا طرفًا في هذا الاتفاق. نحن لا نوظّف المرشدين ولا نعمل وكلاءً عنهم، ولا ننظّم الخدمات التي يقدّمونها ولا نشرف عليها ولا نتحقق منها.
 
 ## 3. عدم المسؤولية عن الخدمات أو السلوك
 
@@ -999,7 +1152,8 @@ RockGuide مكان للتعارف. تساعد المنصة الزوار والم
 - تقديم معلومات صحيحة وتحديثها واستخدام حساباتهم الخاصة فقط؛
 - معاملة المستخدمين الآخرين باحترام، وعدم مضايقة أي شخص أو تهديده أو التمييز ضده أو خداعه أو تعريضه للخطر؛
 - الالتزام بالقانون، بما في ذلك متطلبات التراخيص والتصاريح والضرائب والتأمين التي تنطبق على الخدمات التي يقدّمونها أو يستخدمونها؛
-- استخدام المنصة لترتيب خدمات الإرشاد فقط، وعدم نشر محتوى كاذب أو مسيء أو ينتهك حقوق الآخرين.
+- استخدام المنصة لترتيب خدمات الإرشاد فقط، وعدم نشر محتوى كاذب أو مسيء أو ينتهك حقوق الآخرين؛
+- إبقاء التواصل والدفع على المنصة: عدم وضع أرقام الهاتف أو عناوين البريد الإلكتروني أو الروابط أو حسابات التواصل الاجتماعي في الملفات الشخصية أو التقييمات أو الرسائل، وعدم طلب أو دفع ثمن الحجز خارج RockGuide.
 
 يتحمّل المرشدون وحدهم المسؤولية عن الخدمات التي يقدّمونها وأسعارهم والوفاء بالحجوزات التي يقبلونها.
 
@@ -1007,15 +1161,28 @@ RockGuide مكان للتعارف. تساعد المنصة الزوار والم
 
 تُعرض أسعار باقات الاختيارات ورسوم المرشدين قبل الدفع. وتُعدّ قواعد الإلغاء والاسترداد التي يعرضها التطبيق عند الحجز جزءًا من هذه الشروط.
 
+### 5.1 حماية RockGuide
+
+الحجوزات التي تتم عبر RockGuide (والمدفوعة هنا عندما يتقاضى المرشد رسومًا) محمية:
+
+- استرداد وفق القواعد المعروضة في التطبيق: تسترد المبلغ كاملًا إذا سحبت الحجز قبل أن يقبله المرشد، أو إذا رفض المرشد أو لم يرد قبل موعد اللقاء؛ وإذا ألغى المرشد حجزًا مؤكدًا تسترد المبلغ كاملًا، مع 5% إضافية إذا كان الإلغاء متأخرًا (قبل أقل من 24 ساعة من اللقاء، أو أقل من ساعتين إذا كان التطابق قبل أقل من يوم)؛ وإذا طلبت الإلغاء ووافق المرشد تسترد الرسوم مخصومًا منها 5%.
+- مساعدة عند حدوث مشكلة: عند التعامل مع شكوى (القسم 6) يمكننا الاطلاع على الحجز ومكان اللقاء ورسائلكما على المنصة.
+- تقييمات صادقة: لا يمكن أن يقيّم بعضهم بعضًا إلا من أنهوا رحلة معًا فعلًا.
+
+الترتيبات التي تتم خارج المنصة غير محمية: إذا دفعت للمرشد مباشرة أو نقلت المحادثة إلى مكان آخر، فلا يمكننا ردّ أموالك أو المساعدة في نزاع، ولا تُحتسب تلك الرحلة في التقييمات أو المستويات أو ترتيبك في نتائج البحث.
+
 ## 6. الشكاوى والعقوبات
 
 إذا واجهت مشكلة مع مستخدم آخر، فأبلغ عنها عبر {{contact_email}}. تُعالَج كل شكوى على حدة، وفقًا لوقائعها الخاصة. وقد نطلب من الطرفين روايتهما للأحداث وأي أدلة.
+
+يمكنك أيضًا استخدام زر الإبلاغ في الملف الشخصي للشخص، وهو يصل إلى الفريق نفسه.
 
 وبحسب النتيجة، قد نتخذ إجراءً أو أكثر من الإجراءات التالية:
 
 - توجيه تحذير؛
 - إزالة المحتوى؛
 - تعليق الحساب مؤقتًا؛
+- خفض مستواك أو مزاياك أو ترتيبك في نتائج البحث؛
 - حظر الشخص من المنصة نهائيًا.
 
 في الحالات الخطيرة قد نتصرف فورًا ودون إشعار مسبق، ونبلّغ السلطات بالأمر. ولا يجوز للشخص المحظور فتح حساب جديد. سنُعلمك بأي قرار يمسّ حسابك وبأسبابه، ما لم يمنع ذلك القانونُ أو سلامة الآخرين، ويمكنك أن تطلب منا مراجعته بالرد على تلك الرسالة.
@@ -1044,6 +1211,7 @@ RockGuide مكان للتعارف. تساعد المنصة الزوار والم
 - بيانات الحساب: البريد الإلكتروني، وكلمة المرور (تُخزَّن فقط كقيمة تجزئة آمنة)، والدور، والاسم، ورقم الهاتف، والصورة.
 - بيانات الملف الشخصي: تاريخ الميلاد، والجنس، والنبذة، واللغات، والاهتمامات، وساعات العمل، والأسعار، وأي تفاصيل أخرى تضيفها. تُعدّ الحساسية الغذائية من البيانات الصحية: لا نعالجها إلا بموافقتك الصريحة التي تمنحها بإضافتها، ويمكنك حذفها في أي وقت.
 - بيانات النشاط: اختياراتك وتطابقاتك، والحجوزات، والمدفوعات، والمراجعات، والإشعارات.
+- الرسائل والمواقع المُشاركة: ما تكتبه لمن تطابقت معهم، وأي موقع تختار مشاركته معهم (تُخفى بيانات الاتصال تلقائيًا)، وتُستخدم لتقديم المحادثة ومعالجة الشكاوى؛ وسجلّ بأن محاولة لمشاركة بيانات الاتصال قد حُظرت أو أُخفيت (دون نصّها مطلقًا).
 - البيانات الأمنية والتقنية: رموز تسجيل الدخول، والأجهزة المحفوظة (بما في ذلك وكيل المستخدم للمتصفح)، ومعرّفات الجلسات، وسجلات الخادم.
 
 ### 9.3 أغراض الاستخدام والأساس القانوني
@@ -1064,6 +1232,8 @@ RockGuide مكان للتعارف. تساعد المنصة الزوار والم
 ### 9.6 مدة الاحتفاظ
 
 نحتفظ ببيانات الحساب والملف الشخصي ما دام حسابك مفتوحًا. وبعد إغلاقه نحذفها أو نجعلها مجهولة الهوية خلال {{retention_period}}، ما لم يُلزمنا القانون بالاحتفاظ بها مدة أطول أو كنا نحتاجها لشكوى قائمة. تُحفظ سجلات الخادم 7 أيام، وسجلات إرسال البريد 30 يومًا. وتنتهي الجلسة بعد 5 دقائق من عدم النشاط.
+
+تُحفظ الرسائل والمواقع المُشاركة ما دام حسابا المحادثة كلاهما مفتوحين، وتُحذف عند حذف أيٍّ منهما. وتُحفظ البلاغات (الشكاوى) للمدة اللازمة لمعالجتها ومتابعتها.
 
 ### 9.7 حقوقك
 
@@ -1086,7 +1256,7 @@ Hesap oluşturarak bu koşulları kabul etmiş ve en az 18 yaşında olduğunuzu
 
 ## 2. Platform ne yapar
 
-RockGuide bir buluşma noktasıdır. Ziyaretçilerin ve rehberlerin birbirini bulmasına, karşılıklı ilgi göstermesine ve iletişim bilgilerini paylaşmasına yardımcı olur. Her tur, etkinlik veya diğer hizmet doğrudan ziyaretçi ile rehber arasında kararlaştırılır. Bu anlaşmanın tarafı değiliz. Rehberleri istihdam etmeyiz, onların temsilcisi olarak hareket etmeyiz ve sundukları hizmetleri düzenlemez, denetlemez veya kontrol etmeyiz.
+RockGuide bir buluşma noktasıdır. Ziyaretçilerin ve rehberlerin birbirini bulmasına, karşılıklı ilgi göstermesine ve platformun sohbeti üzerinden konuşmasına yardımcı olur. Her tur, etkinlik veya diğer hizmet doğrudan ziyaretçi ile rehber arasında kararlaştırılır. Bu anlaşmanın tarafı değiliz. Rehberleri istihdam etmeyiz, onların temsilcisi olarak hareket etmeyiz ve sundukları hizmetleri düzenlemez, denetlemez veya kontrol etmeyiz.
 
 ## 3. Hizmetler veya davranışlar için sorumluluk kabul edilmez
 
@@ -1106,7 +1276,8 @@ Ziyaretçiler ve rehberler eşit şekilde şunları kabul eder:
 - doğru bilgi vermek, bilgileri güncel tutmak ve yalnızca kendi hesabını kullanmak;
 - diğer kullanıcılara saygılı davranmak; kimseyi taciz etmemek, tehdit etmemek, ayrımcılığa uğratmamak, aldatmamak veya tehlikeye atmamak;
 - sundukları veya kullandıkları hizmetler için geçerli lisans, izin, vergi ve sigorta gereklilikleri dahil olmak üzere yasalara uymak;
-- platformu yalnızca rehberlik hizmetleri ayarlamak için kullanmak ve yanlış, saldırgan veya başkalarının haklarını ihlal eden içerik paylaşmamak.
+- platformu yalnızca rehberlik hizmetleri ayarlamak için kullanmak ve yanlış, saldırgan veya başkalarının haklarını ihlal eden içerik paylaşmamak;
+- iletişimi ve ödemeyi platformda tutmak: profillere, değerlendirmelere veya mesajlara telefon numarası, e-posta adresi, bağlantı ya da sosyal medya kullanıcı adı yazmamak ve bir rezervasyonun ödemesini RockGuide dışında istememek veya yapmamak.
 
 Rehberler sundukları hizmetlerden, fiyatlarından ve kabul ettikleri rezervasyonları yerine getirmekten tek başına sorumludur.
 
@@ -1114,15 +1285,28 @@ Rehberler sundukları hizmetlerden, fiyatlarından ve kabul ettikleri rezervasyo
 
 Seçim paketlerinin fiyatları ve rehber ücretleri ödeme öncesinde gösterilir. Rezervasyon sırasında uygulamada gösterilen iptal ve iade kuralları bu koşulların bir parçasıdır.
 
+### 5.1 RockGuide Koruması
+
+RockGuide üzerinden yapılan (ve rehber ücret alıyorsa burada ödenen) rezervasyonlar korunur:
+
+- Uygulamada gösterilen kurallara göre iade: Rehber kabul etmeden önce rezervasyonu geri çekerseniz veya rehber reddeder ya da buluşma saatinden önce yanıt vermezse tam iade alırsınız; rehber onaylanmış bir rezervasyonu iptal ederse tam iade, geç iptalde (buluşmaya 24 saatten az kala; eşleşmeniz bir günden yeniyse 2 saatten az kala) ek olarak %5 alırsınız; iptal talep ettiğinizde rehber kabul ederse ücretin %5 eksiği iade edilir.
+- Bir sorun olduğunda yardım: Bir şikâyeti (bölüm 6) incelerken rezervasyona, buluşma noktasına ve platformdaki mesajlarınıza bakabiliriz.
+- Dürüst değerlendirmeler: Yalnızca birlikte gerçekten bir turu tamamlayanlar birbirini değerlendirebilir.
+
+Platform dışında yapılan düzenlemeler korunmaz: Rehbere doğrudan ödeme yaparsanız veya konuşmayı başka bir yerde sürdürürseniz, iade yapamaz veya anlaşmazlıkta yardımcı olamayız; o tur değerlendirmelere, seviyelere ve arama sonuçlarındaki sıranıza da sayılmaz.
+
 ## 6. Şikâyetler ve yaptırımlar
 
 Başka bir kullanıcıyla sorun yaşarsanız {{contact_email}} adresine bildirin. Her şikâyet, kendi olgularına göre bireysel olarak ele alınır. Her iki taraftan olayları anlatmalarını ve kanıt sunmalarını isteyebiliriz.
+
+Kişinin profilindeki Bildir düğmesini de kullanabilirsiniz; aynı ekibe ulaşır.
 
 Sonuca bağlı olarak aşağıdaki önlemlerden birini veya birkaçını alabiliriz:
 
 - uyarı;
 - içeriğin kaldırılması;
 - hesabın geçici olarak askıya alınması;
+- seviyenizin, avantajlarınızın veya arama sonuçlarındaki sıranızın düşürülmesi;
 - kişinin platformdan kalıcı olarak uzaklaştırılması.
 
 Ciddi durumlarda derhal ve önceden bildirimde bulunmadan harekete geçebilir ve durumu yetkililere bildirebiliriz. Platformdan uzaklaştırılan bir kişi yeni hesap açamaz. Yasalar veya başkalarının güvenliği engel olmadıkça, hesabınızı etkileyen kararı ve gerekçesini size bildiririz; bu mesajı yanıtlayarak kararın yeniden incelenmesini isteyebilirsiniz.
@@ -1151,6 +1335,7 @@ Bu koşulları güncelleyebiliriz. Bir değişiklik önemliyse bunu size uygulam
 - Hesap verileri: e-posta adresi, şifre (yalnızca güvenli bir özet olarak saklanır), rol, ad, telefon numarası ve fotoğraf.
 - Profil verileri: doğum tarihi, cinsiyet, tanıtım yazısı, diller, ilgi alanları, çalışma saatleri, fiyatlar ve eklediğiniz diğer bilgiler. Gıda alerjileri sağlık verisidir: bunları yalnızca ekleyerek verdiğiniz açık rızanızla işleriz ve istediğiniz zaman kaldırabilirsiniz.
 - Etkinlik verileri: seçimleriniz ve eşleşmeleriniz, rezervasyonlar, ödemeler, yorumlar ve bildirimler.
+- Mesajlar ve paylaşılan konumlar: eşleştiğiniz kişilere yazdıklarınız ve onlarla paylaşmayı seçtiğiniz konumlar (iletişim bilgileri otomatik olarak gizlenir); sohbeti sunmak ve şikâyetleri incelemek için kullanılır; ayrıca iletişim bilgisi paylaşma girişiminin engellendiğine veya gizlendiğine dair bir kayıt (metni asla saklanmaz).
 - Güvenlik ve teknik veriler: giriş kodları, hatırlanan cihazlar (tarayıcının kullanıcı aracısı dahil), oturum tanımlayıcıları ve sunucu kayıtları.
 
 ### 9.3 Neden kullanıyoruz ve hukuki dayanak
@@ -1171,6 +1356,8 @@ Veriler AEA veya Birleşik Krallık dışına aktarıldığında bir yeterlilik 
 ### 9.6 Ne kadar süre saklıyoruz
 
 Hesap ve profil verilerini hesabınız açık olduğu sürece saklarız. Hesap kapatıldıktan sonra, yasa daha uzun süre saklamamızı gerektirmedikçe veya açık bir şikâyet için ihtiyaç duymadıkça, bu verileri {{retention_period}} içinde siler veya anonim hâle getiririz. Sunucu kayıtları 7 gün, e-posta gönderim kayıtları 30 gün saklanır. Oturumlar 5 dakika işlem yapılmadığında sona erer.
+
+Mesajlar ve paylaşılan konumlar, konuşmadaki iki hesap da açık olduğu sürece saklanır ve hesaplardan biri silindiğinde silinir. Bildirimler (şikâyetler) işlenmeleri ve takipleri için gereken süre boyunca saklanır.
 
 ### 9.7 Haklarınız
 
@@ -1193,7 +1380,7 @@ Ao criar uma conta, aceita estes termos e confirma que tem pelo menos 18 anos, o
 
 ## 2. O que a plataforma faz
 
-A RockGuide é um ponto de encontro. Ajuda visitantes e guias a encontrarem-se, a mostrar interesse mútuo e a trocar contactos. Qualquer visita, atividade ou outro serviço é combinado diretamente entre o visitante e o guia. Não somos parte desse acordo. Não empregamos os guias nem agimos como seus agentes, e não organizamos, supervisionamos nem verificamos os serviços que prestam.
+A RockGuide é um ponto de encontro. Ajuda visitantes e guias a encontrarem-se, a mostrar interesse mútuo e a falar através do chat da plataforma. Os contactos não são partilhados. Qualquer visita, atividade ou outro serviço é combinado diretamente entre o visitante e o guia. Não somos parte desse acordo. Não empregamos os guias nem agimos como seus agentes, e não organizamos, supervisionamos nem verificamos os serviços que prestam.
 
 ## 3. Sem responsabilidade pelos serviços ou pelo comportamento
 
@@ -1213,7 +1400,8 @@ Visitantes e guias comprometem-se igualmente a:
 - fornecer informações verdadeiras, mantê-las atualizadas e usar apenas a sua própria conta;
 - tratar os outros utilizadores com respeito e nunca assediar, ameaçar, discriminar, enganar ou pôr em perigo ninguém;
 - cumprir a lei, incluindo os requisitos de licenças, autorizações, impostos ou seguros aplicáveis aos serviços que oferecem ou utilizam;
-- usar a plataforma apenas para combinar serviços de guia e não publicar conteúdos falsos, ofensivos ou que violem os direitos de terceiros.
+- usar a plataforma apenas para combinar serviços de guia e não publicar conteúdos falsos, ofensivos ou que violem os direitos de terceiros;
+- manter o contacto e o pagamento na plataforma: não colocar números de telefone, endereços de e-mail, links ou perfis de redes sociais em perfis, avaliações ou mensagens, e não pedir nem fazer o pagamento de uma reserva fora do RockGuide.
 
 Os guias são os únicos responsáveis pelos serviços que oferecem, pelos seus preços e pelo cumprimento das reservas que aceitam.
 
@@ -1221,15 +1409,28 @@ Os guias são os únicos responsáveis pelos serviços que oferecem, pelos seus 
 
 Os preços dos pacotes de seleções e as tarifas dos guias são apresentados antes do pagamento. As regras de cancelamento e reembolso apresentadas na aplicação no momento da reserva fazem parte destes termos.
 
+### 5.1 Proteção RockGuide
+
+As reservas feitas através do RockGuide (e pagas aqui, quando o guia cobra um valor) estão protegidas:
+
+- Reembolsos segundo as regras mostradas na app: é reembolsado na totalidade se retirar a reserva antes de o guia a aceitar, ou se o guia recusar ou não responder antes da hora do encontro; se o guia cancelar uma reserva confirmada, é reembolsado na totalidade, mais 5% se cancelar tarde (menos de 24 horas antes do encontro, ou menos de 2 horas se fizeram match há menos de um dia); se pedir para cancelar e o guia aceitar, é reembolsado do valor menos 5%.
+- Ajuda quando algo corre mal: ao tratar uma reclamação (secção 6), podemos consultar a reserva, o ponto de encontro e as vossas mensagens na plataforma.
+- Avaliações honestas: só quem terminou realmente uma viagem em conjunto pode avaliar-se mutuamente.
+
+O que for combinado fora da plataforma não está protegido: se pagar diretamente a um guia ou levar a conversa para outro lado, não o podemos reembolsar nem ajudar num litígio, e essa viagem não conta para avaliações, níveis nem para a sua posição nos resultados.
+
 ## 6. Reclamações e sanções
 
 Se tiver um problema com outro utilizador, comunique-o para {{contact_email}}. Cada reclamação é tratada individualmente, com base nos seus próprios factos. Podemos pedir a ambas as partes a sua versão dos acontecimentos e quaisquer provas.
+
+Também pode usar o botão Denunciar no perfil da pessoa, que chega à mesma equipa.
 
 Consoante o resultado, podemos tomar uma ou mais das seguintes medidas:
 
 - uma advertência;
 - a remoção de conteúdos;
 - a suspensão temporária da conta;
+- baixar o seu nível, as suas vantagens ou a sua posição nos resultados de pesquisa;
 - a exclusão permanente da pessoa da plataforma.
 
 Em casos graves, podemos agir de imediato e sem aviso prévio, e comunicar o assunto às autoridades. Uma pessoa excluída não pode abrir uma nova conta. Informá-lo-emos de qualquer decisão que afete a sua conta e dos respetivos motivos, salvo se a lei ou a segurança de outras pessoas o impedirem, e pode pedir-nos que a revejamos respondendo a essa mensagem.
@@ -1258,6 +1459,7 @@ Podemos atualizar estes termos. Se uma alteração for significativa, informá-l
 - Dados da conta: endereço de e-mail, palavra-passe (guardada apenas como hash seguro), função, nome, número de telefone e fotografia.
 - Dados do perfil: data de nascimento, género, descrição, idiomas, interesses, horário de trabalho, preços e quaisquer outros dados que adicione. As alergias alimentares são dados de saúde: só as tratamos com o seu consentimento explícito, que dá ao adicioná-las, e pode removê-las a qualquer momento.
 - Dados de atividade: as suas escolhas e correspondências, reservas, pagamentos, avaliações e notificações.
+- Mensagens e localizações partilhadas: o que escreve às pessoas com quem tem match e qualquer localização que decida partilhar com elas (os contactos são ocultados automaticamente), usadas para prestar o chat e tratar reclamações; e o registo de que uma tentativa de partilhar contactos foi bloqueada ou ocultada (nunca o seu texto).
 - Dados técnicos e de segurança: códigos de início de sessão, dispositivos memorizados (incluindo o agente de utilizador do navegador), identificadores de sessão e registos do servidor.
 
 ### 9.3 Para que os usamos e fundamento jurídico
@@ -1278,6 +1480,8 @@ Quando os dados são transferidos para fora do EEE ou do Reino Unido, baseamo-no
 ### 9.6 Durante quanto tempo os conservamos
 
 Conservamos os dados da conta e do perfil enquanto a sua conta estiver aberta. Após o encerramento, eliminamo-los ou anonimizamo-los no prazo de {{retention_period}}, salvo se a lei nos obrigar a conservá-los durante mais tempo ou se precisarmos deles para uma reclamação em curso. Os registos do servidor são conservados durante 7 dias e os registos de envio de e-mails durante 30 dias. As sessões terminam após 5 minutos de inatividade.
+
+As mensagens e localizações partilhadas são guardadas enquanto as duas contas da conversa estiverem abertas e apagadas quando qualquer uma delas for apagada. As denúncias (reclamações) são guardadas pelo tempo necessário para as tratar e acompanhar.
 
 ### 9.7 Os seus direitos
 
@@ -1300,7 +1504,7 @@ Estes termos regem-se pela lei de {{governing_law}}. Se for consumidor, mantém 
 
 ## 2. Τι κάνει η πλατφόρμα
 
-Το RockGuide είναι ένας τόπος γνωριμίας. Βοηθά επισκέπτες και ξεναγούς να βρουν ο ένας τον άλλον, να δείξουν αμοιβαίο ενδιαφέρον και να ανταλλάξουν στοιχεία επικοινωνίας. Κάθε ξενάγηση, δραστηριότητα ή άλλη υπηρεσία συμφωνείται απευθείας μεταξύ επισκέπτη και ξεναγού. Δεν είμαστε μέρος αυτής της συμφωνίας. Δεν απασχολούμε τους ξεναγούς ούτε ενεργούμε ως αντιπρόσωποί τους, και δεν οργανώνουμε, εποπτεύουμε ή ελέγχουμε τις υπηρεσίες που παρέχουν.
+Το RockGuide είναι ένας τόπος γνωριμίας. Βοηθά επισκέπτες και ξεναγούς να βρουν ο ένας τον άλλον, να δείξουν αμοιβαίο ενδιαφέρον και να μιλούν μέσω της συνομιλίας της πλατφόρμας. Τα στοιχεία επικοινωνίας δεν κοινοποιούνται. Κάθε ξενάγηση, δραστηριότητα ή άλλη υπηρεσία συμφωνείται απευθείας μεταξύ επισκέπτη και ξεναγού. Δεν είμαστε μέρος αυτής της συμφωνίας. Δεν απασχολούμε τους ξεναγούς ούτε ενεργούμε ως αντιπρόσωποί τους, και δεν οργανώνουμε, εποπτεύουμε ή ελέγχουμε τις υπηρεσίες που παρέχουν.
 
 ## 3. Καμία ευθύνη για τις υπηρεσίες ή τη συμπεριφορά
 
@@ -1320,7 +1524,8 @@ Estes termos regem-se pela lei de {{governing_law}}. Se for consumidor, mantém 
 - να δίνουν ακριβή στοιχεία, να τα διατηρούν ενημερωμένα και να χρησιμοποιούν μόνο τον δικό τους λογαριασμό·
 - να συμπεριφέρονται με σεβασμό στους άλλους χρήστες και να μην παρενοχλούν, απειλούν, εισάγουν διακρίσεις, εξαπατούν ή θέτουν σε κίνδυνο κανέναν·
 - να τηρούν τον νόμο, συμπεριλαμβανομένων των απαιτήσεων αδειών, εγκρίσεων, φορολογίας ή ασφάλισης που ισχύουν για τις υπηρεσίες που προσφέρουν ή χρησιμοποιούν·
-- να χρησιμοποιούν την πλατφόρμα μόνο για τη διευθέτηση υπηρεσιών ξενάγησης και να μη δημοσιεύουν ψευδές, προσβλητικό ή παραβατικό για τα δικαιώματα τρίτων περιεχόμενο.
+- να χρησιμοποιούν την πλατφόρμα μόνο για τη διευθέτηση υπηρεσιών ξενάγησης και να μη δημοσιεύουν ψευδές, προσβλητικό ή παραβατικό για τα δικαιώματα τρίτων περιεχόμενο·
+- να κρατούν την επικοινωνία και την πληρωμή στην πλατφόρμα: να μη βάζουν τηλέφωνα, διευθύνσεις email, συνδέσμους ή λογαριασμούς κοινωνικών δικτύων σε προφίλ, κριτικές ή μηνύματα, και να μη ζητούν ή πραγματοποιούν πληρωμή κράτησης εκτός RockGuide.
 
 Οι ξεναγοί φέρουν την αποκλειστική ευθύνη για τις υπηρεσίες που προσφέρουν, τις τιμές τους και την τήρηση των κρατήσεων που αποδέχονται.
 
@@ -1328,15 +1533,28 @@ Estes termos regem-se pela lei de {{governing_law}}. Se for consumidor, mantém 
 
 Οι τιμές των πακέτων επιλογών και οι αμοιβές των ξεναγών εμφανίζονται πριν από την πληρωμή. Οι κανόνες ακύρωσης και επιστροφής χρημάτων που εμφανίζει η εφαρμογή κατά την κράτηση αποτελούν μέρος των παρόντων όρων.
 
+### 5.1 Προστασία RockGuide
+
+Οι κρατήσεις που γίνονται μέσω RockGuide (και πληρώνονται εδώ, όταν ο ξεναγός χρεώνει αμοιβή) προστατεύονται:
+
+- Επιστροφές σύμφωνα με τους κανόνες της εφαρμογής: παίρνετε πίσω όλο το ποσό αν αποσύρετε την κράτηση πριν την αποδεχτεί ο ξεναγός, ή αν ο ξεναγός αρνηθεί ή δεν απαντήσει πριν από την ώρα της συνάντησης· αν ο ξεναγός ακυρώσει επιβεβαιωμένη κράτηση, παίρνετε πίσω όλο το ποσό, συν 5% αν ακυρώσει αργά (λιγότερο από 24 ώρες πριν από τη συνάντηση, ή λιγότερο από 2 ώρες αν ταιριάξατε πριν από λιγότερο από μία ημέρα)· αν ζητήσετε ακύρωση και ο ξεναγός συμφωνήσει, παίρνετε πίσω την αμοιβή μείον 5%.
+- Βοήθεια όταν κάτι πάει στραβά: κατά την εξέταση ενός παραπόνου (ενότητα 6) μπορούμε να δούμε την κράτηση, το σημείο συνάντησης και τα μηνύματά σας στην πλατφόρμα.
+- Ειλικρινείς κριτικές: μόνο όσοι ολοκλήρωσαν πραγματικά ένα ταξίδι μαζί μπορούν να αξιολογήσουν ο ένας τον άλλον.
+
+Ό,τι συμφωνείται εκτός πλατφόρμας δεν προστατεύεται: αν πληρώσετε απευθείας έναν ξεναγό ή συνεχίσετε τη συζήτηση αλλού, δεν μπορούμε να σας επιστρέψουμε χρήματα ή να βοηθήσουμε σε διαφορά, και το ταξίδι αυτό δεν μετρά για κριτικές, επίπεδα ή τη θέση σας στα αποτελέσματα.
+
 ## 6. Καταγγελίες και κυρώσεις
 
 Αν έχετε πρόβλημα με άλλον χρήστη, αναφέρετέ το στο {{contact_email}}. Κάθε καταγγελία εξετάζεται ξεχωριστά, με βάση τα δικά της πραγματικά περιστατικά. Μπορεί να ζητήσουμε και από τις δύο πλευρές την εκδοχή τους και τυχόν αποδείξεις.
+
+Μπορείτε επίσης να χρησιμοποιήσετε το κουμπί Αναφορά στο προφίλ του ατόμου, που φτάνει στην ίδια ομάδα.
 
 Ανάλογα με το αποτέλεσμα, μπορεί να λάβουμε ένα ή περισσότερα από τα εξής μέτρα:
 
 - προειδοποίηση·
 - αφαίρεση περιεχομένου·
 - προσωρινή αναστολή του λογαριασμού·
+- υποβιβασμός του επιπέδου, των πλεονεκτημάτων ή της θέσης σας στα αποτελέσματα αναζήτησης·
 - οριστικό αποκλεισμό του προσώπου από την πλατφόρμα.
 
 Σε σοβαρές περιπτώσεις μπορεί να ενεργήσουμε αμέσως και χωρίς προειδοποίηση, και να αναφέρουμε το ζήτημα στις αρχές. Όποιος έχει αποκλειστεί δεν μπορεί να ανοίξει νέο λογαριασμό. Θα σας ενημερώνουμε για κάθε απόφαση που αφορά τον λογαριασμό σας και για τους λόγους της, εκτός αν το εμποδίζει ο νόμος ή η ασφάλεια άλλων, και μπορείτε να ζητήσετε επανεξέταση απαντώντας σε εκείνο το μήνυμα.
@@ -1365,6 +1583,7 @@ Estes termos regem-se pela lei de {{governing_law}}. Se for consumidor, mantém 
 - Δεδομένα λογαριασμού: διεύθυνση email, κωδικός πρόσβασης (αποθηκεύεται μόνο ως ασφαλές hash), ρόλος, όνομα, αριθμός τηλεφώνου και φωτογραφία.
 - Δεδομένα προφίλ: ημερομηνία γέννησης, φύλο, περιγραφή, γλώσσες, ενδιαφέροντα, ώρες εργασίας, τιμές και κάθε άλλο στοιχείο που προσθέτετε. Οι τροφικές αλλεργίες είναι δεδομένα υγείας: τις επεξεργαζόμαστε μόνο με τη ρητή συγκατάθεσή σας, την οποία δίνετε προσθέτοντάς τες, και μπορείτε να τις αφαιρέσετε οποιαδήποτε στιγμή.
 - Δεδομένα δραστηριότητας: οι επιλογές και οι αντιστοιχίσεις σας, κρατήσεις, πληρωμές, κριτικές και ειδοποιήσεις.
+- Μηνύματα και κοινοποιημένες τοποθεσίες: ό,τι γράφετε στα άτομα με τα οποία έχετε ταιριάξει και κάθε τοποθεσία που επιλέγετε να τους κοινοποιήσετε (τα στοιχεία επικοινωνίας κρύβονται αυτόματα), για τη λειτουργία της συνομιλίας και την εξέταση παραπόνων· και καταγραφή ότι μια προσπάθεια κοινοποίησης στοιχείων επικοινωνίας μπλοκαρίστηκε ή κρύφτηκε (ποτέ το κείμενό της).
 - Δεδομένα ασφάλειας και τεχνικά δεδομένα: κωδικοί σύνδεσης, συσκευές που έχουν απομνημονευτεί (συμπεριλαμβανομένου του user agent του προγράμματος περιήγησης), αναγνωριστικά συνεδρίας και αρχεία καταγραφής διακομιστή.
 
 ### 9.3 Γιατί τα χρησιμοποιούμε και νομική βάση
@@ -1385,6 +1604,8 @@ Estes termos regem-se pela lei de {{governing_law}}. Se for consumidor, mantém 
 ### 9.6 Πόσο καιρό τα διατηρούμε
 
 Διατηρούμε τα δεδομένα λογαριασμού και προφίλ όσο ο λογαριασμός σας είναι ανοιχτός. Μετά το κλείσιμό του, τα διαγράφουμε ή τα ανωνυμοποιούμε εντός {{retention_period}}, εκτός αν ο νόμος μάς υποχρεώνει να τα διατηρήσουμε περισσότερο ή τα χρειαζόμαστε για εκκρεμή καταγγελία. Τα αρχεία καταγραφής διακομιστή διατηρούνται 7 ημέρες και τα αρχεία αποστολής email 30 ημέρες. Οι συνεδρίες λήγουν μετά από 5 λεπτά αδράνειας.
+
+Τα μηνύματα και οι κοινοποιημένες τοποθεσίες διατηρούνται όσο είναι ανοιχτοί και οι δύο λογαριασμοί της συνομιλίας και διαγράφονται όταν διαγραφεί οποιοσδήποτε από αυτούς. Οι αναφορές (παράπονα) διατηρούνται όσο χρειάζεται για την εξέταση και την παρακολούθησή τους.
 
 ### 9.7 Τα δικαιώματά σας
 
@@ -1407,7 +1628,7 @@ RockGuide ("แพลตฟอร์ม" "เรา") ดำเนินกา�
 
 ## 2. แพลตฟอร์มทำอะไร
 
-RockGuide เป็นพื้นที่สำหรับพบกัน ช่วยให้นักท่องเที่ยวและไกด์ค้นหากัน แสดงความสนใจร่วมกัน และแลกเปลี่ยนข้อมูลติดต่อ ทัวร์ กิจกรรม หรือบริการอื่นใดเป็นการตกลงกันโดยตรงระหว่างนักท่องเที่ยวกับไกด์ เราไม่ได้เป็นคู่สัญญาในข้อตกลงนั้น เราไม่ได้จ้างไกด์หรือทำหน้าที่เป็นตัวแทนของไกด์ และไม่ได้จัด ควบคุม หรือตรวจสอบบริการที่ไกด์ให้
+RockGuide เป็นพื้นที่สำหรับพบกัน ช่วยให้นักท่องเที่ยวและไกด์ค้นหากัน แสดงความสนใจร่วมกัน และพูดคุยกันผ่านแชทของแพลตฟอร์ม โดยไม่มีการแชร์ข้อมูลติดต่อ ทัวร์ กิจกรรม หรือบริการอื่นใดเป็นการตกลงกันโดยตรงระหว่างนักท่องเที่ยวกับไกด์ เราไม่ได้เป็นคู่สัญญาในข้อตกลงนั้น เราไม่ได้จ้างไกด์หรือทำหน้าที่เป็นตัวแทนของไกด์ และไม่ได้จัด ควบคุม หรือตรวจสอบบริการที่ไกด์ให้
 
 ## 3. ไม่รับผิดชอบต่อบริการหรือพฤติกรรม
 
@@ -1428,6 +1649,7 @@ RockGuide เป็นพื้นที่สำหรับพบกัน ช
 - ปฏิบัติต่อผู้ใช้คนอื่นด้วยความเคารพ และไม่คุกคาม ข่มขู่ เลือกปฏิบัติ หลอกลวง หรือทำให้ผู้ใดตกอยู่ในอันตราย
 - ปฏิบัติตามกฎหมาย รวมถึงข้อกำหนดด้านใบอนุญาต การอนุญาต ภาษี หรือประกันภัยที่ใช้กับบริการที่ตนเสนอหรือใช้
 - ใช้แพลตฟอร์มเพื่อนัดหมายบริการไกด์เท่านั้น และไม่โพสต์เนื้อหาที่เป็นเท็จ ไม่เหมาะสม หรือละเมิดสิทธิของผู้อื่น
+- ติดต่อและชำระเงินผ่านแพลตฟอร์ม: ไม่ใส่เบอร์โทร อีเมล ลิงก์ หรือบัญชีโซเชียลมีเดียในโปรไฟล์ รีวิว หรือข้อความ และไม่ขอหรือชำระเงินค่าการจองนอก RockGuide
 
 ไกด์เป็นผู้รับผิดชอบแต่เพียงผู้เดียวต่อบริการที่ตนเสนอ ราคาของตน และการปฏิบัติตามการจองที่ตนตอบรับ
 
@@ -1435,15 +1657,28 @@ RockGuide เป็นพื้นที่สำหรับพบกัน ช
 
 ราคาของแพ็กการเลือกและค่าบริการของไกด์จะแสดงก่อนชำระเงิน กฎการยกเลิกและการคืนเงินที่แสดงในแอปขณะจองถือเป็นส่วนหนึ่งของข้อกำหนดนี้
 
+### 5.1 การคุ้มครองของ RockGuide
+
+การจองที่ทำผ่าน RockGuide (และชำระที่นี่ในกรณีที่ไกด์เก็บค่าบริการ) ได้รับการคุ้มครอง:
+
+- การคืนเงินตามกฎที่แสดงในแอป: คุณได้รับเงินคืนเต็มจำนวนหากถอนการจองก่อนที่ไกด์จะยอมรับ หรือหากไกด์ปฏิเสธหรือไม่ตอบก่อนเวลานัด หากไกด์ยกเลิกการจองที่ยืนยันแล้ว คุณได้รับเงินคืนเต็มจำนวน และเพิ่มอีก 5% หากยกเลิกกระชั้นชิด (น้อยกว่า 24 ชั่วโมงก่อนนัด หรือน้อยกว่า 2 ชั่วโมงหากแมตช์กันมาไม่ถึงหนึ่งวัน) หากคุณขอยกเลิกและไกด์ยินยอม คุณได้รับค่าบริการคืนหักออก 5%
+- ความช่วยเหลือเมื่อเกิดปัญหา: เมื่อพิจารณาข้อร้องเรียน (ข้อ 6) เราสามารถดูการจอง จุดนัดพบ และข้อความของคุณบนแพลตฟอร์มได้
+- รีวิวที่ซื่อตรง: เฉพาะผู้ที่จบทริปด้วยกันจริงเท่านั้นที่รีวิวกันได้
+
+การตกลงนอกแพลตฟอร์มไม่ได้รับการคุ้มครอง: หากคุณจ่ายเงินให้ไกด์โดยตรงหรือย้ายการสนทนาไปที่อื่น เราไม่สามารถคืนเงินหรือช่วยเรื่องข้อพิพาทได้ และทริปนั้นจะไม่นับรวมในรีวิว เลเวล หรืออันดับของคุณในผลการค้นหา
+
 ## 6. การร้องเรียนและบทลงโทษ
 
 หากคุณมีปัญหากับผู้ใช้คนอื่น โปรดแจ้งมาที่ {{contact_email}} ทุกเรื่องร้องเรียนจะได้รับการพิจารณาเป็นรายกรณีตามข้อเท็จจริงของเรื่องนั้น เราอาจขอให้ทั้งสองฝ่ายเล่าเหตุการณ์และส่งหลักฐาน
+
+คุณยังใช้ปุ่มรายงานในโปรไฟล์ของบุคคลนั้นได้ ซึ่งจะส่งถึงทีมเดียวกัน
 
 ขึ้นอยู่กับผลการพิจารณา เราอาจใช้มาตรการต่อไปนี้อย่างใดอย่างหนึ่งหรือหลายอย่าง:
 
 - การตักเตือน
 - การลบเนื้อหา
 - การระงับบัญชีชั่วคราว
+- ลดเลเวล สิทธิประโยชน์ หรืออันดับของคุณในผลการค้นหา
 - การแบนบุคคลนั้นออกจากแพลตฟอร์มอย่างถาวร
 
 ในกรณีร้ายแรง เราอาจดำเนินการทันทีโดยไม่แจ้งล่วงหน้า และแจ้งเรื่องต่อเจ้าหน้าที่ บุคคลที่ถูกแบนไม่สามารถเปิดบัญชีใหม่ได้ เราจะแจ้งให้คุณทราบถึงคำตัดสินที่มีผลต่อบัญชีของคุณและเหตุผล เว้นแต่กฎหมายหรือความปลอดภัยของผู้อื่นไม่อนุญาต และคุณสามารถขอให้เราทบทวนได้โดยตอบกลับข้อความนั้น
@@ -1472,6 +1707,7 @@ RockGuide เป็นพื้นที่สำหรับพบกัน ช
 - ข้อมูลบัญชี: อีเมล รหัสผ่าน (จัดเก็บในรูปแบบแฮชที่ปลอดภัยเท่านั้น) บทบาท ชื่อ หมายเลขโทรศัพท์ และรูปภาพ
 - ข้อมูลโปรไฟล์: วันเกิด เพศ คำแนะนำตัว ภาษา ความสนใจ เวลาทำงาน ราคา และรายละเอียดอื่นที่คุณเพิ่ม อาการแพ้อาหารถือเป็นข้อมูลสุขภาพ เราประมวลผลข้อมูลนี้เฉพาะเมื่อได้รับความยินยอมโดยชัดแจ้งจากคุณ ซึ่งคุณให้ไว้เมื่อเพิ่มข้อมูล และคุณสามารถลบได้ทุกเมื่อ
 - ข้อมูลกิจกรรม: การเลือกและการจับคู่ของคุณ การจอง การชำระเงิน รีวิว และการแจ้งเตือน
+- ข้อความและตำแหน่งที่แชร์: สิ่งที่คุณเขียนถึงคู่แมตช์ และตำแหน่งใด ๆ ที่คุณเลือกแชร์ให้พวกเขา (ข้อมูลติดต่อจะถูกซ่อนโดยอัตโนมัติ) ใช้เพื่อให้บริการแชทและพิจารณาข้อร้องเรียน และบันทึกว่ามีการบล็อกหรือซ่อนความพยายามแชร์ข้อมูลติดต่อ (ไม่เก็บข้อความนั้น)
 - ข้อมูลความปลอดภัยและข้อมูลทางเทคนิค: รหัสเข้าสู่ระบบ อุปกรณ์ที่จดจำไว้ (รวมถึง user agent ของเบราว์เซอร์) ตัวระบุเซสชัน และบันทึกของเซิร์ฟเวอร์
 
 ### 9.3 วัตถุประสงค์และฐานทางกฎหมาย
@@ -1492,6 +1728,8 @@ RockGuide เป็นพื้นที่สำหรับพบกัน ช
 ### 9.6 ระยะเวลาการเก็บรักษา
 
 เราเก็บข้อมูลบัญชีและโปรไฟล์ไว้ตลอดเวลาที่บัญชีของคุณยังเปิดอยู่ หลังจากปิดบัญชี เราจะลบหรือทำให้ข้อมูลเป็นนิรนามภายใน {{retention_period}} เว้นแต่กฎหมายกำหนดให้เก็บไว้นานกว่านั้น หรือเราจำเป็นต้องใช้สำหรับเรื่องร้องเรียนที่ยังไม่ยุติ บันทึกของเซิร์ฟเวอร์เก็บไว้ 7 วัน และบันทึกการส่งอีเมลเก็บไว้ 30 วัน เซสชันจะสิ้นสุดเมื่อไม่มีการใช้งาน 5 นาที
+
+ข้อความและตำแหน่งที่แชร์จะถูกเก็บไว้ตราบที่บัญชีทั้งสองในการสนทนายังเปิดอยู่ และจะถูกลบเมื่อบัญชีใดบัญชีหนึ่งถูกลบ รายงาน (ข้อร้องเรียน) จะถูกเก็บไว้ตามระยะเวลาที่จำเป็นต่อการพิจารณาและติดตามผล
 
 ### 9.7 สิทธิของคุณ
 
@@ -1514,7 +1752,7 @@ RockGuide เป็นพื้นที่สำหรับพบกัน ช
 
 ## 2. Що робить платформа
 
-RockGuide — це місце знайомства. Платформа допомагає мандрівникам і гідам знайти одне одного, виявити взаємний інтерес і обмінятися контактами. Будь-яку екскурсію, заняття чи іншу послугу мандрівник і гід узгоджують безпосередньо між собою. Ми не є стороною цієї домовленості. Ми не наймаємо гідів і не діємо як їхні агенти, а також не організовуємо, не контролюємо й не перевіряємо послуги, які вони надають.
+RockGuide — це місце знайомства. Платформа допомагає мандрівникам і гідам знайти одне одного, виявити взаємний інтерес і спілкуватися в чаті платформи. Контактні дані не передаються. Будь-яку екскурсію, заняття чи іншу послугу мандрівник і гід узгоджують безпосередньо між собою. Ми не є стороною цієї домовленості. Ми не наймаємо гідів і не діємо як їхні агенти, а також не організовуємо, не контролюємо й не перевіряємо послуги, які вони надають.
 
 ## 3. Ми не відповідаємо за послуги та поведінку
 
@@ -1534,7 +1772,8 @@ RockGuide — це місце знайомства. Платформа допо�
 - надавати достовірні відомості, оновлювати їх і користуватися лише власним обліковим записом;
 - шанобливо ставитися до інших користувачів і нікого не переслідувати, не погрожувати, не дискримінувати, не обманювати й не наражати на небезпеку;
 - дотримуватися закону, зокрема вимог щодо ліцензій, дозволів, податків чи страхування, що стосуються послуг, які вони пропонують або отримують;
-- використовувати платформу лише для домовленостей про послуги гіда й не розміщувати неправдивих, образливих матеріалів або матеріалів, що порушують права інших осіб.
+- використовувати платформу лише для домовленостей про послуги гіда й не розміщувати неправдивих, образливих матеріалів або матеріалів, що порушують права інших осіб;
+- вести спілкування й розрахунки на платформі: не вказувати номери телефонів, email, посилання чи акаунти соцмереж у профілях, відгуках і повідомленнях і не просити та не здійснювати оплату за бронювання поза RockGuide.
 
 Гіди несуть одноосібну відповідальність за послуги, які пропонують, свої ціни та виконання прийнятих бронювань.
 
@@ -1542,15 +1781,28 @@ RockGuide — це місце знайомства. Платформа допо�
 
 Ціни пакетів вибору та вартість послуг гідів показуються до оплати. Правила скасування й повернення коштів, які застосунок показує під час бронювання, є частиною цих умов.
 
+### 5.1 Захист RockGuide
+
+Бронювання, оформлені через RockGuide (і оплачені тут, якщо гід бере плату), захищені:
+
+- Повернення коштів за правилами, показаними в застосунку: повне повернення, якщо ви відкликали бронювання до того, як гід його прийняв, або якщо гід відхилив його чи не відповів до часу зустрічі; якщо гід скасував підтверджене бронювання — повне повернення плюс 5% у разі пізнього скасування (менш ніж за 24 години до зустрічі або менш ніж за 2 години, якщо метчу менше доби); якщо ви попросили скасування і гід погодився — повернення вартості за вирахуванням 5%.
+- Допомога, якщо щось пішло не так: розглядаючи скаргу (розділ 6), ми можемо переглянути бронювання, місце зустрічі та ваше листування на платформі.
+- Чесні відгуки: залишати відгуки одне одному можуть лише ті, хто справді завершив поїздку разом.
+
+Домовленості поза платформою не захищені: якщо ви платите гіду напряму або продовжуєте спілкування деінде, ми не зможемо повернути кошти чи допомогти в спорі, а ця поїздка не враховується у відгуках, рівнях і вашому місці в результатах пошуку.
+
 ## 6. Скарги та санкції
 
 Якщо у вас виникла проблема з іншим користувачем, повідомте про неї на {{contact_email}}. Кожна скарга розглядається індивідуально, з урахуванням конкретних обставин. Ми можемо попросити обидві сторони викласти свою версію подій і надати докази.
+
+Можна також скористатися кнопкою «Поскаржитися» у профілі людини — скарга потрапить до тієї ж команди.
 
 Залежно від результату ми можемо вжити одного або кількох заходів:
 
 - попередження;
 - видалення матеріалів;
 - тимчасове блокування облікового запису;
+- зниження вашого рівня, переваг чи місця в результатах пошуку;
 - безстрокова заборона користуватися платформою.
 
 У серйозних випадках ми можемо діяти негайно й без попередження, а також повідомити про подію органи влади. Особа, якій заборонено користуватися платформою, не може відкрити новий обліковий запис. Ми повідомимо вас про рішення, що стосується вашого облікового запису, і про його причини, якщо цьому не перешкоджають закон або безпека інших людей, а ви можете попросити переглянути рішення, відповівши на це повідомлення.
@@ -1579,6 +1831,7 @@ RockGuide — це місце знайомства. Платформа допо�
 - Дані облікового запису: адреса електронної пошти, пароль (зберігається лише як захищений хеш), роль, ім''я, номер телефону та фото.
 - Дані профілю: дата народження, стать, опис, мови, інтереси, робочі години, ціни та інші відомості, які ви додаєте. Харчова алергія належить до даних про здоров''я: ми обробляємо їх лише з вашої явної згоди, яку ви надаєте, додаючи їх, і ви можете будь-коли їх видалити.
 - Дані про активність: ваші вибори та збіги, бронювання, платежі, відгуки та сповіщення.
+- Повідомлення та передані місцезнаходження: те, що ви пишете людям, з якими у вас метч, і будь-яке місцезнаходження, яким ви вирішили з ними поділитися (контактні дані приховуються автоматично), — для роботи чату й розгляду скарг; а також позначка про те, що спробу передати контактні дані було заблоковано чи приховано (без самого тексту).
 - Дані безпеки й технічні дані: коди входу, запам''ятовані пристрої (зокрема user agent браузера), ідентифікатори сеансів і журнали сервера.
 
 ### 9.3 Мета та правові підстави
@@ -1599,6 +1852,8 @@ RockGuide — це місце знайомства. Платформа допо�
 ### 9.6 Скільки ми зберігаємо дані
 
 Дані облікового запису та профілю зберігаються, поки ваш обліковий запис відкритий. Після його закриття ми видаляємо або знеособлюємо їх протягом {{retention_period}}, якщо закон не вимагає зберігати їх довше або вони не потрібні нам для розгляду відкритої скарги. Журнали сервера зберігаються 7 днів, записи про надсилання листів — 30 днів. Сеанс завершується після 5 хвилин бездіяльності.
+
+Повідомлення та передані місцезнаходження зберігаються, доки відкриті обидва акаунти учасників розмови, і видаляються з видаленням будь-якого з них. Скарги зберігаються стільки, скільки потрібно для їх розгляду та подальших дій.
 
 ### 9.7 Ваші права
 

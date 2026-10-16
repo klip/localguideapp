@@ -10,7 +10,7 @@ Hesap oluşturarak bu koşulları kabul etmiş ve en az 18 yaşında olduğunuzu
 
 ## 2. Platform ne yapar
 
-RockGuide bir buluşma noktasıdır. Ziyaretçilerin ve rehberlerin birbirini bulmasına, karşılıklı ilgi göstermesine ve iletişim bilgilerini paylaşmasına yardımcı olur. Her tur, etkinlik veya diğer hizmet doğrudan ziyaretçi ile rehber arasında kararlaştırılır. Bu anlaşmanın tarafı değiliz. Rehberleri istihdam etmeyiz, onların temsilcisi olarak hareket etmeyiz ve sundukları hizmetleri düzenlemez, denetlemez veya kontrol etmeyiz.
+RockGuide bir buluşma noktasıdır. Ziyaretçilerin ve rehberlerin birbirini bulmasına, karşılıklı ilgi göstermesine ve platformun sohbeti üzerinden konuşmasına yardımcı olur. Her tur, etkinlik veya diğer hizmet doğrudan ziyaretçi ile rehber arasında kararlaştırılır. Bu anlaşmanın tarafı değiliz. Rehberleri istihdam etmeyiz, onların temsilcisi olarak hareket etmeyiz ve sundukları hizmetleri düzenlemez, denetlemez veya kontrol etmeyiz.
 
 ## 3. Hizmetler veya davranışlar için sorumluluk kabul edilmez
 
@@ -30,7 +30,8 @@ Ziyaretçiler ve rehberler eşit şekilde şunları kabul eder:
 - doğru bilgi vermek, bilgileri güncel tutmak ve yalnızca kendi hesabını kullanmak;
 - diğer kullanıcılara saygılı davranmak; kimseyi taciz etmemek, tehdit etmemek, ayrımcılığa uğratmamak, aldatmamak veya tehlikeye atmamak;
 - sundukları veya kullandıkları hizmetler için geçerli lisans, izin, vergi ve sigorta gereklilikleri dahil olmak üzere yasalara uymak;
-- platformu yalnızca rehberlik hizmetleri ayarlamak için kullanmak ve yanlış, saldırgan veya başkalarının haklarını ihlal eden içerik paylaşmamak.
+- platformu yalnızca rehberlik hizmetleri ayarlamak için kullanmak ve yanlış, saldırgan veya başkalarının haklarını ihlal eden içerik paylaşmamak;
+- iletişimi ve ödemeyi platformda tutmak: profillere, değerlendirmelere veya mesajlara telefon numarası, e-posta adresi, bağlantı ya da sosyal medya kullanıcı adı yazmamak ve bir rezervasyonun ödemesini RockGuide dışında istememek veya yapmamak.
 
 Rehberler sundukları hizmetlerden, fiyatlarından ve kabul ettikleri rezervasyonları yerine getirmekten tek başına sorumludur.
 
@@ -38,15 +39,28 @@ Rehberler sundukları hizmetlerden, fiyatlarından ve kabul ettikleri rezervasyo
 
 Seçim paketlerinin fiyatları ve rehber ücretleri ödeme öncesinde gösterilir. Rezervasyon sırasında uygulamada gösterilen iptal ve iade kuralları bu koşulların bir parçasıdır.
 
+### 5.1 RockGuide Koruması
+
+RockGuide üzerinden yapılan (ve rehber ücret alıyorsa burada ödenen) rezervasyonlar korunur:
+
+- Uygulamada gösterilen kurallara göre iade: Rehber kabul etmeden önce rezervasyonu geri çekerseniz veya rehber reddeder ya da buluşma saatinden önce yanıt vermezse tam iade alırsınız; rehber onaylanmış bir rezervasyonu iptal ederse tam iade, geç iptalde (buluşmaya 24 saatten az kala; eşleşmeniz bir günden yeniyse 2 saatten az kala) ek olarak %5 alırsınız; iptal talep ettiğinizde rehber kabul ederse ücretin %5 eksiği iade edilir.
+- Bir sorun olduğunda yardım: Bir şikâyeti (bölüm 6) incelerken rezervasyona, buluşma noktasına ve platformdaki mesajlarınıza bakabiliriz.
+- Dürüst değerlendirmeler: Yalnızca birlikte gerçekten bir turu tamamlayanlar birbirini değerlendirebilir.
+
+Platform dışında yapılan düzenlemeler korunmaz: Rehbere doğrudan ödeme yaparsanız veya konuşmayı başka bir yerde sürdürürseniz, iade yapamaz veya anlaşmazlıkta yardımcı olamayız; o tur değerlendirmelere, seviyelere ve arama sonuçlarındaki sıranıza da sayılmaz.
+
 ## 6. Şikâyetler ve yaptırımlar
 
 Başka bir kullanıcıyla sorun yaşarsanız {{contact_email}} adresine bildirin. Her şikâyet, kendi olgularına göre bireysel olarak ele alınır. Her iki taraftan olayları anlatmalarını ve kanıt sunmalarını isteyebiliriz.
+
+Kişinin profilindeki Bildir düğmesini de kullanabilirsiniz; aynı ekibe ulaşır.
 
 Sonuca bağlı olarak aşağıdaki önlemlerden birini veya birkaçını alabiliriz:
 
 - uyarı;
 - içeriğin kaldırılması;
 - hesabın geçici olarak askıya alınması;
+- seviyenizin, avantajlarınızın veya arama sonuçlarındaki sıranızın düşürülmesi;
 - kişinin platformdan kalıcı olarak uzaklaştırılması.
 
 Ciddi durumlarda derhal ve önceden bildirimde bulunmadan harekete geçebilir ve durumu yetkililere bildirebiliriz. Platformdan uzaklaştırılan bir kişi yeni hesap açamaz. Yasalar veya başkalarının güvenliği engel olmadıkça, hesabınızı etkileyen kararı ve gerekçesini size bildiririz; bu mesajı yanıtlayarak kararın yeniden incelenmesini isteyebilirsiniz.
@@ -75,6 +89,7 @@ Bu koşulları güncelleyebiliriz. Bir değişiklik önemliyse bunu size uygulam
 - Hesap verileri: e-posta adresi, şifre (yalnızca güvenli bir özet olarak saklanır), rol, ad, telefon numarası ve fotoğraf.
 - Profil verileri: doğum tarihi, cinsiyet, tanıtım yazısı, diller, ilgi alanları, çalışma saatleri, fiyatlar ve eklediğiniz diğer bilgiler. Gıda alerjileri sağlık verisidir: bunları yalnızca ekleyerek verdiğiniz açık rızanızla işleriz ve istediğiniz zaman kaldırabilirsiniz.
 - Etkinlik verileri: seçimleriniz ve eşleşmeleriniz, rezervasyonlar, ödemeler, yorumlar ve bildirimler.
+- Mesajlar ve paylaşılan konumlar: eşleştiğiniz kişilere yazdıklarınız ve onlarla paylaşmayı seçtiğiniz konumlar (iletişim bilgileri otomatik olarak gizlenir); sohbeti sunmak ve şikâyetleri incelemek için kullanılır; ayrıca iletişim bilgisi paylaşma girişiminin engellendiğine veya gizlendiğine dair bir kayıt (metni asla saklanmaz).
 - Güvenlik ve teknik veriler: giriş kodları, hatırlanan cihazlar (tarayıcının kullanıcı aracısı dahil), oturum tanımlayıcıları ve sunucu kayıtları.
 
 ### 9.3 Neden kullanıyoruz ve hukuki dayanak
@@ -95,6 +110,8 @@ Veriler AEA veya Birleşik Krallık dışına aktarıldığında bir yeterlilik 
 ### 9.6 Ne kadar süre saklıyoruz
 
 Hesap ve profil verilerini hesabınız açık olduğu sürece saklarız. Hesap kapatıldıktan sonra, yasa daha uzun süre saklamamızı gerektirmedikçe veya açık bir şikâyet için ihtiyaç duymadıkça, bu verileri {{retention_period}} içinde siler veya anonim hâle getiririz. Sunucu kayıtları 7 gün, e-posta gönderim kayıtları 30 gün saklanır. Oturumlar 5 dakika işlem yapılmadığında sona erer.
+
+Mesajlar ve paylaşılan konumlar, konuşmadaki iki hesap da açık olduğu sürece saklanır ve hesaplardan biri silindiğinde silinir. Bildirimler (şikâyetler) işlenmeleri ve takipleri için gereken süre boyunca saklanır.
 
 ### 9.7 Haklarınız
 

@@ -10,7 +10,7 @@ Mit der Erstellung eines Kontos akzeptierst du diese Bedingungen und bestätigst
 
 ## 2. Was die Plattform tut
 
-RockGuide ist ein Treffpunkt. Die Plattform hilft Besuchern und Guides, einander zu finden, gegenseitiges Interesse zu zeigen und Kontaktdaten auszutauschen. Jede Führung, Aktivität oder sonstige Leistung wird direkt zwischen Besucher und Guide vereinbart. Wir sind nicht Partei dieser Vereinbarung. Wir beschäftigen keine Guides, handeln nicht als ihre Vertreter und organisieren, beaufsichtigen oder prüfen die von ihnen erbrachten Leistungen nicht.
+RockGuide ist ein Treffpunkt. Die Plattform hilft Besuchern und Guides, einander zu finden, gegenseitiges Interesse zu zeigen und sich über den Chat der Plattform auszutauschen. Kontaktdaten werden nicht geteilt. Jede Führung, Aktivität oder sonstige Leistung wird direkt zwischen Besucher und Guide vereinbart. Wir sind nicht Partei dieser Vereinbarung. Wir beschäftigen keine Guides, handeln nicht als ihre Vertreter und organisieren, beaufsichtigen oder prüfen die von ihnen erbrachten Leistungen nicht.
 
 ## 3. Keine Verantwortung für Leistungen oder Verhalten
 
@@ -30,7 +30,8 @@ Besucher und Guides verpflichten sich gleichermaßen,
 - zutreffende Angaben zu machen, sie aktuell zu halten und nur ihr eigenes Konto zu nutzen;
 - andere Nutzer respektvoll zu behandeln und niemanden zu belästigen, zu bedrohen, zu diskriminieren, zu täuschen oder zu gefährden;
 - die Gesetze einzuhalten, einschließlich aller Lizenz-, Genehmigungs-, Steuer- oder Versicherungspflichten, die für die angebotenen oder genutzten Leistungen gelten;
-- die Plattform nur zur Vereinbarung von Guide-Leistungen zu nutzen und keine Inhalte zu veröffentlichen, die falsch oder beleidigend sind oder Rechte Dritter verletzen.
+- die Plattform nur zur Vereinbarung von Guide-Leistungen zu nutzen und keine Inhalte zu veröffentlichen, die falsch oder beleidigend sind oder Rechte Dritter verletzen;
+- Kontakt und Zahlung auf der Plattform halten: keine Telefonnummern, E-Mail-Adressen, Links oder Social-Media-Namen in Profile, Bewertungen oder Nachrichten schreiben und die Zahlung für eine Buchung nicht außerhalb von RockGuide verlangen oder leisten.
 
 Guides sind allein verantwortlich für die angebotenen Leistungen, ihre Preise und die Einhaltung der Buchungen, die sie annehmen.
 
@@ -38,15 +39,28 @@ Guides sind allein verantwortlich für die angebotenen Leistungen, ihre Preise u
 
 Die Preise für Auswahlpakete und die Gebühren der Guides werden vor der Zahlung angezeigt. Die Stornierungs- und Erstattungsregeln, die die App bei der Buchung anzeigt, sind Bestandteil dieser Bedingungen.
 
+### 5.1 RockGuide-Schutz
+
+Über RockGuide gebuchte Touren (und hier bezahlte, wenn der Guide eine Gebühr verlangt) sind geschützt:
+
+- Erstattungen nach den in der App angezeigten Regeln: Du erhältst den vollen Betrag zurück, wenn du deine Buchung zurückziehst, bevor der Guide annimmt, oder wenn der Guide ablehnt oder vor dem vereinbarten Termin nicht antwortet; storniert der Guide eine bestätigte Buchung, erhältst du den vollen Betrag zurück, bei später Stornierung zuzüglich 5 % (weniger als 24 Stunden vor dem Termin oder weniger als 2 Stunden, wenn euer Match weniger als einen Tag alt ist); bittest du um Stornierung und der Guide stimmt zu, erhältst du die Gebühr abzüglich 5 % zurück.
+- Hilfe, wenn etwas schiefgeht: Bei einer Beschwerde (Abschnitt 6) können wir die Buchung, ihren Treffpunkt und eure Nachrichten auf der Plattform einsehen.
+- Ehrliche Bewertungen: Nur wer tatsächlich eine Tour gemeinsam beendet hat, kann sich gegenseitig bewerten.
+
+Absprachen außerhalb der Plattform sind nicht geschützt: Wenn du einen Guide direkt bezahlst oder das Gespräch woanders weiterführst, können wir weder erstatten noch bei einem Streit helfen, und diese Tour zählt nicht für Bewertungen, Level oder deine Position in den Suchergebnissen.
+
 ## 6. Beschwerden und Sanktionen
 
 Wenn du ein Problem mit einem anderen Nutzer hast, melde es an {{contact_email}}. Jede Beschwerde wird einzeln und anhand ihres konkreten Sachverhalts behandelt. Wir können beide Seiten um ihre Darstellung der Ereignisse und um Belege bitten.
+
+Du kannst auch die Schaltfläche „Melden“ im Profil der Person nutzen; sie erreicht dasselbe Team.
 
 Je nach Ergebnis können wir eine oder mehrere der folgenden Maßnahmen ergreifen:
 
 - eine Verwarnung;
 - das Entfernen von Inhalten;
 - die vorübergehende Sperrung des Kontos;
+- Herabsetzung deines Levels, deiner Vorteile oder deiner Position in den Suchergebnissen;
 - den dauerhaften Ausschluss der Person von der Plattform.
 
 In schweren Fällen können wir sofort und ohne Vorankündigung handeln und den Vorfall den Behörden melden. Eine ausgeschlossene Person darf kein neues Konto eröffnen. Wir informieren dich über jede Entscheidung, die dein Konto betrifft, und über die Gründe, sofern nicht das Gesetz oder die Sicherheit anderer dem entgegensteht, und du kannst eine Überprüfung verlangen, indem du auf diese Nachricht antwortest.
@@ -75,6 +89,7 @@ Wir können diese Bedingungen aktualisieren. Ist eine Änderung wesentlich, info
 - Kontodaten: E-Mail-Adresse, Passwort (nur als sicherer Hash gespeichert), Rolle, Name, Telefonnummer und Foto.
 - Profildaten: Geburtsdatum, Geschlecht, Beschreibung, Sprachen, Interessen, Arbeitszeiten, Preise und alle weiteren Angaben, die du hinzufügst. Lebensmittelallergien sind Gesundheitsdaten: Wir verarbeiten sie nur mit deiner ausdrücklichen Einwilligung, die du durch das Hinzufügen erteilst, und du kannst sie jederzeit entfernen.
 - Aktivitätsdaten: deine Auswahlen und Matches, Buchungen, Zahlungen, Bewertungen und Benachrichtigungen.
+- Nachrichten und geteilte Standorte: was du den Personen schreibst, mit denen du ein Match hast, und jeder Standort, den du mit ihnen teilst (Kontaktdaten werden automatisch ausgeblendet), genutzt für den Chat und zur Bearbeitung von Beschwerden; außerdem ein Vermerk, dass ein Versuch, Kontaktdaten zu teilen, blockiert oder ausgeblendet wurde (nie dessen Text).
 - Sicherheits- und technische Daten: Anmeldecodes, gemerkte Geräte (einschließlich des User-Agents des Browsers), Sitzungskennungen und Serverprotokolle.
 
 ### 9.3 Zwecke und Rechtsgrundlagen
@@ -95,6 +110,8 @@ Werden Daten außerhalb des EWR oder des Vereinigten Königreichs übermittelt, 
 ### 9.6 Wie lange wir Daten speichern
 
 Konto- und Profildaten speichern wir, solange dein Konto besteht. Nach der Schließung löschen oder anonymisieren wir sie innerhalb von {{retention_period}}, sofern uns das Gesetz nicht zu längerer Aufbewahrung verpflichtet oder wir sie für eine offene Beschwerde benötigen. Serverprotokolle werden 7 Tage und E-Mail-Zustellprotokolle 30 Tage aufbewahrt. Sitzungen enden nach 5 Minuten Inaktivität.
+
+Nachrichten und geteilte Standorte werden gespeichert, solange beide Konten des Gesprächs bestehen, und gelöscht, sobald eines davon gelöscht wird. Meldungen (Beschwerden) werden so lange aufbewahrt, wie es für ihre Bearbeitung und Nachverfolgung nötig ist.
 
 ### 9.7 Deine Rechte
 

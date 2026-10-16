@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import PillBadge from '@/components/PillBadge.vue'
+import ProtectedNotice from '@/components/ProtectedNotice.vue'
 import { t } from '@/i18n'
 import { useApi, type BookingOp, type BookingView } from '@/plugins/api'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
@@ -511,6 +512,7 @@ function guideCancel() {
           })
         }}
       </p>
+      <ProtectedNotice kind="fee" />
       <div class="form-actions">
         <button type="submit" class="accept" :aria-busy="busy" :disabled="busy">
           {{ t('common.booking_panel.confirm_payment') }}

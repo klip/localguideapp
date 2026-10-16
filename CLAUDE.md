@@ -302,6 +302,8 @@ own — every one just takes props/emits):
   cards" below for why it only ever renders on `ProfilePage.vue`).
 - `FeatureCard.vue` — a numbered explainer tile, `HomePage.vue`'s "how it
   works" row only.
+- `ProtectedNotice.vue` — "Protected by RockGuide" before every payment
+  (see "Terms and conditions"); opens the terms at 5.1.
 - `PriceBox.vue` — the warm-gradient £5 price panel; full-width on
   `HomePage.vue`, `compact` on `UnlockPage.vue`.
 - `PhonePreview.vue` — the hero phone-mock device on `HomePage.vue`;
@@ -542,6 +544,21 @@ failed registration closes it, toasts as before, and drops the cached terms.
   into a real consent choice** (nothing set before yes, Reject as easy as
   Accept, the answer kept) and bumping `NOTICE_VERSION`, which re-shows it
   (`rockguide.cookieNotice` holds the acknowledged version).
+- **Protected by RockGuide** (section 5.1, all 15 languages): what paying
+  through the platform covers (the refund rules, help with a dispute, real
+  reviews) and that arrangements or payments outside it aren't covered.
+  Also in the text since 2026-10-16: section 2 says contact details aren't
+  shared (chat instead); section 4 obliges users to keep contact and payment
+  on the platform; section 6 names the Report button and "lowering your
+  level, benefits or place in search results" as a measure; 9.2/9.6 cover
+  messages, shared locations and complaints. These were amended **in place**
+  in the 2026-10-15 version, which hadn't shipped; once real users have
+  accepted a version, changes need a new version folder instead. The
+  Markdown subset has no bold — don't use `**`.
+- **`ProtectedNotice.vue`** sits right before every payment — `UnlockPage`
+  and Discover's payment modal (`kind="pack"`), `BookingPanel`'s pay form
+  (`kind="fee"`) — and its "How it works" opens the terms at 5.1
+  (`stores/legal.ts`'s `showTerms('5.1')`).
 - **Not done yet**: existing accounts never accepted anything (no re-accept
   prompt).
 
@@ -2070,7 +2087,9 @@ API service (`api/classes/`):
   `legal_placeholders` (seeded with labels, no values),
   `user_legal_acceptances`. Applied 2026-10-15. Re-runnable.
 - `api/sql/025_terms_2026_10_15.sql` — the terms in 15 languages, generated
-  by `api/bin/build-legal-sql.php`. Applied 2026-10-15. Re-runnable (upserts).
+  by `api/bin/build-legal-sql.php`. Applied 2026-10-15; regenerated and
+  re-applied 2026-10-16 (section 5.1 and the no-contacts wording).
+  Re-runnable (upserts).
 - `api/sql/027_translations_legal_links.sql` — footer links, cookie notice,
   `common.terms_dialog.*` (moved from `register.terms.*`); drops the old
   footer tagline. Applied 2026-10-15. Re-runnable.
@@ -2116,6 +2135,8 @@ API service (`api/classes/`):
   2026-10-15. Re-runnable.
 - `api/sql/039_translations_no_contacts.sql` — copy reworded for "no
   contact details, chat instead", the report form's intro and counter.
+  Applied 2026-10-16. Re-runnable.
+- `api/sql/040_translations_protected_notice.sql` — `common.protected_notice.*`.
   Applied 2026-10-16. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.

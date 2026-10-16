@@ -8,6 +8,7 @@ import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import PriceBox from '@/components/PriceBox.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
+import ProtectedNotice from '@/components/ProtectedNotice.vue'
 import SelectionCounter from '@/components/SelectionCounter.vue'
 import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
 import { t, tn } from '@/i18n'
@@ -411,6 +412,7 @@ function reject(id: string) {
             <PillBadge>{{ t('discover.pay_modal.picks', { count: PACK_SIZE }) }}</PillBadge>
           </div>
         </PriceBox>
+        <ProtectedNotice kind="pack" />
         <button
           type="button"
           class="full pay"

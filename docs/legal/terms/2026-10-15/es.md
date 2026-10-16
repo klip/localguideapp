@@ -10,7 +10,7 @@ Al crear una cuenta aceptas estos términos y confirmas que tienes al menos 18 a
 
 ## 2. Qué hace la plataforma
 
-RockGuide es un punto de encuentro. Ayuda a visitantes y guías a encontrarse, mostrar interés mutuo e intercambiar datos de contacto. Cualquier visita, actividad u otro servicio se acuerda directamente entre el visitante y el guía. No somos parte de ese acuerdo. No empleamos a los guías ni actuamos como sus agentes, y no organizamos, supervisamos ni comprobamos los servicios que prestan.
+RockGuide es un punto de encuentro. Ayuda a visitantes y guías a encontrarse, mostrar interés mutuo y hablar a través del chat de la plataforma. No se comparten datos de contacto. Cualquier visita, actividad u otro servicio se acuerda directamente entre el visitante y el guía. No somos parte de ese acuerdo. No empleamos a los guías ni actuamos como sus agentes, y no organizamos, supervisamos ni comprobamos los servicios que prestan.
 
 ## 3. Sin responsabilidad por los servicios ni por el comportamiento
 
@@ -30,7 +30,8 @@ Tanto visitantes como guías se comprometen a:
 - facilitar información veraz, mantenerla actualizada y usar únicamente su propia cuenta;
 - tratar a los demás usuarios con respeto y no acosar, amenazar, discriminar, engañar ni poner en peligro a nadie;
 - cumplir la ley, incluidos los requisitos de licencias, permisos, impuestos o seguros aplicables a los servicios que ofrecen o utilizan;
-- usar la plataforma solo para concertar servicios de guía y no publicar contenido falso, ofensivo o que vulnere derechos de terceros.
+- usar la plataforma solo para concertar servicios de guía y no publicar contenido falso, ofensivo o que vulnere derechos de terceros;
+- mantener el contacto y el pago en la plataforma: no incluir números de teléfono, correos electrónicos, enlaces ni usuarios de redes sociales en perfiles, reseñas o mensajes, y no pedir ni hacer el pago de una reserva fuera de RockGuide.
 
 Los guías son los únicos responsables de los servicios que ofrecen, de sus precios y de cumplir las reservas que aceptan.
 
@@ -38,15 +39,28 @@ Los guías son los únicos responsables de los servicios que ofrecen, de sus pre
 
 Los precios de los paquetes de selecciones y las tarifas de los guías se muestran antes de pagar. Las normas de cancelación y reembolso que muestra la aplicación al reservar forman parte de estos términos.
 
+### 5.1 Protección RockGuide
+
+Las reservas hechas a través de RockGuide (y pagadas aquí, cuando el guía cobra una tarifa) están protegidas:
+
+- Reembolsos según las reglas mostradas en la app: se te reembolsa todo si retiras la reserva antes de que el guía la acepte, o si el guía la rechaza o no responde antes de la hora del encuentro; si el guía cancela una reserva confirmada, se te reembolsa todo, más un 5 % si cancela tarde (menos de 24 horas antes del encuentro, o menos de 2 horas si hicisteis match hace menos de un día); si pides cancelar y el guía acepta, se te reembolsa la tarifa menos un 5 %.
+- Ayuda cuando algo sale mal: al tratar una queja (sección 6) podemos revisar la reserva, su punto de encuentro y vuestros mensajes en la plataforma.
+- Reseñas honestas: solo quienes han terminado un viaje juntos pueden valorarse.
+
+Lo que se acuerde fuera de la plataforma no está protegido: si pagas directamente a un guía o la conversación sigue en otro sitio, no podemos reembolsarte ni ayudarte con una disputa, y ese viaje no cuenta para reseñas, niveles ni tu posición en los resultados.
+
 ## 6. Quejas y sanciones
 
 Si tienes un problema con otro usuario, comunícalo a {{contact_email}}. Cada queja se trata de forma individual, según sus propios hechos. Podemos pedir a ambas partes su versión de lo ocurrido y cualquier prueba.
+
+También puedes usar el botón Denunciar del perfil de esa persona, que llega al mismo equipo.
 
 Según el resultado, podemos adoptar una o varias de estas medidas:
 
 - una advertencia;
 - la retirada de contenido;
 - la suspensión temporal de la cuenta;
+- bajar tu nivel, tus ventajas o tu posición en los resultados de búsqueda;
 - la expulsión permanente de la persona de la plataforma.
 
 En casos graves podemos actuar de inmediato y sin previo aviso, y comunicar el asunto a las autoridades. Una persona expulsada no puede abrir una cuenta nueva. Te informaremos de cualquier decisión que afecte a tu cuenta y de sus motivos, salvo que la ley o la seguridad de otras personas lo impidan, y podrás pedirnos que la revisemos respondiendo a ese mensaje.
@@ -75,6 +89,7 @@ Podemos actualizar estos términos. Si un cambio es importante, te lo comunicare
 - Datos de la cuenta: dirección de correo electrónico, contraseña (guardada solo como hash seguro), rol, nombre, número de teléfono y foto.
 - Datos del perfil: fecha de nacimiento, género, descripción, idiomas, intereses, horario de trabajo, precios y cualquier otro dato que añadas. Las alergias alimentarias se consideran datos de salud: solo las tratamos con tu consentimiento explícito, que das al añadirlas, y puedes eliminarlas en cualquier momento.
 - Datos de actividad: tus elecciones y coincidencias, reservas, pagos, reseñas y notificaciones.
+- Mensajes y ubicaciones compartidas: lo que escribes a las personas con las que tienes match y cualquier ubicación que decidas compartir con ellas (los datos de contacto se ocultan automáticamente), que usamos para ofrecer el chat y tramitar quejas; y el registro de que se bloqueó u ocultó un intento de compartir datos de contacto (nunca su texto).
 - Datos técnicos y de seguridad: códigos de inicio de sesión, dispositivos recordados (incluido el agente de usuario del navegador), identificadores de sesión y registros del servidor.
 
 ### 9.3 Para qué los usamos y base jurídica
@@ -95,6 +110,8 @@ Cuando se transfieren datos fuera del EEE o del Reino Unido, nos basamos en una 
 ### 9.6 Durante cuánto tiempo los conservamos
 
 Conservamos los datos de la cuenta y del perfil mientras tu cuenta está abierta. Tras su cierre, los eliminamos o anonimizamos en un plazo de {{retention_period}}, salvo que la ley nos obligue a conservarlos más tiempo o los necesitemos para una queja abierta. Los registros del servidor se conservan 7 días y los registros de envío de correo, 30 días. Las sesiones finalizan tras 5 minutos de inactividad.
+
+Los mensajes y las ubicaciones compartidas se conservan mientras las dos cuentas de la conversación sigan abiertas y se eliminan cuando se elimina cualquiera de ellas. Las denuncias (quejas) se conservan el tiempo necesario para tramitarlas y su seguimiento.
 
 ### 9.7 Tus derechos
 
