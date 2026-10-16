@@ -10,6 +10,7 @@ import { useApi, type TripPhase, type TripRow } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useMatchesStore } from '@/stores/matches'
 import { formatHours, formatMoney, formatWhen, utcDate } from '@/utils/bookingTime'
+import { percent } from '@/utils/levels'
 import { reportApiError } from '@/utils/reportApiError'
 
 /**
@@ -113,9 +114,18 @@ function durationLabel(trip: TripRow) {
 
 function priceLabel(trip: TripRow) {
   if (trip.payment_status === 'none') return t('trips.card.free')
-  const paid = t(isGuest.value ? 'trips.card.price_paid' : 'trips.card.price_fee', {
-    amount: formatMoney(trip.booking_amount),
-  })
+  const paid =
+    !isGuest.value && trip.payment_status === 'paid' && trip.guide_payout != null && trip.commission_rate != null
+      ? trip.commission_rate === 0
+        ? t('trips.card.price_fee_no_fee', { amount: formatMoney(trip.booking_amount) })
+        : t('trips.card.price_fee_payout', {
+            amount: formatMoney(trip.booking_amount),
+            payout: formatMoney(trip.guide_payout),
+            rate: percent(trip.commission_rate),
+          })
+      : t(isGuest.value ? 'trips.card.price_paid' : 'trips.card.price_fee', {
+          amount: formatMoney(trip.booking_amount),
+        })
   return trip.payment_status === 'refunded'
     ? t('trips.card.price_refunded', { price: paid, refund: formatMoney(trip.refund_amount) })
     : paid

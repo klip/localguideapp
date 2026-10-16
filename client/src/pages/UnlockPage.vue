@@ -11,7 +11,7 @@ import { t } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
-import { PACK_SIZE, useMatchesStore } from '@/stores/matches'
+import { useMatchesStore } from '@/stores/matches'
 import { reportApiError } from '@/utils/reportApiError'
 
 const router = useRouter()
@@ -19,7 +19,7 @@ const api = useApi()
 const auth = useAuthStore()
 const messages = useMessagesStore()
 const matchesStore = useMatchesStore()
-const { hasAccess, capacity } = storeToRefs(matchesStore)
+const { hasAccess, capacity, packSize } = storeToRefs(matchesStore)
 
 const paying = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
@@ -55,14 +55,14 @@ async function pay() {
     <SectionTitle
       :eyebrow="t('unlock.header.eyebrow')"
       :heading="t('unlock.header.heading')"
-      :lead="t('unlock.header.lead', { count: PACK_SIZE })"
+      :lead="t('unlock.header.lead', { count: packSize })"
     />
 
     <div ref="panelRef">
       <PanelCard
         class="narrow"
         :title="t('unlock.panel.title')"
-        :subtitle="t('unlock.panel.subtitle', { count: PACK_SIZE })"
+        :subtitle="t('unlock.panel.subtitle', { count: packSize })"
       >
         <PriceBox compact>
           <div class="price-head">
@@ -70,7 +70,7 @@ async function pay() {
               <span class="tiny muted">{{ t('unlock.price.one_time_fee') }}</span>
               <div class="price">£5</div>
             </div>
-            <PillBadge>{{ t('unlock.price.picks', { count: PACK_SIZE }) }}</PillBadge>
+            <PillBadge>{{ t('unlock.price.picks', { count: packSize }) }}</PillBadge>
           </div>
         </PriceBox>
 
@@ -81,7 +81,7 @@ async function pay() {
         </button>
 
         <p class="tiny muted">
-          {{ t('unlock.panel.top_up_note', { count: PACK_SIZE }) }}
+          {{ t('unlock.panel.top_up_note', { count: packSize }) }}
         </p>
 
         <p v-if="hasAccess" class="tiny">

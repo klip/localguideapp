@@ -13,16 +13,15 @@
  *     plus the real ones — so one 5★ review can't beat a
  *     long record: (average − 3) × 15                       −30 … +30
  *     (no reviews yet: +15)
- *   finished trips (as guest or guide): 5 × log2(1 + n),
- *     capped at 25 — 1 trip +5, 3 trips +10, 7 trips +15     0 … +25
+ *   level (`Levels`: from finished trips, minus any active
+ *     sanction): 5 × level — Starter +5 … Icon +35         0 … +35
  *   a photo +5, a bio +5                                     0 … +10
  *
  * The score itself never leaves the server (so nobody tunes their profile to
  * a number); the client gets the facts behind it as badges:
- * `verified`, `top_rated` (≥ 5 reviews averaging ≥ 4.6) and
- * `trips_completed`.
- *
- * Levels and sanctions (step 7) add to this.
+ * `verified`, `top_rated` (≥ 5 reviews averaging ≥ 4.6), `level` and
+ * `trips_completed`. A sanction lowers the level, and so the place in the
+ * deck too.
  */
 final class Ranking
 {
@@ -34,22 +33,25 @@ final class Ranking
     private const NEW_BOOST_DAYS = 21;
 
     /**
-     * Finished trips per user, as guest or guide — counting each *other
-     * person* once, so the same pair matching, finishing a free trip and
-     * unmatching over and over earns nothing. Joined as `ts`. `$userId`
+     * Qualifying trips per user, as guest or guide — paid or with a verified
+     * person, counting each *other person* once, so neither a pair repeating
+     * free trips nor a ring of sock puppets earns anything. Joined as `ts`. `$userId`
      * narrows it to one person (a profile page) instead of everyone.
      */
     public static function tripsJoin(?int $userId = null): string
     {
-        $only = static fn(string $column): string => $userId ? ' AND `' . $column . '` = ' . $userId : '';
+        $only = static fn(string $column): string => $userId ? ' AND b.`' . $column . '` = ' . $userId : '';
 
+        // Qualifying trips only (`Levels::QUALIFYING_TRIP`): paid, or with a verified person.
         return 'LEFT JOIN (
                 SELECT `uid`, COUNT(DISTINCT `other`) AS `trips_completed` FROM (
-                    SELECT `guest_id` AS `uid`, `guide_id` AS `other` FROM `bookings`
-                    WHERE `status` = "confirmed" AND `trip_status` = "finished"' . $only('guest_id') . '
+                    SELECT b.`guest_id` AS `uid`, b.`guide_id` AS `other` FROM `bookings` b
+                    JOIN `users` o ON o.`id` = b.`guide_id`
+                    WHERE ' . Levels::QUALIFYING_TRIP . $only('guest_id') . '
                     UNION ALL
-                    SELECT `guide_id` AS `uid`, `guest_id` AS `other` FROM `bookings`
-                    WHERE `status` = "confirmed" AND `trip_status` = "finished"' . $only('guide_id') . '
+                    SELECT b.`guide_id` AS `uid`, b.`guest_id` AS `other` FROM `bookings` b
+                    JOIN `users` o ON o.`id` = b.`guest_id`
+                    WHERE ' . Levels::QUALIFYING_TRIP . $only('guide_id') . '
                 ) t GROUP BY `uid`
              ) ts ON ts.`uid` = u.`id`';
     }
@@ -74,13 +76,14 @@ final class Ranking
     /**
      * Columns for the query's SELECT: the badges, and `rank_score` for
      * ORDER BY (dropped before the row is returned — see `castRow()`).
-     * Needs `u` (users), `p` (user_profiles), `rr` (`reviewsJoin()`) and `ts`
-     * (`tripsJoin()`).
+     * Needs `u` (users), `p` (user_profiles), `rr` (`reviewsJoin()`), `ts`
+     * (`tripsJoin()`) and `sx` (`Levels::sanctionsJoin()`).
      */
     public static function columns(): string
     {
         return 'u.`verified_at` IS NOT NULL AS `verified`,
                 COALESCE(ts.`trips_completed`, 0) AS `trips_completed`,
+                ' . Levels::effectiveLevelSql() . ' AS `level`,
                 (COALESCE(rr.`authors`, 0) >= 5 AND rr.`author_sum` / rr.`authors` >= 4.6) AS `top_rated`,
                 ' . self::scoreSql() . ' AS `rank_score`';
     }
@@ -94,7 +97,7 @@ final class Ranking
         return '(
             IF(u.`verified_at` IS NULL, 0, 30)
             + ((' . $prior . ' + COALESCE(rr.`author_sum`, 0)) / (' . self::PRIOR_REVIEWS . ' + COALESCE(rr.`authors`, 0)) - 3) * 15
-            + LEAST(25, 5 * LOG2(1 + COALESCE(ts.`trips_completed`, 0)))
+            + 5 * ' . Levels::effectiveLevelSql() . '
             + IF(u.`image` IS NULL OR u.`image` = "", 0, 5)
             + IF(p.`bio` IS NULL OR p.`bio` = "", 0, 5)
             + GREATEST(0, ' . self::NEW_BOOST . ' * (1 - TIMESTAMPDIFF(HOUR, u.`created_at`, UTC_TIMESTAMP()) / (' . self::NEW_BOOST_DAYS . ' * 24)))
@@ -107,6 +110,7 @@ final class Ranking
         $row['verified'] = (bool) (int) $row['verified'];
         $row['top_rated'] = (bool) (int) ($row['top_rated'] ?? 0);
         $row['trips_completed'] = (int) $row['trips_completed'];
+        $row['level'] = (int) $row['level'];
         unset($row['rank_score']);
 
         return $row;

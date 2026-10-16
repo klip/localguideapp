@@ -17,7 +17,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCategoriesStore } from '@/stores/categories'
 import { useFiltersStore } from '@/stores/filters'
 import { useGuidesStore } from '@/stores/guides'
-import { PACK_SIZE, useMatchesStore } from '@/stores/matches'
+import { useMatchesStore } from '@/stores/matches'
 import { debounce } from '@/utils/debounce'
 import { addPendingReject } from '@/utils/pendingRejects'
 import { formatRating } from '@/utils/reviews'
@@ -47,7 +47,8 @@ watch(isDesktop, (desktop) => {
 function onFiltersToggle(event: Event) {
   filtersOpen.value = (event.target as HTMLDetailsElement).open
 }
-const { hasAccess, picks, capacity, selectionsLeft, canPick } = storeToRefs(matchesStore)
+const { hasAccess, picks, picksUsed, capacity, selectionsLeft, canPick, packSize, freePicksActive, freePicksUntil } =
+  storeToRefs(matchesStore)
 const { items: guides, loading: guidesLoading } = storeToRefs(guidesStore)
 
 /**
@@ -114,11 +115,22 @@ watch(
   { immediate: true },
 )
 
-const counterHeadline = computed(() =>
-  selectionsLeft.value > 0
+const freePicksUntilLabel = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+const counterHeadline = computed(() => {
+  if (freePicksActive.value && freePicksUntil.value) {
+    return t('discover.counter.free_picks_until', {
+      date: freePicksUntilLabel.format(new Date(freePicksUntil.value)),
+    })
+  }
+  return selectionsLeft.value > 0
     ? tn('discover.counter.selections_left', selectionsLeft.value)
-    : t('discover.counter.no_selections_left'),
-)
+    : t('discover.counter.no_selections_left')
+})
 
 /**
  * Persists the decision server-side (see `Selections::decide()`) in the
@@ -234,8 +246,9 @@ function reject(id: string) {
               <strong>{{ t('discover.deck.title') }}</strong>
               <div class="tiny muted">{{ t('discover.deck.subtitle') }}</div>
             </div>
-            <PillBadge v-if="hasAccess">{{
-              t('discover.deck.picked', { picked: picks.length, capacity })
+            <PillBadge v-if="freePicksActive" data-test="free-picks">{{ t('discover.deck.free_picks') }}</PillBadge>
+            <PillBadge v-else-if="hasAccess">{{
+              t('discover.deck.picked', { picked: picksUsed, capacity })
             }}</PillBadge>
           </div>
         </template>
@@ -253,7 +266,7 @@ function reject(id: string) {
         />
         <SelectionCounter
           v-else-if="isGuest && !hasAccess"
-          :headline="t('discover.counter.unlock_headline', { count: PACK_SIZE })"
+          :headline="t('discover.counter.unlock_headline', { count: packSize })"
           :caption="t('discover.counter.unlock_caption')"
           :action-label="t('discover.counter.unlock')"
           @action="payOpen = true"
@@ -261,8 +274,8 @@ function reject(id: string) {
         <SelectionCounter
           v-else
           :headline="counterHeadline"
-          :caption="t('discover.counter.pack_caption')"
-          :action-label="t('discover.counter.get_more', { count: PACK_SIZE })"
+          :caption="freePicksActive ? t('discover.counter.free_picks_caption') : t('discover.counter.pack_caption')"
+          :action-label="t('discover.counter.get_more', { count: packSize })"
           @action="router.push('/unlock')"
         />
 
@@ -339,7 +352,7 @@ function reject(id: string) {
         </div>
 
         <p v-if="cardDisabled && current" class="tiny muted">
-          {{ t('discover.deck.pack_used', { count: PACK_SIZE }) }}
+          {{ t('discover.deck.pack_used', { count: packSize }) }}
         </p>
       </PanelCard>
 
@@ -347,7 +360,7 @@ function reject(id: string) {
       <aside class="rail">
         <PanelCard v-if="!auth.isAuthenticated" :title="t('discover.rail.title')">
           <p class="tiny muted">
-            {{ t('discover.rail.signed_out_body', { count: PACK_SIZE }) }}
+            {{ t('discover.rail.signed_out_body', { count: packSize }) }}
           </p>
           <RouterLink to="/register" role="button" class="full">{{
             t('discover.rail.create_account')
@@ -358,7 +371,7 @@ function reject(id: string) {
         </PanelCard>
         <PanelCard v-else :title="t('discover.rail.title')">
           <SelectionCounter
-            :headline="t('discover.rail.count', { picked: picks.length, capacity })"
+            :headline="t('discover.rail.count', { picked: picksUsed, capacity })"
             :caption="t('discover.rail.selected')"
           />
 
@@ -371,7 +384,7 @@ function reject(id: string) {
             >{{ t('discover.rail.view_matches') }}</RouterLink
           >
           <RouterLink to="/unlock" role="button" class="full">
-            {{ t('discover.rail.unlock_more', { count: PACK_SIZE }) }}
+            {{ t('discover.rail.unlock_more', { count: packSize }) }}
           </RouterLink>
         </PanelCard>
       </aside>
@@ -383,7 +396,7 @@ function reject(id: string) {
       @close="authPromptOpen = false"
     >
       <p class="muted">
-        {{ t('discover.auth_modal.body', { count: PACK_SIZE }) }}
+        {{ t('discover.auth_modal.body', { count: packSize }) }}
       </p>
       <RouterLink to="/register" role="button" class="full">{{
         t('discover.auth_modal.create_account')
@@ -401,7 +414,7 @@ function reject(id: string) {
     >
       <div ref="payPanelRef">
         <p class="muted">
-          {{ t('discover.pay_modal.body', { count: PACK_SIZE }) }}
+          {{ t('discover.pay_modal.body', { count: packSize }) }}
         </p>
         <PriceBox compact>
           <div class="price-head">
@@ -409,7 +422,7 @@ function reject(id: string) {
               <span class="tiny muted">{{ t('discover.pay_modal.one_time_fee') }}</span>
               <div class="price">£5</div>
             </div>
-            <PillBadge>{{ t('discover.pay_modal.picks', { count: PACK_SIZE }) }}</PillBadge>
+            <PillBadge>{{ t('discover.pay_modal.picks', { count: packSize }) }}</PillBadge>
           </div>
         </PriceBox>
         <ProtectedNotice kind="pack" />
@@ -423,7 +436,7 @@ function reject(id: string) {
           {{ paying ? t('discover.pay_modal.paying') : t('discover.pay_modal.pay') }}
         </button>
         <p class="tiny muted">
-          {{ t('discover.pay_modal.top_up_note', { count: PACK_SIZE }) }}
+          {{ t('discover.pay_modal.top_up_note', { count: packSize }) }}
         </p>
       </div>
     </ModalDialog>

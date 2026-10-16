@@ -51,6 +51,7 @@ function guide(id: number, name: string): ProfileAccount {
     verified: false,
     top_rated: false,
     trips_completed: 0,
+    level: 0,
     attributes: {},
     ranges: {},
   }

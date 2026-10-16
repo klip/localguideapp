@@ -204,6 +204,15 @@ describe('BookingPanel — guide acceptance', () => {
     expect(wrapper.emitted('changed')).toHaveLength(1)
   })
 
+  it('tells the guide what they receive after the platform fee — and never the guest', () => {
+    const withFee = { ...pendingBooking, commission_rate: 0.12, guide_payout: 44 }
+    const guide = mountPanel(fakeApi(), withFee, false)
+    expect(guide.find('[data-test="guide-payout"]').text()).toBe('You receive £44.00 after the RockGuide fee of 12%.')
+
+    const guest = mountPanel(fakeApi(), withFee, true)
+    expect(guest.find('[data-test="guide-payout"]').exists()).toBe(false)
+  })
+
   it('lets the guide decline with a reason, refunding in full', async () => {
     const api = fakeApi()
     const wrapper = mountPanel(api, pendingBooking, false)
@@ -301,6 +310,25 @@ describe('BookingPanel — cancelling', () => {
 
     expect(api.cancelBooking).toHaveBeenCalledWith({ targetId: 7, reason: 'Ill' })
     expect(toasts()).toContain('Igor has been refunded £52.50')
+  })
+})
+
+describe('BookingPanel — payout alongside other notes', () => {
+  it('still shows the guide a guest’s cancellation request on a paid booking with a payout line', () => {
+    const wrapper = mountPanel(
+      fakeApi(),
+      {
+        ...confirmedBooking,
+        commission_rate: 0.15,
+        guide_payout: 42.5,
+        cancel_requested_at: '2026-09-29 10:00:00',
+        cancel_request_reason: 'Flight cancelled',
+      },
+      false,
+    )
+    expect(wrapper.find('[data-test="guide-payout"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Igor asked to cancel: “Flight cancelled”')
+    expect(hasButton(wrapper, 'Approve cancellation')).toBe(true)
   })
 })
 

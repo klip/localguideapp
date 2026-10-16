@@ -34,6 +34,8 @@ export interface Standing {
   verified: boolean
   topRated: boolean
   tripsCompleted: number
+  /** Effective level 0–7 (`Levels.php`). */
+  level: number
 }
 
 /** A local guide, shown to visitors on the visitor discovery deck. */

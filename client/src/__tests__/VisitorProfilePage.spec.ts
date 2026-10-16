@@ -51,6 +51,7 @@ const guest: PublicProfile = {
   verified: true,
   top_rated: false,
   trips_completed: 3,
+  level: 2,
   role: 'guest',
   attributes: { languages: ['English'] },
   ranges: {},

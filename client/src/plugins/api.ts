@@ -133,8 +133,10 @@ export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   verified: boolean
   /** ≥ 5 reviews averaging ≥ 4.6 (see `Ranking.php`). */
   top_rated: boolean
-  /** Finished trips, as guest or guide. */
+  /** Finished trips, as guest or guide (each other person once). */
   trips_completed: number
+  /** Effective level 0–7 (`Levels.php`): from finished trips, minus any active sanction. */
+  level: number
   attributes: AttributeMap
   ranges: RangeMap
 }
@@ -273,6 +275,12 @@ export interface PaymentState {
    */
   pickedIds: number[]
   passedIds: number[]
+  /** Picks made during a free-picks bonus — they don't use the pack. */
+  freePickIds?: number[]
+  /** What the next £5 pack holds at this visitor's level (`Levels::picksPerPack()`). */
+  packSize?: number
+  /** An active free-picks bonus ends then (ISO UTC); null without one. */
+  freePicksUntil?: string | null
 }
 
 export type SelectionDecision = 'interested' | 'pass'
@@ -321,6 +329,9 @@ export interface Booking {
   payment_status: BookingPaymentStatus
   accepted_at: string | null
   refund_amount: number | null
+  /** The guide's platform fee (0–1) and what they receive — guide side only; null otherwise. */
+  commission_rate?: number | null
+  guide_payout?: number | null
   cancel_reason: string | null
   cancelled_at: string | null
   cancel_requested_at: string | null
@@ -389,6 +400,9 @@ export interface MatchOverviewRow {
   booking_amount: number | null
   meeting_at: string | null
   refund_amount: number | null
+  /** The guide's platform fee (0–1) and what they receive — guide side only; null otherwise. */
+  commission_rate?: number | null
+  guide_payout?: number | null
   trip_status: TripStatus | null
   /** Guide only: what cancelling the open paid booking would refund right now (includes any late-cancellation extra). */
   refund_if_cancelled: number | null
@@ -431,6 +445,8 @@ export type BookingView = Pick<
   | 'cancel_request_reason'
   | 'finish_requested_by'
   | 'auto_finish'
+  | 'commission_rate'
+  | 'guide_payout'
 >
 
 /** `scheduled` — confirmed, not started; `current` — started; `past` — finished or cancelled. */
@@ -439,8 +455,8 @@ export type TripPhase = 'scheduled' | 'current' | 'past'
 /**
  * One trip from `api.trips()` (`Bookings::tripsFor()`): a booking that was
  * confirmed at some point, from the caller's point of view. `id` is the
- * booking's. `email`/`phone` only while the trip is confirmed and the pair
- * still matched; `is_latest` marks the pair's most recent booking.
+ * booking's. No contact details — the pair chats in Messages. `is_latest`
+ * marks the pair's most recent booking.
  */
 export interface TripRow extends BookingView {
   id: number
@@ -452,6 +468,9 @@ export interface TripRow extends BookingView {
   booking_status: BookingStatus
   booking_amount: number
   refund_amount: number | null
+  /** The guide's platform fee (0–1) and what they receive — guide side only; null otherwise. */
+  commission_rate?: number | null
+  guide_payout?: number | null
   accepted_at: string
   cancel_reason: string | null
   cancelled_at: string | null
@@ -537,6 +556,42 @@ export interface SubmitReviewPayload {
  * which side of the conversation it sits on. `body` has contact details
  * already replaced by `[•••]`. Times are ISO 8601 UTC.
  */
+/** One bonus package (`bonus_grants`): earned, then claimed by the user. */
+export interface BonusGrant {
+  id: number
+  /** `free_picks` (guests): unlimited picks; `no_fee` (guides): no platform fee. */
+  kind: 'free_picks' | 'no_fee'
+  days: number
+  /** Why it was granted: `level_<n>` or `reviews_<n>`. */
+  reason: string
+  /** `queued`: claimed, starts when an active one of the same kind ends. */
+  state: 'available' | 'queued' | 'active' | 'used'
+  starts_at: string | null
+  ends_at: string | null
+}
+
+export type LevelName = 'new' | 'starter' | 'explorer' | 'pathfinder' | 'trailblazer' | 'pioneer' | 'legend' | 'icon'
+
+/** What `api.myLevel()` returns — see `Levels.php`. */
+export interface LevelState {
+  level: number
+  name: LevelName
+  trips_completed: number
+  /** Trips needed for the next level; null at the top. */
+  next_level_trips: number | null
+  /** The level `next_level_trips` leads to (by earned level, so above a sanctioned badge + 1). */
+  next_level: number | null
+  /** Active sanctions, summed — they lower `level`. */
+  sanction: { levels: number; until: string | null; reason: string | null } | null
+  /** Guests: picks in the next £5 pack. */
+  picks_per_pack: number | null
+  /** Guides: the platform fee on bookings, 0–1. */
+  commission_rate: number | null
+  free_picks_until: string | null
+  no_fee_until: string | null
+  bonuses: BonusGrant[]
+}
+
 export interface ChatMessage {
   id: number
   sender_id: number
@@ -755,6 +810,10 @@ export const api = {
   /** Reports another user to the moderators (a title + what happened); returns the filed complaint. */
   reportUser: (payload: { subjectId: number; title: string; description: string }) =>
     call<{ id: number; status: 'open'; created_at: string }>('reportUser', payload),
+  /** The caller's level, perks, bonus packages and any sanction (`Levels::stateFor()`). */
+  myLevel: () => call<LevelState>('myLevel'),
+  /** Starts one of the caller's available bonuses (now, or when an active one of its kind ends). */
+  claimBonus: (payload: { bonusId: number }) => call<LevelState>('claimBonus', payload),
   /** Shares the caller's current position (from `navigator.geolocation`) as a `location` message. */
   shareLocation: (payload: { targetId: number; latitude: number; longitude: number; accuracy?: number }) =>
     call<ChatMessage>('shareLocation', payload),

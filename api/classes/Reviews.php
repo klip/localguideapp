@@ -24,10 +24,13 @@ class Reviews
 
     /** @var db */
     private $db;
+    /** @var Levels|null */
+    private $levels;
 
-    public function __construct(db $db)
+    public function __construct(db $db, ?Levels $levels = null)
     {
         $this->db = $db;
+        $this->levels = $levels;
     }
 
     /**
@@ -197,6 +200,10 @@ class Reviews
         $review = $this->findByBookingAndAuthor($bookingId, $authorId);
         if (!$review) {
             throw new RuntimeException('Could not save your review.');
+        }
+        // An exceptionally reviewed guide earns fee-free days (`Levels`).
+        if ($this->levels) {
+            $this->levels->sync($subjectId);
         }
 
         return $review;

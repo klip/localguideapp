@@ -6,6 +6,7 @@ import { t } from '@/i18n'
 import { useApi, type BookingOp, type BookingView } from '@/plugins/api'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { formatHours, formatMoney, formatWhen, tripEnd, utcDate } from '@/utils/bookingTime'
+import { percent } from '@/utils/levels'
 import { reportApiError } from '@/utils/reportApiError'
 
 /**
@@ -250,6 +251,21 @@ function guideCancel() {
     </template>
 
     <!-- What happens next -->
+    <!-- Outside the note chain below: shown alongside whichever note applies. -->
+    <p
+      v-if="!isGuest && row.guide_payout != null && row.commission_rate != null && row.payment_status === 'paid'"
+      class="tiny muted note"
+      data-test="guide-payout"
+    >
+      {{
+        row.commission_rate === 0
+          ? t('common.booking_panel.guide_payout_no_fee', { payout: money(row.guide_payout) })
+          : t('common.booking_panel.guide_payout', {
+              payout: money(row.guide_payout),
+              rate: percent(row.commission_rate),
+            })
+      }}
+    </p>
     <p v-if="needsBooking && isGuest" class="tiny muted note">
       <template v-if="lastDeclined"
         >{{ t('common.booking_panel.declined_before', { name }) }}

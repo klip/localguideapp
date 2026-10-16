@@ -9,7 +9,8 @@
     "common.message_toaster",
     "common.messages",
     "common.modal_dialog",
-    "common.terms_dialog"
+    "common.terms_dialog",
+    "discover.deck"
   ],
   "routes": {
     "home": [
@@ -60,6 +61,7 @@
       "common.filters",
       "common.gender",
       "common.guide_card",
+      "common.level",
       "common.price_box",
       "common.profile_card",
       "common.protected_notice",
@@ -69,7 +71,6 @@
       "common.time_ago",
       "discover.auth_modal",
       "discover.counter",
-      "discover.deck",
       "discover.empty",
       "discover.filters",
       "discover.pay_modal",
@@ -80,6 +81,7 @@
       "common.decision_row",
       "common.filters",
       "common.guide_card",
+      "common.level",
       "common.rating",
       "common.report_user",
       "common.review_form",
@@ -98,6 +100,7 @@
     "visitor-profile": [
       "common.filters",
       "common.gender",
+      "common.level",
       "common.rating",
       "common.report_user",
       "common.review_form",
@@ -119,6 +122,7 @@
       "common.filter_panel",
       "common.filters",
       "common.gender",
+      "common.level",
       "common.profile_card",
       "common.range_picker",
       "common.standing",
@@ -133,6 +137,7 @@
     "matches": [
       "common.booking_panel",
       "common.booking_time",
+      "common.level",
       "common.protected_notice",
       "matches.actions",
       "matches.empty",
@@ -147,6 +152,7 @@
     "trips": [
       "common.booking_panel",
       "common.booking_time",
+      "common.level",
       "common.protected_notice",
       "trips.card",
       "trips.empty",
@@ -171,10 +177,12 @@
       "common.country",
       "common.gender",
       "common.image_cropper",
+      "common.level",
       "common.range_picker",
       "profile.contact",
       "profile.details",
       "profile.header",
+      "profile.level",
       "profile.page",
       "profile.password",
       "profile.signed_out",

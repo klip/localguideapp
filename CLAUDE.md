@@ -160,7 +160,7 @@ into the next test's fresh `Pinia` instance.
   showed the paywall and the header read "0 / 0 picked" despite the payments
   existing in the DB), and `LoginPage.vue` right after `api.login()`, so the
   capacity is correct before the first render of `/discover`. Both call
-  `api.paymentState()` and feed `matchesStore.setPacksUnlocked()`.
+  `api.paymentState()` and feed `matchesStore.applyPaymentState()`.
   **Picks are restored as well as the pack count**: `paymentState` returns
   `pickedIds`/`passedIds` (guide ids, from `Selections::getDecisionIdsFor()`)
   alongside the counts, and `matchesStore.applyPaymentState()` seeds `picks`/
@@ -425,7 +425,7 @@ own — every one just takes props/emits):
   `api.decide()`, `api.revokeSelection()` — no longer take
   an explicit `userId`; the caller's identity comes from the session hash
   `call()` attaches automatically (see "Sessions" below). `UnlockPage.vue` calls `unlockPack()`
-  for real and syncs the result into `useMatchesStore().setPacksUnlocked()`.
+  for real and syncs the result into `useMatchesStore().applyPaymentState()`.
   (`api.matches()`/`Selections::getActiveMatches()` were removed with the
   `/shortlist` page, their only caller — `/matches` uses `matchOverview()`.)
   `decide()` **is** now called from
@@ -775,8 +775,8 @@ behind it as badges instead.
 
 - **Score**: +30 verified identity; reviews as a Bayesian average (5 imaginary
   4.0★ reviews + the real ones, one per *distinct author*) → (avg − 3) × 15;
-  finished trips as 5 × log2(1 + n) capped at 25, counting each *other person*
-  once; +5 photo, +5 bio; +15 for a new account, fading to 0 over 21 days.
+  5 × the effective level (`Levels`: finished trips counting each *other
+  person* once, minus sanctions); +5 photo, +5 bio; +15 for a new account, fading to 0 over 21 days.
 - **Anti-farming**: a guest and a free guide (or one person with two
   accounts) matching, finishing, reviewing and re-matching gain nothing after
   the first round — trips and reviews both count distinct people. Many sock
@@ -793,6 +793,50 @@ behind it as badges instead.
   big change. `ProfilePage.vue` shows the status (`myProfile.verified`).
 - Indexes for the two derived tables are in 036; `getPublicProfile()` narrows
   them to the one user. A `user_stats` table is the next step if decks grow.
+
+### Levels, fees & bonus packages (`Levels.php`, `LevelPanel.vue`)
+
+- **Level** from *qualifying* trips — confirmed + finished, and either paid
+  through RockGuide or with a person whose identity is verified
+  (`Levels::QUALIFYING_TRIP`, shared by the level, the trips badge and the
+  ranking), each other person counted once — so a ring of fresh accounts
+  finishing free trips with each other earns nothing: 0 New · 1 Starter (1) · 2 Explorer (3) · 3 Pathfinder (6) ·
+  4 Trailblazer (12) · 5 Pioneer (24) · 6 Legend (48) · 7 Icon (96).
+  `users.level` is the highest level announced — it only goes up, so a level
+  is announced once, not again when a sanction expires; `Levels::sync()` runs
+  when a trip finishes (`Bookings::markFinished()`) and when a review is
+  written, and sends `level_up` / `bonus_granted` notifications (the grant's
+  reason is in the text, so two same-size grants aren't deduplicated).
+- **Sanctions** (`user_sanctions`, by moderators in SQL, optionally tied to a
+  complaint, with an expiry) subtract levels — the *effective* level, used for
+  every perk and for the ranking (`Ranking` scores 5 × effective level).
+  While sanctioned, **bonuses are suspended**: `claim()` refuses and
+  `activeBonusUntil()` returns null, so a running no-fee or free-picks bonus
+  doesn't apply (`LevelPanel` says so and hides Claim). `myLevel`'s
+  `next_level` is earned + 1, not effective + 1. Since the badge shows the
+  effective level next to the trips count, a sanction is inferable on public
+  cards — accepted.
+- **Visitors** get more picks per £5 pack: 5 + level, at most 10, fixed per
+  purchase (`payments.pack_size`; capacity is the sum). Levels 2/4/6 grant
+  3/7/14 days of **free picks** — unlimited, marked `selections.free_pick`, not
+  counted in `picksUsed`.
+- **Guides** pay a platform fee on each paid booking, 15% falling to 5% by
+  level (`Levels::commissionRate()`), fixed at `Bookings::pay()` in
+  `bookings.commission_rate/commission_amount/guide_payout` and shown only to
+  the guide (overview/trips rows, `BookingPanel`, trip cards, the email).
+  Levels 4/6 and 10/25/50 distinct reviewers averaging ≥ 4.8★ grant
+  **no-fee** days (7/30, and 30 each).
+- **Bonus packages** (`bonus_grants`, once per reason) are claimed by the user
+  on the profile page (`claimBonus`) — a visitor turns free picks on when
+  they're travelling. Claiming while one of the same kind runs queues it
+  (in a transaction, the user's grants locked).
+- Client: `PaymentState.packSize`/`freePicksUntil`/`freePickIds` feed
+  `stores/matches.ts` (capacity now comes from the server; `PACK_SIZE` is only
+  the base/marketing number; `freePicksActive` re-evaluates itself when the
+  bonus ends); the header and deck show "Free picks on" and the Discover
+  counter "Free picks until …";
+  `StandingBadges` shows "◆ Level n · Name"; `LevelPanel` on `/profile`.
+- No money moves: like packs and fees, the commission is recorded, not taken.
 
 ### Reporting a user (`ReportUser.vue`, `Complaints.php`)
 
@@ -923,7 +967,8 @@ email) are what a user hears about while they weren't looking — currently
 `cancel_refused`, `finish_requested`, `finish_refused`, `trip_finished`,
 `trip_location`, plus `match` (a new match with a paid guide, sent to the
 side that *didn't* make the completing decision — `Bookings::onMatched()`;
-for a free guide `booking_free` covers it, to both sides) and
+for a free guide `booking_free` covers it, to both sides), `level_up` and
+`bonus_granted` (`Levels::sync()`, see "Levels, fees & bonus packages") and
 `profile_updated` (in-app only, no email — `Notifications::notifyInApp()`,
 sent to everyone actively matched with someone who saved their profile or
 contact details; an identical line unread or sent in the last 10 minutes
@@ -1766,7 +1811,7 @@ is a `503` from the gateway.
 | `updateProfile` | **yes** | `api.updateProfile(payload)` | `dateOfBirth?, gender?, headline?, bio?, priceAmount?, priceLabel?, priceNote?, includes?, party?, durationHours?, attributes?, newCategoryLabels?, ranges?` — every field independent (no `rating`/`tours` since 013) | `{ ok: true }` | `actionUpdateProfile()` → `Profiles::setProfile()`/`setAttributeValues()`/`setRanges()` |
 | `updateAccount` | **yes** | `api.updateAccount(payload)` | `name?, email?, phone?, twoFactorMethod?, image?` | `{ ok: true }` | `actionUpdateAccount()` → `Users::updateAccount()` (+ inline email/2FA validation) |
 | `changePassword` | **yes** | `api.changePassword(payload)` | `currentPassword, newPassword` | `{ ok: true }` | `actionChangePassword()` → `Users::verifyPasswordFor()`/`setPassword()` |
-| `unlockPack` | **yes** (guest only) | `api.unlockPack()` | — | `PaymentState` (`packsUnlocked, capacity, picksUsed, selectionsLeft`) | `actionUnlockPack()` → `Payments::recordPackPurchase()` |
+| `unlockPack` | **yes** (guest only) | `api.unlockPack()` | — | `PaymentState` (`packsUnlocked, capacity, picksUsed, selectionsLeft, pickedIds, passedIds, freePickIds, packSize, freePicksUntil`) — the pack holds `Levels::picksPerPack()` picks | `actionUnlockPack()` → `Payments::recordPackPurchase()` |
 | `paymentState` | **yes** | `api.paymentState()` | — | `PaymentState` | `paymentStateFor()` |
 | `decide` | **yes** | `api.decide(payload)` | `targetId, decision` (`'interested' \| 'pass'`) | `SelectionRow` (`id, guest_id, guide_id, guest_decision, guide_decision, active, created_at, updated_at`) | `Selections::decide()` |
 | `revokeSelection` | **yes** | `api.revokeSelection(payload)` | `targetId` | `SelectionRow` | `Selections::revoke()` |
@@ -1781,6 +1826,8 @@ is a `503` from the gateway.
 | `shareLocation` | **yes** | `api.shareLocation(payload)` | `targetId, latitude` (±90), `longitude` (±180) — numbers — `accuracy?` (m) | `ChatMessage` (`kind: 'location'`, `location`) | `Messages::shareLocation()` |
 | `markMessagesRead` | **yes** | `api.markMessagesRead(payload)` | `targetId, upToId` | `{ ok: true }` | `Messages::markReadWith()` |
 | `markSeen` | **yes** | `api.markSeen(section)` | `section` (`'matches' \| 'trips'`) | `{ ok: true }` — the new counts arrive as a `badges` push | `Badges::markSeen()` |
+| `myLevel` | **yes** | `api.myLevel()` | — | `LevelState` (`level, name, trips_completed, next_level_trips, sanction, picks_per_pack, commission_rate, free_picks_until, no_fee_until, bonuses`) | `Levels::sync()` + `stateFor()` |
+| `claimBonus` | **yes** | `api.claimBonus(payload)` | `bonusId` | `LevelState` | `Levels::claim()` |
 | `reportUser` | **yes** | `api.reportUser(payload)` | `subjectId, title` (≤120), `description` (≤2000) | `{ id, status: 'open', created_at }` | `Complaints::file()` |
 | `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
 | `session` | **yes** | `api.session()` | — | `AuthResult` (same shape as `register`/`login`, unrotated `sessionHash`) | `actionSession()` |
@@ -1916,7 +1963,8 @@ API service (`api/classes/`):
 - `api/classes/Payments.php` — data access for `payments` (pack purchases).
   No real payment gateway: `recordPackPurchase()` inserts a `status='paid'`
   row directly, called by `RequestProcessor`'s `unlockPack` action. Also
-  `getPacksUnlocked()`/`getCapacity()` (packs × `PACK_SIZE`).
+  `getPacksUnlocked()`/`getCapacity()` (the sum of each pack's own
+  `pack_size`, which grows with the buyer's level — see "Levels").
 - `api/classes/Selections.php` — data access for `selections` (guest/guide
   matching — see Domain model above for the semantics). `decide()` upserts
   one side's decision and re-syncs `active`; guards a guest's capacity
@@ -1945,6 +1993,9 @@ API service (`api/classes/`):
   carries contact details.
 - `api/classes/Complaints.php` — `file()`: one user reporting another
   (see "Reporting a user").
+- `api/classes/Levels.php` — levels, perks, sanctions, bonus packages
+  (`sync()`, `stateFor()`, `claim()`, `effectiveLevelSql()`); see "Levels,
+  fees & bonus packages".
 - `api/classes/Ranking.php` — the deck's order and badges as SQL fragments
   (`tripsJoin()`, `reviewsJoin()`, `columns()`, `ORDER_BY`, `castRow()`); see
   "Ranking & badges".
@@ -2137,6 +2188,11 @@ API service (`api/classes/`):
   contact details, chat instead", the report form's intro and counter.
   Applied 2026-10-16. Re-runnable.
 - `api/sql/040_translations_protected_notice.sql` — `common.protected_notice.*`.
+  Applied 2026-10-16. Re-runnable.
+- `api/sql/041_levels.sql` — `user_sanctions`, `bonus_grants`, `users.level`,
+  `selections.free_pick`, `bookings.commission_*`/`guide_payout` (see "Levels,
+  fees & bonus packages"). Applied 2026-10-16. Not re-runnable.
+- `api/sql/042_translations_levels.sql` — level, perk, bonus and fee text.
   Applied 2026-10-16. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.

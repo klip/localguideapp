@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import AttributeCombobox, { type ComboboxSuggestion } from '@/components/AttributeCombobox.vue'
 import RangePicker from '@/components/RangePicker.vue'
 import ImageCropper from '@/components/ImageCropper.vue'
+import LevelPanel from '@/components/LevelPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import { t, tn } from '@/i18n'
@@ -754,6 +755,8 @@ async function changePassword() {
           </form>
         </PanelCard>
       </div>
+
+      <LevelPanel v-if="profile && (profile.role === 'guest' || profile.role === 'guide')" :role="profile.role" />
     </div>
   </section>
 </template>

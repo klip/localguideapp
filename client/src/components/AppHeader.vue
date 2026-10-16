@@ -14,7 +14,7 @@ import { useMessagesStore } from '@/stores/messages'
 
 const api = useApi()
 const matchesStore = useMatchesStore()
-const { hasAccess, picks, capacity } = storeToRefs(matchesStore)
+const { hasAccess, picksUsed, capacity, freePicksActive } = storeToRefs(matchesStore)
 
 const auth = useAuthStore()
 const { isAuthenticated, user } = storeToRefs(auth)
@@ -217,7 +217,9 @@ onBeforeUnmount(() => {
             <li v-if="hasAccess">
               <RouterLink to="/matches" class="nav-link">
                 <PillBadge>{{
-                  t('common.app_header.picked', { picked: picks.length, capacity })
+                  freePicksActive
+                    ? t('discover.deck.free_picks')
+                    : t('common.app_header.picked', { picked: picksUsed, capacity })
                 }}</PillBadge>
               </RouterLink>
             </li>

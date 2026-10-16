@@ -42,6 +42,8 @@ class RequestProcessor
     private $messages;
     /** @var Complaints */
     private $complaints;
+    /** @var Levels */
+    private $levels;
     /** @var Push */
     private $push;
     /** @var array|null the request `process()` is handling */
@@ -57,10 +59,11 @@ class RequestProcessor
         $this->badges = new Badges($db);
         $this->push = new Push($redis, $this->badges);
         $this->notifications = new Notifications($db, new MailQueue($db, $redis), $this->push);
-        $this->bookings = new Bookings($db, $this->notifications);
-        $this->selections = new Selections($db, $this->users, $this->payments, $this->bookings);
+        $this->levels = new Levels($db, $this->notifications);
+        $this->bookings = new Bookings($db, $this->notifications, $this->levels);
+        $this->selections = new Selections($db, $this->users, $this->payments, $this->bookings, $this->levels);
         $this->profiles = new Profiles($db);
-        $this->reviews = new Reviews($db);
+        $this->reviews = new Reviews($db, $this->levels);
         $this->translations = new Translations($db);
         $this->messages = new Messages($db, $this->push, $this->notifications);
         $this->complaints = new Complaints($db, new MailQueue($db, $redis));
@@ -206,6 +209,17 @@ class RequestProcessor
                 $this->messages->markReadWith($this->requireUserId(), $this->requireTargetId(), (int) ($this->readInput()['upToId'] ?? 0));
                 return [200, ['ok' => true]];
 
+            // Levels, perks, bonus packages and sanctions (see `Levels`, 041_levels.sql).
+            case 'myLevel':
+                $userId = $this->requireUserId();
+                $this->levels->sync($userId);
+                return [200, $this->levels->stateFor($userId, (string) $this->users->getRoleName($userId))];
+
+            case 'claimBonus':
+                $userId = $this->requireUserId();
+                $this->levels->claim($userId, (int) ($this->readInput()['bonusId'] ?? 0));
+                return [200, $this->levels->stateFor($userId, (string) $this->users->getRoleName($userId))];
+
             // One user reporting another (see `Complaints`, 037_complaints.sql).
             case 'reportUser':
                 $input = $this->readInput();
@@ -292,7 +306,8 @@ class RequestProcessor
             throw new RuntimeException('Only guests purchase selection packs.');
         }
 
-        $this->payments->recordPackPurchase($userId);
+        // A higher level buys more picks per pack (`Levels::picksPerPack()`).
+        $this->payments->recordPackPurchase($userId, Levels::picksPerPack($this->levels->effectiveLevel($userId)));
 
         return $this->paymentStateFor($userId);
     }
@@ -317,6 +332,11 @@ class RequestProcessor
             'selectionsLeft' => max(0, $capacity - $picksUsed),
             'pickedIds' => $decisions['picked'],
             'passedIds' => $decisions['passed'],
+            // Picks made during free picks, which don't count against the pack.
+            'freePickIds' => $decisions['free'],
+            // What the next £5 pack holds, and an active free-picks bonus (`Levels`).
+            'packSize' => Levels::picksPerPack($this->levels->effectiveLevel($userId)),
+            'freePicksUntil' => $this->levels->activeBonusUntil($userId, 'free_picks'),
         ];
     }
 

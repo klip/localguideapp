@@ -53,11 +53,14 @@ class Bookings
     private $db;
     /** @var Notifications */
     private $notifications;
+    /** @var Levels|null */
+    private $levels;
 
-    public function __construct(db $db, Notifications $notifications)
+    public function __construct(db $db, Notifications $notifications, ?Levels $levels = null)
     {
         $this->db = $db;
         $this->notifications = $notifications;
+        $this->levels = $levels;
     }
 
     /** The guide's current fee; unset counts as 0 (free). */
@@ -238,6 +241,15 @@ class Bookings
         if ($location !== null) {
             $fields['location'] = $location;
         }
+        // The platform fee, fixed now: by the guide's level, or none during a
+        // no-fee bonus (`Levels`). What the guide receives is the rest.
+        if ($this->levels) {
+            $rate = $this->levels->guideCommissionRate($guideId);
+            $commission = round($fee * $rate, 2);
+            $fields['commission_rate'] = number_format($rate, 4, '.', '');
+            $fields['commission_amount'] = self::decimal($commission);
+            $fields['guide_payout'] = self::decimal($fee - $commission);
+        }
 
         $id = $this->db->db_Insert('bookings', $fields);
         if (!$id) {
@@ -258,6 +270,8 @@ class Bookings
             self::greeting($this->user($guideId))
             . "{$guestName} has paid your fee of {$amount} for a tour on {$when}"
             . ($duration !== null ? " ({$duration} hours)" : '') . ".\n"
+            . (isset($fields['guide_payout']) ? 'You receive ' . self::money((float) $fields['guide_payout']) . ' after the RockGuide fee of '
+                . self::percent((float) $fields['commission_rate']) . ".\n" : '')
             . ($location !== null ? "Meeting place: {$location}\n" : '') . "\n"
             . "Accept it on your Matches page to confirm the date, and plan the details together in Messages. "
             . "If you can't make it, decline and they're refunded in full. If you don't answer before the meeting time, it's declined automatically.\n\nRockGuide"
@@ -752,7 +766,10 @@ class Bookings
                     s.`active`, s.`matched_at`,
                     u.`name`, u.`image`,
                     COALESCE(gp.`price_amount`, 0) AS `fee_amount`,
-                    b.`id` = (SELECT MAX(bb.`id`) FROM `bookings` bb WHERE bb.`selection_id` = b.`selection_id`) AS `is_latest`
+                    b.`id` = (SELECT MAX(bb.`id`) FROM `bookings` bb WHERE bb.`selection_id` = b.`selection_id`) AS `is_latest`,
+                    ' . ($own === 'guide'
+                        ? 'b.`commission_rate`, b.`guide_payout`'
+                        : 'NULL AS `commission_rate`, NULL AS `guide_payout`') . '
              FROM `bookings` b
              JOIN `selections` s ON s.`id` = b.`selection_id`
              JOIN `users` u ON u.`id` = b.`' . $their . '_id`
@@ -770,6 +787,9 @@ class Bookings
             $row['fee_amount'] = (float) $row['fee_amount'];
             $row['booking_amount'] = (float) $row['booking_amount'];
             $row['refund_amount'] = $row['refund_amount'] === null ? null : (float) $row['refund_amount'];
+            // The guide's platform fee and payout (null for the guest, and for bookings made before 041).
+            $row['commission_rate'] = $row['commission_rate'] === null ? null : (float) $row['commission_rate'];
+            $row['guide_payout'] = $row['guide_payout'] === null ? null : (float) $row['guide_payout'];
             $row['booking_duration_hours'] = $row['booking_duration_hours'] === null ? null : (float) $row['booking_duration_hours'];
             $row['finish_requested_by'] = $row['finish_requested_by'] === null
                 ? null
@@ -889,6 +909,12 @@ class Bookings
             'trip_status' => 'finished',
             'finished_at' => gmdate('Y-m-d H:i:s'),
         ], ['`id` = ' . (int) $booking['id']]);
+
+        // A successful trip counts towards both people's levels (`Levels`).
+        if ($this->levels) {
+            $this->levels->sync((int) $booking['guest_id']);
+            $this->levels->sync((int) $booking['guide_id']);
+        }
     }
 
     private function notifyFinished(array $booking): void
@@ -1022,7 +1048,9 @@ class Bookings
         $row['refund_amount'] = $row['refund_amount'] === null ? null : (float) $row['refund_amount'];
         $row['duration_hours'] = $row['duration_hours'] === null ? null : (float) $row['duration_hours'];
         $row['finish_requested_by'] = $row['finish_requested_by'] === null ? null : (int) $row['finish_requested_by'];
-        unset($row['open_pair']);
+        // The platform fee is the guide's business: only their overview and
+        // trips rows carry it (`commission_*`, `guide_payout`).
+        unset($row['open_pair'], $row['commission_rate'], $row['commission_amount'], $row['guide_payout']);
 
         return $row;
     }

@@ -29,7 +29,8 @@ $db = new db();
 $redis = new RedisClient();
 $badges = new Badges($db);
 $push = new Push($redis, $badges);
-$bookings = new Bookings($db, new Notifications($db, new MailQueue($db, $redis), $push));
+$notifications = new Notifications($db, new MailQueue($db, $redis), $push);
+$bookings = new Bookings($db, $notifications, new Levels($db, $notifications));
 
 Log::info('Scheduler started', ['every_seconds' => SWEEP_EVERY_SECONDS]);
 

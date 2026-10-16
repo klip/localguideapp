@@ -2,9 +2,11 @@
 import { computed } from 'vue'
 import { t, tn } from '@/i18n'
 import type { Standing } from '@/types'
+import { levelLabel } from '@/utils/levels'
 
 /**
- * The badges a person has earned — ✓ Verified (identity checked), ★ Top rated
+ * The badges a person has earned — ◆ their level (from successful trips,
+ * `Levels.php`), ✓ Verified (identity checked), ★ Top rated
  * (≥ 5 reviews averaging ≥ 4.6) and their finished trips — on deck cards and
  * profile pages. The same facts that move them up the deck (`Ranking.php`),
  * so a visitor can see *why* someone is near the top. Presentational: renders
@@ -14,6 +16,14 @@ const props = withDefaults(defineProps<{ standing: Standing; onPhoto?: boolean }
 
 const badges = computed(() => {
   const list: { key: string; icon: string; label: string; title: string }[] = []
+  if (props.standing.level > 0) {
+    list.push({
+      key: 'level',
+      icon: '◆',
+      label: levelLabel(props.standing.level),
+      title: t('common.standing.level_title'),
+    })
+  }
   if (props.standing.verified) {
     list.push({ key: 'verified', icon: '✓', label: t('common.standing.verified'), title: t('common.standing.verified_title') })
   }
@@ -72,6 +82,12 @@ const badges = computed(() => {
   color: var(--rg-orange-ink);
 }
 
+.standing-badge--level {
+  background: var(--rg-orange-500);
+  border-color: var(--rg-orange-500);
+  color: #fff;
+}
+
 .standing-badge--verified {
   background: var(--rg-green-soft);
   border-color: var(--rg-green-border);
@@ -81,5 +97,9 @@ const badges = computed(() => {
 // Readable over the photo's dark scrim on deck cards.
 .standing--on-photo .standing-badge {
   background: rgba(255, 255, 255, 0.92);
+}
+
+.standing--on-photo .standing-badge--level {
+  background: var(--rg-orange-500);
 }
 </style>

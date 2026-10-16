@@ -23,13 +23,16 @@ class Selections
     private $payments;
     /** @var Bookings */
     private $bookings;
+    /** @var Levels|null */
+    private $levels;
 
-    public function __construct(db $db, Users $users, Payments $payments, Bookings $bookings)
+    public function __construct(db $db, Users $users, Payments $payments, Bookings $bookings, ?Levels $levels = null)
     {
         $this->db = $db;
         $this->users = $users;
         $this->payments = $payments;
         $this->bookings = $bookings;
+        $this->levels = $levels;
     }
 
     /**
@@ -46,14 +49,28 @@ class Selections
 
         [$guestId, $guideId, $actingIsGuest] = $this->resolvePair($actingUserId, $targetUserId);
 
+        // A new pick uses the guest's paid pack — unless they're in a free
+        // picks bonus (`Levels`), when it's marked free and costs nothing.
+        $freePick = null;
         if ($actingIsGuest && $decision === 'interested') {
             $existing = $this->findPair($guestId, $guideId);
             if (!$existing || $existing['guest_decision'] !== 'interested') {
-                $this->assertGuestHasCapacity($guestId);
+                $freePick = $this->levels && $this->levels->activeBonusUntil($guestId, 'free_picks') !== null;
+                if (!$freePick) {
+                    $this->assertGuestHasCapacity($guestId);
+                }
             }
         }
 
-        return $this->upsertDecision($guestId, $guideId, $actingIsGuest ? 'guest_decision' : 'guide_decision', $decision);
+        $row = $this->upsertDecision($guestId, $guideId, $actingIsGuest ? 'guest_decision' : 'guide_decision', $decision);
+        if ($freePick !== null) {
+            $this->db->db_Execute(
+                'UPDATE `selections` SET `free_pick` = ' . ($freePick ? 1 : 0) . '
+                 WHERE `guest_id` = ' . $guestId . ' AND `guide_id` = ' . $guideId
+            );
+        }
+
+        return $row;
     }
 
     /**
@@ -146,7 +163,10 @@ class Selections
                     b.`amount` AS `booking_amount`, b.`meeting_at`, b.`refund_amount`, b.`trip_status`,
                     b.`duration_hours` AS `booking_duration_hours`, b.`location`, b.`accepted_at`,
                     b.`cancel_requested_at`, b.`cancel_request_reason`,
-                    b.`finish_requested_by`, b.`finished_at`
+                    b.`finish_requested_by`, b.`finished_at`,
+                    ' . ($own === 'guide'
+                        ? 'b.`commission_rate`, b.`guide_payout`'
+                        : 'NULL AS `commission_rate`, NULL AS `guide_payout`') . '
              FROM `selections` s
              JOIN `users` u ON u.`id` = s.`' . $their . '_id`
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
@@ -167,6 +187,9 @@ class Selections
             $row['booking_id'] = $row['booking_id'] === null ? null : (int) $row['booking_id'];
             $row['booking_amount'] = $row['booking_amount'] === null ? null : (float) $row['booking_amount'];
             $row['refund_amount'] = $row['refund_amount'] === null ? null : (float) $row['refund_amount'];
+            // The guide's platform fee and payout (null for the guest, and for bookings made before 041).
+            $row['commission_rate'] = $row['commission_rate'] === null ? null : (float) $row['commission_rate'];
+            $row['guide_payout'] = $row['guide_payout'] === null ? null : (float) $row['guide_payout'];
 
             $row['booking_duration_hours'] = $row['booking_duration_hours'] === null ? null : (float) $row['booking_duration_hours'];
             $row['finish_requested_by'] = $row['finish_requested_by'] === null
@@ -198,28 +221,33 @@ class Selections
      * Returns empty lists for a guide: the column is the *guest's* decision,
      * and guides don't spend picks.
      *
-     * @return array{picked: int[], passed: int[]}
+     * `free` — the picks made during free picks, which don't use the pack.
+     *
+     * @return array{picked: int[], passed: int[], free: int[]}
      */
     public function getDecisionIdsFor(int $guestId): array
     {
-        $result = ['picked' => [], 'passed' => []];
+        $result = ['picked' => [], 'passed' => [], 'free' => []];
 
         foreach ($this->db->db_GetArray(
-            'SELECT `guide_id`, `guest_decision` FROM `selections`
+            'SELECT `guide_id`, `guest_decision`, `free_pick` FROM `selections`
              WHERE `guest_id` = ' . $guestId . ' AND `guest_decision` IS NOT NULL'
         ) as $row) {
             $key = $row['guest_decision'] === 'interested' ? 'picked' : 'passed';
             $result[$key][] = (int) $row['guide_id'];
+            if ($key === 'picked' && (int) $row['free_pick'] === 1) {
+                $result['free'][] = (int) $row['guide_id'];
+            }
         }
 
         return $result;
     }
 
-    /** How many of a guest's paid picks are currently spent (an 'interested' decision on their side). */
+    /** How many of a guest's paid picks are currently spent (an 'interested' on their side that wasn't a free pick). */
     public function getPicksUsed(int $guestId): int
     {
         return (int) $this->db->db_GetFieldFromQuery(
-            'SELECT COUNT(*) AS n FROM `selections` WHERE `guest_id` = ' . $guestId . ' AND `guest_decision` = "interested"',
+            'SELECT COUNT(*) AS n FROM `selections` WHERE `guest_id` = ' . $guestId . ' AND `guest_decision` = "interested" AND `free_pick` = 0',
             'n'
         );
     }

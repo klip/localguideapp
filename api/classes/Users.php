@@ -198,7 +198,7 @@ class Users
              FROM `users` u
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . self::REVIEW_SUMMARY_JOIN . '
-             ' . Ranking::tripsJoin() . ' ' . Ranking::reviewsJoin() . '
+             ' . Ranking::tripsJoin() . ' ' . Ranking::reviewsJoin() . ' ' . Levels::sanctionsJoin() . '
              WHERE ' . implode(' AND ', $where) . '
              ' . Ranking::ORDER_BY
         );
@@ -239,7 +239,7 @@ class Users
              FROM `users` u
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . self::reviewSummaryJoinFor($userId) . '
-             ' . Ranking::tripsJoin($userId) . ' ' . Ranking::reviewsJoin($userId) . '
+             ' . Ranking::tripsJoin($userId) . ' ' . Ranking::reviewsJoin($userId) . ' ' . Levels::sanctionsJoin($userId) . '
              WHERE u.`id` = ' . $userId
         );
         if (!$row) {
