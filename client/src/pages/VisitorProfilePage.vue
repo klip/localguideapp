@@ -18,8 +18,8 @@ import { standingOf } from '@/utils/standing'
  * A guest's public profile — the guest-side counterpart of
  * `GuideProfilePage.vue`, reached from the guide deck's "Full profile →".
  * Everything here comes from `api.publicProfile()`, which never carries
- * contact details: those are only ever unlocked by a confirmed booking, on
- * `/matches`. No accept/reject here — the guide decides from the deck.
+ * contact details — nothing does: matched people talk in Messages. No
+ * accept/reject here — the guide decides from the deck.
  */
 const props = defineProps<{ id: string }>()
 

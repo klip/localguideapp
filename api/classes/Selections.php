@@ -10,9 +10,8 @@
  * of `Payments::PACK_SIZE`, mirroring the client's `useMatchesStore`).
  * Guides aren't gated — matching today's app, where only visitors pay.
  *
- * Contact details are gated separately, by `Bookings`: a match alone no
- * longer reveals them to either side — a confirmed booking does (the guest
- * paid the guide's fee, or the guide is free).
+ * Contact details are never shared, at any stage: a matched pair talks
+ * through `Messages` (chat, with location sharing) instead.
  */
 class Selections
 {
@@ -108,15 +107,11 @@ class Selections
      * anyone who's marked them 'interested' but they haven't answered yet.
      * Newest activity first.
      *
-     * Two things are deliberately masked, so this can't leak more than the
-     * match itself earns:
-     *   - `their_decision` is only ever 'interested' or `null` — a 'pass'
-     *     from the other side reads as "no answer yet", never a rejection,
-     *     and a pair where they passed and this user never decided isn't
-     *     returned at all.
-     *   - `email`/`phone` are `null` unless the pair is an active match
-     *     *with a confirmed booking* — the guest paid the guide's fee, or the
-     *     guide is free (see `Bookings`). Hidden from both sides until then.
+     * `their_decision` is deliberately masked, so this can't leak more than
+     * the match itself earns: it's only ever 'interested' or `null` — a
+     * 'pass' from the other side reads as "no answer yet", never a rejection,
+     * and a pair where they passed and this user never decided isn't returned
+     * at all. No contact details, ever: the pair chats through `Messages`.
      *
      * Each row also carries the guide's current fee and the pair's latest
      * booking (`booking_*`), and for the guide, what cancelling it would
@@ -144,8 +139,6 @@ class Selections
                     IF(s.`' . $their . '_decision` = "interested", "interested", NULL) AS `their_decision`,
                     s.`active`, s.`matched_at`, s.`updated_at`,
                     u.`name`, u.`image`,
-                    IF(' . self::CONTACT_UNLOCKED . ', u.`email`, NULL) AS `email`,
-                    IF(' . self::CONTACT_UNLOCKED . ', u.`phone`, NULL) AS `phone`,
                     TIMESTAMPDIFF(YEAR, p.`date_of_birth`, CURDATE()) AS `age`,
                     p.`headline`, p.`price_label`, p.`party`, p.`duration_hours`,
                     COALESCE(gp.`price_amount`, 0) AS `fee_amount`,
@@ -233,13 +226,6 @@ class Selections
 
     /** SQL join condition: `b` is the pair's most recent booking, if any. */
     private const LATEST_BOOKING = 'b.`id` = (SELECT MAX(bb.`id`) FROM `bookings` bb WHERE bb.`selection_id` = s.`id`)';
-
-    /**
-     * SQL condition: contact details are visible for pair `s` — active, with
-     * a confirmed booking (paid, or free). The same rule for both sides.
-     */
-    private const CONTACT_UNLOCKED = 's.`active` = 1 AND EXISTS (
-        SELECT 1 FROM `bookings` cb WHERE cb.`selection_id` = s.`id` AND cb.`status` = "confirmed")';
 
     private function upsertDecision(int $guestId, int $guideId, string $decisionField, string $decision): array
     {

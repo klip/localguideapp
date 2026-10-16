@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS `complaints` (
   `resolution` TEXT NULL DEFAULT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `resolved_at` DATETIME NULL DEFAULT NULL,
+  `notified_at` DATETIME NULL DEFAULT NULL COMMENT 'when the moderators were emailed about it (COMPLAINTS_EMAIL)',
   PRIMARY KEY (`id`),
   KEY `idx_complaints_subject` (`subject_id`, `status`),
   KEY `idx_complaints_reporter` (`reporter_id`, `created_at`),

@@ -14,8 +14,8 @@
  *   - A free guide (price 0 or unset): `createFree()` opens a `confirmed`
  *     booking the moment the match forms — no payment, no acceptance step.
  *
- * Contact details for a pair are shown to *either* side only once a
- * `confirmed` booking exists (see `Selections::getOverview()`).
+ * Contact details are never shared, booked or not: the pair plans the trip
+ * in `Messages` (chat with location sharing).
  *
  * Getting out of a confirmed booking:
  *   - the guide cancels (`cancelByGuide()`): full refund, plus 5% when late;
@@ -105,21 +105,21 @@ class Bookings
                 $this->notifications->notify(
                     (int) $guide['id'],
                     'match',
-                    "You matched with {$guestName}. Once they pay your " . self::money($fee) . ' fee you can confirm a date — see Matches.',
+                    "You matched with {$guestName}. Say hello in Messages — once they pay your " . self::money($fee) . ' fee you can confirm a date on Matches.',
                     "New match: {$guestName}",
                     self::greeting($guide)
-                    . "{$guestName} is interested too, so you're a match. They can now pay your " . self::money($fee)
-                    . " fee to request a date; you'll hear from us when they do, and contact details are shared once you accept.\n\nRockGuide"
+                    . "{$guestName} is interested too, so you're a match. You can chat in Messages on RockGuide straight away. "
+                    . 'They can pay your ' . self::money($fee) . " fee to request a date; you'll hear from us when they do.\n\nRockGuide"
                 );
             } else {
                 $this->notifications->notify(
                     (int) $guest['id'],
                     'match',
-                    "{$guideName} liked you back — it's a match! Pay their " . self::money($fee) . ' fee on Matches to request a date.',
+                    "{$guideName} liked you back — it's a match! Say hello in Messages, or pay their " . self::money($fee) . ' fee on Matches to request a date.',
                     "It's a match: {$guideName}",
                     self::greeting($guest)
-                    . "{$guideName} is interested too, so you're a match. Pay their " . self::money($fee)
-                    . " fee on the Matches page to request a date; contact details are shared once they accept.\n\nRockGuide"
+                    . "{$guideName} is interested too, so you're a match. You can chat in Messages on RockGuide straight away, "
+                    . 'and pay their ' . self::money($fee) . " fee on the Matches page to request a date.\n\nRockGuide"
                 );
             }
             return;
@@ -132,32 +132,30 @@ class Bookings
         $this->notifications->notify(
             (int) $guide['id'],
             'booking_free',
-            "You matched with {$guestName}. Your trip and their contact details are on your My trips page.",
+            "You matched with {$guestName}. Your trip is on My trips — plan it together in Messages.",
             "New match: {$guestName}",
             self::greeting($guide)
-            . "You and {$guestName} are a match. You don't charge a fee, so your contact details have been shared with each other.\n\n"
-            . self::contactBlock($guest)
-            . "\nGet in touch to arrange the tour. When it's over, mark the trip finished on your My trips page.\n\nRockGuide"
+            . "You and {$guestName} are a match. You don't charge a fee, so the trip is already on your My trips page.\n\n"
+            . "Plan it together in Messages on RockGuide — you can share your location there too. When it's over, mark the trip finished on My trips.\n\nRockGuide"
         );
 
         if (!$guestActed) {
             $this->notifications->notify(
                 (int) $guest['id'],
                 'booking_free',
-                "{$guideName} liked you back — it's a match! Your trip and their contact details are on your My trips page.",
+                "{$guideName} liked you back — it's a match! Your trip is on My trips — plan it together in Messages.",
                 "It's a match: {$guideName}",
                 self::greeting($guest)
-                . "You and {$guideName} are a match. They don't charge a fee, so your contact details have been shared with each other.\n\n"
-                . self::contactBlock($guide)
-                . "\nGet in touch to arrange the tour. When it's over, mark the trip finished on your My trips page.\n\nRockGuide"
+                . "You and {$guideName} are a match. They don't charge a fee, so the trip is already on your My trips page.\n\n"
+                . "Plan it together in Messages on RockGuide — you can share your location there too. When it's over, mark the trip finished on My trips.\n\nRockGuide"
             );
         }
     }
 
     /**
      * In-app only: tells everyone `$userId` is actively matched with that
-     * they changed their profile or contact details, so a guide sees the
-     * visitor's new party size or phone without having to go looking.
+     * they changed their profile, so a guide sees the visitor's new party
+     * size without having to go looking.
      * Repeated saves collapse into one unread line (`notifyInApp()`).
      */
     public function onProfileUpdated(int $userId): void
@@ -261,14 +259,14 @@ class Bookings
             . "{$guestName} has paid your fee of {$amount} for a tour on {$when}"
             . ($duration !== null ? " ({$duration} hours)" : '') . ".\n"
             . ($location !== null ? "Meeting place: {$location}\n" : '') . "\n"
-            . "Accept it on your Matches page to confirm the date — you'll both see each other's contact details then. "
+            . "Accept it on your Matches page to confirm the date, and plan the details together in Messages. "
             . "If you can't make it, decline and they're refunded in full. If you don't answer before the meeting time, it's declined automatically.\n\nRockGuide"
         );
 
         return $booking;
     }
 
-    /** The guide confirms a pending booking — contact details unlock for both. */
+    /** The guide confirms a pending booking — it becomes a trip. */
     public function accept(int $guideId, int $guestId): array
     {
         $booking = $this->requireStatus($guestId, $guideId, 'pending', 'There is no booking waiting for you to accept.');
@@ -285,12 +283,11 @@ class Bookings
         $this->notifications->notify(
             $guestId,
             'booking_accepted',
-            "{$guideName} confirmed your booking for {$when}. Their contact details are on your My trips page.",
+            "{$guideName} confirmed your booking for {$when}. It's on My trips — plan the details together in Messages.",
             "{$guideName} confirmed your booking",
             self::greeting($this->user($guestId))
-            . "{$guideName} has confirmed your tour on {$when}.\n\n"
-            . self::contactBlock($guide)
-            . "\nGet in touch to arrange the details.\n\nRockGuide"
+            . "{$guideName} has confirmed your tour on {$when}. It's on your My trips page.\n\n"
+            . "Plan the details together in Messages on RockGuide — you can share your location there too.\n\nRockGuide"
         );
 
         return $this->find($booking['id']);
@@ -729,8 +726,8 @@ class Bookings
      *
      * Rows use the same field names as `Selections::getOverview()` for the
      * booking (`booking_status`, `booking_amount`, …) so `BookingPanel.vue`
-     * can drive either. Contact details are only included while the trip is
-     * confirmed and the pair still matched. `is_latest` marks the pair's most
+     * can drive either. No contact details — the pair chats in `Messages`.
+     * `is_latest` marks the pair's most
      * recent booking — the only one that may offer "Book again".
      */
     public function tripsFor(int $userId, ?string $role): array
@@ -754,8 +751,6 @@ class Bookings
                     b.`finish_requested_by`, b.`finished_at`,
                     s.`active`, s.`matched_at`,
                     u.`name`, u.`image`,
-                    IF(b.`status` = "confirmed" AND s.`active` = 1, u.`email`, NULL) AS `email`,
-                    IF(b.`status` = "confirmed" AND s.`active` = 1, u.`phone`, NULL) AS `phone`,
                     COALESCE(gp.`price_amount`, 0) AS `fee_amount`,
                     b.`id` = (SELECT MAX(bb.`id`) FROM `bookings` bb WHERE bb.`selection_id` = b.`selection_id`) AS `is_latest`
              FROM `bookings` b
@@ -950,7 +945,7 @@ class Bookings
 
     private function user(int $id): array
     {
-        return $this->db->db_GetRowById($id, 'users', '`id`, `name`, `email`, `phone`') ?: ['id' => $id];
+        return $this->db->db_GetRowById($id, 'users', '`id`, `name`') ?: ['id' => $id];
     }
 
     private static function parseMeeting(string $value): int
@@ -998,10 +993,10 @@ class Bookings
             throw new RuntimeException('Keep the meeting place short — ' . self::MAX_LOCATION_LENGTH . ' characters at most.');
         }
 
-        // The other side reads it before contact details are shared (a
-        // pending booking), so a phone number here would skip the guide's
-        // acceptance; a map link is fine. The mask can be a character longer
-        // than a short handle it replaces, hence the trim after it.
+        // The other side reads it, and contact details are never shared: a
+        // phone number here would get round that. A map link is fine. The
+        // mask can be a character longer than a short handle it replaces,
+        // hence the trim after it.
         return mb_substr(ContactFilter::mask($value, 'location'), 0, self::MAX_LOCATION_LENGTH);
     }
 
@@ -1040,12 +1035,6 @@ class Bookings
     private static function greeting(array $user): string
     {
         return 'Hi ' . self::nameOf($user, 'there') . ",\n\n";
-    }
-
-    private static function contactBlock(array $user): string
-    {
-        return 'Email: ' . ($user['email'] ?? '—') . "\n"
-            . (!empty($user['phone']) ? 'Phone: ' . $user['phone'] . "\n" : '');
     }
 
     private static function money(float $amount): string

@@ -230,21 +230,6 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
               </div>
             </dl>
 
-            <dl v-if="trip.email || trip.phone" class="contact">
-              <div v-if="trip.email">
-                <dt>{{ t('common.contact.email') }}</dt>
-                <dd>
-                  <a :href="`mailto:${trip.email}`">{{ trip.email }}</a>
-                </dd>
-              </div>
-              <div v-if="trip.phone">
-                <dt>{{ t('common.contact.phone') }}</dt>
-                <dd>
-                  <a :href="`tel:${trip.phone.replace(/\s+/g, '')}`">{{ trip.phone }}</a>
-                </dd>
-              </div>
-            </dl>
-
             <p
               v-if="trip.booking_status === 'cancelled' && trip.cancel_reason"
               class="tiny muted note"
@@ -254,7 +239,8 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
             <p v-if="trip.active && trip.booking_status !== 'cancelled'" class="note">
               <RouterLink
                 :to="`/messages/${trip.counterpart_id}`"
-                class="tiny"
+                class="soft-btn message-btn"
+                role="button"
                 data-test="message-link"
                 >{{ t('trips.card.message', { name: displayName(trip) }) }}</RouterLink
               >
@@ -438,34 +424,14 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
   }
 }
 
-.contact {
-  margin: 0.75rem 0 0;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--rg-line);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.25rem;
-  font-size: 0.9rem;
-
-  div {
-    display: flex;
-    gap: 0.4rem;
-    min-width: 0;
-  }
-
-  dt {
-    color: var(--rg-muted);
-    font-weight: 400;
-  }
-
-  dd {
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-}
-
 .note {
   margin: 0.5rem 0 0;
+}
+
+// The only way to reach each other: no contact details are ever shown.
+.message-btn {
+  width: auto;
+  margin: 0.25rem 0 0;
 }
 
 .trip-card :deep(.booking) {

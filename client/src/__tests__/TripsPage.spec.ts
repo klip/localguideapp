@@ -36,8 +36,6 @@ function trip(overrides: Partial<TripRow> = {}): TripRow {
     is_latest: true,
     name: 'Igor',
     image: null,
-    email: 'igor@example.com',
-    phone: '+350 56002731',
     active: 1,
     fee_amount: 50,
     booking_status: 'confirmed',
@@ -83,8 +81,6 @@ const cancelled = trip({
   name: 'Cy',
   phase: 'past',
   active: 0,
-  email: null,
-  phone: null,
   booking_status: 'cancelled',
   payment_status: 'refunded',
   refund_amount: 52.5,
@@ -165,7 +161,10 @@ describe('TripsPage', () => {
     expect(card.text()).toContain('3 h')
     expect(card.text()).toContain('Casemates Square')
     expect(card.text()).toContain('£50.00 paid')
-    expect(card.find('a[href="mailto:igor@example.com"]').exists()).toBe(true)
+    // Never contact details — the pair talks in Messages.
+    expect(card.find('a[href^="mailto:"]').exists()).toBe(false)
+    expect(card.find('a[href^="tel:"]').exists()).toBe(false)
+    expect(card.find('[data-test="message-link"]').attributes('href')).toBe('/messages/7')
     // Actions on the trip come from BookingPanel, without its duplicate summary.
     expect(card.find('.booking').text()).toContain('Request cancellation')
     expect(card.find('.booking').text()).not.toContain('Paid £50.00')

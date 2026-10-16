@@ -25,8 +25,8 @@ const panelRef = ref<HTMLElement | null>(null)
 
 // Stands in for the payment provider callback — calling api.unlockPack() *is*
 // the payment (see api/classes/Payments.php, no real gateway wired up yet).
-// First purchase sends the visitor to their profile, to add the contact
-// details a match unlocks; a top-up pack returns them to the deck they left.
+// First purchase sends the visitor to their profile, to fill it in before
+// guides see it; a top-up pack returns them to the deck they left.
 async function pay() {
   if (paying.value) return
 

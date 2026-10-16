@@ -12,8 +12,7 @@ import { reportApiError } from '@/utils/reportApiError'
  * rules. Lives under a row on `MatchesPage.vue`'s Matched tab (no booking yet,
  * or a pending one) and under a trip card on `TripsPage.vue` (confirmed or
  * finished), and emits `changed` after every successful step so the page
- * re-fetches (contact details, badges and the next step all come from the
- * server).
+ * re-fetches (badges and the next step come from the server).
  *
  *   no booking yet  guest: Pay (meeting time, optional trip length and place)
  *   pending         guest: Withdraw payment · guide: Accept / Decline

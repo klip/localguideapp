@@ -136,16 +136,27 @@ class Complaints
         if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
             return;
         }
-        // One email per reported person every 6 hours: a pile-on from many
-        // accounts is still stored, but doesn't flood the inbox.
-        $recent = (int) $this->db->db_GetFieldFromQuery(
-            'SELECT COUNT(*) AS `n` FROM `complaints`
-             WHERE `subject_id` = ' . (int) $subject['id'] . ' AND `id` <> ' . $id . '
-               AND `created_at` > UTC_TIMESTAMP() - INTERVAL 6 HOUR',
-            'n'
-        );
-        if ($recent > 0) {
+        // At most one email per reported person every 6 hours, counted from
+        // the emails actually sent (`notified_at`): a pile-on from many
+        // accounts is stored in full but doesn't flood the inbox. Claimed
+        // under a per-subject lock, so two reports at once send one email.
+        $subjectId = (int) $subject['id'];
+        $lock = 'complaint-subject:' . $subjectId;
+        if (!(int) $this->db->db_GetFieldFromQuery('SELECT GET_LOCK("' . $lock . '", 5) AS `ok`', 'ok')) {
             return;
+        }
+        try {
+            $recent = (int) $this->db->db_GetFieldFromQuery(
+                'SELECT COUNT(*) AS `n` FROM `complaints`
+                 WHERE `subject_id` = ' . $subjectId . ' AND `notified_at` > UTC_TIMESTAMP() - INTERVAL 6 HOUR',
+                'n'
+            );
+            if ($recent > 0) {
+                return;
+            }
+            $this->db->db_Execute('UPDATE `complaints` SET `notified_at` = UTC_TIMESTAMP() WHERE `id` = ' . $id);
+        } finally {
+            $this->db->db_GetFieldFromQuery('SELECT RELEASE_LOCK("' . $lock . '") AS `ok`', 'ok');
         }
         $this->mail->enqueue(
             $to,

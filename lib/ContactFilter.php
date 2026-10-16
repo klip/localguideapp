@@ -2,9 +2,10 @@
 
 /**
  * Keeps contact details — phone numbers, emails, links, social handles —
- * out of text other people can read before a trip is booked. Contact details
- * are what a booking unlocks (see `Bookings`), so a bio that says "WhatsApp
- * me on 56002731" would let anyone skip it.
+ * out of everything people write for each other. RockGuide never shares
+ * contact details: matched people plan their trip in `Messages` (chat with
+ * location sharing), so a bio or message saying "WhatsApp me on 56002731"
+ * would take the trip — and its protection — off the platform.
  *
  * Two ways to use it:
  *   - `assertClean()` — for text a person writes about themselves (profile
@@ -332,7 +333,7 @@ final class ContactDetailsException extends RuntimeException
 
     public function __construct(string $field)
     {
-        parent::__construct('Contact details (phone numbers, emails, links or social media handles) can’t be shared here — they’re exchanged once a trip is confirmed.');
+        parent::__construct('Contact details (phone numbers, emails, links or social media handles) can’t be shared on RockGuide — matched people plan their trip in Messages.');
         $this->field = $field;
     }
 

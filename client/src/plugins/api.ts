@@ -112,7 +112,7 @@ export interface BasicAccount {
  * category the client has never heard of arrives here just the same.
  * Any scalar field can be `null` — plenty of accounts have a partial profile.
  */
-/** No `email`: contact details only ever come through a booking (`Selections::getOverview()`), never a deck card. */
+/** No `email`/`phone`: contact details are never shared with other users — matched people chat (`Messages`). */
 export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   age: number | null
   gender: Gender | null
@@ -303,8 +303,8 @@ export type BookingOp =
   | 'setLocation'
 
 /**
- * One `bookings` row (see `Bookings.php`) — what a match turns into once
- * contact details are unlocked: the guest paid the guide's fee, or the guide
+ * One `bookings` row (see `Bookings.php`) — a date the guide has committed
+ * to: the guest paid the guide's fee (and the guide accepted), or the guide
  * is free. Date-times are UTC `YYYY-MM-DD HH:MM:SS` strings.
  */
 export interface Booking {
@@ -371,8 +371,6 @@ export interface MatchOverviewRow {
   updated_at: string
   name: string | null
   image: string | null
-  email: string | null
-  phone: string | null
   age: number | null
   /** Guide-side fields — only filled when the counterpart is a guide. */
   headline: string | null
@@ -451,8 +449,6 @@ export interface TripRow extends BookingView {
   is_latest: boolean
   name: string | null
   image: string | null
-  email: string | null
-  phone: string | null
   booking_status: BookingStatus
   booking_amount: number
   refund_amount: number | null

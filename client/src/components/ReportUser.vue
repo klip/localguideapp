@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, useId } from 'vue'
 import ModalDialog from './ModalDialog.vue'
 import { t } from '@/i18n'
 import { useApi } from '@/plugins/api'
@@ -41,9 +41,12 @@ const valid = computed(
     descriptionLength.value <= MAX_DESCRIPTION,
 )
 
+const uid = useId()
+
 function close() {
   open.value = false
-  triggerRef.value?.focus()
+  // After the dialog has closed — focus can't leave an open modal.
+  void nextTick(() => triggerRef.value?.focus())
 }
 
 async function submit() {
@@ -85,9 +88,16 @@ async function submit() {
             required
             :placeholder="t('common.report_user.title_placeholder')"
             :aria-invalid="titleLength > MAX_TITLE || undefined"
+            :aria-describedby="`${uid}-title-count`"
             data-test="report-title"
           />
-          <small class="muted" :class="{ over: titleLength > MAX_TITLE }">{{ titleLength }} / {{ MAX_TITLE }}</small>
+          <small
+            :id="`${uid}-title-count`"
+            class="muted"
+            :class="{ over: titleLength > MAX_TITLE }"
+            :aria-live="titleLength > MAX_TITLE ? 'polite' : undefined"
+            >{{ t('common.report_user.count', { count: titleLength, max: MAX_TITLE }) }}</small
+          >
         </label>
         <label>
           {{ t('common.report_user.description_label') }}
@@ -97,10 +107,15 @@ async function submit() {
             required
             :placeholder="t('common.report_user.description_placeholder')"
             :aria-invalid="descriptionLength > MAX_DESCRIPTION || undefined"
+            :aria-describedby="`${uid}-description-count`"
             data-test="report-description"
           />
-          <small class="muted" :class="{ over: descriptionLength > MAX_DESCRIPTION }"
-            >{{ descriptionLength }} / {{ MAX_DESCRIPTION }}</small
+          <small
+            :id="`${uid}-description-count`"
+            class="muted"
+            :class="{ over: descriptionLength > MAX_DESCRIPTION }"
+            :aria-live="descriptionLength > MAX_DESCRIPTION ? 'polite' : undefined"
+            >{{ t('common.report_user.count', { count: descriptionLength, max: MAX_DESCRIPTION }) }}</small
           >
         </label>
         <p class="muted tiny">{{ t('common.report_user.emergency') }}</p>

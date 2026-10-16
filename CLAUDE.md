@@ -2,7 +2,7 @@
 
 A Tinder-style app for matching visitors with local guides: visitors swipe
 through a deck of guides (and vice versa), pick from a purchased pack of
-selections, and unlock contact once matched. Working name in code/prototype
+selections, and chat once matched (contact details are never shared). Working name in code/prototype
 files is "RockGuide"; the directory and package are named
 `localguideapp`, and the GitHub repo is `localguide`.
 
@@ -626,12 +626,11 @@ sorts every pair into four tabs:
 - It opens on Matched if there are any matches, otherwise on "Likes you" if
   anyone is waiting on an answer; once the user clicks a tab, that choice
   sticks. Every action re-fetches the overview rather than patching rows
-  locally, so newly unlocked contact details show up straight away.
+  locally. Matched rows carry a **Message** button (`/messages/:id`).
 - **What the server hides:** `their_decision` is only ever `'interested'`
   or `null`, so a pass from the other side looks like "no answer yet". A
   pair where they passed and you never decided isn't returned at all.
-  `email`/`phone` are `null` unless `active = 1` **and** the pair has a
-  confirmed booking — for both sides.
+  No contact details, ever — see "No contact details".
 - Guests: Accept and Reconsider each cost a pick (enforced server-side by
   `Selections::decide()`). With `selectionsLeft === 0` those buttons turn
   into "Unlock…" links to `/unlock`. Every guest action is mirrored into
@@ -663,7 +662,7 @@ server-computed `phase`:
 - Opens on In progress, else Scheduled, else Past; a clicked tab sticks.
 - Each card: the counterpart's name linking to `/guides/:id` or
   `/visitors/:id`, date, duration, location, price ("£X paid"/"£X fee",
-  "Free", "· £Y refunded"), contact details while confirmed and still
+  "Free", "· £Y refunded"), a **Message {name}** button while still
   matched, the cancel reason on a cancelled trip, a review link on a
   finished one. Missing values read "Date to be arranged" / "Length not set"
   / "Meeting place not set yet".
@@ -685,9 +684,9 @@ server-computed `phase`:
 
 ### Guide fees & bookings
 
-Contact details are what a guide sells, so a match alone no longer reveals
-them — to **either** side. A **confirmed booking** (`bookings`,
-`Bookings.php`) does. All of it is driven from `BookingPanel.vue`, which sits
+A booking is what a guide sells: a confirmed date the guide has committed
+to (`bookings`, `Bookings.php`). Contact details are never part of it — the
+pair plans everything in Messages (see "No contact details"). All of it is driven from `BookingPanel.vue`, which sits
 under every row on `/matches`' Matched tab (until the booking is confirmed)
 and under every non-cancelled card on `/trips` (after), and emits `changed`
 after each step so the page re-fetches.
@@ -697,14 +696,14 @@ after each step so the page re-fetches.
 | Status | How it gets there | What each side can do |
 | --- | --- | --- |
 | *(none)* | matched, nothing booked | guest: **Pay £X** — meeting date-time + optional trip length (0.5–24 h) + optional meeting place → `payGuideFee` |
-| `pending` | guest paid | guide: **Accept** → `confirmed` (contact unlocks) or **Decline** (optional reason) → `declined`, full refund. Guest: **Withdraw payment** → `withdrawn`, full refund. Nobody answers before the meeting time → `sweep()` declines it, full refund. The match survives all of these, so the guest can try another time. |
+| `pending` | guest paid | guide: **Accept** → `confirmed` (a trip) or **Decline** (optional reason) → `declined`, full refund. Guest: **Withdraw payment** → `withdrawn`, full refund. Nobody answers before the meeting time → `sweep()` declines it, full refund. The match survives all of these, so the guest can try another time. |
 | `confirmed` | guide accepted | guide: **Cancel booking** → `cancelled`, fee refunded **+5% if late**. Guest: **Request cancellation** (reason required, only before the trip starts) → guide **Approves** → `cancelled`, refund **fee − 5%**; or **Refuses** → booking stands. Guest can withdraw their request. Either cancel dissolves the match on both sides, which returns the guest's pick. |
 | trip `started` | meeting time passed (`sweep()`) | a guide on a started trip is **hidden from the visitor deck** until the trip's end (or 12 h, if no length). |
-| trip `finished` | see below | both can review each other; contact stays visible; the guest can **Book again**. |
+| trip `finished` | see below | both can review each other; the guest can **Book again**. |
 
-- **Guide acceptance is the point**: the guide commits to a date *before*
-  contact details are exchanged, so a guide can't take a booking and drop
-  it at the last minute without it costing them (the late +5%).
+- **Guide acceptance is the point**: the guide commits to a date, so a
+  guide can't take a booking and drop it at the last minute without it
+  costing them (the late +5%).
 - **Late-cancellation extra** (`Bookings::refundAmount()`): the guide's
   cancel refunds the fee **plus 5%** when the meeting is less than 24 hours
   away — or less than **2** hours away if the match is under a day old
@@ -743,10 +742,9 @@ after each step so the page re-fetches.
   (`api/bin/scheduler.php`, behind a Redis lock so only one runs at a
   time): expires unanswered pending bookings, starts trips, finishes trips.
   Requests no longer sweep.
-- **Nothing else hands out contact details**: deck cards
-  (`Users::searchByRole()`, `ProfileAccount`) and public profiles carry no
-  `email`/`phone` — the deck used to include `email` as a name fallback,
-  which would have let anyone skip the fee.
+- **Nothing hands out contact details** — not deck cards
+  (`Users::searchByRole()`, `ProfileAccount`), public profiles,
+  `matchOverview`, `trips` nor any email or notification.
 - Nothing is charged or refunded for real (same as pack purchases). Emails
   and notification copy live in `Bookings.php`; times in emails are UTC
   ("… UTC"), in the UI the viewer's own zone.
@@ -778,6 +776,42 @@ behind it as badges instead.
   big change. `ProfilePage.vue` shows the status (`myProfile.verified`).
 - Indexes for the two derived tables are in 036; `getPublicProfile()` narrows
   them to the one user. A `user_stats` table is the next step if decks grow.
+
+### Reporting a user (`ReportUser.vue`, `Complaints.php`)
+
+A quiet "⚑ Report {name}" link at the foot of both public profile pages
+(signed in, someone else's profile) opens a form: a title (≤120) and what
+happened (≤2000), with counters. `api.reportUser()` →
+`Complaints::file()`:
+
+- Validated server-side: text only, control characters stripped, lengths by
+  code point, not yourself, the subject must be a guest or guide.
+- One open complaint per reporter about the same person, at most 5 a day per
+  reporter — both checked under a per-reporter `GET_LOCK`, so a double submit
+  can't slip through. Not run through `ContactFilter`: only moderators read
+  it, and a number someone was pestered from is evidence.
+- Stored in `complaints` (037: reporter, subject, title, description,
+  `status` open → reviewing → resolved | dismissed, `resolution`,
+  `resolved_at`); deleting either account sets its id to NULL, so a reported
+  user can't erase a complaint. No admin screen yet — moderators resolve in
+  SQL (the migration has the statement).
+- `COMPLAINTS_EMAIL` (env, optional) gets an email per complaint, at most one
+  per reported person every 6 hours — counted from `notified_at` (when an
+  email actually went), claimed under a per-subject lock. The person reported
+  isn't told.
+- `ReportUser.vue` calls the API itself (like `ReviewsSection`).
+
+### No contact details — chat instead
+
+RockGuide **never shares a user's email or phone with another user** — not
+after a match, not after a confirmed or finished booking. Matched people plan
+the trip in Messages (chat, with "Share my location"); `ContactFilter` keeps
+contact details out of everything they write. So: `matchOverview` and
+`trips` carry no `email`/`phone`; booking emails and notifications point to
+Messages instead of listing contacts; Matches' Matched rows and trip cards
+offer a **Message** button. Copy that used to promise contacts after booking
+was rewritten (039). A user's own email/phone stay on their profile page —
+they're for sign-in, 2FA and our notifications only.
 
 ### Messages: chat between matched people (`MessagesPage.vue`, `/messages`)
 
@@ -828,8 +862,8 @@ The channel that replaces swapping phone numbers. `api/classes/Messages.php`,
 
 ### Contact filter (`lib/ContactFilter.php`)
 
-Contact details are what a booking unlocks, so nothing a person writes for
-others may carry them. `ContactFilter` finds phone numbers (7+ digits in a
+RockGuide never shares contact details (see "No contact details"), so
+nothing a person writes for others may carry them. `ContactFilter` finds phone numbers (7+ digits in a
 run — spelled-out digits in en/es/fr/de/it/pt, any Unicode digits, "O" for
 zero, commas/dots/dashes between groups), emails (real, and "at/dot"
 spelled out or bracketed), links (lowercase `name.tld`, `www.`, `http`,
@@ -992,7 +1026,7 @@ client-side `matchesFilters()`) is gone; don't recreate it.
   run out of swipes. The header `PillBadge` instead reads
   `"{{ interested.length }} interested"`, and the right-hand rail mirrors
   `DiscoverPage.vue`'s matches rail ("Interested in" / "Mutual interest
-  reveals contact details.") — same shared three-column `.discovery-layout`
+  opens a chat.") — same shared three-column `.discovery-layout`
   both pages use. (An earlier version of this page was a multi-select grid
   with no accept/reject buttons at all — replaced because the visitor and
   guide sides are meant to feel like the same interaction, just without the
@@ -1021,9 +1055,9 @@ client-side `matchesFilters()`) is gone; don't recreate it.
   (`SelectionRow`, `active: 0 | 1`); `active === 1` means this decision was
   the one that completed a mutual `'interested'` (see
   `Selections::decide()`/`syncActive()` under Backend), and triggers
-  `messages.success(...)` telling the guide contact details appear on
-  `/matches` once the visitor has paid their fee (straight away for a free
-  guide) — see "Guide fees & bookings". This only fires on the decision that *completes*
+  `messages.success(...)` telling the guide to say hello in Messages and
+  that the trip lands on My trips once the visitor has paid (straight away
+  for a free guide) — see "Guide fees & bookings". This only fires on the decision that *completes*
   the match; if the guest is the one who completes it (already had this
   guide's `'interested'` recorded, then the guest swipes right), the guide
   gets no toast — they'll only see it on `/matches` (`MatchesPage.vue`).
@@ -1415,7 +1449,8 @@ category a user invented on their profile page five minutes ago.
   sides have independently recorded `'interested'` — see `selections` under
   Database state. `GuideDiscoverPage.vue`'s `accept()` surfaces this the
   moment it happens on the guide's own decision (see the note above).
-  Contact details then wait on a booking — see "Guide fees & bookings".
+  From then on the pair can chat (`Messages`); contact details are never
+  shared — see "No contact details".
   Either side can revoke (a booked pair has extra rules, same section); revoking only clears *their own* side and deactivates the pair, it
   doesn't touch the other side's decision or delete the row, so the pair can
   re-activate later and the revoking user is immediately free to be matched
@@ -1718,8 +1753,8 @@ is a `503` from the gateway.
 | `paymentState` | **yes** | `api.paymentState()` | — | `PaymentState` | `paymentStateFor()` |
 | `decide` | **yes** | `api.decide(payload)` | `targetId, decision` (`'interested' \| 'pass'`) | `SelectionRow` (`id, guest_id, guide_id, guest_decision, guide_decision, active, created_at, updated_at`) | `Selections::decide()` |
 | `revokeSelection` | **yes** | `api.revokeSelection(payload)` | `targetId` | `SelectionRow` | `Selections::revoke()` |
-| `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, email, phone, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, location, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
-| `trips` | **yes** | `api.trips()` | — | `{ trips: TripRow[] }` (booking `id`, `selection_id, counterpart_id, phase, is_latest, name, image, email, phone, active, fee_amount, booking_status, payment_status, booking_amount, meeting_at, booking_duration_hours, location, refund_amount, trip_status, accepted_at, cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason, finish_requested_by, finished_at, matched_at, auto_finish, refund_if_cancelled, refund_if_guest_cancels` — newest first) | `Bookings::tripsFor()` |
+| `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, location, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
+| `trips` | **yes** | `api.trips()` | — | `{ trips: TripRow[] }` (booking `id`, `selection_id, counterpart_id, phase, is_latest, name, image, active, fee_amount, booking_status, payment_status, booking_amount, meeting_at, booking_duration_hours, location, refund_amount, trip_status, accepted_at, cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason, finish_requested_by, finished_at, matched_at, auto_finish, refund_if_cancelled, refund_if_guest_cancels` — newest first) | `Bookings::tripsFor()` |
 | `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year), `durationHours?` (0.5–24), `location?` (≤160 chars) | `Booking` (`status: 'pending'` — waits for the guide) | `actionPayGuideFee()` → `Bookings::pay()` |
 | `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation), `location?` (setLocation; empty clears) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/setLocation()/…` |
 | `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
@@ -1729,6 +1764,7 @@ is a `503` from the gateway.
 | `shareLocation` | **yes** | `api.shareLocation(payload)` | `targetId, latitude` (±90), `longitude` (±180) — numbers — `accuracy?` (m) | `ChatMessage` (`kind: 'location'`, `location`) | `Messages::shareLocation()` |
 | `markMessagesRead` | **yes** | `api.markMessagesRead(payload)` | `targetId, upToId` | `{ ok: true }` | `Messages::markReadWith()` |
 | `markSeen` | **yes** | `api.markSeen(section)` | `section` (`'matches' \| 'trips'`) | `{ ok: true }` — the new counts arrive as a `badges` push | `Badges::markSeen()` |
+| `reportUser` | **yes** | `api.reportUser(payload)` | `subjectId, title` (≤120), `description` (≤2000) | `{ id, status: 'open', created_at }` | `Complaints::file()` |
 | `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
 | `session` | **yes** | `api.session()` | — | `AuthResult` (same shape as `register`/`login`, unrotated `sessionHash`) | `actionSession()` |
 | `publicProfile` | optional | `api.publicProfile(userId)` | `userId` | `PublicProfile` (a `ProfileAccount` minus `email`, plus `role`; `400` "Profile not found." for an unknown id or a non-guest/guide) | `Users::getPublicProfile()` |
@@ -1888,8 +1924,10 @@ API service (`api/classes/`):
   `flush()` send each touched user's counters once per request.
 - `Selections.php` also takes `Bookings` now: `syncActive()` stamps
   `matched_at` and calls `Bookings::onMatched()` on the flip to active;
-  `revoke()` enforces the booked-pair rules; `getOverview()`
-  masks contact details with `CONTACT_UNLOCKED`.
+  `revoke()` enforces the booked-pair rules; `getOverview()` never
+  carries contact details.
+- `api/classes/Complaints.php` — `file()`: one user reporting another
+  (see "Reporting a user").
 - `api/classes/Ranking.php` — the deck's order and badges as SQL fragments
   (`tripsJoin()`, `reviewsJoin()`, `columns()`, `ORDER_BY`, `castRow()`); see
   "Ranking & badges".
@@ -2071,6 +2109,14 @@ API service (`api/classes/`):
   text. Applied 2026-10-15. Re-runnable.
 - `api/sql/036_ranking_indexes.sql` — covering indexes for the ranking.
   Applied 2026-10-15. Not re-runnable.
+- `api/sql/037_complaints.sql` — `complaints` (see "Reporting a user").
+  Applied 2026-10-15 (foreign keys changed to SET NULL 2026-10-16).
+  Re-runnable.
+- `api/sql/038_translations_report_user.sql` — report form text. Applied
+  2026-10-15. Re-runnable.
+- `api/sql/039_translations_no_contacts.sql` — copy reworded for "no
+  contact details, chat instead", the report form's intro and counter.
+  Applied 2026-10-16. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

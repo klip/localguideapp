@@ -78,7 +78,7 @@ describe('plugins/api call()', () => {
 
     const error = (await api.updateProfile({ bio: 'call 56002731' }).catch((err: unknown) => err)) as ApiError
     expect(error).toBeInstanceOf(ApiError)
-    expect(error.message).toMatch(/can’t be shared here/)
+    expect(error.message).toMatch(/can’t be shared on RockGuide/)
     expect(error.code).toBe('contact_details')
     expect(error.field).toBe('bio')
   })

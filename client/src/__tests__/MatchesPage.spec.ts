@@ -36,8 +36,6 @@ function row(overrides: Partial<MatchOverviewRow>): MatchOverviewRow {
     updated_at: '2026-09-10 12:00:00',
     name: 'Someone',
     image: null,
-    email: null,
-    phone: null,
     age: null,
     headline: null,
     price_label: null,
@@ -85,12 +83,10 @@ const matched = row({
   my_decision: 'interested',
   their_decision: 'interested',
   active: 1,
-  email: 'igor@example.com',
-  phone: '+350 56002731',
   ...paidBooking,
   refund_if_cancelled: 50,
 })
-/** Matched with a guide who charges £50, nobody has paid: contact still hidden. */
+/** Matched with a guide who charges £50, nobody has paid yet. */
 const unpaid = row({
   id: 5,
   counterpart_id: 18,
@@ -236,7 +232,7 @@ describe('MatchesPage', () => {
       .mockResolvedValueOnce({ selections: [incoming] })
       .mockResolvedValueOnce({
         selections: [
-          { ...incoming, my_decision: 'interested', active: 1, email: 'ana@example.com' },
+          { ...incoming, my_decision: 'interested', active: 1 },
         ],
       })
     const decide = vi
@@ -338,6 +334,18 @@ describe('MatchesPage', () => {
     expect(wrapper.find('.booking').text()).toContain('Pay £50.00')
   })
 
+  it('offers a chat with a match instead of any contact details', async () => {
+    const api = fakeApi({
+      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [unpaid] }),
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
+    })
+    const wrapper = await mountPage(api, 'guest')
+
+    expect(wrapper.find('[data-test="message-link"]').attributes('href')).toBe('/messages/18')
+    expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
+    expect(wrapper.find('a[href^="tel:"]').exists()).toBe(false)
+  })
+
   it('keeps a payment waiting on the guide here, and hands it to My trips once they accept', async () => {
     const pending = {
       ...unpaid,
@@ -352,7 +360,7 @@ describe('MatchesPage', () => {
       .fn<Api['matchOverview']>()
       .mockResolvedValueOnce({ selections: [pending] })
       .mockResolvedValueOnce({
-        selections: [{ ...pending, booking_status: 'confirmed', email: 'gil@example.com' }],
+        selections: [{ ...pending, booking_status: 'confirmed' }],
       })
     const bookingAction = vi
       .fn<Api['bookingAction']>()

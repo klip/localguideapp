@@ -118,7 +118,7 @@ async function load() {
 useLiveSection('matches', load)
 
 function displayName(row: MatchOverviewRow) {
-  return row.name || row.email || t(`matches.row.unnamed_${side.value}`)
+  return row.name || t(`matches.row.unnamed_${side.value}`)
 }
 
 function subline(row: MatchOverviewRow) {
@@ -300,20 +300,6 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
               <div v-if="subline(row)" class="tiny muted">{{ subline(row) }}</div>
               <div class="tiny muted">{{ t('matches.row.since', { date: since(row) }) }}</div>
 
-              <dl v-if="activeTab === 'matched' && (row.email || row.phone)" class="contact">
-                <div v-if="row.email">
-                  <dt>{{ t('common.contact.email') }}</dt>
-                  <dd>
-                    <a :href="`mailto:${row.email}`">{{ row.email }}</a>
-                  </dd>
-                </div>
-                <div v-if="row.phone">
-                  <dt>{{ t('common.contact.phone') }}</dt>
-                  <dd>
-                    <a :href="`tel:${row.phone.replace(/\s+/g, '')}`">{{ row.phone }}</a>
-                  </dd>
-                </div>
-              </dl>
               <p v-if="activeTab === 'incoming' && isGuest" class="tiny muted note">
                 {{ t('matches.row.accept_costs_pick') }}
               </p>
@@ -549,29 +535,6 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem 0.6rem;
-}
-
-.contact {
-  margin: 0.5rem 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.25rem;
-  font-size: 0.9rem;
-
-  div {
-    display: flex;
-    gap: 0.4rem;
-  }
-
-  dt {
-    color: var(--rg-muted);
-    font-weight: 400;
-  }
-
-  dd {
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
 }
 
 .note {

@@ -131,7 +131,6 @@
     "matches": [
       "common.booking_panel",
       "common.booking_time",
-      "common.contact",
       "matches.actions",
       "matches.empty",
       "matches.header",
@@ -145,7 +144,6 @@
     "trips": [
       "common.booking_panel",
       "common.booking_time",
-      "common.contact",
       "trips.card",
       "trips.empty",
       "trips.header",

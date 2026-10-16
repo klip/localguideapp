@@ -55,8 +55,6 @@ function row(overrides: Partial<MatchOverviewRow> = {}): MatchOverviewRow {
     updated_at: '2026-09-10 12:00:00',
     name: 'Igor',
     image: null,
-    email: null,
-    phone: null,
     age: null,
     headline: null,
     price_label: null,
