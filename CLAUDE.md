@@ -286,9 +286,14 @@ own — every one just takes props/emits):
   on `ProfilePage.vue`, hours or age in the filter bar). Adding is explicit
   because a category holds *several* spans. (`FilterChips.vue`, the old
   hardcoded quick-filter row, is gone — the filter bar covers it.)
-- `FilterPanel.vue` — the filter form: pick a category, then values inside
-  it (see "Discovery filters" below). Built from `stores/categories.ts`, so
-  it names no category itself; writes straight to `stores/filters.ts`.
+- `FilterPanel.vue` — the filter form: gender + age on top, then an
+  accordion of categories (see "Discovery filters" below). Built from
+  `stores/categories.ts`, so it names no category itself; writes straight
+  to `stores/filters.ts`.
+- `ActiveFilters.vue` — the filters in force as × pills above the deck
+  (both Discover pages); reads/writes `stores/filters.ts` only.
+- `DualRangeSlider.vue` — one track, two handles (two stacked native range
+  inputs), `v-model` a single span; the filter bar's age.
 - `BookingPanel.vue` — **not** purely presentational (calls the API
   itself): the whole booking for one matched pair on `MatchesPage.vue` —
   pay, accept/decline, cancel/request cancellation, finish the trip. See
@@ -1484,9 +1489,30 @@ a later feature and would get their own table.
 
 ### Discovery filters
 
-The filter bar (`FilterPanel.vue`) is **gradual**: pick a category first,
-then the values inside it, which sit as tags under that category's own
-title with a rule between one group and the next. It sits in a `<details>`
+The filter bar (`FilterPanel.vue`) has two parts. At the top, **the
+person**: gender (a dropdown) and age (one `DualRangeSlider`, two handles,
+16–99), always visible. Below, under "Add a filter", **every category as an
+accordion row** — a native `<details>` with Pico's own chevron and a count of
+picks; open it and the remaining options are full-width link-style rows
+(indented, `+` on the right). **Picking an option moves it out of the list
+and into a pill above the deck's cards** (`ActiveFilters.vue`, on both
+Discover pages, just before the `ProfileCard`); the pill's × removes the
+filter and the option reappears in its category. Gender, age and hour spans
+show as pills too. **Every `range` category (hours, distance) is one
+`DualRangeSlider`** inside its accordion row, like age: a single span,
+applied as it's dragged, and dragging back to the full extent clears it — no
+Add button. (`RangePicker`, with its several spans, is the profile page's.)
+A range category with `allow_unlimited` (048; `distance` only) also gets an
+**"Unlimited" switch** (Pico `role="switch"`), on by default with the
+slider muted (`DualRangeSlider`'s `disabled`) — no filter at all. Switching
+it off stores the full extent and wakes the slider; for such a category,
+dragging back to the ends keeps the range — only the switch clears it. The
+switch is derived from the store (on ⇔ no span), so the pill's × and Clear
+filters turn it back on. **There's
+no apply button** — both decks already refetch (debounced) on every filter
+change. "Clear filters" (funnel-with-× icon) shows once anything is set.
+Accordion state is the browser's own (uncontrolled `<details>`); every value
+lives in `stores/filters.ts`, so collapsing never loses one. The bar sits in a `<details>`
 on both decks, open from `lg` (1024px) up — where its summary is a plain,
 unclickable heading — and closed by default below, where it's a normal
 toggle; crossing the breakpoint resets it (`useMediaQuery(LG_QUERY)` in
@@ -1494,18 +1520,21 @@ toggle; crossing the breakpoint resets it (`useMediaQuery(LG_QUERY)` in
 `stores/categories.ts`, so it offers whatever the server has, including a
 category a user invented on their profile page five minutes ago.
 
-- **Multi-select tags everywhere, with one deliberate exception.** Gender
+- **Multi-select options everywhere, with one deliberate exception.** Gender
   is a dropdown (Male / Female / No preference) because it's a human
   constant, not a tag list. There are no other `<select>`s, radios or
   checkboxes in the bar.
-- **`range` categories use `RangePicker`** — two sliders and an Add button,
-  collecting several spans ("mornings *and* evenings"), each removable.
-  `hour_of_day` runs 00:00–23:00; `age` runs 16–90.
+- **`range` categories in the bar are a single span** (`filtersStore.
+  setRange()`); the store and the server still accept several. `hour_of_day`
+  runs 00:00–23:00, `distance` 0–50 km. `utils/formatRange.ts` prints them
+  ("09:00–13:00", "0–5 km") — the one place category keys are named.
 - **`age` is a category in the UI but not in the database.** There's
   nothing to store per user — it's derived from `date_of_birth` — so
-  `stores/categories.ts` injects a synthetic `AGE_CATEGORY` for the bar and
+  `stores/categories.ts` injects a synthetic `AGE_CATEGORY` (16–99) and
   `plugins/api.ts` peels it back out into its own `ageRanges` request
-  field. Everything else in `ranges` goes to the server as-is.
+  field. Everything else in `ranges` goes to the server as-is. The panel
+  keeps it out of the accordion and drives it with `DualRangeSlider`
+  (`filtersStore.setRange()` — one span); dragging back to 16–99 clears it.
 - **Hours match by overlap, and no stored hours means always available.** A
   guide sets their working hours on their profile; a guest asks for the
   hours they want in the filter. A guide who never set any isn't hidden
@@ -1910,6 +1939,7 @@ Shared (`lib/`):
 - `lib/ContactFilter.php` — keeps contact details out of shared text (see
   "Contact filter"); `configure()`d per request by both processors.
 - `lib/AuthenticationException.php` — mapped to `401` by both processors.
+- `lib/Roles.php` — SQL for reading a user's role from `user_role`.
 
 Auth service (`auth/classes/`):
 - `AuthProcessor.php` — the auth actions plus gateway-only `resolve`/
@@ -2079,7 +2109,7 @@ API service (`api/classes/`):
 - `api/sql/003_user_role.sql` — `user_role` table (2026-09-03), a log of
   role grants (`user_id`, `role_id`, unique per pair) written by
   `Users::register()` alongside `users.role_id`. Same additive pattern
-  as 002.
+  as 002. Since 046 it's the only record of a role.
 - `api/sql/004_users_image.sql` — adds `users.image` (2026-09-03), a
   `MEDIUMTEXT` holding a `data:image/...;base64,...` string (the output of
   `ImageCropper.vue`), not a file path — there's no upload directory or
@@ -2225,6 +2255,20 @@ API service (`api/classes/`):
   re-runnable.
 - `api/sql/044_translations_meeting_pin.sql` — the meeting pin and
   `common.map_links.*`. Applied 2026-10-16. Re-runnable.
+- `api/sql/045_translations_filter_panel.sql` — the age slider's handle
+  names (`common.filter_panel.age_min`/`age_max`) and the pill row's
+  `common.active_filters.*`; deletes the old Edit/Done/Remove and "Show
+  matches" filter keys. Applied 2026-10-18. Re-runnable.
+- `api/sql/046_drop_users_role_id.sql` — drops `users.role_id` (with its
+  index and FK); roles live only in `user_role`, backfilled first (all 11
+  accounts already had their row). Applied 2026-10-18. Not re-runnable.
+- `api/sql/047_distance_range.sql` — `distance` (a user-made options
+  category with one option, "5 km") becomes a `range` category, 0–50 km;
+  the one pick became the span 0–5 km. Applied 2026-10-18. Re-runnable.
+- `api/sql/048_category_allow_unlimited.sql` — `attribute_categories.
+  allow_unlimited` (sent as `allowUnlimited` by `Profiles::getCategories()`),
+  set for `distance`; plus `common.filter_panel.unlimited` in 15 languages.
+  Applied 2026-10-18. Not re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,
@@ -2259,14 +2303,16 @@ against throwaway `@example.test` accounts with the mail worker stopped.
   a 2FA choice) and can still appear on an account that hasn't visited the
   profile page yet, but is no longer an acceptable value going forward —
   `ProfilePage.vue`'s select requires a real channel.
-- `cms_users` — same shape as `users` (`role_id`/`email`/`name`/
+- `cms_users` — like `users` but with its own `role_id` column (`role_id`/`email`/`name`/
   `created_at`), for the future CMS/admin layer (`admin/`, currently empty).
   **No `cms_creds` table yet** — nothing can log into it until one is added
   alongside whatever builds `admin/`.
-- `user_role` — a log of role grants (`user_id`, `role_id`), one row per
-  registration, unique per pair. Written by `Users::register()` in addition
-  to (not instead of) setting `users.role_id`; `getRoleName()` still reads
-  `users.role_id`, not this table.
+- `user_role` — **the** user→role mapping (`user_id`, `role_id`, unique per
+  pair); `users` has no `role_id` any more (046). `Accounts::register()`
+  writes the one app role (guest or guide) in the registration transaction.
+  Read it only through `lib/Roles.php` — `Roles::nameSql()` (a single-row
+  subquery, so an extra mapped role can't duplicate a user in a listing)
+  and `Roles::hasSql()` (the deck's role filter).
 - `payments` — one row per pack purchase (`user_id`, `amount`, `pack_size`,
   `status`), written by `Payments::recordPackPurchase()`.
 - `selections` — one row per (`guest_id`, `guide_id`) pair, unique on that
