@@ -9,6 +9,8 @@
  *     X-Internal-Token: <INTERNAL_TOKEN>    required, else 403
  *     X-User-Id: <id>                       the caller, when the gateway
  *                                           resolved a session for them
+ *     X-Acting-Role: guest|guide            the role the request acts as — one
+ *                                           the user holds (the gateway checks)
  *     X-Request-Id: <id>                    for correlating log lines
  *     X-Client-User-Agent: <ua>             the browser's, from the socket handshake
  *   → the status and JSON body the action produced
@@ -59,8 +61,11 @@ final class ServiceHttp
         }
 
         $userId = (int) ($_SERVER['HTTP_X_USER_ID'] ?? 0);
+        $actingRole = (string) ($_SERVER['HTTP_X_ACTING_ROLE'] ?? '');
         $context = [
             'userId' => $userId > 0 ? $userId : null,
+            // Checked by the gateway against the user's roles before it's sent.
+            'actingRole' => $userId > 0 && in_array($actingRole, Roles::APP_ROLES, true) ? $actingRole : null,
             'userAgent' => (string) ($_SERVER['HTTP_X_CLIENT_USER_AGENT'] ?? ''),
             'requestId' => preg_replace('/[^A-Za-z0-9-]/', '', (string) ($_SERVER['HTTP_X_REQUEST_ID'] ?? '')),
         ];

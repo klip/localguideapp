@@ -179,6 +179,7 @@ class Gateway
         $hash = (string) ($message['sessionHash'] ?? '');
         unset($message['sessionHash']);
         if ($hash === '') {
+            unset($message['actingRole']);
             $this->call($this->apiUrl, $message, null, $requestId, $userAgent, $reply);
             return;
         }
@@ -194,10 +195,20 @@ class Gateway
                     $reply(401, ['error' => 'Your session has expired. Please log in again.']);
                     return;
                 }
+                // The role this request acts as (an account can hold both):
+                // one the user holds, else their first (registration) role.
+                $roles = array_values(array_filter((array) ($body['roles'] ?? []), 'is_string'));
+                $actingRole = (string) ($message['actingRole'] ?? '');
+                unset($message['actingRole']);
+                if ($actingRole !== '' && !in_array($actingRole, $roles, true)) {
+                    $reply(403, ['error' => 'Your account doesn’t have that role.']);
+                    return;
+                }
+                $actingRole = $actingRole !== '' ? $actingRole : ($roles[0] ?? null);
                 $this->call($this->apiUrl, $message, $userId, $requestId, $userAgent,
                     function (int $status, array $body) use ($reply, $userId): void {
                         $reply($status, $body, $userId);
-                    });
+                    }, $actingRole);
             });
     }
 
@@ -205,7 +216,7 @@ class Gateway
      * One internal HTTP call. `$done(int $status, array $body)` always runs:
      * an unreachable service comes back as 503.
      */
-    private function call(string $url, array $payload, ?int $userId, string $requestId, string $userAgent, callable $done): void
+    private function call(string $url, array $payload, ?int $userId, string $requestId, string $userAgent, callable $done, ?string $actingRole = null): void
     {
         $headers = [
             'X-Internal-Token' => $this->internalToken,
@@ -214,6 +225,9 @@ class Gateway
         ];
         if ($userId) {
             $headers['X-User-Id'] = (string) $userId;
+        }
+        if ($userId && $actingRole) {
+            $headers['X-Acting-Role'] = $actingRole;
         }
 
         $this->http->post($url, $headers, (string) json_encode($payload), static function (int $status, ?array $json, ?string $error) use ($url, $payload, $requestId, $done): void {

@@ -50,6 +50,8 @@ class RequestProcessor
     private $input;
     /** @var int|null the caller, as the gateway resolved them */
     private $userId;
+    /** @var string|null the role the caller acts as — one they hold, checked by the gateway */
+    private $actingRole;
 
     public function __construct(db $db, RedisClient $redis)
     {
@@ -80,6 +82,7 @@ class RequestProcessor
     {
         $this->input = $input;
         $this->userId = $context['userId'] ?? null;
+        $this->actingRole = $context['actingRole'] ?? null;
         $action = (string) ($input['action'] ?? '');
         ContactFilter::configure($this->db, $this->userId);
 
@@ -143,12 +146,12 @@ class RequestProcessor
                 return [200, $this->actionRevokeSelection()];
 
             case 'matchOverview':
-                return [200, ['selections' => $this->selections->getOverview($this->requireUserId())]];
+                return [200, ['selections' => $this->selections->getOverview($this->requireUserId(), $this->actingRole())]];
 
             // Confirmed trips — scheduled, current and past (see `Bookings::tripsFor()`).
             case 'trips':
                 $userId = $this->requireUserId();
-                return [200, ['trips' => $this->bookings->tripsFor($userId, $this->users->getRoleName($userId))]];
+                return [200, ['trips' => $this->bookings->tripsFor($userId, $this->actingRole())]];
 
             case 'payGuideFee':
                 return [200, $this->actionPayGuideFee()];
@@ -181,24 +184,25 @@ class RequestProcessor
             // Chat between matched people (see `Messages`, 030_messages.sql).
             // `Messages` touches whoever's unread counter changed itself.
             case 'conversations':
-                return [200, ['conversations' => $this->messages->conversationsFor($this->requireUserId())]];
+                return [200, ['conversations' => $this->messages->conversationsFor($this->requireUserId(), $this->actingRole())]];
 
             case 'messages':
                 $input = $this->readInput();
                 $beforeId = (int) ($input['beforeId'] ?? 0);
-                return [200, $this->messages->threadWith($this->requireUserId(), $this->requireTargetId(), $beforeId > 0 ? $beforeId : null)];
+                return [200, $this->messages->threadWith($this->requireUserId(), $this->actingRole(), $this->requireTargetId(), $beforeId > 0 ? $beforeId : null)];
 
             case 'sendMessage':
                 $body = $this->readInput()['body'] ?? '';
                 if (!is_string($body)) {
                     throw new RuntimeException('A message must be text.');
                 }
-                return [200, $this->messages->send($this->requireUserId(), $this->requireTargetId(), $body)];
+                return [200, $this->messages->send($this->requireUserId(), $this->actingRole(), $this->requireTargetId(), $body)];
 
             case 'shareLocation':
                 $input = $this->readInput();
                 return [200, $this->messages->shareLocation(
                     $this->requireUserId(),
+                    $this->actingRole(),
                     $this->requireTargetId(),
                     $input['latitude'] ?? null,
                     $input['longitude'] ?? null,
@@ -206,19 +210,19 @@ class RequestProcessor
                 )];
 
             case 'markMessagesRead':
-                $this->messages->markReadWith($this->requireUserId(), $this->requireTargetId(), (int) ($this->readInput()['upToId'] ?? 0));
+                $this->messages->markReadWith($this->requireUserId(), $this->actingRole(), $this->requireTargetId(), (int) ($this->readInput()['upToId'] ?? 0));
                 return [200, ['ok' => true]];
 
             // Levels, perks, bonus packages and sanctions (see `Levels`, 041_levels.sql).
             case 'myLevel':
                 $userId = $this->requireUserId();
                 $this->levels->sync($userId);
-                return [200, $this->levels->stateFor($userId, (string) $this->users->getRoleName($userId))];
+                return [200, $this->levels->stateFor($userId, $this->actingRole())];
 
             case 'claimBonus':
                 $userId = $this->requireUserId();
                 $this->levels->claim($userId, (int) ($this->readInput()['bonusId'] ?? 0));
-                return [200, $this->levels->stateFor($userId, (string) $this->users->getRoleName($userId))];
+                return [200, $this->levels->stateFor($userId, $this->actingRole())];
 
             // One user reporting another (see `Complaints`, 037_complaints.sql).
             case 'reportUser':
@@ -302,7 +306,7 @@ class RequestProcessor
     private function actionUnlockPack(): array
     {
         $userId = $this->requireUserId();
-        if ($this->users->getRoleName($userId) !== 'guest') {
+        if ($this->actingRole() !== 'guest') {
             throw new RuntimeException('Only guests purchase selection packs.');
         }
 
@@ -351,7 +355,7 @@ class RequestProcessor
             throw new RuntimeException('targetId is required.');
         }
 
-        return $this->selections->decide($userId, $targetId, $decision);
+        return $this->selections->decide($userId, $this->actingRole(), $targetId, $decision);
     }
 
     private function actionRevokeSelection(): array
@@ -364,7 +368,7 @@ class RequestProcessor
             throw new RuntimeException('targetId is required.');
         }
 
-        return $this->selections->revoke($userId, $targetId);
+        return $this->selections->revoke($userId, $this->actingRole(), $targetId);
     }
 
     /**
@@ -380,7 +384,7 @@ class RequestProcessor
         if (!$guideId) {
             throw new RuntimeException('targetId is required.');
         }
-        if ($this->users->getRoleName($userId) !== 'guest' || $this->users->getRoleName($guideId) !== 'guide') {
+        if ($this->actingRole() !== 'guest' || !$this->users->hasRole($guideId, 'guide')) {
             throw new RuntimeException('Only a visitor can pay a guide’s fee.');
         }
 
@@ -412,15 +416,12 @@ class RequestProcessor
             throw new RuntimeException('targetId is required.');
         }
 
-        $role = $this->users->getRoleName($userId);
-        $targetRole = $this->users->getRoleName($targetId);
-        if ($role === 'guest' && $targetRole === 'guide') {
-            [$guestId, $guideId] = [$userId, $targetId];
-        } elseif ($role === 'guide' && $targetRole === 'guest') {
-            [$guestId, $guideId] = [$targetId, $userId];
-        } else {
+        // The acting role picks the booking: two people can be booked both ways.
+        $role = $this->actingRole();
+        if (!$this->users->hasRole($targetId, Roles::opposite($role))) {
             throw new RuntimeException('Bookings are between a visitor and a guide.');
         }
+        [$guestId, $guideId] = $role === 'guest' ? [$userId, $targetId] : [$targetId, $userId];
 
         $guestOps = ['withdraw', 'requestCancellation', 'withdrawCancellation'];
         $guideOps = ['accept', 'decline', 'approveCancellation', 'refuseCancellation'];
@@ -478,7 +479,7 @@ class RequestProcessor
         if (!$guestId) {
             throw new RuntimeException('targetId is required.');
         }
-        if ($this->users->getRoleName($userId) !== 'guide') {
+        if ($this->actingRole() !== 'guide') {
             throw new RuntimeException('Only the guide can cancel a booking.');
         }
 
@@ -826,6 +827,21 @@ class RequestProcessor
      * `Users::searchByRole()`). A session that was sent but had expired never
      * gets this far: the gateway answers 401 itself.
      */
+    /**
+     * The role this request acts as. The gateway sends one the user holds
+     * (their first role when the client didn't say); only an account with no
+     * app role at all gets here without one.
+     */
+    private function actingRole(): string
+    {
+        $this->requireUserId();
+        if (!$this->actingRole) {
+            throw new RuntimeException('This account has no guest or guide role.');
+        }
+
+        return $this->actingRole;
+    }
+
     private function optionalUserId(): ?int
     {
         return $this->userId;

@@ -26,6 +26,28 @@ class Roles
                  ORDER BY ur_.`id` LIMIT 1)';
     }
 
+    /**
+     * Every app role `$userId` holds, in the order granted — the first is the
+     * one they registered with, and the default acting role.
+     *
+     * @return string[]
+     */
+    public static function of(int $userId, db $db): array
+    {
+        $rows = $db->db_GetArray(
+            'SELECT r.`name` FROM `user_role` ur JOIN `roles` r ON r.`id` = ur.`role_id`
+             WHERE ur.`user_id` = ' . $userId . ' AND r.`name` IN ("guest", "guide") ORDER BY ur.`id`'
+        ) ?: [];
+
+        return array_values(array_map(static fn(array $row): string => $row['name'], $rows));
+    }
+
+    /** The other side of a match: guest ⇄ guide. */
+    public static function opposite(string $role): string
+    {
+        return $role === 'guest' ? 'guide' : 'guest';
+    }
+
     /** SQL condition: the user `$userIdExpr` holds the role `$roleName`. */
     public static function hasSql(string $userIdExpr, string $roleName, db $db): string
     {

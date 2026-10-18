@@ -76,7 +76,7 @@ onMounted(async () => {
   // their own deck instead of flashing this page first. Covers every way
   // a guide could land here (a stale bookmark, browser back/forward), not
   // just the nav link/post-login redirect (see AppHeader.vue/LoginPage.vue).
-  if (auth.user?.role === 'guide') {
+  if (auth.activeRole === 'guide') {
     router.replace('/guide/discover')
     return
   }
@@ -166,7 +166,7 @@ async function persistDecision(guideId: string, decision: 'interested' | 'pass')
  * A signed-in guest without a pack is shown the payment modal straight
  * away (and again on "Interested"); everyone else just swipes.
  */
-const isGuest = computed(() => auth.user?.role === 'guest')
+const isGuest = computed(() => auth.activeRole === 'guest')
 const authPromptOpen = ref(false)
 const payOpen = ref(false)
 const paying = ref(false)

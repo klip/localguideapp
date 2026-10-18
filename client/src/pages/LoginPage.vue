@@ -87,7 +87,7 @@ async function finish(user: AuthResult) {
   // Guides never pay/unlock — land them straight on their own deck rather
   // than the visitor-side /discover (paywall box included), mirroring
   // RegisterPage.vue's role-based redirect.
-  router.push(user.role === 'guide' ? '/guide/discover' : '/discover')
+  router.push(auth.activeRole === 'guide' ? '/guide/discover' : '/discover')
 }
 
 async function submit() {
@@ -232,9 +232,7 @@ function backToPassword() {
           @click="resend"
         >
           {{
-            resendIn > 0
-              ? t('login.code.resend_in', { seconds: resendIn })
-              : t('login.code.resend')
+            resendIn > 0 ? t('login.code.resend_in', { seconds: resendIn }) : t('login.code.resend')
           }}
         </button>
 
@@ -275,13 +273,17 @@ function backToPassword() {
             placeholder="••••••••"
             required
           />
-          <RouterLink to="/forgot-password" class="tiny forgot">{{ t('login.form.forgot_password') }}</RouterLink>
+          <RouterLink to="/forgot-password" class="tiny forgot">{{
+            t('login.form.forgot_password')
+          }}</RouterLink>
         </label>
 
         <button type="submit" class="full" :aria-busy="submitting" :disabled="submitting">
           {{ submitting ? t('login.form.submitting') : t('login.form.submit') }}
         </button>
-        <button type="button" class="soft-btn full">{{ t('common.form.continue_with_apple') }}</button>
+        <button type="button" class="soft-btn full">
+          {{ t('common.form.continue_with_apple') }}
+        </button>
 
         <p class="tiny muted centred">
           {{ t('login.form.new_here') }}

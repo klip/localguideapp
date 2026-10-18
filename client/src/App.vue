@@ -52,7 +52,13 @@ const currentRoute = useRoute()
 socket.on('notification', (message) => {
   const note = message.notification as AppNotification | undefined
   if (!note) return
-  messages.info(note.message, undefined, NOTIFICATION_TOAST_MS, undefined, notificationLink(note, auth.user?.role))
+  messages.info(
+    note.message,
+    undefined,
+    NOTIFICATION_TOAST_MS,
+    undefined,
+    notificationLink(note, auth.activeRole),
+  )
   badges.bump()
 })
 socket.on('badges', (message) => badges.set(message))
@@ -90,7 +96,7 @@ watch(
 watch(
   () => auth.user?.id,
   (id, previous) => {
-    if (id && id !== previous) void syncPendingRejects(api, auth.user?.role)
+    if (id && id !== previous) void syncPendingRejects(api, auth.activeRole)
   },
 )
 
@@ -107,7 +113,7 @@ onMounted(async () => {
     // out over it.
   }
 
-  void syncPendingRejects(api, auth.user?.role)
+  void syncPendingRejects(api, auth.activeRole)
 
   // `stores/matches.ts` is in-memory only (unlike `auth`, which persists to
   // localStorage), so a plain refresh dropped a paid-up visitor back to "0
@@ -115,7 +121,7 @@ onMounted(async () => {
   // even though the purchases were recorded server-side. Only LoginPage and
   // UnlockPage re-synced it, so nothing covered F5 — and this is the one
   // place every page passes through. Guests only: guides never buy packs.
-  if (auth.user?.role !== 'guest') return
+  if (auth.activeRole !== 'guest') return
 
   try {
     const state = await api.paymentState()

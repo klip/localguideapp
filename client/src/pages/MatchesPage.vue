@@ -44,7 +44,7 @@ const auth = useAuthStore()
 const messages = useMessagesStore()
 const matchesStore = useMatchesStore()
 
-const isGuest = computed(() => auth.user?.role === 'guest')
+const isGuest = computed(() => auth.activeRole === 'guest')
 /** `guest`/`guide` — picks the role-specific wording for keys that differ by side. */
 const side = computed(() => (isGuest.value ? 'guest' : 'guide'))
 
@@ -229,11 +229,7 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
       :lead="t(`matches.header.lead_${side}`)"
     />
 
-    <PanelCard
-      v-if="!auth.isAuthenticated"
-      class="narrow"
-      :title="t('matches.signed_out.title')"
-    >
+    <PanelCard v-if="!auth.isAuthenticated" class="narrow" :title="t('matches.signed_out.title')">
       <p class="muted">{{ t('matches.signed_out.body') }}</p>
       <RouterLink to="/login" role="button">{{ t('matches.signed_out.log_in') }}</RouterLink>
     </PanelCard>
@@ -289,13 +285,15 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                     }}<template v-if="row.age">, {{ row.age }}</template></strong
                   ></RouterLink
                 >
-                <PillBadge v-if="activeTab === 'matched'">{{ t('matches.tabs.matched') }}</PillBadge>
+                <PillBadge v-if="activeTab === 'matched'">{{
+                  t('matches.tabs.matched')
+                }}</PillBadge>
                 <PillBadge v-else-if="row.their_decision === 'interested'">{{
                   t('matches.tabs.incoming')
                 }}</PillBadge>
-                <PillBadge v-else-if="activeTab === 'awaiting'" tone="neutral"
-                  >{{ t('matches.tabs.awaiting') }}</PillBadge
-                >
+                <PillBadge v-else-if="activeTab === 'awaiting'" tone="neutral">{{
+                  t('matches.tabs.awaiting')
+                }}</PillBadge>
               </div>
               <div v-if="subline(row)" class="tiny muted">{{ subline(row) }}</div>
               <div class="tiny muted">{{ t('matches.row.since', { date: since(row) }) }}</div>

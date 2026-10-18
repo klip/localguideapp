@@ -31,6 +31,12 @@ class Accounts
         return $this->db->db_GetRowById($userId, 'users');
     }
 
+    /** @return string[] every app role the account holds, registration role first (`Roles::of()`). */
+    public function getRoles(int $userId): array
+    {
+        return Roles::of($userId, $this->db);
+    }
+
     public function getRoleName(int $userId): ?string
     {
         $name = $this->db->db_GetFieldFromQuery(

@@ -43,7 +43,8 @@ const loading = ref(true)
 const loadError = ref('')
 
 const profile = ref<MyProfile | null>(null)
-const isGuide = computed(() => profile.value?.role === 'guide')
+/** The profile shows the fields of the role the account is acting as. */
+const isGuide = computed(() => auth.activeRole === 'guide')
 
 // --- Personal & contact info ------------------------------------------------
 const name = ref('')
@@ -175,7 +176,8 @@ function removeRange(categoryKey: string, index: number) {
 const visibleCategories = computed(() =>
   localCategories.value.filter(
     (category) =>
-      (selectedAttributes[category.key]?.length ?? 0) > 0 || manuallyExpandedCategories.has(category.key),
+      (selectedAttributes[category.key]?.length ?? 0) > 0 ||
+      manuallyExpandedCategories.has(category.key),
   ),
 )
 
@@ -193,7 +195,13 @@ function optionSuggestionsFor(categoryKey: string): ComboboxSuggestion[] {
 }
 
 function slugifyCategoryKey(label: string): string {
-  return label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'category'
+  return (
+    label
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'category'
+  )
 }
 
 function expandCategory(categoryKey: string) {
@@ -210,14 +218,18 @@ function selectCategory(suggestion: ComboboxSuggestion & { isNew: boolean }) {
   if (suggestion.isNew) {
     key = slugifyCategoryKey(suggestion.label)
     if (!localCategories.value.some((category) => category.key === key)) {
-      localCategories.value.push({ key, label: suggestion.label, multi: true, options: [],
-      // A brand-new category is always an option list: `range` needs bounds
-      // that only a migration can set (see `Profiles::setRanges()`).
-      kind: 'options',
-      providerLabel: null,
-      rangeMin: null,
-      rangeMax: null,
-    })
+      localCategories.value.push({
+        key,
+        label: suggestion.label,
+        multi: true,
+        options: [],
+        // A brand-new category is always an option list: `range` needs bounds
+        // that only a migration can set (see `Profiles::setRanges()`).
+        kind: 'options',
+        providerLabel: null,
+        rangeMin: null,
+        rangeMax: null,
+      })
       newCategoryLabels[key] = suggestion.label
     }
   }
@@ -375,6 +387,7 @@ async function saveAccount() {
       email: email.value.trim(),
       name: name.value.trim(),
       role: auth.user.role,
+      roles: auth.user.roles,
       sessionHash: auth.user.sessionHash,
     })
     messages.success(t('profile.toast.contact_saved'), anchorTo('element', accountPanelRef.value))
@@ -417,7 +430,10 @@ async function changePassword() {
   if (!auth.user || changingPassword.value) return
 
   if (newPassword.value !== confirmPassword.value) {
-    messages.error(t('profile.toast.password_mismatch'), anchorTo('element', passwordPanelRef.value))
+    messages.error(
+      t('profile.toast.password_mismatch'),
+      anchorTo('element', passwordPanelRef.value),
+    )
     return
   }
 
@@ -430,9 +446,16 @@ async function changePassword() {
     currentPassword.value = ''
     newPassword.value = ''
     confirmPassword.value = ''
-    messages.success(t('profile.toast.password_changed'), anchorTo('element', passwordPanelRef.value))
+    messages.success(
+      t('profile.toast.password_changed'),
+      anchorTo('element', passwordPanelRef.value),
+    )
   } catch (err) {
-    reportApiError(err, t('profile.toast.password_failed'), anchorTo('element', passwordPanelRef.value))
+    reportApiError(
+      err,
+      t('profile.toast.password_failed'),
+      anchorTo('element', passwordPanelRef.value),
+    )
   } finally {
     changingPassword.value = false
   }
@@ -466,7 +489,12 @@ async function changePassword() {
             <form @submit.prevent="changePassword">
               <label>
                 {{ t('profile.password.current') }}
-                <input v-model="currentPassword" type="password" autocomplete="current-password" required />
+                <input
+                  v-model="currentPassword"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                />
               </label>
               <label>
                 {{ t('profile.password.new') }}
@@ -474,11 +502,23 @@ async function changePassword() {
               </label>
               <label>
                 {{ t('profile.password.confirm') }}
-                <input v-model="confirmPassword" type="password" autocomplete="new-password" required />
+                <input
+                  v-model="confirmPassword"
+                  type="password"
+                  autocomplete="new-password"
+                  required
+                />
               </label>
 
-              <button type="submit" class="full" :aria-busy="changingPassword" :disabled="changingPassword">
-                {{ changingPassword ? t('profile.password.changing') : t('profile.password.submit') }}
+              <button
+                type="submit"
+                class="full"
+                :aria-busy="changingPassword"
+                :disabled="changingPassword"
+              >
+                {{
+                  changingPassword ? t('profile.password.changing') : t('profile.password.submit')
+                }}
               </button>
             </form>
           </details>
@@ -524,7 +564,9 @@ async function changePassword() {
                 <option value="email">{{ t('common.contact.email') }}</option>
                 <!-- Not wired to a provider yet — AccountSecurity.php only sends by email. -->
                 <option value="sms" disabled>{{ t('profile.contact.two_factor_sms') }}</option>
-                <option value="whatsapp" disabled>{{ t('profile.contact.two_factor_whatsapp') }}</option>
+                <option value="whatsapp" disabled>
+                  {{ t('profile.contact.two_factor_whatsapp') }}
+                </option>
               </select>
               <small class="tiny muted">
                 {{ t('profile.contact.two_factor_hint') }}
@@ -550,9 +592,17 @@ async function changePassword() {
             <ImageCropper ref="cropperRef" />
 
             <!-- Set by the identity check, not editable here (see Ranking.php). -->
-            <p v-if="profile" class="verification tiny" :class="{ 'verification--done': profile.verified }" data-test="verification">
+            <p
+              v-if="profile"
+              class="verification tiny"
+              :class="{ 'verification--done': profile.verified }"
+              data-test="verification"
+            >
               <template v-if="profile.verified">
-                <strong><span aria-hidden="true">✓</span> {{ t('profile.verification.verified') }}</strong>
+                <strong
+                  ><span aria-hidden="true">✓</span>
+                  {{ t('profile.verification.verified') }}</strong
+                >
                 <template v-if="profile.verification_method">
                   · {{ t(`profile.verification.method_${profile.verification_method}`) }}</template
                 >
@@ -679,8 +729,14 @@ async function changePassword() {
             <div class="attributes-editor" data-field="attribute" tabindex="-1">
               <strong class="tiny">{{ t('profile.details.about') }}</strong>
 
-              <div v-for="category in visibleCategories" :key="category.key" class="attribute-group">
-                <span class="tiny muted">{{ (isGuide && category.providerLabel) || category.label }}</span>
+              <div
+                v-for="category in visibleCategories"
+                :key="category.key"
+                class="attribute-group"
+              >
+                <span class="tiny muted">{{
+                  (isGuide && category.providerLabel) || category.label
+                }}</span>
                 <div class="chips">
                   <span
                     v-for="value in selectedAttributes[category.key] ?? []"
@@ -756,7 +812,7 @@ async function changePassword() {
         </PanelCard>
       </div>
 
-      <LevelPanel v-if="profile && (profile.role === 'guest' || profile.role === 'guide')" :role="profile.role" />
+      <LevelPanel v-if="profile && auth.activeRole" :role="auth.activeRole" />
     </div>
   </section>
 </template>
@@ -888,7 +944,7 @@ label {
   cursor: pointer;
   font-size: 1rem;
   margin: 0;
-  color:  var(--pico-secondary);
+  color: var(--pico-secondary);
 }
 
 .chip-add {

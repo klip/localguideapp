@@ -57,7 +57,7 @@ let syncing: Promise<void> | null = null
  * Only guests decide on guides; any other account just discards the list.
  * Concurrent calls share one run.
  */
-export function syncPendingRejects(api: Api, role: string | undefined): Promise<void> {
+export function syncPendingRejects(api: Api, role: string | null | undefined): Promise<void> {
   // Signed out (e.g. the boot session check just expired): keep them queued.
   if (!role || readPendingRejects().length === 0) return Promise.resolve()
   if (role !== 'guest') {

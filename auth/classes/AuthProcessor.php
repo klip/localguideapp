@@ -77,8 +77,10 @@ class AuthProcessor
                 case 'session':
                     return [200, $this->actionSession()];
 
+                // The gateway checks the request's acting role against `roles`.
                 case 'resolve':
-                    return [200, ['userId' => $this->sessions->resolve($this->sessionHash())]];
+                    $userId = $this->sessions->resolve($this->sessionHash());
+                    return [200, ['userId' => $userId, 'roles' => $userId ? $this->accounts->getRoles($userId) : []]];
                 case 'peekMany':
                     $hashes = array_map('strval', array_filter((array) ($input['hashes'] ?? []), 'is_string'));
                     return [200, ['live' => (object) $this->sessions->peekMany($hashes)]];
@@ -138,7 +140,13 @@ class AuthProcessor
         }
         Log::info('Account registered', ['user_id' => $userId, 'role' => $role, 'terms_version' => $currentTerms]);
 
-        return ['id' => $userId, 'email' => $email, 'role' => $role, 'sessionHash' => $this->sessions->create($userId)];
+        return [
+            'id' => $userId,
+            'email' => $email,
+            'role' => $role,
+            'roles' => [$role],
+            'sessionHash' => $this->sessions->create($userId),
+        ];
     }
 
     private function actionLogin(): array
@@ -174,6 +182,7 @@ class AuthProcessor
             'email' => $user['email'],
             'name' => $user['name'],
             'role' => $this->accounts->getRoleName((int) $user['id']),
+            'roles' => $this->accounts->getRoles((int) $user['id']),
             'sessionHash' => $this->sessions->create((int) $user['id']),
         ];
     }
@@ -256,6 +265,7 @@ class AuthProcessor
             'email' => $user['email'],
             'name' => $user['name'],
             'role' => $this->accounts->getRoleName($userId),
+            'roles' => $this->accounts->getRoles($userId),
             'sessionHash' => $this->sessionHash(),
         ];
     }

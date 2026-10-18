@@ -35,7 +35,7 @@ const api = useApi()
 const auth = useAuthStore()
 const matchesStore = useMatchesStore()
 
-const isGuest = computed(() => auth.user?.role === 'guest')
+const isGuest = computed(() => auth.activeRole === 'guest')
 /** `guest`/`guide` — picks the role-specific wording for keys that differ by side. */
 const side = computed(() => (isGuest.value ? 'guest' : 'guide'))
 
@@ -116,7 +116,10 @@ function durationLabel(trip: TripRow) {
 function priceLabel(trip: TripRow) {
   if (trip.payment_status === 'none') return t('trips.card.free')
   const paid =
-    !isGuest.value && trip.payment_status === 'paid' && trip.guide_payout != null && trip.commission_rate != null
+    !isGuest.value &&
+    trip.payment_status === 'paid' &&
+    trip.guide_payout != null &&
+    trip.commission_rate != null
       ? trip.commission_rate === 0
         ? t('trips.card.price_fee_no_fee', { amount: formatMoney(trip.booking_amount) })
         : t('trips.card.price_fee_payout', {
@@ -133,7 +136,8 @@ function priceLabel(trip: TripRow) {
 }
 
 function status(trip: TripRow): { label: string; tone?: 'neutral' } {
-  if (trip.booking_status === 'cancelled') return { label: t('trips.status.cancelled'), tone: 'neutral' }
+  if (trip.booking_status === 'cancelled')
+    return { label: t('trips.status.cancelled'), tone: 'neutral' }
   if (trip.phase === 'past') return { label: t('trips.status.finished'), tone: 'neutral' }
   if (trip.phase === 'current') return { label: t('trips.status.in_progress') }
   return { label: t('trips.status.scheduled') }
@@ -165,11 +169,7 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
       :lead="t(`trips.header.lead_${side}`)"
     />
 
-    <PanelCard
-      v-if="!auth.isAuthenticated"
-      class="narrow"
-      :title="t('trips.signed_out.title')"
-    >
+    <PanelCard v-if="!auth.isAuthenticated" class="narrow" :title="t('trips.signed_out.title')">
       <p class="muted">{{ t('trips.signed_out.body') }}</p>
       <RouterLink to="/login" role="button">{{ t('trips.signed_out.log_in') }}</RouterLink>
     </PanelCard>
@@ -232,7 +232,12 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
               <div class="wide">
                 <dt>{{ t('trips.card.location') }}</dt>
                 <dd :class="{ muted: !trip.location && !trip.location_pin }">
-                  {{ trip.location || (trip.location_pin ? t('trips.card.location_pinned') : t('trips.card.location_not_set')) }}
+                  {{
+                    trip.location ||
+                    (trip.location_pin
+                      ? t('trips.card.location_pinned')
+                      : t('trips.card.location_not_set'))
+                  }}
                   <MapPinLinks
                     v-if="trip.location_pin"
                     class="trip-pin"
@@ -264,9 +269,9 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
               >
             </p>
             <p v-if="reviewLink(trip)" class="note">
-              <RouterLink :to="reviewLink(trip)!" class="tiny"
-                >{{ t('trips.card.leave_review', { name: displayName(trip) }) }}</RouterLink
-              >
+              <RouterLink :to="reviewLink(trip)!" class="tiny">{{
+                t('trips.card.leave_review', { name: displayName(trip) })
+              }}</RouterLink>
             </p>
 
             <BookingPanel

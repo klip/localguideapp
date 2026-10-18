@@ -34,7 +34,7 @@ function badgeText(count: number) {
   return count > 99 ? '99+' : String(count)
 }
 
-const discoverTo = computed(() => (auth.user?.role === 'guide' ? '/guide/discover' : '/discover'))
+const discoverTo = computed(() => (auth.activeRole === 'guide' ? '/guide/discover' : '/discover'))
 
 async function logout() {
   try {
@@ -64,7 +64,9 @@ const burgerRef = ref<HTMLButtonElement | null>(null)
 const drawerRef = ref<HTMLElement | null>(null)
 
 function focusables(): HTMLElement[] {
-  return Array.from(drawerRef.value?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? [])
+  return Array.from(
+    drawerRef.value?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? [],
+  )
 }
 
 async function openMenu() {
@@ -108,7 +110,10 @@ function onDrawerClick(event: MouseEvent) {
   if ((event.target as Element | null)?.closest('a')) closeMenu()
 }
 
-watch(() => route.fullPath, () => closeMenu())
+watch(
+  () => route.fullPath,
+  () => closeMenu(),
+)
 
 watch(menuOpen, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
@@ -149,7 +154,16 @@ onBeforeUnmount(() => {
           :aria-label="t('common.app_header.open_menu')"
           @click="openMenu"
         >
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
             <line x1="4" y1="7" x2="20" y2="7" />
             <line x1="4" y1="12" x2="20" y2="12" />
             <line x1="4" y1="17" x2="20" y2="17" />
@@ -168,8 +182,22 @@ onBeforeUnmount(() => {
         >
           <div class="drawer-head">
             <BrandMark as="text" />
-            <button type="button" class="drawer-close" :aria-label="t('common.app_header.close_menu')" @click="closeMenu(true)">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <button
+              type="button"
+              class="drawer-close"
+              :aria-label="t('common.app_header.close_menu')"
+              @click="closeMenu(true)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="20"
+                height="20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                aria-hidden="true"
+              >
                 <line x1="6" y1="6" x2="18" y2="18" />
                 <line x1="18" y1="6" x2="6" y2="18" />
               </svg>
@@ -182,14 +210,24 @@ onBeforeUnmount(() => {
 
           <ul class="nav">
             <!-- Marketing copy for prospects only — a signed-in user is past it. -->
-            <li v-if="!isAuthenticated"><RouterLink to="/about#how" class="nav-link">{{ t('common.app_header.how_it_works') }}</RouterLink></li>
-            <li><RouterLink :to="discoverTo" class="nav-link">{{ t('common.app_header.discover') }}</RouterLink></li>
+            <li v-if="!isAuthenticated">
+              <RouterLink to="/about#how" class="nav-link">{{
+                t('common.app_header.how_it_works')
+              }}</RouterLink>
+            </li>
+            <li>
+              <RouterLink :to="discoverTo" class="nav-link">{{
+                t('common.app_header.discover')
+              }}</RouterLink>
+            </li>
             <li v-if="isAuthenticated">
               <RouterLink to="/matches" class="nav-link nav-link--counted">
                 {{ t('common.app_header.matches')
                 }}<span v-if="newMatches" class="nav-count" data-test="matches-count"
                   ><span aria-hidden="true">{{ badgeText(newMatches) }}</span
-                  ><span class="visually-hidden">{{ t('common.app_header.new_count', { count: newMatches }) }}</span></span
+                  ><span class="visually-hidden">{{
+                    t('common.app_header.new_count', { count: newMatches })
+                  }}</span></span
                 >
               </RouterLink>
             </li>
@@ -198,7 +236,9 @@ onBeforeUnmount(() => {
                 {{ t('common.app_header.my_trips')
                 }}<span v-if="newTrips" class="nav-count" data-test="trips-count"
                   ><span aria-hidden="true">{{ badgeText(newTrips) }}</span
-                  ><span class="visually-hidden">{{ t('common.app_header.new_count', { count: newTrips }) }}</span></span
+                  ><span class="visually-hidden">{{
+                    t('common.app_header.new_count', { count: newTrips })
+                  }}</span></span
                 >
               </RouterLink>
             </li>
@@ -213,7 +253,11 @@ onBeforeUnmount(() => {
                 >
               </RouterLink>
             </li>
-            <li v-if="isAuthenticated"><RouterLink to="/profile" class="nav-link">{{ t('common.app_header.profile') }}</RouterLink></li>
+            <li v-if="isAuthenticated">
+              <RouterLink to="/profile" class="nav-link">{{
+                t('common.app_header.profile')
+              }}</RouterLink>
+            </li>
             <li v-if="hasAccess">
               <RouterLink to="/matches" class="nav-link">
                 <PillBadge>{{
@@ -246,15 +290,28 @@ onBeforeUnmount(() => {
               </button>
             </li>
             <template v-else>
-              <li class="account"><RouterLink to="/register" role="button">{{ t('common.app_header.get_started') }}</RouterLink></li>
-              <li><RouterLink to="/login" class="nav-link tiny">{{ t('common.app_header.log_in') }}</RouterLink></li>
+              <li class="account">
+                <RouterLink to="/register" role="button">{{
+                  t('common.app_header.get_started')
+                }}</RouterLink>
+              </li>
+              <li>
+                <RouterLink to="/login" class="nav-link tiny">{{
+                  t('common.app_header.log_in')
+                }}</RouterLink>
+              </li>
             </template>
           </ul>
         </div>
       </nav>
     </div>
 
-    <div class="backdrop" :class="{ 'backdrop--open': menuOpen }" aria-hidden="true" @click="closeMenu()" />
+    <div
+      class="backdrop"
+      :class="{ 'backdrop--open': menuOpen }"
+      aria-hidden="true"
+      @click="closeMenu()"
+    />
   </header>
 </template>
 
@@ -529,7 +586,8 @@ nav .nav {
 
     .nav-link {
       display: inline-block;
-      margin: calc(var(--pico-nav-link-spacing-vertical) * -1) calc(var(--pico-nav-link-spacing-horizontal) * -1);
+      margin: calc(var(--pico-nav-link-spacing-vertical) * -1)
+        calc(var(--pico-nav-link-spacing-horizontal) * -1);
       padding: var(--pico-nav-link-spacing-vertical) var(--pico-nav-link-spacing-horizontal);
       border-bottom: 0;
       border-radius: var(--pico-border-radius);

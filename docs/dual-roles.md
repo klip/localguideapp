@@ -110,7 +110,9 @@ and each other person counts once (`Levels::QUALIFYING_TRIP`,
 
 1. **Acting-role plumbing** — `roles`/`activeRole` in auth, `actingRole` in
    `call()`, gateway check, every `getRoleName($caller)` and
-   `auth.user.role` replaced. No visible change; ships alone.
+   `auth.user.role` replaced. No visible change; ships alone. **Done**
+   (branch `feature/dual-roles`), checked end to end with two accounts
+   holding both roles, matched both ways.
 2. **Adding a role** — agreements (drafted in 15 languages like the terms),
    `addRole` in auth, the header switch, role-aware profile page.
 3. **Per-role data** — headline/bio/level on `user_role`, attribute scopes,

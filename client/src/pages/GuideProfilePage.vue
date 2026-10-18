@@ -48,10 +48,11 @@ async function loadGuide() {
   try {
     const profile = await api.publicProfile(Number(props.id))
     // A guest's id under /guides/ is "not found", not a guide page for them.
-    guide.value = profile.role === 'guide' ? toGuideCard(profile) : null
+    guide.value = (profile.roles ?? [profile.role]).includes('guide') ? toGuideCard(profile) : null
   } catch (err) {
     // A 400 here is "Profile not found." — the not-found panel says so already.
-    if (!(err instanceof ApiError && err.status === 400)) reportApiError(err, t('guide_profile.toast.load_failed'))
+    if (!(err instanceof ApiError && err.status === 400))
+      reportApiError(err, t('guide_profile.toast.load_failed'))
   } finally {
     loading.value = false
   }
@@ -109,7 +110,9 @@ function reject(id: string) {
         >
           <div class="hero-copy">
             <strong class="hero-name">{{ guide.name }}, {{ guide.age }}</strong>
-            <span v-if="guide.reviewCount > 0">{{ formatRating(guide.ratingAverage, guide.reviewCount) }}</span>
+            <span v-if="guide.reviewCount > 0">{{
+              formatRating(guide.ratingAverage, guide.reviewCount)
+            }}</span>
             <StandingBadges :standing="guide.standing" on-photo />
           </div>
         </div>
@@ -125,12 +128,18 @@ function reject(id: string) {
           -->
           <template v-for="(values, key) in guide.attributes" :key="key">
             <h3 v-if="values.length" class="sub">{{ categoriesStore.labelFor(key, true) }}</h3>
-            <TagList v-if="values.length" :tags="values.map((value) => categoriesStore.optionLabelFor(key, value))" />
+            <TagList
+              v-if="values.length"
+              :tags="values.map((value) => categoriesStore.optionLabelFor(key, value))"
+            />
           </template>
 
           <template v-for="(spans, key) in guide.ranges" :key="`range-${key}`">
             <h3 v-if="spans.length" class="sub">{{ categoriesStore.labelFor(key, true) }}</h3>
-            <TagList v-if="spans.length" :tags="spans.map((span) => formatRange(span, rangeFormatFor(key)))" />
+            <TagList
+              v-if="spans.length"
+              :tags="spans.map((span) => formatRange(span, rangeFormatFor(key)))"
+            />
           </template>
 
           <h3 class="sub">{{ t('guide_profile.details.included') }}</h3>

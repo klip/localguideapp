@@ -38,19 +38,65 @@ describe('plugins/api call()', () => {
     })
   })
 
+  it('sends the role the account is acting as, and only that role', async () => {
+    setActivePinia(createPinia())
+    const auth = useAuthStore()
+    auth.setUser({
+      id: 1,
+      email: 'a@example.com',
+      role: 'guest',
+      roles: ['guest', 'guide'],
+      sessionHash: 'abc123',
+    })
+
+    // The first (registration) role until another is chosen.
+    expect(auth.activeRole).toBe('guest')
+    await api.matchOverview()
+    expect(lastRequest()).toMatchObject({ action: 'matchOverview', actingRole: 'guest' })
+
+    auth.setActiveRole('guide')
+    await api.matchOverview()
+    expect(lastRequest()).toMatchObject({ actingRole: 'guide' })
+
+    // A role the account doesn't hold is ignored; the choice survives a reload…
+    setActivePinia(createPinia())
+    expect(useAuthStore().activeRole).toBe('guide')
+    // …but not a role the account lost.
+    useAuthStore().setUser({
+      id: 1,
+      email: 'a@example.com',
+      role: 'guest',
+      roles: ['guest'],
+      sessionHash: 'abc123',
+    })
+    expect(useAuthStore().activeRole).toBe('guest')
+  })
+
+  it('reads an older cached session (role only) as that one role', () => {
+    setActivePinia(createPinia())
+    const auth = useAuthStore()
+    auth.setUser({ id: 1, email: 'a@example.com', role: 'guide', sessionHash: 'abc123' })
+    expect(auth.roles).toEqual(['guide'])
+    expect(auth.activeRole).toBe('guide')
+  })
+
   it('omits sessionHash when signed out, and resolves with the body', async () => {
     setActivePinia(createPinia())
     FakeWebSocket.respond = () => ({ status: 200, body: { guides: [] } })
 
     await expect(api.guides()).resolves.toEqual({ guides: [] })
     expect(lastRequest()).not.toHaveProperty('sessionHash')
+    expect(lastRequest()).not.toHaveProperty('actingRole')
   })
 
   it('clears the local session when a request comes back 401', async () => {
     setActivePinia(createPinia())
     const auth = useAuthStore()
     auth.setUser({ id: 1, email: 'a@example.com', sessionHash: 'expired-hash' })
-    FakeWebSocket.respond = () => ({ status: 401, body: { error: 'Your session has expired. Please log in again.' } })
+    FakeWebSocket.respond = () => ({
+      status: 401,
+      body: { error: 'Your session has expired. Please log in again.' },
+    })
 
     await expect(api.myProfile()).rejects.toThrow(ApiError)
     expect(auth.isAuthenticated).toBe(false)
@@ -69,14 +115,16 @@ describe('plugins/api call()', () => {
     expect(auth.isAuthenticated).toBe(true)
   })
 
-  it('shows a contact_details refusal in the viewer\'s language, keeping code and field', async () => {
+  it("shows a contact_details refusal in the viewer's language, keeping code and field", async () => {
     setActivePinia(createPinia())
     FakeWebSocket.respond = () => ({
       status: 400,
       body: { error: 'English server text', code: 'contact_details', field: 'bio' },
     })
 
-    const error = (await api.updateProfile({ bio: 'call 56002731' }).catch((err: unknown) => err)) as ApiError
+    const error = (await api
+      .updateProfile({ bio: 'call 56002731' })
+      .catch((err: unknown) => err)) as ApiError
     expect(error).toBeInstanceOf(ApiError)
     expect(error.message).toMatch(/can’t be shared on RockGuide/)
     expect(error.code).toBe('contact_details')

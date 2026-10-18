@@ -45,9 +45,9 @@ class Messages
      * Sends `$body` from `$senderId` to `$recipientId`, who must be actively
      * matched with them. Returns the stored message as the sender sees it.
      */
-    public function send(int $senderId, int $recipientId, string $body): array
+    public function send(int $senderId, string $senderRole, int $recipientId, string $body): array
     {
-        $selection = $this->activePair($senderId, $recipientId);
+        $selection = $this->activePair($senderId, $senderRole, $recipientId);
 
         $body = trim((string) preg_replace('/\R{3,}/u', "\n\n", $body));
         if ($body === '' || !mb_check_encoding($body, 'UTF-8')) {
@@ -68,9 +68,9 @@ class Messages
      * to their own device's maps app (client/src/utils/mapsLink.ts).
      * `$accuracy` is the device's estimate in metres, if it gave one.
      */
-    public function shareLocation(int $senderId, int $recipientId, $latitude, $longitude, $accuracy = null): array
+    public function shareLocation(int $senderId, string $senderRole, int $recipientId, $latitude, $longitude, $accuracy = null): array
     {
-        $selection = $this->activePair($senderId, $recipientId);
+        $selection = $this->activePair($senderId, $senderRole, $recipientId);
 
         $lat = self::coordinate($latitude, 90);
         $lng = self::coordinate($longitude, 180);
@@ -91,9 +91,9 @@ class Messages
     }
 
     /** The pair's selection, refusing unless it's an active match. */
-    private function activePair(int $senderId, int $recipientId): array
+    private function activePair(int $senderId, string $senderRole, int $recipientId): array
     {
-        $selection = $this->pairOf($senderId, $recipientId);
+        $selection = $this->pairOf($senderId, $senderRole, $recipientId);
         if (!$selection || (int) $selection['active'] !== 1) {
             throw new RuntimeException('You can only message someone you’re matched with.');
         }
@@ -152,19 +152,22 @@ class Messages
      * (even before the first message) and any pair with history. Newest
      * activity first.
      */
-    public function conversationsFor(int $userId): array
+    public function conversationsFor(int $userId, string $role): array
     {
+        // Only the pairs where the user is on their acting side; the other
+        // person's role is the pair's other side, not something about them.
+        $their = Roles::opposite($role);
         $rows = $this->db->db_GetArray(
             'SELECT s.`id` AS `selection_id`, s.`active`, s.`matched_at`,
-                    u.`id` AS `counterpart_id`, u.`name`, u.`image`, ' . Roles::nameSql('u.`id`') . ' AS `role`,
+                    u.`id` AS `counterpart_id`, u.`name`, u.`image`,
                     m.`id` AS `last_id`, m.`sender_id` AS `last_sender_id`, m.`kind` AS `last_kind`, m.`body` AS `last_body`,
                     UNIX_TIMESTAMP(m.`created_at`) AS `last_ts`,
                     (SELECT COUNT(*) FROM `messages` um
                       WHERE um.`selection_id` = s.`id` AND um.`recipient_id` = ' . $userId . ' AND um.`read_at` IS NULL) AS `unread`
              FROM `selections` s
-             JOIN `users` u ON u.`id` = IF(s.`guest_id` = ' . $userId . ', s.`guide_id`, s.`guest_id`)
+             JOIN `users` u ON u.`id` = s.`' . $their . '_id`
              LEFT JOIN `messages` m ON m.`id` = (SELECT MAX(m2.`id`) FROM `messages` m2 WHERE m2.`selection_id` = s.`id`)
-             WHERE (s.`guest_id` = ' . $userId . ' OR s.`guide_id` = ' . $userId . ')
+             WHERE s.`' . $role . '_id` = ' . $userId . '
                AND (s.`active` = 1 OR m.`id` IS NOT NULL)
              ORDER BY COALESCE(m.`created_at`, s.`matched_at`, s.`updated_at`) DESC'
         ) ?: [];
@@ -173,7 +176,7 @@ class Messages
             'counterpart_id' => (int) $row['counterpart_id'],
             'name' => $row['name'],
             'image' => $row['image'] ?: null,
-            'role' => $row['role'],
+            'role' => $their,
             'can_send' => (int) $row['active'] === 1,
             'unread' => (int) $row['unread'],
             'last_message' => $row['last_id'] === null ? null : [
@@ -191,9 +194,9 @@ class Messages
      * (or the newest), oldest first. Opening the newest page marks what
      * `$userId` received as read.
      */
-    public function threadWith(int $userId, int $otherId, ?int $beforeId = null): array
+    public function threadWith(int $userId, string $role, int $otherId, ?int $beforeId = null): array
     {
-        $selection = $this->pairOf($userId, $otherId);
+        $selection = $this->pairOf($userId, $role, $otherId);
         if (!$selection) {
             throw new RuntimeException('Conversation not found.');
         }
@@ -214,9 +217,7 @@ class Messages
         }
 
         $other = $this->db->db_GetRow(
-            'SELECT u.`id`, u.`name`, u.`image`, ' . Roles::nameSql('u.`id`') . ' AS `role`
-             FROM `users` u
-             WHERE u.`id` = ' . $otherId
+            'SELECT u.`id`, u.`name`, u.`image` FROM `users` u WHERE u.`id` = ' . $otherId
         );
 
         return [
@@ -224,7 +225,7 @@ class Messages
                 'id' => (int) $other['id'],
                 'name' => $other['name'],
                 'image' => $other['image'] ?: null,
-                'role' => $other['role'],
+                'role' => Roles::opposite($role),
             ],
             'can_send' => (int) $selection['active'] === 1,
             'has_more' => $hasMore,
@@ -237,9 +238,9 @@ class Messages
      * newest one they've been shown), counts as read — a live message seen in
      * an open conversation.
      */
-    public function markReadWith(int $userId, int $otherId, int $upToId): void
+    public function markReadWith(int $userId, string $role, int $otherId, int $upToId): void
     {
-        $selection = $this->pairOf($userId, $otherId);
+        $selection = $this->pairOf($userId, $role, $otherId);
         if ($selection && $upToId > 0) {
             $this->markRead($userId, $otherId, (int) $selection['id'], $upToId);
         }
@@ -278,15 +279,20 @@ class Messages
         return $this->db->db_GetRow(self::SELECT . ' WHERE `id` = ' . $id);
     }
 
-    /** The pair's `selections` row, whichever of the two is the guest. */
-    private function pairOf(int $a, int $b): ?array
+    /**
+     * The pair's `selections` row with `$me` on the `$myRole` side — two
+     * people who both hold both roles can have a pair each way, and each pair
+     * is its own conversation.
+     */
+    private function pairOf(int $me, string $myRole, int $other): ?array
     {
-        if ($a <= 0 || $b <= 0 || $a === $b) {
+        if ($me <= 0 || $other <= 0 || $me === $other) {
             return null;
         }
+        [$guestId, $guideId] = $myRole === 'guest' ? [$me, $other] : [$other, $me];
         $row = $this->db->db_GetRow(
             'SELECT `id`, `active` FROM `selections`
-             WHERE (`guest_id` = ' . $a . ' AND `guide_id` = ' . $b . ') OR (`guest_id` = ' . $b . ' AND `guide_id` = ' . $a . ')'
+             WHERE `guest_id` = ' . $guestId . ' AND `guide_id` = ' . $guideId
         );
 
         return $row ?: null;

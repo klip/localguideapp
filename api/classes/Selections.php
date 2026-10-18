@@ -41,13 +41,13 @@ class Selections
      * picks (re-affirming an already-'interested' pick never counts against
      * capacity — only a *new* one does).
      */
-    public function decide(int $actingUserId, int $targetUserId, string $decision): array
+    public function decide(int $actingUserId, string $actingRole, int $targetUserId, string $decision): array
     {
         if (!in_array($decision, ['interested', 'pass'], true)) {
             throw new RuntimeException('Decision must be "interested" or "pass".');
         }
 
-        [$guestId, $guideId, $actingIsGuest] = $this->resolvePair($actingUserId, $targetUserId);
+        [$guestId, $guideId, $actingIsGuest] = $this->resolvePair($actingUserId, $actingRole, $targetUserId);
 
         // A new pick uses the guest's paid pack — unless they're in a free
         // picks bonus (`Levels`), when it's marked free and costs nothing.
@@ -85,9 +85,9 @@ class Selections
      * The guest can walk away from a free booking (the guide is told), but
      * not from one they paid for.
      */
-    public function revoke(int $actingUserId, int $targetUserId): array
+    public function revoke(int $actingUserId, string $actingRole, int $targetUserId): array
     {
-        [$guestId, $guideId, $actingIsGuest] = $this->resolvePair($actingUserId, $targetUserId);
+        [$guestId, $guideId, $actingIsGuest] = $this->resolvePair($actingUserId, $actingRole, $targetUserId);
 
         $row = $this->findPair($guestId, $guideId);
         if (!$row) {
@@ -137,9 +137,8 @@ class Selections
      * along too; `finish_requested_by` is reduced to `'me' | 'them' | null`
      * and `auto_finish` says whether the trip ends on its own.
      */
-    public function getOverview(int $userId): array
+    public function getOverview(int $userId, string $role): array
     {
-        $role = $this->users->getRoleName($userId);
         if ($role === 'guest') {
             [$own, $their] = ['guest', 'guide'];
         } elseif ($role === 'guide') {
@@ -321,22 +320,24 @@ class Selections
     }
 
     /** @return array{0: int, 1: int, 2: bool} [guestId, guideId, actingUserIsTheGuest] */
-    private function resolvePair(int $actingUserId, int $targetUserId): array
+    /**
+     * The (guest, guide) pair for an action, from the role the actor is
+     * acting as — an account can hold both, so two people can be paired both
+     * ways and only the acting role says which pair is meant.
+     *
+     * @return array{0:int, 1:int, 2:bool} guest id, guide id, whether the actor is the guest
+     */
+    private function resolvePair(int $actingUserId, string $actingRole, int $targetUserId): array
     {
         if ($actingUserId === $targetUserId) {
             throw new RuntimeException('You cannot select yourself.');
         }
-
-        $actingRole = $this->users->getRoleName($actingUserId);
-        $targetRole = $this->users->getRoleName($targetUserId);
-
-        if ($actingRole === 'guest' && $targetRole === 'guide') {
-            return [$actingUserId, $targetUserId, true];
-        }
-        if ($actingRole === 'guide' && $targetRole === 'guest') {
-            return [$targetUserId, $actingUserId, false];
+        if (!$this->users->hasRole($targetUserId, Roles::opposite($actingRole))) {
+            throw new RuntimeException('Selections must be between a guest and a guide.');
         }
 
-        throw new RuntimeException('Selections must be between a guest and a guide.');
+        return $actingRole === 'guest'
+            ? [$actingUserId, $targetUserId, true]
+            : [$targetUserId, $actingUserId, false];
     }
 }

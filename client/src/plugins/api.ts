@@ -55,11 +55,21 @@ export interface TrustedDeviceGrant {
 }
 
 /** Shape returned by `register`, `login`, and `session`. */
+/** The two app roles. An account can hold both and acts as one at a time. */
+export type Role = 'guest' | 'guide'
+
 export interface AuthResult {
   id: number
   email: string
   name?: string | null
+  /** The role the account registered with (its first). */
   role?: string
+  /**
+   * Every role the account holds, registration role first. The one it acts
+   * as is `stores/auth.ts`'s `activeRole`, sent with every request by
+   * `call()`.
+   */
+  roles?: Role[]
   /**
    * Identifies this login server-side (see `Session.php`) — persisted
    * alongside the rest of `AuthResult` in `stores/auth.ts` so a page reload
@@ -243,6 +253,7 @@ export interface MyProfile {
   party: string | null
   duration_hours: number | null
   role: string | null
+  roles?: Role[]
   /** Identity checked — set by the ID verification (not by the user). */
   verified: boolean
   verification_method: 'id_card' | 'passport' | 'driving_licence' | null
@@ -523,7 +534,10 @@ export interface TranslationScope {
  * signed in or not, may see about a guest or guide.
  */
 export interface PublicProfile extends Omit<ProfileAccount, 'email'> {
-  role: 'guest' | 'guide'
+  /** Their first role. */
+  role: Role
+  /** Every role they hold — both profile pages resolve for someone who is both. */
+  roles?: Role[]
 }
 
 /** One review, with its author's public face (name and photo only). */
@@ -695,11 +709,19 @@ function isErrorBody(body: unknown): body is { error: string; code?: string; fie
  * debounced `setTimeout` callback.
  */
 async function call<T>(action: string, payload: object = {}): Promise<T> {
-  const sessionHash = useAuthStore().sessionHash
+  const auth = useAuthStore()
+  const sessionHash = auth.sessionHash
+  // The role this request acts as — the gateway checks the account holds it.
+  const actingRole = sessionHash ? auth.activeRole : null
 
   let response: SocketResponse
   try {
-    response = await socket.request({ action, ...(sessionHash ? { sessionHash } : {}), ...payload })
+    response = await socket.request({
+      action,
+      ...(sessionHash ? { sessionHash } : {}),
+      ...(actingRole ? { actingRole } : {}),
+      ...payload,
+    })
   } catch {
     throw new ApiError(t('common.api.unreachable'), 0)
   }

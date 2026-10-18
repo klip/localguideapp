@@ -36,7 +36,7 @@ async function loadVisitor() {
   try {
     const profile = await api.publicProfile(Number(props.id))
     // A guide's id under /visitors/ is "not found", not a visitor page for them.
-    visitor.value = profile.role === 'guest' ? profile : null
+    visitor.value = (profile.roles ?? [profile.role]).includes('guest') ? profile : null
   } catch (err) {
     if (!(err instanceof ApiError && err.status === 400))
       reportApiError(err, t('visitor_profile.toast.load_failed'))
@@ -58,7 +58,7 @@ const photo = computed(() =>
 const genderLabel = computed(() =>
   visitor.value?.gender ? t(`common.gender.${visitor.value.gender}`) : null,
 )
-const backTo = computed(() => (auth.user?.role === 'guide' ? '/guide/discover' : '/'))
+const backTo = computed(() => (auth.activeRole === 'guide' ? '/guide/discover' : '/'))
 </script>
 
 <template>

@@ -1649,6 +1649,34 @@ active user is never logged out mid-session, but an idle one is.
   "your password was changed" email). A password *reset* is different: it
   deletes every session for the account (`Session::destroyAllFor()`).
 
+### Acting role (one account, both roles)
+
+An account can hold **guest and guide** (`user_role`) and acts as one at a
+time — the plan and the phases left are in `docs/dual-roles.md`. Phase 1,
+the plumbing, is in:
+
+- `AuthResult.roles` lists every role (registration role first; `role` is
+  kept and still means the first). `stores/auth.ts` exposes `roles`,
+  `activeRole` (the last one chosen via `setActiveRole()` if still held,
+  else the first; persisted in `localStorage` as `rockguide.activeRole`) —
+  **every page reads `auth.activeRole`, never `auth.user.role`**.
+- `call()` sends it as `actingRole` on every signed-in request. The gateway
+  gets the user's roles from auth's `resolve`, answers 403 for a role they
+  don't hold, defaults to their first, and forwards it as `X-Acting-Role`;
+  `ServiceHttp` puts it in the context and `RequestProcessor::actingRole()`
+  reads it. **The caller's role is never looked up any more** — other
+  people's come from `Users::hasRole()`/`getRoles()` (`Roles::of()`).
+- The acting role picks the pair: `Selections::decide()/revoke()`,
+  `actionBooking()`, and `Messages` (`pairOf($me, $myRole, $other)`) all
+  take it, because two people who both hold both roles can have a pair each
+  way — separate matches, bookings and conversations. `getOverview()`,
+  `tripsFor()` and `conversationsFor()` list only the pairs on the acting
+  side; a counterpart's role is the pair's other side.
+- `publicProfile`/`myProfile` carry `roles`; `/guides/:id` and
+  `/visitors/:id` resolve for anyone holding that role.
+- Not yet per role: levels (`Levels::sync()` uses the first role), review
+  averages, badges, profile headline/bio and attribute picks — phases 2–5.
+
 ### Two-factor login & password reset
 
 Both by email, both in `auth/classes/AccountSecurity.php`, backed by

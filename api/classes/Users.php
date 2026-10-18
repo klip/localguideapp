@@ -42,6 +42,18 @@ class Users
         return $this->db->db_GetRowById($userId, 'users');
     }
 
+    /** Whether `$userId` holds the app role `$roleName` (an account can hold both). */
+    public function hasRole(int $userId, string $roleName): bool
+    {
+        return in_array($roleName, Roles::of($userId, $this->db), true);
+    }
+
+    /** @return string[] every app role `$userId` holds, registration role first. */
+    public function getRoles(int $userId): array
+    {
+        return Roles::of($userId, $this->db);
+    }
+
     public function getRoleName(int $userId): ?string
     {
         $name = $this->db->db_GetFieldFromQuery(
@@ -117,9 +129,10 @@ class Users
             $where[] = 'u.`id` <> ' . $viewerId;
 
             // `selections` holds one row per (guest, guide) pair, so which
-            // column identifies the viewer depends on their role — and a
-            // deck only ever pairs opposite roles.
-            $viewerRole = $this->getRoleName($viewerId);
+            // column identifies the viewer depends on their side — and a deck
+            // only ever pairs opposite roles: browsing guides is acting as a
+            // guest, whatever else the account holds.
+            $viewerRole = $this->hasRole($viewerId, Roles::opposite($roleName)) ? Roles::opposite($roleName) : null;
             $hideDecided = empty($filters['includeDecided']);
             if ($hideDecided && $roleName === 'guide' && $viewerRole === 'guest') {
                 $where[] = 'NOT EXISTS (
@@ -229,10 +242,11 @@ class Users
      */
     public function getPublicProfile(int $userId, Profiles $profiles): ?array
     {
-        $role = $this->getRoleName($userId);
-        if (!in_array($role, ['guest', 'guide'], true)) {
+        $roles = $this->getRoles($userId);
+        if (!$roles) {
             return null;
         }
+        $role = $roles[0];
 
         $row = $this->db->db_GetRow(
             'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns() . '
@@ -249,6 +263,9 @@ class Users
         $attributes = $profiles->getAttributesFor([$userId]);
         $row = Ranking::castRow($this->castReviewSummary($row));
         $row['role'] = $role;
+        // Every role held — a guide's page and a traveller's page both
+        // resolve for someone who is both.
+        $row['roles'] = $roles;
         $row['attributes'] = (object) ($attributes['attributes'][$userId] ?? []);
         $row['ranges'] = (object) ($attributes['ranges'][$userId] ?? []);
 
@@ -344,6 +361,7 @@ class Users
         }
 
         $row['role'] = $this->getRoleName($userId);
+        $row['roles'] = $this->getRoles($userId);
         $row['verified'] = (bool) (int) $row['verified'];
         $row['attributes'] = (object) $profiles->getAttributeValuesFor($userId);
         $row['ranges'] = (object) $profiles->getRangesFor($userId);
