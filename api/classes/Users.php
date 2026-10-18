@@ -112,7 +112,9 @@ class Users
             return [];
         }
 
-        $where = [Roles::hasSql('u.`id`', $roleName, $this->db)];
+        // Holding the role is the `urx` join below (their row for this role,
+        // which also carries the headline and description they show in it).
+        $where = ['1 = 1'];
 
         if ($roleName === 'guide') {
             // A guide out on a trip isn't available: hidden until the trip's
@@ -178,7 +180,7 @@ class Users
                 JOIN `attribute_options` ao ON ao.`id` = uav.`option_id`
                 JOIN `attribute_categories` ac ON ac.`id` = ao.`category_id`
                 WHERE uav.`user_id` = u.`id` AND ac.`key` = "' . $this->db->db_Escape((string) $categoryKey) . '"
-                  AND ao.`value` IN (' . $valueList . ')
+                  AND ao.`value` IN (' . $valueList . ') AND ' . Profiles::roleRowsSql('uav', $roleName) . '
             )';
         }
 
@@ -199,7 +201,8 @@ class Users
 
             $ownRows = 'SELECT 1 FROM `user_attribute_ranges` uar
                 JOIN `attribute_categories` ac ON ac.`id` = uar.`category_id`
-                WHERE uar.`user_id` = u.`id` AND ac.`key` = "' . $this->db->db_Escape((string) $categoryKey) . '"';
+                WHERE uar.`user_id` = u.`id` AND ac.`key` = "' . $this->db->db_Escape((string) $categoryKey) . '"
+                  AND ' . Profiles::roleRowsSql('uar', $roleName);
 
             $where[] = '(NOT EXISTS (' . $ownRows . ')
                 OR EXISTS (' . $ownRows . ' AND (' . implode(' OR ', $overlaps) . ')))';
@@ -209,15 +212,16 @@ class Users
         $rows = $this->db->db_GetArray(
             'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns() . '
              FROM `users` u
+             JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . (int) $roleId . '
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
-             ' . self::REVIEW_SUMMARY_JOIN . '
-             ' . Ranking::tripsJoin() . ' ' . Ranking::reviewsJoin() . ' ' . Levels::sanctionsJoin() . '
+             ' . self::reviewSummaryJoin($roleName) . '
+             ' . Ranking::tripsJoin() . ' ' . Ranking::reviewsJoin(null, $roleName) . ' ' . Levels::sanctionsJoin() . '
              WHERE ' . implode(' AND ', $where) . '
              ' . Ranking::ORDER_BY
         );
 
         $userIds = array_map(fn($row) => (int) $row['id'], $rows);
-        $attributes = $profiles->getAttributesFor($userIds);
+        $attributes = $profiles->getAttributesFor($userIds, $roleName);
 
         foreach ($rows as &$row) {
             $row = Ranking::castRow($this->castReviewSummary($row));
@@ -240,27 +244,31 @@ class Users
      * and it ignores every deck rule (decided-on or not, it resolves).
      * `null` for an unknown id or an account that isn't a guest/guide.
      */
-    public function getPublicProfile(int $userId, Profiles $profiles): ?array
+    public function getPublicProfile(int $userId, Profiles $profiles, ?string $requestedRole = null): ?array
     {
         $roles = $this->getRoles($userId);
         if (!$roles) {
             return null;
         }
-        $role = $roles[0];
+        // Shown as the role asked for (the page: a guide's or a traveller's),
+        // when they hold it; else their first.
+        $role = in_array($requestedRole, $roles, true) ? $requestedRole : $roles[0];
+        $roleId = (int) $this->findRoleIdByName($role);
 
         $row = $this->db->db_GetRow(
             'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns() . '
              FROM `users` u
+             JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . $roleId . '
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
-             ' . self::reviewSummaryJoinFor($userId) . '
-             ' . Ranking::tripsJoin($userId) . ' ' . Ranking::reviewsJoin($userId) . ' ' . Levels::sanctionsJoin($userId) . '
+             ' . self::reviewSummaryJoin($role, $userId) . '
+             ' . Ranking::tripsJoin($userId) . ' ' . Ranking::reviewsJoin($userId, $role) . ' ' . Levels::sanctionsJoin($userId) . '
              WHERE u.`id` = ' . $userId
         );
         if (!$row) {
             return null;
         }
 
-        $attributes = $profiles->getAttributesFor([$userId]);
+        $attributes = $profiles->getAttributesFor([$userId], $role);
         $row = Ranking::castRow($this->castReviewSummary($row));
         $row['role'] = $role;
         // Every role held — a guide's page and a traveller's page both
@@ -281,25 +289,23 @@ class Users
      */
     private const PROFILE_COLUMNS = 'u.`id`, u.`name`, u.`image`, u.`created_at`,
                     TIMESTAMPDIFF(YEAR, p.`date_of_birth`, CURDATE()) AS `age`,
-                    p.`gender`, p.`headline`, p.`bio`, p.`price_label`, p.`price_note`,
+                    p.`gender`, urx.`headline`, urx.`bio`, p.`price_label`, p.`price_note`,
                     p.`includes`, p.`party`, p.`duration_hours`,
                     rs.`rating_average`, COALESCE(rs.`review_count`, 0) AS `review_count`';
 
     /**
-     * Every listed person's review count and average in the same query as
-     * the list itself, rather than one lookup per card — see `Reviews`.
+     * Every listed person's review count and average **as `$role`** (ratings
+     * are per role — `reviews.subject_role`) in the same query as the list
+     * itself, rather than one lookup per card — see `Reviews`. `$userId`
+     * narrows it to one person (a profile page).
      */
-    private const REVIEW_SUMMARY_JOIN = 'LEFT JOIN (
-                SELECT `subject_id`, COUNT(*) AS `review_count`, ROUND(AVG(`rating`), 1) AS `rating_average`
-                FROM `reviews` GROUP BY `subject_id`
-             ) rs ON rs.`subject_id` = u.`id`';
-
-    /** `REVIEW_SUMMARY_JOIN` for one person only — a profile page needn't group everyone's reviews. */
-    private static function reviewSummaryJoinFor(int $userId): string
+    private static function reviewSummaryJoin(string $role, ?int $userId = null): string
     {
         return 'LEFT JOIN (
                 SELECT `subject_id`, COUNT(*) AS `review_count`, ROUND(AVG(`rating`), 1) AS `rating_average`
-                FROM `reviews` WHERE `subject_id` = ' . $userId . ' GROUP BY `subject_id`
+                FROM `reviews` WHERE `subject_role` = "' . ($role === 'guide' ? 'guide' : 'guest') . '"'
+                . ($userId ? ' AND `subject_id` = ' . $userId : '') . '
+                GROUP BY `subject_id`
              ) rs ON rs.`subject_id` = u.`id`';
     }
 
@@ -345,15 +351,16 @@ class Users
      * this is a single-user, unfiltered fetch — the caller already knows
      * which account it wants.
      */
-    public function getFullAccount(int $userId, Profiles $profiles): array
+    public function getFullAccount(int $userId, Profiles $profiles, string $role): array
     {
         $row = $this->db->db_GetRow(
             'SELECT u.`id`, u.`name`, u.`email`, u.`phone`, u.`two_factor_method`, u.`image`, u.`created_at`,
                     u.`verified_at` IS NOT NULL AS `verified`, u.`verification_method`,
-                    p.`date_of_birth`, p.`gender`, p.`headline`, p.`bio`, p.`price_amount`, p.`price_label`, p.`price_note`,
+                    p.`date_of_birth`, p.`gender`, urx.`headline`, urx.`bio`, p.`price_amount`, p.`price_label`, p.`price_note`,
                     p.`includes`, p.`party`, p.`duration_hours`
              FROM `users` u
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
+             LEFT JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . (int) $this->findRoleIdByName($role) . '
              WHERE u.`id` = ' . $userId
         );
         if (!$row) {
@@ -363,8 +370,10 @@ class Users
         $row['role'] = $this->getRoleName($userId);
         $row['roles'] = $this->getRoles($userId);
         $row['verified'] = (bool) (int) $row['verified'];
-        $row['attributes'] = (object) $profiles->getAttributeValuesFor($userId);
-        $row['ranges'] = (object) $profiles->getRangesFor($userId);
+        // Headline, description, picks and spans are the acting role's.
+        $row['acting_role'] = $role;
+        $row['attributes'] = (object) $profiles->getAttributeValuesFor($userId, $role);
+        $row['ranges'] = (object) $profiles->getRangesFor($userId, $role);
 
         return $row;
     }

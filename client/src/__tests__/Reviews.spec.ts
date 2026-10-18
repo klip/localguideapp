@@ -37,11 +37,11 @@ function range(from: number, count: number): Review[] {
   return Array.from({ length: count }, (_, index) => review(from + index))
 }
 
-async function mountSection(api: Api) {
+async function mountSection(api: Api, roles?: Array<'guest' | 'guide'>) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const wrapper = mount(ReviewsSection, {
-    props: { userId: 7, subjectName: 'Igor' },
+    props: { userId: 7, subjectName: 'Igor', role: 'guide', ...(roles ? { roles } : {}) },
     global: { plugins: [pinia], provide: { [API_KEY]: api } },
     attachTo: document.body,
   })
@@ -99,7 +99,7 @@ describe('ReviewsSection', () => {
     })
     const wrapper = await mountSection(api)
 
-    expect(api.reviews).toHaveBeenCalledWith({ userId: 7, limit: 3 })
+    expect(api.reviews).toHaveBeenCalledWith({ userId: 7, role: 'guide', limit: 3 })
     expect(wrapper.get('[data-test="review-average"]').text()).toBe('4.3')
     expect(wrapper.get('[data-test="review-total"]').text()).toBe('25 reviews')
     expect(wrapper.findAll('.bar-row')).toHaveLength(5)
@@ -115,16 +115,14 @@ describe('ReviewsSection', () => {
 
   it('says so when there are no reviews, with no Show all', async () => {
     const api = fakeApi({
-      reviews: vi
-        .fn<Api['reviews']>()
-        .mockResolvedValue(
-          page({
-            reviews: [],
-            total: 0,
-            average: null,
-            histogram: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 },
-          }),
-        ),
+      reviews: vi.fn<Api['reviews']>().mockResolvedValue(
+        page({
+          reviews: [],
+          total: 0,
+          average: null,
+          histogram: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 },
+        }),
+      ),
     })
     const wrapper = await mountSection(api)
 
@@ -151,14 +149,14 @@ describe('ReviewsSection', () => {
     const titleId = dialog.attributes('aria-labelledby')
     expect(titleId && document.getElementById(titleId)?.textContent).toBe('Reviews of Igor')
 
-    expect(reviews).toHaveBeenLastCalledWith({ userId: 7, limit: 20, offset: 0 })
+    expect(reviews).toHaveBeenLastCalledWith({ userId: 7, role: 'guide', limit: 20, offset: 0 })
     expect(dialog.findAll('.review')).toHaveLength(20)
     expect(dialog.text()).toContain('Showing 20 of 25')
 
     await dialog.get('.more').trigger('click')
     await flushPromises()
 
-    expect(reviews).toHaveBeenLastCalledWith({ userId: 7, limit: 20, offset: 20 })
+    expect(reviews).toHaveBeenLastCalledWith({ userId: 7, role: 'guide', limit: 20, offset: 20 })
     expect(dialog.findAll('.review')).toHaveLength(25)
     expect(dialog.find('.more').exists()).toBe(false)
 
@@ -205,7 +203,12 @@ describe('ReviewsSection', () => {
     await form.trigger('submit')
     await flushPromises()
 
-    expect(submitReview).toHaveBeenCalledWith({ subjectId: 7, rating: 4, comment: 'Great 😀' })
+    expect(submitReview).toHaveBeenCalledWith({
+      subjectId: 7,
+      role: 'guide',
+      rating: 4,
+      comment: 'Great 😀',
+    })
     // Refetched, so the summary and list include the new review.
     expect(reviews).toHaveBeenCalledTimes(2)
   })
@@ -234,5 +237,33 @@ describe('ReviewsSection', () => {
 
     expect(deleteReview).toHaveBeenCalledWith({ reviewId: 42 })
     expect(wrapper.get('form').text()).toContain('Write a review of Igor')
+  })
+
+  it('keeps ratings per role: someone who is both has a tab for each, the page’s own first', async () => {
+    const reviews = vi
+      .fn<Api['reviews']>()
+      .mockResolvedValueOnce(page({ total: 2, average: 5 }))
+      .mockResolvedValueOnce(page({ total: 0, average: null, reviews: [] }))
+    const wrapper = await mountSection(fakeApi({ reviews }), ['guest', 'guide'])
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs.map((tab) => tab.text())).toEqual(['As a guide', 'As a traveller'])
+    expect(tabs[0]!.attributes('aria-selected')).toBe('true')
+    expect(reviews).toHaveBeenLastCalledWith({ userId: 7, role: 'guide', limit: 3 })
+
+    await wrapper.get('[data-test="reviews-tab-guest"]').trigger('click')
+    await flushPromises()
+    expect(reviews).toHaveBeenLastCalledWith({ userId: 7, role: 'guest', limit: 3 })
+    expect(wrapper.text()).toContain('No reviews yet')
+    wrapper.unmount()
+  })
+
+  it('shows no tabs for someone with one role', async () => {
+    const wrapper = await mountSection(
+      fakeApi({ reviews: vi.fn<Api['reviews']>().mockResolvedValue(page()) }),
+      ['guide'],
+    )
+    expect(wrapper.find('[role="tablist"]').exists()).toBe(false)
+    wrapper.unmount()
   })
 })

@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, useId, watch } from 'vue'
 import ReviewItem from './ReviewItem.vue'
 import { t } from '@/i18n'
-import { REVIEWS_PAGE_SIZE, useApi, type Review } from '@/plugins/api'
+import { REVIEWS_PAGE_SIZE, useApi, type Review, type Role } from '@/plugins/api'
 import { reportApiError } from '@/utils/reportApiError'
 
 /**
@@ -18,6 +18,8 @@ import { reportApiError } from '@/utils/reportApiError'
 const props = defineProps<{
   userId: number
   subjectName: string
+  /** Whose side's reviews — ratings are per role. */
+  role: Role
   open: boolean
 }>()
 
@@ -41,6 +43,7 @@ async function loadPage() {
   try {
     const page = await api.reviews({
       userId: props.userId,
+      role: props.role,
       limit: REVIEWS_PAGE_SIZE,
       offset: reviews.value.length,
     })

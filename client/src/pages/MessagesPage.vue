@@ -6,7 +6,13 @@ import SectionTitle from '@/components/SectionTitle.vue'
 import { useCurrentPosition } from '@/composables/useCurrentPosition'
 import { useMediaQuery, LG_QUERY } from '@/composables/useMediaQuery'
 import { t, tn } from '@/i18n'
-import { ApiError, useApi, type ChatMessage, type Conversation, type ChatThread } from '@/plugins/api'
+import {
+  ApiError,
+  useApi,
+  type ChatMessage,
+  type Conversation,
+  type ChatThread,
+} from '@/plugins/api'
 import { socket } from '@/plugins/socket'
 import { useAuthStore } from '@/stores/auth'
 import { reportApiError } from '@/utils/reportApiError'
@@ -175,7 +181,12 @@ async function shareLocation() {
   sendingLocation.value = true
   try {
     const { latitude, longitude, accuracy } = result.position
-    const message = await api.shareLocation({ targetId: id, latitude, longitude, ...(accuracy !== null ? { accuracy } : {}) })
+    const message = await api.shareLocation({
+      targetId: id,
+      latitude,
+      longitude,
+      ...(accuracy !== null ? { accuracy } : {}),
+    })
     // Sent either way; only shown here if this conversation is still the one open.
     if (request === shareRequest) receive(message)
   } catch (err) {
@@ -189,7 +200,9 @@ async function shareLocation() {
 const mapsPlatform = detectMapsPlatform()
 function locationLinks(message: ChatMessage): MapsLink[] {
   if (!message.location) return []
-  const label = message.mine ? undefined : displayName(thread.value?.counterpart.name ?? null, thread.value?.counterpart.role)
+  const label = message.mine
+    ? undefined
+    : displayName(thread.value?.counterpart.name ?? null, thread.value?.counterpart.role)
   return mapsLinksFor(message.location.latitude, message.location.longitude, mapsPlatform, label)
 }
 
@@ -267,7 +280,8 @@ function markRead(otherId: number, upToId: number) {
 }
 
 function onVisibilityChange() {
-  if (document.visibilityState === 'visible' && unreadUpTo && openId.value) markRead(openId.value, unreadUpTo)
+  if (document.visibilityState === 'visible' && unreadUpTo && openId.value)
+    markRead(openId.value, unreadUpTo)
 }
 document.addEventListener('visibilitychange', onVisibilityChange)
 
@@ -312,7 +326,10 @@ watch(openId, (id) => {
 })
 
 function displayName(name: string | null, role?: string | null) {
-  return name || t(role === 'guide' ? 'messages.thread.unnamed_guide' : 'messages.thread.unnamed_visitor')
+  return (
+    name ||
+    t(role === 'guide' ? 'messages.thread.unnamed_guide' : 'messages.thread.unnamed_visitor')
+  )
 }
 
 function photo(image: string | null, role?: string | null) {
@@ -328,8 +345,12 @@ function profileLink(id: number, role?: string | null) {
   return role === 'guide' ? `/guides/${id}` : `/visitors/${id}`
 }
 
-const timeFormat = computed(() => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }))
-const dayFormat = computed(() => new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' }))
+const timeFormat = computed(
+  () => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }),
+)
+const dayFormat = computed(
+  () => new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' }),
+)
 
 function timeOf(iso: string) {
   return timeFormat.value.format(new Date(iso))
@@ -343,7 +364,10 @@ function dayOf(iso: string) {
 function startsDay(index: number) {
   const messages = thread.value?.messages ?? []
   if (index === 0) return true
-  return new Date(messages[index - 1]!.created_at).toDateString() !== new Date(messages[index]!.created_at).toDateString()
+  return (
+    new Date(messages[index - 1]!.created_at).toDateString() !==
+    new Date(messages[index]!.created_at).toDateString()
+  )
 }
 
 function preview(conversation: Conversation) {
@@ -382,7 +406,9 @@ function backToList() {
         <p v-if="!listLoaded" class="muted empty">{{ t('messages.list.loading') }}</p>
         <div v-else-if="!conversations.length" class="empty">
           <p class="muted">{{ t('messages.list.empty') }}</p>
-          <RouterLink to="/matches" class="soft-btn" role="button">{{ t('messages.list.go_to_matches') }}</RouterLink>
+          <RouterLink to="/matches" class="soft-btn" role="button">{{
+            t('messages.list.go_to_matches')
+          }}</RouterLink>
         </div>
         <ul v-else class="conversation-list">
           <li v-for="conversation in conversations" :key="conversation.counterpart_id">
@@ -397,15 +423,21 @@ function backToList() {
                 :style="{ backgroundImage: photo(conversation.image, conversation.role) }"
                 aria-hidden="true"
               >
-                <span v-if="!conversation.image">{{ initial(conversation.name, conversation.role) }}</span>
+                <span v-if="!conversation.image">{{
+                  initial(conversation.name, conversation.role)
+                }}</span>
               </span>
               <span class="conversation-text">
                 <strong>{{ displayName(conversation.name, conversation.role) }}</strong>
                 <span class="tiny muted preview">{{ preview(conversation) }}</span>
               </span>
               <span v-if="conversation.unread" class="unread" data-test="unread">
-                <span aria-hidden="true">{{ conversation.unread > 99 ? '99+' : conversation.unread }}</span>
-                <span class="visually-hidden">{{ tn('messages.list.unread', conversation.unread) }}</span>
+                <span aria-hidden="true">{{
+                  conversation.unread > 99 ? '99+' : conversation.unread
+                }}</span>
+                <span class="visually-hidden">{{
+                  tn('messages.list.unread', conversation.unread)
+                }}</span>
               </span>
             </RouterLink>
           </li>
@@ -422,7 +454,9 @@ function backToList() {
             <template v-if="thread">
               <span
                 class="avatar small"
-                :style="{ backgroundImage: photo(thread.counterpart.image, thread.counterpart.role) }"
+                :style="{
+                  backgroundImage: photo(thread.counterpart.image, thread.counterpart.role),
+                }"
                 aria-hidden="true"
               >
                 <span v-if="!thread.counterpart.image">{{
@@ -460,13 +494,17 @@ function backToList() {
             >
               {{ t('messages.thread.load_older') }}
             </button>
-            <p v-if="!thread.messages.length" class="muted empty">{{ t('messages.thread.empty') }}</p>
+            <p v-if="!thread.messages.length" class="muted empty">
+              {{ t('messages.thread.empty') }}
+            </p>
             <template v-for="(message, index) in thread.messages" :key="message.id">
               <p v-if="startsDay(index)" class="day tiny muted">{{ dayOf(message.created_at) }}</p>
               <div class="bubble-row" :class="{ 'bubble-row--mine': message.mine }">
                 <div class="bubble">
                   <template v-if="message.kind === 'location' && message.location">
-                    <span class="body location-title"><span aria-hidden="true">📍 </span>{{ t('messages.location.title') }}</span>
+                    <span class="body location-title"
+                      ><span aria-hidden="true">📍 </span>{{ t('messages.location.title') }}</span
+                    >
                     <span v-if="message.location.accuracy_m" class="tiny muted">{{
                       t('messages.location.accuracy', { meters: message.location.accuracy_m })
                     }}</span>
@@ -486,7 +524,9 @@ function backToList() {
                   <span v-else class="body">{{ message.body }}</span>
                   <span class="meta">
                     <time :datetime="message.created_at">{{ timeOf(message.created_at) }}</time>
-                    <template v-if="message.id === lastSeenId"> · {{ t('messages.thread.seen') }}</template>
+                    <template v-if="message.id === lastSeenId">
+                      · {{ t('messages.thread.seen') }}</template
+                    >
                   </span>
                 </div>
               </div>
@@ -494,7 +534,9 @@ function backToList() {
           </div>
 
           <form v-if="thread.can_send" class="composer" @submit.prevent="send">
-            <label class="visually-hidden" for="composer">{{ t('messages.thread.composer_label') }}</label>
+            <label class="visually-hidden" for="composer">{{
+              t('messages.thread.composer_label')
+            }}</label>
             <textarea
               id="composer"
               ref="composerRef"
@@ -518,12 +560,16 @@ function backToList() {
                 <span aria-hidden="true">📍</span>
                 {{ locating ? t('messages.location.locating') : t('messages.location.share') }}
               </button>
-              <small v-if="remaining < 200" class="muted count" :class="{ over: remaining < 0 }">{{ remaining }}</small>
+              <small v-if="remaining < 200" class="muted count" :class="{ over: remaining < 0 }">{{
+                remaining
+              }}</small>
               <button type="submit" :aria-busy="sending" :disabled="!draft.trim() || remaining < 0">
                 {{ t('messages.thread.send') }}
               </button>
             </div>
-            <small v-if="finePointer" id="composer-hint" class="muted hint">{{ t('messages.thread.enter_hint') }}</small>
+            <small v-if="finePointer" id="composer-hint" class="muted hint">{{
+              t('messages.thread.enter_hint')
+            }}</small>
             <div v-if="confirmingLocation" id="location-confirm" class="location-confirm">
               <p class="tiny">
                 {{

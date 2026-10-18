@@ -129,7 +129,7 @@ function reject(id: string) {
             <strong>{{ t('guide_discover.filters.title') }}</strong>
           </summary>
           <p class="tiny muted">{{ t('guide_discover.filters.hint') }}</p>
-          <FilterPanel compact />
+          <FilterPanel compact target-role="guest" />
         </details>
       </aside>
 

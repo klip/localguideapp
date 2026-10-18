@@ -47,7 +47,9 @@ async function submit() {
         {{ t('forgot_password.sent.body', { email: sentTo }) }}
       </p>
       <p class="tiny muted">{{ t('forgot_password.sent.nothing_arrived') }}</p>
-      <RouterLink to="/login" role="button" class="full">{{ t('forgot_password.sent.back_to_login') }}</RouterLink>
+      <RouterLink to="/login" role="button" class="full">{{
+        t('forgot_password.sent.back_to_login')
+      }}</RouterLink>
     </PanelCard>
 
     <PanelCard

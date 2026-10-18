@@ -226,7 +226,7 @@ class Levels
             $reviews = $this->db->db_GetRow(
                 'SELECT COUNT(*) AS `authors`, AVG(`author_average`) AS `average` FROM (
                     SELECT AVG(`rating`) AS `author_average` FROM `reviews`
-                    WHERE `subject_id` = ' . $userId . ' GROUP BY `author_id`
+                    WHERE `subject_id` = ' . $userId . ' AND `subject_role` = "guide" GROUP BY `author_id`
                  ) a'
             );
             $authors = (int) ($reviews['authors'] ?? 0);

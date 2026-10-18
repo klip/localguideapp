@@ -15,6 +15,7 @@ import {
   roleAgreementSlug,
   type AttributeCategory,
   type LegalDocumentView,
+  type LegalSlug,
   type MyProfile,
   type Role,
   type TwoFactorChannel,
@@ -92,6 +93,7 @@ async function acceptRole(documents: LegalDocumentView[] | null) {
   try {
     const { roles } = await api.addRole({
       role,
+      agreementSlug: agreement.slug as LegalSlug,
       agreementVersion: agreement.version,
       language: agreement.language,
     })
@@ -213,12 +215,19 @@ const optionQueries = reactive<Record<string, string>>({})
  * still reachable through "Add another category".
  */
 /**
- * `range` categories (the hours a guide works). Guides only: a visitor picks
- * the hours they *want* in the discovery filter instead of storing any, so
- * there'd be nothing for these to mean on their profile.
+ * The categories the role being edited has: everything but the other role's
+ * own (`scope` — hours are a guide's, food allergies a traveller's). Shared
+ * ones (languages) are the same set in both roles; per-role ones
+ * (interests/specialities, distance) hold a set each.
  */
+const roleCategories = computed(() => {
+  const other = isGuide.value ? 'guest' : 'guide'
+  return localCategories.value.filter((category) => category.scope !== other)
+})
+
+/** `range` categories this role has — a guide's hours; distance for either. */
 const rangeCategories = computed(() =>
-  isGuide.value ? localCategories.value.filter((category) => category.kind === 'range') : [],
+  roleCategories.value.filter((category) => category.kind === 'range'),
 )
 
 function addRange(categoryKey: string, range: NumericRange) {
@@ -237,7 +246,7 @@ function removeRange(categoryKey: string, index: number) {
 }
 
 const visibleCategories = computed(() =>
-  localCategories.value.filter(
+  roleCategories.value.filter(
     (category) =>
       (selectedAttributes[category.key]?.length ?? 0) > 0 ||
       manuallyExpandedCategories.has(category.key),
@@ -245,7 +254,9 @@ const visibleCategories = computed(() =>
 )
 
 const categorySuggestions = computed<ComboboxSuggestion[]>(() =>
-  localCategories.value.map((category) => ({ value: category.key, label: category.label })),
+  roleCategories.value
+    .filter((category) => category.kind !== 'range')
+    .map((category) => ({ value: category.key, label: category.label })),
 )
 
 function optionSuggestionsFor(categoryKey: string): ComboboxSuggestion[] {

@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { detectMapsPlatform, mapsLinksFor } from '@/utils/mapsLink'
 
 const UA = {
-  iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
-  ipadDesktop: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
-  android: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36',
-  windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+  iphone:
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+  ipadDesktop:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+  android:
+    'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36',
+  windows:
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
 }
 
 describe('detectMapsPlatform', () => {
@@ -20,8 +24,15 @@ describe('detectMapsPlatform', () => {
   })
 
   it('prefers Client Hints when the browser offers them', () => {
-    expect(detectMapsPlatform({ userAgent: UA.windows, userAgentData: { platform: 'Android', mobile: true } })).toBe('android')
-    expect(detectMapsPlatform({ userAgent: UA.windows, userAgentData: { platform: 'macOS' } })).toBe('apple')
+    expect(
+      detectMapsPlatform({
+        userAgent: UA.windows,
+        userAgentData: { platform: 'Android', mobile: true },
+      }),
+    ).toBe('android')
+    expect(
+      detectMapsPlatform({ userAgent: UA.windows, userAgentData: { platform: 'macOS' } }),
+    ).toBe('apple')
   })
 
   it('falls back to "other" with nothing to go on', () => {
@@ -32,7 +43,10 @@ describe('detectMapsPlatform', () => {
 describe('mapsLinksFor', () => {
   it('puts Apple Maps first on Apple devices, with Google Maps as the alternative', () => {
     const [first, second] = mapsLinksFor(36.1408, -5.3536, 'apple', 'Gina')
-    expect(first).toEqual({ provider: 'apple', href: 'https://maps.apple.com/?ll=36.140800%2C-5.353600&q=Gina' })
+    expect(first).toEqual({
+      provider: 'apple',
+      href: 'https://maps.apple.com/?ll=36.140800%2C-5.353600&q=Gina',
+    })
     expect(second!.provider).toBe('google')
   })
 

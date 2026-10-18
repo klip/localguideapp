@@ -79,12 +79,18 @@ const isDuplicate = computed(() =>
 
     <div class="sliders">
       <label class="tiny">
-        <span class="slider-label">{{ t('common.range_picker.from') }} <strong>{{ formatRangeValue(start, format) }}</strong></span>
+        <span class="slider-label"
+          >{{ t('common.range_picker.from') }}
+          <strong>{{ formatRangeValue(start, format) }}</strong></span
+        >
         <input v-model.number="start" type="range" :min="min" :max="max" @input="onStartInput" />
       </label>
 
       <label class="tiny">
-        <span class="slider-label">{{ t('common.range_picker.to') }} <strong>{{ formatRangeValue(end, format) }}</strong></span>
+        <span class="slider-label"
+          >{{ t('common.range_picker.to') }}
+          <strong>{{ formatRangeValue(end, format) }}</strong></span
+        >
         <input v-model.number="end" type="range" :min="min" :max="max" @input="onEndInput" />
       </label>
     </div>

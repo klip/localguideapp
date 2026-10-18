@@ -46,7 +46,11 @@ const emit = defineEmits<{
 
 <template>
   <article class="profile-card" :class="{ 'profile-card--decided': decided }">
-    <div class="profile-photo" :class="{ 'profile-photo--wide': wide }" :style="{ backgroundImage: `var(--rg-photo-scrim), ${photo}` }">
+    <div
+      class="profile-photo"
+      :class="{ 'profile-photo--wide': wide }"
+      :style="{ backgroundImage: `var(--rg-photo-scrim), ${photo}` }"
+    >
       <div class="photo-copy">
         <strong class="photo-name">{{ name }}, {{ age }}</strong>
         <span v-if="meta">{{ meta }}</span>
@@ -60,14 +64,18 @@ const emit = defineEmits<{
           <strong>{{ priceLabel }}</strong>
           <div v-if="priceNote" class="tiny muted">{{ priceNote }}</div>
         </div>
-        <RouterLink v-if="profileLink" class="tiny" :to="profileLink">{{ t('common.profile_card.full_profile') }}</RouterLink>
+        <RouterLink v-if="profileLink" class="tiny" :to="profileLink">{{
+          t('common.profile_card.full_profile')
+        }}</RouterLink>
       </div>
 
       <p v-if="bio">{{ bio }}</p>
 
       <TagList :tags="tags" />
 
-      <p v-if="includes" class="tiny muted"><strong>{{ t('common.profile_card.includes') }}</strong> {{ includes }}</p>
+      <p v-if="includes" class="tiny muted">
+        <strong>{{ t('common.profile_card.includes') }}</strong> {{ includes }}
+      </p>
 
       <slot />
 

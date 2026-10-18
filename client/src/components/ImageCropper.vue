@@ -160,7 +160,9 @@ defineExpose({ getCroppedDataUrl })
     />
 
     <div v-if="!imageSrc" class="empty">
-      <button type="button" class="soft-btn" @click="changePhoto">{{ t('common.image_cropper.add_photo') }}</button>
+      <button type="button" class="soft-btn" @click="changePhoto">
+        {{ t('common.image_cropper.add_photo') }}
+      </button>
       <p class="tiny muted">{{ t('common.image_cropper.hint') }}</p>
     </div>
 
@@ -172,7 +174,14 @@ defineExpose({ getCroppedDataUrl })
         @pointerup="endDrag"
         @pointercancel="endDrag"
       >
-        <img ref="imgRef" :src="imageSrc" alt="" class="viewport-img" :style="imgStyle" @load="onImageLoad" />
+        <img
+          ref="imgRef"
+          :src="imageSrc"
+          alt=""
+          class="viewport-img"
+          :style="imgStyle"
+          @load="onImageLoad"
+        />
       </div>
 
       <label class="zoom tiny muted">
@@ -188,8 +197,12 @@ defineExpose({ getCroppedDataUrl })
       </label>
 
       <div class="actions">
-        <button type="button" class="soft-btn" @click="changePhoto">{{ t('common.image_cropper.change_photo') }}</button>
-        <button type="button" class="soft-btn" @click="removePhoto">{{ t('common.image_cropper.remove') }}</button>
+        <button type="button" class="soft-btn" @click="changePhoto">
+          {{ t('common.image_cropper.change_photo') }}
+        </button>
+        <button type="button" class="soft-btn" @click="removePhoto">
+          {{ t('common.image_cropper.remove') }}
+        </button>
       </div>
     </div>
   </div>

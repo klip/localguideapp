@@ -26,7 +26,12 @@ function onChange(event: Event) {
     :aria-label="t('common.language_switcher.label')"
     @change="onChange"
   >
-    <option v-for="language in LANGUAGES" :key="language.code" :value="language.code" :lang="language.code">
+    <option
+      v-for="language in LANGUAGES"
+      :key="language.code"
+      :value="language.code"
+      :lang="language.code"
+    >
       {{ language.label }}
     </option>
   </select>

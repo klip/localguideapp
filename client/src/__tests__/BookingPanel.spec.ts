@@ -137,7 +137,9 @@ describe('BookingPanel — paying', () => {
 
     await button(wrapper, 'Pay £50.00').trigger('click')
     // What paying here covers, right before the payment is confirmed.
-    expect(wrapper.find('form [data-test="protected-notice"]').text()).toContain('Protected by RockGuide')
+    expect(wrapper.find('form [data-test="protected-notice"]').text()).toContain(
+      'Protected by RockGuide',
+    )
     await wrapper.find('input[type="datetime-local"]').setValue('2030-01-02T10:00')
     await wrapper.find('input[type="number"]').setValue('3')
     await wrapper.find('form').trigger('submit')
@@ -209,7 +211,9 @@ describe('BookingPanel — guide acceptance', () => {
   it('tells the guide what they receive after the platform fee — and never the guest', () => {
     const withFee = { ...pendingBooking, commission_rate: 0.12, guide_payout: 44 }
     const guide = mountPanel(fakeApi(), withFee, false)
-    expect(guide.find('[data-test="guide-payout"]').text()).toBe('You receive £44.00 after the RockGuide fee of 12%.')
+    expect(guide.find('[data-test="guide-payout"]').text()).toBe(
+      'You receive £44.00 after the RockGuide fee of 12%.',
+    )
 
     const guest = mountPanel(fakeApi(), withFee, true)
     expect(guest.find('[data-test="guide-payout"]').exists()).toBe(false)
@@ -429,9 +433,14 @@ describe('BookingPanel — meeting place', () => {
 
   it('drops a pin where the device is, saved with the meeting place, and shows it with maps links', async () => {
     const getCurrentPosition = vi.fn<Geolocation['getCurrentPosition']>((success) =>
-      success({ coords: { latitude: 36.1408, longitude: -5.3536, accuracy: 12 } } as GeolocationPosition),
+      success({
+        coords: { latitude: 36.1408, longitude: -5.3536, accuracy: 12 },
+      } as GeolocationPosition),
     )
-    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    })
     vi.stubGlobal('isSecureContext', true)
     const api = fakeApi()
     const wrapper = mountPanel(api, confirmedBooking, true)
@@ -440,7 +449,9 @@ describe('BookingPanel — meeting place', () => {
     await wrapper.find('[data-test="pin-here"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-test="pin-field"]').text()).toContain('Pinned on the map')
-    expect(wrapper.find('[data-test="pin-field"] a[data-provider="google"]').attributes('href')).toContain('36.140800')
+    expect(
+      wrapper.find('[data-test="pin-field"] a[data-provider="google"]').attributes('href'),
+    ).toContain('36.140800')
 
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -458,7 +469,11 @@ describe('BookingPanel — meeting place', () => {
 
   it('keeps an existing pin when editing, and removing it clears it on save', async () => {
     const api = fakeApi()
-    const pinned = { ...pendingBooking, location: 'Main gate', location_pin: { latitude: 36.1408, longitude: -5.3536 } }
+    const pinned = {
+      ...pendingBooking,
+      location: 'Main gate',
+      location_pin: { latitude: 36.1408, longitude: -5.3536 },
+    }
     const wrapper = mountPanel(api, pinned, true)
 
     // The summary line offers the pin in the viewer's maps app.
@@ -469,14 +484,27 @@ describe('BookingPanel — meeting place', () => {
     expect(wrapper.find('[data-test="pin-here"]').exists()).toBe(true)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
-    expect(api.bookingAction).toHaveBeenCalledWith({ targetId: 7, op: 'setLocation', location: 'Main gate' })
+    expect(api.bookingAction).toHaveBeenCalledWith({
+      targetId: 7,
+      op: 'setLocation',
+      location: 'Main gate',
+    })
   })
 
   it('explains a blocked location permission instead of pinning anything', async () => {
     const getCurrentPosition = vi.fn<Geolocation['getCurrentPosition']>((_success, failure) =>
-      failure?.({ code: 1, PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3, message: '' } as GeolocationPositionError),
+      failure?.({
+        code: 1,
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+        message: '',
+      } as GeolocationPositionError),
     )
-    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    })
     vi.stubGlobal('isSecureContext', true)
     const wrapper = mountPanel(fakeApi(), confirmedBooking, false)
 

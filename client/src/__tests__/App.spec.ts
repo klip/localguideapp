@@ -21,7 +21,8 @@ const fakeSocket = vi.hoisted(() => {
       handlers.set(type, handler)
       return () => handlers.delete(type)
     },
-    push: (type: string, message: Record<string, unknown>) => handlers.get(type)?.({ type, ...message }),
+    push: (type: string, message: Record<string, unknown>) =>
+      handlers.get(type)?.({ type, ...message }),
   }
 })
 vi.mock('@/plugins/socket', () => ({ socket: fakeSocket }))
@@ -59,11 +60,16 @@ describe('App', () => {
    * at 0 — the store is in-memory, and only LoginPage/UnlockPage re-synced
    * it, so F5 showed the paywall despite the packs existing server-side.
    */
-  it('restores a guest\'s purchased packs on boot', async () => {
+  it("restores a guest's purchased packs on boot", async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
 
-    const session: AuthResult = { id: 7, email: 'guest@example.com', role: 'guest', sessionHash: 'hash' }
+    const session: AuthResult = {
+      id: 7,
+      email: 'guest@example.com',
+      role: 'guest',
+      sessionHash: 'hash',
+    }
     useAuthStore().setUser(session)
 
     const state: PaymentState = {
@@ -104,7 +110,12 @@ describe('App', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
 
-    const session: AuthResult = { id: 18, email: 'guide@example.com', role: 'guide', sessionHash: 'hash' }
+    const session: AuthResult = {
+      id: 18,
+      email: 'guide@example.com',
+      role: 'guide',
+      sessionHash: 'hash',
+    }
     useAuthStore().setUser(session)
 
     const api = fakeApi({ session: vi.fn<Api['session']>().mockResolvedValue(session) })
@@ -124,7 +135,12 @@ describe('App', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
 
-    const session: AuthResult = { id: 18, email: 'guide@example.com', role: 'guide', sessionHash: 'hash' }
+    const session: AuthResult = {
+      id: 18,
+      email: 'guide@example.com',
+      role: 'guide',
+      sessionHash: 'hash',
+    }
     useAuthStore().setUser(session)
     const api = fakeApi({ session: vi.fn<Api['session']>().mockResolvedValue(session) })
 
@@ -138,13 +154,20 @@ describe('App', () => {
     expect(fakeSocket.identify).toHaveBeenLastCalledWith('hash')
 
     fakeSocket.push('notification', {
-      notification: { id: 1, kind: 'booking_requested', message: 'Ana paid your £50.00 fee.', created_at: '2026-09-24 10:00:00' },
+      notification: {
+        id: 1,
+        kind: 'booking_requested',
+        message: 'Ana paid your £50.00 fee.',
+        created_at: '2026-09-24 10:00:00',
+      },
     })
     fakeSocket.push('badges', { matches: 2, trips: 1 })
 
     expect(useMessagesStore().items.map((item) => item.text)).toContain('Ana paid your £50.00 fee.')
     // …and tapping it opens the page it's about.
-    expect(useMessagesStore().items.find((item) => item.text.startsWith('Ana'))?.to).toBe('/matches')
+    expect(useMessagesStore().items.find((item) => item.text.startsWith('Ana'))?.to).toBe(
+      '/matches',
+    )
     expect(useBadgesStore().matches).toBe(2)
     expect(useBadgesStore().trips).toBe(1)
     expect(useBadgesStore().revision).toBe(1)
@@ -160,7 +183,12 @@ describe('App', () => {
   it('toasts an incoming chat message, but not my own or one for the conversation already open', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
-    const session: AuthResult = { id: 7, email: 'v@example.com', role: 'guest', sessionHash: 'hash' }
+    const session: AuthResult = {
+      id: 7,
+      email: 'v@example.com',
+      role: 'guest',
+      sessionHash: 'hash',
+    }
     useAuthStore().setUser(session)
     const api = fakeApi({
       session: vi.fn<Api['session']>().mockResolvedValue(session),
@@ -180,7 +208,17 @@ describe('App', () => {
     await flushPromises()
 
     const chat = (overrides: Record<string, unknown>) => ({
-      message: { id: 1, sender_id: 101, recipient_id: 7, mine: false, body: 'Hi', created_at: '', read_at: null, sender_name: 'Gina', ...overrides },
+      message: {
+        id: 1,
+        sender_id: 101,
+        recipient_id: 7,
+        mine: false,
+        body: 'Hi',
+        created_at: '',
+        read_at: null,
+        sender_name: 'Gina',
+        ...overrides,
+      },
     })
     const texts = () => useMessagesStore().items.map((item) => item.text)
 

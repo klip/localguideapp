@@ -66,6 +66,7 @@ async function accept(documents: LegalDocumentView[] | null) {
       password: password.value,
       role: role.value,
       termsVersion: terms.version,
+      agreementSlug: agreement.slug as LegalSlug,
       agreementVersion: agreement.version,
       language: terms.language,
     })

@@ -119,7 +119,10 @@ and each other person counts once (`Levels::QUALIFYING_TRIP`,
    terms + starting role's agreement, `addRole`, header switch / add-role
    link, profile page modal.
 3. **Per-role data** — headline/bio/level on `user_role`, attribute scopes,
-   `reviews.subject_role`, per-role ratings on cards and the profile tabs.
+   `reviews.subject_role`, per-role ratings on cards and the profile tabs. **Done**
+   except levels (moved to phase 4, with the money-based rule): headline/bio
+   on `user_role`, attribute scopes, `reviews.subject_role`, per-role ratings
+   and ranking, review tabs, role-aware filter bar and profile page.
 4. **Money-based levels** — the new progress rule, per role, in `Levels`,
    `Ranking` and the badges.
 5. **Polish** — role-tagged notifications that switch mode, per-role badge

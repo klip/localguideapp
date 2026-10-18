@@ -577,8 +577,10 @@ failed registration closes it, toasts as before, and drops the cached terms.
   `docs/legal/<slug>/2026-10-18/`, built with the same script. Registration
   shows the terms **and** the starting role's agreement in one `TermsDialog`
   (`slugs` prop; the footer slot gets `{ documents }`) and sends both
-  versions (`termsVersion`, `agreementVersion` — auth refuses either if it
-  isn't the one in force, `LegalDocuments::assertRoleAgreement()`); adding a
+  versions (`termsVersion`, plus `agreementSlug` + `agreementVersion` — the
+  slug because both agreements can share a version date; auth refuses either
+  if it isn't that role's document in force,
+  `LegalDocuments::assertRoleAgreement()`); adding a
   role later accepts that role's agreement (see "Acting role").
 - **Not done yet**: existing accounts never accepted anything (no re-accept
   prompt), nor any role agreement.
@@ -1696,8 +1698,23 @@ the plumbing, is in:
   `auth.activeRole`); `App.vue` re-syncs a guest's packs on the switch, and
   the picks pill shows only in traveller mode. The profile page says which
   role's profile is being edited.
-- Not yet per role: levels (`Levels::sync()` uses the first role), review
-  averages, badges, profile headline/bio and attribute picks — phases 3–5.
+- **Per role** (phase 3, 052): **headline and description** live on the
+  `user_role` row (`Profiles::setRoleText()`; `user_profiles.headline/bio`
+  are gone) — `myProfile`/`updateProfile` use the acting role, the decks
+  join the candidate's row as `urx`, `publicProfile` takes `role`.
+  **Attribute picks**: `attribute_categories.scope` is `shared` (languages —
+  one set), `per_role` (interests/specialities, distance, anything users
+  create — a set per role) or `guest`/`guide` (food allergies / hours — that
+  role only); `user_attribute_values`/`user_attribute_ranges` carry `role`
+  (`any` for shared). Reads go through `Profiles::roleRowsSql()` and
+  `categoryVisibleSql()`; the profile page and `FilterPanel` (`target-role`)
+  offer only the categories that role has. **Ratings**: `reviews.subject_role`
+  — `reviews`/`submitReview` take `role`, eligibility is a finished trip
+  where the subject was on that side, deck ★ and ranking count that role's
+  reviews only, and `ReviewsSection` shows "As a guide" / "As a traveller"
+  tabs for someone who is both (the page's own role first).
+- Not yet per role: levels (`Levels::sync()` uses the first role) and badges
+  — phases 4–5.
 
 ### Two-factor login & password reset
 
@@ -2325,6 +2342,12 @@ API service (`api/classes/`):
   Re-runnable (upserts).
 - `api/sql/051_translations_dual_roles.sql` — mode switch, add-role and the
   register dialog's new intro, 15 languages. Applied 2026-10-18. Re-runnable.
+- `api/sql/052_per_role_profile_data.sql` — `user_role.headline/bio` (moved
+  from `user_profiles`, dropped there), `attribute_categories.scope`, `role`
+  on picks/spans, `reviews.subject_role` (from the booking). Applied
+  2026-10-18. Not re-runnable.
+- `api/sql/053_translations_review_tabs.sql` — the review tabs. Applied
+  2026-10-18. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

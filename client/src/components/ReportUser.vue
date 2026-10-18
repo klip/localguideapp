@@ -53,7 +53,11 @@ async function submit() {
   if (!valid.value || sending.value) return
   sending.value = true
   try {
-    await api.reportUser({ subjectId: props.subjectId, title: title.value.trim(), description: description.value.trim() })
+    await api.reportUser({
+      subjectId: props.subjectId,
+      title: title.value.trim(),
+      description: description.value.trim(),
+    })
     title.value = ''
     description.value = ''
     close()
@@ -68,7 +72,13 @@ async function submit() {
 
 <template>
   <div v-if="visible" class="report-user">
-    <button ref="triggerRef" type="button" class="report-link" data-test="report-user" @click="open = true">
+    <button
+      ref="triggerRef"
+      type="button"
+      class="report-link"
+      data-test="report-user"
+      @click="open = true"
+    >
       <span aria-hidden="true">⚑</span> {{ t('common.report_user.open', { name: subjectName }) }}
     </button>
 
@@ -115,13 +125,22 @@ async function submit() {
             class="muted"
             :class="{ over: descriptionLength > MAX_DESCRIPTION }"
             :aria-live="descriptionLength > MAX_DESCRIPTION ? 'polite' : undefined"
-            >{{ t('common.report_user.count', { count: descriptionLength, max: MAX_DESCRIPTION }) }}</small
+            >{{
+              t('common.report_user.count', { count: descriptionLength, max: MAX_DESCRIPTION })
+            }}</small
           >
         </label>
         <p class="muted tiny">{{ t('common.report_user.emergency') }}</p>
         <div class="report-actions">
-          <button type="button" class="soft-btn" @click="close">{{ t('common.report_user.cancel') }}</button>
-          <button type="submit" :aria-busy="sending" :disabled="!valid || sending" data-test="report-send">
+          <button type="button" class="soft-btn" @click="close">
+            {{ t('common.report_user.cancel') }}
+          </button>
+          <button
+            type="submit"
+            :aria-busy="sending"
+            :disabled="!valid || sending"
+            data-test="report-send"
+          >
             {{ t('common.report_user.send') }}
           </button>
         </div>

@@ -35,9 +35,13 @@ async function pinHere() {
 <template>
   <div ref="root" class="pin-field" data-test="pin-field">
     <template v-if="pin">
-      <span class="pin-set"><span aria-hidden="true">📍 </span>{{ t('common.booking_panel.pin_set') }}</span>
+      <span class="pin-set"
+        ><span aria-hidden="true">📍 </span>{{ t('common.booking_panel.pin_set') }}</span
+      >
       <MapPinLinks :latitude="pin.latitude" :longitude="pin.longitude" />
-      <button type="button" class="link-btn" @click="pin = null">{{ t('common.booking_panel.pin_remove') }}</button>
+      <button type="button" class="link-btn" @click="pin = null">
+        {{ t('common.booking_panel.pin_remove') }}
+      </button>
     </template>
     <button
       v-else
@@ -49,7 +53,11 @@ async function pinHere() {
       @click="pinHere"
     >
       <span aria-hidden="true">📍 </span
-      >{{ position.locating.value ? t('common.booking_panel.pin_locating') : t('common.booking_panel.pin_here') }}
+      >{{
+        position.locating.value
+          ? t('common.booking_panel.pin_locating')
+          : t('common.booking_panel.pin_here')
+      }}
     </button>
   </div>
 </template>

@@ -34,10 +34,71 @@ class Profiles
     // No `rating`/`tours`: those columns still exist but are dead — a
     // profile's rating comes from `reviews` now (see `Reviews`), and nobody
     // gets to set their own.
+    // Headline and description are per role — `user_role`, see `setRoleText()`.
     private const SCALAR_COLUMNS = [
-        'date_of_birth', 'gender', 'headline', 'bio', 'price_amount', 'price_label',
+        'date_of_birth', 'gender', 'price_amount', 'price_label',
         'price_note', 'includes', 'party', 'duration_hours',
     ];
+
+    /**
+     * SQL condition: a pick/span row (`$alias`.`role`) that counts for
+     * someone acting as `$role` — a shared category's (`any`) or that role's.
+     */
+    public static function roleRowsSql(string $alias, string $role): string
+    {
+        return $alias . '.`role` IN ("any", "' . ($role === 'guide' ? 'guide' : 'guest') . '")';
+    }
+
+    /**
+     * SQL condition: a category (`$alias`) someone acting as `$role` has —
+     * everything but the other role's own (`guest`/`guide` scope).
+     */
+    public static function categoryVisibleSql(string $alias, string $role): string
+    {
+        return $alias . '.`scope` <> "' . Roles::opposite($role) . '"';
+    }
+
+    /**
+     * The `role` value a pick/span in a category of `$scope` is stored with
+     * for someone acting as `$role`, or null when that role doesn't have the
+     * category (the other role's own).
+     */
+    private static function storedRole(string $scope, string $role): ?string
+    {
+        if ($scope === 'shared') {
+            return 'any';
+        }
+        if ($scope === 'per_role') {
+            return $role;
+        }
+
+        return $scope === $role ? $role : null;
+    }
+
+    /**
+     * The headline and description `$userId` shows as `$role` (their row of
+     * `user_role` — they differ per role). Only keys present in `$fields`
+     * change; an empty string clears.
+     */
+    public function setRoleText(int $userId, string $role, array $fields): void
+    {
+        $set = [];
+        foreach (['headline', 'bio'] as $column) {
+            if (array_key_exists($column, $fields) && $fields[$column] !== null) {
+                $value = trim((string) $fields[$column]);
+                $set[] = '`' . $column . '` = ' . ($value === '' ? 'NULL' : '"' . $this->db->db_Escape($value) . '"');
+            }
+        }
+        if (!$set) {
+            return;
+        }
+
+        $this->db->db_Execute(
+            'UPDATE `user_role` ur JOIN `roles` r ON r.`id` = ur.`role_id`
+             SET ' . implode(', ', $set) . '
+             WHERE ur.`user_id` = ' . $userId . ' AND r.`name` = "' . $this->db->db_Escape($role) . '"'
+        );
+    }
 
     /** @var db */
     private $db;
@@ -84,7 +145,7 @@ class Profiles
     public function getCategories(): array
     {
         $categories = $this->db->db_GetArray(
-            'SELECT `id`, `key`, `label`, `kind`, `provider_label`, `multi`, `range_min`, `range_max`, `allow_unlimited`
+            'SELECT `id`, `key`, `label`, `kind`, `scope`, `provider_label`, `multi`, `range_min`, `range_max`, `allow_unlimited`
              FROM `attribute_categories` ORDER BY `id`'
         );
 
@@ -97,6 +158,7 @@ class Profiles
             'key' => $category['key'],
             'label' => $category['label'],
             'kind' => $category['kind'],
+            'scope' => $category['scope'],
             'providerLabel' => $category['provider_label'],
             'multi' => (bool) $category['multi'],
             'rangeMin' => $category['range_min'] === null ? null : (int) $category['range_min'],
@@ -117,27 +179,38 @@ class Profiles
      * label for options — see `ProfilePage.vue`'s combobox, which only
      * lets a user type one string per option).
      */
-    public function setAttributeValues(int $userId, string $categoryKey, array $values, ?string $categoryLabel = null): void
+    public function setAttributeValues(int $userId, string $role, string $categoryKey, array $values, ?string $categoryLabel = null): void
     {
-        $categoryId = $this->db->db_GetFieldFromQuery(
-            'SELECT `id` FROM `attribute_categories` WHERE `key` = "' . $this->db->db_Escape($categoryKey) . '"',
-            'id'
+        $category = $this->db->db_GetRow(
+            'SELECT `id`, `scope` FROM `attribute_categories` WHERE `key` = "' . $this->db->db_Escape($categoryKey) . '"'
         );
-        if (!$categoryId) {
-            $categoryId = $this->db->db_Insert('attribute_categories', [
+        if ($category) {
+            $categoryId = (int) $category['id'];
+            $scope = (string) $category['scope'];
+        } else {
+            // A category a user invents holds a set per role (the default scope).
+            $categoryId = (int) $this->db->db_Insert('attribute_categories', [
                 'key' => $categoryKey,
                 'label' => $categoryLabel ?? $categoryKey,
                 'multi' => 1,
             ]);
+            $scope = 'per_role';
             if (!$categoryId) {
                 return;
             }
+        }
+        // The picks belong to the role being edited (or to both, for a
+        // shared category); the other role's own categories aren't this one's.
+        $stored = self::storedRole($scope, $role);
+        if ($stored === null) {
+            return;
         }
 
         $this->db->db_Execute(
             'DELETE uav FROM `user_attribute_values` uav
              JOIN `attribute_options` ao ON ao.`id` = uav.`option_id`
-             WHERE uav.`user_id` = ' . $userId . ' AND ao.`category_id` = ' . intval($categoryId)
+             WHERE uav.`user_id` = ' . $userId . ' AND ao.`category_id` = ' . $categoryId . '
+               AND uav.`role` = "' . $stored . '"'
         );
 
         foreach (array_unique($values) as $value) {
@@ -159,20 +232,21 @@ class Profiles
                 ]);
             }
             if ($optionId) {
-                $this->db->db_Insert('user_attribute_values', ['user_id' => $userId, 'option_id' => $optionId]);
+                $this->db->db_Insert('user_attribute_values', ['user_id' => $userId, 'option_id' => $optionId, 'role' => $stored]);
             }
         }
     }
 
-    /** One user's selections across every category, keyed by category `key` — what `ProfilePage.vue` prefills from. */
-    public function getAttributeValuesFor(int $userId): array
+    /** One user's selections as `$role` across every category, keyed by category `key` — what `ProfilePage.vue` prefills from. */
+    public function getAttributeValuesFor(int $userId, string $role): array
     {
         $result = [];
         foreach ($this->db->db_GetArray(
             'SELECT ac.`key` category_key, ao.`value` FROM `user_attribute_values` uav
              JOIN `attribute_options` ao ON ao.`id` = uav.`option_id`
              JOIN `attribute_categories` ac ON ac.`id` = ao.`category_id`
-             WHERE uav.`user_id` = ' . $userId
+             WHERE uav.`user_id` = ' . $userId . ' AND ' . self::roleRowsSql('uav', $role) . '
+               AND ' . self::categoryVisibleSql('ac', $role)
         ) as $row) {
             $result[$row['category_key']][] = $row['value'];
         }
@@ -193,7 +267,7 @@ class Profiles
      * @param int[] $userIds
      * @return array{attributes: array<int, array<string, string[]>>, ranges: array<int, array<string, array{0:int,1:int}[]>>}
      */
-    public function getAttributesFor(array $userIds): array
+    public function getAttributesFor(array $userIds, string $role): array
     {
         $result = ['attributes' => [], 'ranges' => []];
         if (!$userIds) {
@@ -206,7 +280,8 @@ class Profiles
             'SELECT uav.`user_id`, ac.`key` category_key, ao.`value` FROM `user_attribute_values` uav
              JOIN `attribute_options` ao ON ao.`id` = uav.`option_id`
              JOIN `attribute_categories` ac ON ac.`id` = ao.`category_id`
-             WHERE uav.`user_id` IN (' . $idList . ')'
+             WHERE uav.`user_id` IN (' . $idList . ') AND ' . self::roleRowsSql('uav', $role) . '
+               AND ' . self::categoryVisibleSql('ac', $role)
         ) as $row) {
             $result['attributes'][(int) $row['user_id']][$row['category_key']][] = $row['value'];
         }
@@ -215,7 +290,8 @@ class Profiles
             'SELECT uar.`user_id`, ac.`key` category_key, uar.`range_start`, uar.`range_end`
              FROM `user_attribute_ranges` uar
              JOIN `attribute_categories` ac ON ac.`id` = uar.`category_id`
-             WHERE uar.`user_id` IN (' . $idList . ')
+             WHERE uar.`user_id` IN (' . $idList . ') AND ' . self::roleRowsSql('uar', $role) . '
+               AND ' . self::categoryVisibleSql('ac', $role) . '
              ORDER BY uar.`range_start`'
         ) as $row) {
             $result['ranges'][(int) $row['user_id']][$row['category_key']][] = [
@@ -239,13 +315,17 @@ class Profiles
      *
      * @param array<array{0:int,1:int}> $ranges
      */
-    public function setRanges(int $userId, string $categoryKey, array $ranges): void
+    public function setRanges(int $userId, string $role, string $categoryKey, array $ranges): void
     {
         $category = $this->db->db_GetRow(
-            'SELECT `id`, `range_min`, `range_max` FROM `attribute_categories`
+            'SELECT `id`, `scope`, `range_min`, `range_max` FROM `attribute_categories`
              WHERE `key` = "' . $this->db->db_Escape($categoryKey) . '" AND `kind` = "range"'
         );
         if (!$category) {
+            return;
+        }
+        $stored = self::storedRole((string) $category['scope'], $role);
+        if ($stored === null) {
             return;
         }
 
@@ -254,7 +334,8 @@ class Profiles
         $max = $category['range_max'] === null ? PHP_INT_MAX : (int) $category['range_max'];
 
         $this->db->db_Execute(
-            'DELETE FROM `user_attribute_ranges` WHERE `user_id` = ' . $userId . ' AND `category_id` = ' . $categoryId
+            'DELETE FROM `user_attribute_ranges` WHERE `user_id` = ' . $userId . ' AND `category_id` = ' . $categoryId . '
+               AND `role` = "' . $stored . '"'
         );
 
         foreach ($ranges as $range) {
@@ -275,6 +356,7 @@ class Profiles
             $this->db->db_InsertUpdate('user_attribute_ranges', [
                 'user_id' => $userId,
                 'category_id' => $categoryId,
+                'role' => $stored,
                 'range_start' => $start,
                 'range_end' => $end,
             ], ['range_end']);
@@ -282,14 +364,15 @@ class Profiles
     }
 
     /** One user's spans keyed by category `key` — the `range` half of what `ProfilePage.vue` prefills from. */
-    public function getRangesFor(int $userId): array
+    public function getRangesFor(int $userId, string $role): array
     {
         $result = [];
         foreach ($this->db->db_GetArray(
             'SELECT ac.`key` category_key, uar.`range_start`, uar.`range_end`
              FROM `user_attribute_ranges` uar
              JOIN `attribute_categories` ac ON ac.`id` = uar.`category_id`
-             WHERE uar.`user_id` = ' . $userId . '
+             WHERE uar.`user_id` = ' . $userId . ' AND ' . self::roleRowsSql('uar', $role) . '
+               AND ' . self::categoryVisibleSql('ac', $role) . '
              ORDER BY uar.`range_start`'
         ) as $row) {
             $result[$row['category_key']][] = [(int) $row['range_start'], (int) $row['range_end']];

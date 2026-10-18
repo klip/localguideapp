@@ -44,7 +44,14 @@ const positioned = computed<PositionedToast[]>(() => {
     // Page-level toasts stack in a column (`.toaster-page`) that grows with
     // their real height — notifications run to several lines.
     if (placement.type === 'page') {
-      return { id: item.id, kind: item.kind, text: item.text, to: item.to, place: 'page', style: {} }
+      return {
+        id: item.id,
+        kind: item.kind,
+        text: item.text,
+        to: item.to,
+        place: 'page',
+        style: {},
+      }
     }
 
     const key = `${placement.type}:${Math.round(placement.rect.left)}:${Math.round(placement.rect.top)}`
@@ -117,12 +124,22 @@ const anchoredToasts = computed(() => positioned.value.filter((toast) => toast.p
         @focusin="hold(item.id, 'focus')"
         @focusout="onFocusOut(item.id, $event)"
       >
-        <RouterLink v-if="item.to" :to="item.to" class="toast-link" @click="messages.dismiss(item.id)">
+        <RouterLink
+          v-if="item.to"
+          :to="item.to"
+          class="toast-link"
+          @click="messages.dismiss(item.id)"
+        >
           <span>{{ item.text }}</span>
           <span class="toast-go" aria-hidden="true">›</span>
         </RouterLink>
         <span v-else>{{ item.text }}</span>
-        <button type="button" class="dismiss" :aria-label="t('common.message_toaster.dismiss')" @click="messages.dismiss(item.id)">
+        <button
+          type="button"
+          class="dismiss"
+          :aria-label="t('common.message_toaster.dismiss')"
+          @click="messages.dismiss(item.id)"
+        >
           ✕
         </button>
       </div>
@@ -140,12 +157,22 @@ const anchoredToasts = computed(() => positioned.value.filter((toast) => toast.p
         @focusout="onFocusOut(item.id, $event)"
       >
         <!-- A notification toast is a link to what it's about; tapping it opens that and closes the toast. -->
-        <RouterLink v-if="item.to" :to="item.to" class="toast-link" @click="messages.dismiss(item.id)">
+        <RouterLink
+          v-if="item.to"
+          :to="item.to"
+          class="toast-link"
+          @click="messages.dismiss(item.id)"
+        >
           <span>{{ item.text }}</span>
           <span class="toast-go" aria-hidden="true">›</span>
         </RouterLink>
         <span v-else>{{ item.text }}</span>
-        <button type="button" class="dismiss" :aria-label="t('common.message_toaster.dismiss')" @click="messages.dismiss(item.id)">
+        <button
+          type="button"
+          class="dismiss"
+          :aria-label="t('common.message_toaster.dismiss')"
+          @click="messages.dismiss(item.id)"
+        >
           ✕
         </button>
       </div>

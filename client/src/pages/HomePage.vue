@@ -52,15 +52,16 @@ const steps = computed(() =>
           </div>
         </div>
 
-        <PhonePreview v-if="heroGuide" :guide="heroGuide" :progress-label="t('home.hero.preview_progress')" />
+        <PhonePreview
+          v-if="heroGuide"
+          :guide="heroGuide"
+          :progress-label="t('home.hero.preview_progress')"
+        />
       </div>
     </section>
 
     <section id="how" class="section shell">
-      <SectionTitle
-        :eyebrow="t('home.how.eyebrow')"
-        :heading="t('home.how.heading')"
-      />
+      <SectionTitle :eyebrow="t('home.how.eyebrow')" :heading="t('home.how.heading')" />
       <div class="grid-3">
         <FeatureCard v-for="step in steps" :key="step.title" v-bind="step" />
       </div>
@@ -81,7 +82,9 @@ const steps = computed(() =>
             </p>
           </div>
           <div>
-            <RouterLink to="/register" role="button" class="full">{{ t('home.pricing.start') }}</RouterLink>
+            <RouterLink to="/register" role="button" class="full">{{
+              t('home.pricing.start')
+            }}</RouterLink>
           </div>
         </div>
       </PriceBox>
@@ -93,7 +96,10 @@ const steps = computed(() =>
 @use 'breakpoints' as bp;
 
 .hero {
-  padding: {top: 3.5rem; bottom: 2.2rem;};
+  padding: {
+    top: 3.5rem;
+    bottom: 2.2rem;
+  }
 
   @include bp.md {
     padding-top: 5rem;

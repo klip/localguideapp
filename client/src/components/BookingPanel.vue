@@ -117,7 +117,8 @@ function show(kind: FormKind) {
   reason.value = ''
 }
 
-const pinFields = () => (pin.value ? { latitude: pin.value.latitude, longitude: pin.value.longitude } : {})
+const pinFields = () =>
+  pin.value ? { latitude: pin.value.latitude, longitude: pin.value.longitude } : {}
 
 /** Runs one server step, then closes any form, tells the page to reload, and confirms. */
 async function run(step: () => Promise<unknown>, success: string, failure: string) {
@@ -179,7 +180,12 @@ function saveLocation() {
   const place = location.value.trim()
   return run(
     () =>
-      api.bookingAction({ targetId: props.row.counterpart_id, op: 'setLocation', location: place, ...pinFields() }),
+      api.bookingAction({
+        targetId: props.row.counterpart_id,
+        op: 'setLocation',
+        location: place,
+        ...pinFields(),
+      }),
     place || pin.value
       ? t('common.booking_panel.location_saved', { name: props.name })
       : t('common.booking_panel.location_removed'),
@@ -238,7 +244,12 @@ function guideCancel() {
             : t('common.booking_panel.booking_request')
         }}</PillBadge>
         <span class="tiny muted">
-          {{ t('common.booking_panel.paid_on', { amount: money(row.booking_amount), when: meetingLabel }) }}<template v-if="durationLabel"> · {{ durationLabel }}</template
+          {{
+            t('common.booking_panel.paid_on', {
+              amount: money(row.booking_amount),
+              when: meetingLabel,
+            })
+          }}<template v-if="durationLabel"> · {{ durationLabel }}</template
           ><template v-if="row.location"> · {{ row.location }}</template>
         </span>
         <MapPinLinks
@@ -249,8 +260,12 @@ function guideCancel() {
         />
       </p>
       <p v-else-if="paid" class="booking-line">
-        <PillBadge>{{ t('common.booking_panel.paid_badge', { amount: money(row.booking_amount) }) }}</PillBadge>
-        <PillBadge v-if="started" tone="neutral">{{ t('common.booking_panel.in_progress') }}</PillBadge>
+        <PillBadge>{{
+          t('common.booking_panel.paid_badge', { amount: money(row.booking_amount) })
+        }}</PillBadge>
+        <PillBadge v-if="started" tone="neutral">{{
+          t('common.booking_panel.in_progress')
+        }}</PillBadge>
         <span v-if="meetingLabel" class="tiny muted">
           {{ meetingLabel }}<template v-if="durationLabel"> · {{ durationLabel }}</template>
         </span>
@@ -269,7 +284,12 @@ function guideCancel() {
     <!-- What happens next -->
     <!-- Outside the note chain below: shown alongside whichever note applies. -->
     <p
-      v-if="!isGuest && row.guide_payout != null && row.commission_rate != null && row.payment_status === 'paid'"
+      v-if="
+        !isGuest &&
+        row.guide_payout != null &&
+        row.commission_rate != null &&
+        row.payment_status === 'paid'
+      "
       class="tiny muted note"
       data-test="guide-payout"
     >
@@ -316,7 +336,9 @@ function guideCancel() {
         }}</strong
         ><br />
         <span class="tiny muted">{{
-          t('common.booking_panel.approve_refund_note', { amount: money(row.refund_if_guest_cancels) })
+          t('common.booking_panel.approve_refund_note', {
+            amount: money(row.refund_if_guest_cancels),
+          })
         }}</span>
       </p>
     </div>
@@ -356,7 +378,10 @@ function guideCancel() {
           :aria-busy="busy"
           :disabled="busy"
           @click="
-            op('withdraw', t('common.booking_panel.withdrawn', { amount: money(row.booking_amount) }))
+            op(
+              'withdraw',
+              t('common.booking_panel.withdrawn', { amount: money(row.booking_amount) }),
+            )
           "
         >
           {{ t('common.booking_panel.withdraw_payment') }}
@@ -368,9 +393,7 @@ function guideCancel() {
           class="accept"
           :aria-busy="busy"
           :disabled="busy"
-          @click="
-            op('accept', t('common.booking_panel.accepted', { name }))
-          "
+          @click="op('accept', t('common.booking_panel.accepted', { name }))"
         >
           {{ t('common.booking_panel.accept') }}
         </button>
@@ -386,9 +409,7 @@ function guideCancel() {
           class="soft-btn"
           :aria-busy="busy"
           :disabled="busy"
-          @click="
-            op('withdrawCancellation', t('common.booking_panel.cancel_request_withdrawn'))
-          "
+          @click="op('withdrawCancellation', t('common.booking_panel.cancel_request_withdrawn'))"
         >
           {{ t('common.booking_panel.keep_my_booking') }}
         </button>
@@ -497,7 +518,11 @@ function guideCancel() {
         :disabled="busy"
         @click="show('location')"
       >
-        {{ row.location ? t('common.booking_panel.change_location') : t('common.booking_panel.set_location') }}
+        {{
+          row.location
+            ? t('common.booking_panel.change_location')
+            : t('common.booking_panel.set_location')
+        }}
       </button>
     </div>
 
@@ -631,7 +656,8 @@ function guideCancel() {
       </label>
       <MeetingPinField v-model="pin" />
       <p class="tiny muted">
-        {{ t('common.booking_panel.location_note', { name }) }} {{ t('common.booking_panel.pin_note', { name }) }}
+        {{ t('common.booking_panel.location_note', { name }) }}
+        {{ t('common.booking_panel.pin_note', { name }) }}
       </p>
       <div class="form-actions">
         <button type="submit" class="accept" :aria-busy="busy" :disabled="busy">
@@ -811,5 +837,4 @@ function guideCancel() {
     color: var(--rg-red);
   }
 }
-
 </style>

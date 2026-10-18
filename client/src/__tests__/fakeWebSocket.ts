@@ -5,10 +5,11 @@
  */
 export class FakeWebSocket {
   static instances: FakeWebSocket[] = []
-  static respond: (request: Record<string, unknown>) => { status: number; body: unknown } | null = () => ({
-    status: 200,
-    body: { ok: true },
-  })
+  static respond: (request: Record<string, unknown>) => { status: number; body: unknown } | null =
+    () => ({
+      status: 200,
+      body: { ok: true },
+    })
 
   readyState = 0
   sent: Record<string, unknown>[] = []

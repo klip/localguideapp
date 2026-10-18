@@ -11,7 +11,9 @@ import { t } from '@/i18n'
 const props = withDefaults(defineProps<{ value: number; size?: 'sm' | 'lg' }>(), { size: 'sm' })
 
 const clamped = computed(() => Math.max(0, Math.min(5, props.value)))
-const label = computed(() => t('common.star_rating.label', { value: Number(clamped.value.toFixed(1)) }))
+const label = computed(() =>
+  t('common.star_rating.label', { value: Number(clamped.value.toFixed(1)) }),
+)
 </script>
 
 <template>

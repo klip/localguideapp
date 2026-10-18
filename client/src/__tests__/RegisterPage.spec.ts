@@ -139,6 +139,7 @@ describe('RegisterPage', () => {
       password: 'correcthorse',
       role: 'guest',
       termsVersion: '2026-10-15',
+      agreementSlug: 'traveller_agreement',
       agreementVersion: '2026-10-18',
       language: 'en',
     })
@@ -164,6 +165,7 @@ describe('RegisterPage', () => {
       password: 'correcthorse',
       role: 'guide',
       termsVersion: '2026-10-15',
+      agreementSlug: 'guide_agreement',
       agreementVersion: '2026-10-18',
       language: 'en',
     })

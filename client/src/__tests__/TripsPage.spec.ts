@@ -188,7 +188,9 @@ describe('TripsPage', () => {
     const wrapper = await mountPage(api, 'guest')
 
     expect(wrapper.text()).toContain('Pinned on the map')
-    expect(wrapper.find('.trip-pin a[data-provider="google"]').attributes('href')).toContain('-5.353600')
+    expect(wrapper.find('.trip-pin a[data-provider="google"]').attributes('href')).toContain(
+      '-5.353600',
+    )
   })
 
   it('fills in placeholders for a free trip with no date or place yet', async () => {

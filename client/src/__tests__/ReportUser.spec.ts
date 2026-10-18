@@ -33,7 +33,12 @@ function mountReport(api: Api, signedInAs: number | null = 7) {
   const pinia = createPinia()
   setActivePinia(pinia)
   if (signedInAs) {
-    useAuthStore().setUser({ id: signedInAs, email: 'v@example.com', role: 'guest', sessionHash: 'h' })
+    useAuthStore().setUser({
+      id: signedInAs,
+      email: 'v@example.com',
+      role: 'guest',
+      sessionHash: 'h',
+    })
   }
   return mount(ReportUser, {
     props: { subjectId: 101, subjectName: 'Gina' },
@@ -45,7 +50,9 @@ describe('ReportUser', () => {
   it('is offered only to a signed-in user looking at someone else', () => {
     expect(mountReport(fakeApi(), null).find('[data-test="report-user"]').exists()).toBe(false)
     expect(mountReport(fakeApi(), 101).find('[data-test="report-user"]').exists()).toBe(false)
-    expect(mountReport(fakeApi(), 7).find('[data-test="report-user"]').text()).toContain('Report Gina')
+    expect(mountReport(fakeApi(), 7).find('[data-test="report-user"]').text()).toContain(
+      'Report Gina',
+    )
   })
 
   it('needs a title and a description, then files the report and thanks the user', async () => {
@@ -81,7 +88,9 @@ describe('ReportUser', () => {
   it('keeps what was written and shows the server’s reason when a report is refused', async () => {
     const reportUser = vi
       .fn<Api['reportUser']>()
-      .mockRejectedValue(new ApiError('You’ve already reported this person — we’re looking into it.', 400))
+      .mockRejectedValue(
+        new ApiError('You’ve already reported this person — we’re looking into it.', 400),
+      )
     const wrapper = mountReport(fakeApi({ reportUser }))
 
     await wrapper.find('[data-test="report-user"]').trigger('click')
@@ -93,7 +102,9 @@ describe('ReportUser', () => {
     expect(useMessagesStore().items.map((item) => item.text)).toContain(
       'You’ve already reported this person — we’re looking into it.',
     )
-    expect((wrapper.find('[data-test="report-title"]').element as HTMLInputElement).value).toBe('Again')
+    expect((wrapper.find('[data-test="report-title"]').element as HTMLInputElement).value).toBe(
+      'Again',
+    )
     expect(wrapper.find('dialog').attributes('open')).toBeDefined()
   })
 

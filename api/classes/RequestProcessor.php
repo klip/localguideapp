@@ -127,7 +127,7 @@ class RequestProcessor
 
             case 'myProfile':
                 $userId = $this->requireUserId();
-                return [200, $this->users->getFullAccount($userId, $this->profiles)
+                return [200, $this->users->getFullAccount($userId, $this->profiles, $this->actingRole())
                     + ['trusted_device_count' => $this->users->trustedDeviceCount($userId)]];
 
             case 'updateAccount':
@@ -510,8 +510,6 @@ class RequestProcessor
         $columnMap = [
             'dateOfBirth' => 'date_of_birth',
             'gender' => 'gender',
-            'headline' => 'headline',
-            'bio' => 'bio',
             'priceAmount' => 'price_amount',
             'priceLabel' => 'price_label',
             'priceNote' => 'price_note',
@@ -536,6 +534,9 @@ class RequestProcessor
         $this->assertProfileTextClean($input);
 
         $this->profiles->setProfile($userId, $fields);
+        // Headline, description, picks and spans are the acting role's own.
+        $role = $this->actingRole();
+        $this->profiles->setRoleText($userId, $role, array_intersect_key($input, ['headline' => 1, 'bio' => 1]));
 
         if (is_array($input['attributes'] ?? null)) {
             $newCategoryLabels = is_array($input['newCategoryLabels'] ?? null) ? $input['newCategoryLabels'] : [];
@@ -543,7 +544,7 @@ class RequestProcessor
                 if (is_array($values)) {
                     $categoryKey = (string) $categoryKey;
                     $label = isset($newCategoryLabels[$categoryKey]) ? (string) $newCategoryLabels[$categoryKey] : null;
-                    $this->profiles->setAttributeValues($userId, $categoryKey, $values, $label);
+                    $this->profiles->setAttributeValues($userId, $role, $categoryKey, $values, $label);
                 }
             }
         }
@@ -552,7 +553,7 @@ class RequestProcessor
         // see `Profiles::setRanges()`.
         foreach ((array) ($input['ranges'] ?? []) as $categoryKey => $spans) {
             if (is_array($spans)) {
-                $this->profiles->setRanges($userId, (string) $categoryKey, $spans);
+                $this->profiles->setRanges($userId, $role, (string) $categoryKey, $spans);
             }
         }
 
@@ -672,8 +673,10 @@ class RequestProcessor
      */
     private function actionPublicProfile(): array
     {
-        $userId = (int) ($this->readInput()['userId'] ?? 0);
-        $profile = $userId > 0 ? $this->users->getPublicProfile($userId, $this->profiles) : null;
+        $input = $this->readInput();
+        $userId = (int) ($input['userId'] ?? 0);
+        // The page asks for the role it shows (a guide's or a traveller's).
+        $profile = $userId > 0 ? $this->users->getPublicProfile($userId, $this->profiles, $this->requestedRole($input)) : null;
         if (!$profile) {
             throw new RuntimeException('Profile not found.');
         }
@@ -699,8 +702,11 @@ class RequestProcessor
         $limit = (int) ($input['limit'] ?? Reviews::MAX_PAGE_SIZE);
         $offset = (int) ($input['offset'] ?? 0);
 
-        return $this->reviews->listFor($subjectId, $limit, $offset) + [
-            'viewer' => $this->reviews->viewerStateFor($this->optionalUserId(), $subjectId),
+        // Ratings are per role: the reviews of the subject *as* `role`.
+        $role = $this->requestedRole($input) ?? 'guide';
+
+        return $this->reviews->listFor($subjectId, $role, $limit, $offset) + [
+            'viewer' => $this->reviews->viewerStateFor($this->optionalUserId(), $subjectId, $role),
         ];
     }
 
@@ -719,7 +725,15 @@ class RequestProcessor
             throw new RuntimeException('Comment must be text.');
         }
 
-        return $this->reviews->submit($authorId, $subjectId, $input['rating'] ?? null, $comment);
+        return $this->reviews->submit($authorId, $subjectId, $this->requestedRole($input) ?? 'guide', $input['rating'] ?? null, $comment);
+    }
+
+    /** A `role` field naming the side a person is looked at in (`guest`/`guide`), or null. */
+    private function requestedRole(array $input): ?string
+    {
+        $role = (string) ($input['role'] ?? '');
+
+        return in_array($role, Roles::APP_ROLES, true) ? $role : null;
     }
 
     /** Deletes one of the caller's own reviews. */

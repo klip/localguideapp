@@ -47,7 +47,9 @@ describe('MessageToaster links', () => {
     messages.info('Gina accepted your booking', undefined, 0, undefined, '/trips')
     messages.info('Saved', undefined, 0)
 
-    const wrapper = mount(MessageToaster, { global: { plugins: [pinia], stubs: { RouterLink: RouterLinkStub } } })
+    const wrapper = mount(MessageToaster, {
+      global: { plugins: [pinia], stubs: { RouterLink: RouterLinkStub } },
+    })
     await flushPromises()
 
     const links = wrapper.findAllComponents(RouterLinkStub)
@@ -67,7 +69,9 @@ describe('MessageToaster links', () => {
     setActivePinia(pinia)
     const messages = useMessagesStore()
     messages.info('Gina accepted your booking', undefined, 10_000, undefined, '/trips')
-    const wrapper = mount(MessageToaster, { global: { plugins: [pinia], stubs: { RouterLink: RouterLinkStub } } })
+    const wrapper = mount(MessageToaster, {
+      global: { plugins: [pinia], stubs: { RouterLink: RouterLinkStub } },
+    })
     await flushPromises()
 
     const toast = wrapper.find('.toast')

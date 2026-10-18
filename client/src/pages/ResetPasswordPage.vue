@@ -81,7 +81,9 @@ async function submit() {
       <p>
         {{ t('reset_password.dead_link.body') }}
       </p>
-      <RouterLink to="/forgot-password" role="button" class="full">{{ t('reset_password.dead_link.send_new') }}</RouterLink>
+      <RouterLink to="/forgot-password" role="button" class="full">{{
+        t('reset_password.dead_link.send_new')
+      }}</RouterLink>
     </PanelCard>
 
     <PanelCard

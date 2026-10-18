@@ -40,19 +40,19 @@ class Reviews
      *
      * @return array{reviews: array[], total: int, average: float|null, histogram: array<int,int>}
      */
-    public function listFor(int $subjectId, int $limit, int $offset): array
+    public function listFor(int $subjectId, string $role, int $limit, int $offset): array
     {
         $limit = max(1, min(self::MAX_PAGE_SIZE, $limit));
         $offset = max(0, $offset);
 
         $rows = $this->db->db_GetArray(
             self::SELECT_REVIEW . '
-             WHERE r.`subject_id` = ' . $subjectId . '
+             WHERE r.`subject_id` = ' . $subjectId . ' AND r.`subject_role` = "' . self::role($role) . '"
              ORDER BY r.`created_at` DESC, r.`id` DESC
              LIMIT ' . $limit . ' OFFSET ' . $offset
         );
 
-        return ['reviews' => array_map([$this, 'castReview'], $rows)] + $this->summaryFor($subjectId);
+        return ['reviews' => array_map([$this, 'castReview'], $rows)] + $this->summaryFor($subjectId, $role);
     }
 
     /**
@@ -63,14 +63,15 @@ class Reviews
      *
      * @return array{total: int, average: float|null, histogram: array<int,int>}
      */
-    public function summaryFor(int $subjectId): array
+    public function summaryFor(int $subjectId, string $role): array
     {
         $histogram = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
         $total = 0;
         $sum = 0;
 
         foreach ($this->db->db_GetArray(
-            'SELECT `rating`, COUNT(*) AS `n` FROM `reviews` WHERE `subject_id` = ' . $subjectId . ' GROUP BY `rating`'
+            'SELECT `rating`, COUNT(*) AS `n` FROM `reviews`
+             WHERE `subject_id` = ' . $subjectId . ' AND `subject_role` = "' . self::role($role) . '" GROUP BY `rating`'
         ) as $row) {
             $rating = (int) $row['rating'];
             $count = (int) $row['n'];
@@ -95,14 +96,14 @@ class Reviews
      *
      * @return array{canReview: bool, bookingId: int|null, myReview: array|null}
      */
-    public function viewerStateFor(?int $viewerId, int $subjectId): array
+    public function viewerStateFor(?int $viewerId, int $subjectId, string $role): array
     {
         $none = ['canReview' => false, 'bookingId' => null, 'myReview' => null];
         if (!$viewerId || $viewerId === $subjectId) {
             return $none;
         }
 
-        $bookingId = $this->eligibleBookingId($viewerId, $subjectId);
+        $bookingId = $this->eligibleBookingId($viewerId, $subjectId, $role);
         if (!$bookingId) {
             return $none;
         }
@@ -115,27 +116,29 @@ class Reviews
     }
 
     /**
-     * The booking a review from `$authorId` about `$subjectId` attaches to,
-     * or `null` if they aren't eligible: the two have to be the guest and the
-     * guide (either way round) of a `confirmed` booking with a `finished`
-     * trip. With several such trips, the most recent one this author hasn't
+     * The booking a review from `$authorId` about `$subjectId` **as
+     * `$subjectRole`** attaches to, or `null` if they aren't eligible: the
+     * subject has to have been on that side — the guide of the author's trip
+     * for a guide review, the guest for a traveller one — of a `confirmed`
+     * booking with a `finished` trip. (Two people who are both can have
+     * trips each way, and each earns a review of its own side.) With several such trips, the most recent one this author hasn't
      * reviewed yet wins — so a second trip earns a second review — and
      * failing that the most recent one, whose existing review is then the one
      * being edited.
      */
-    public function eligibleBookingId(int $authorId, int $subjectId): ?int
+    public function eligibleBookingId(int $authorId, int $subjectId, string $subjectRole): ?int
     {
         if ($authorId === $subjectId) {
             return null;
         }
+        [$guestId, $guideId] = self::role($subjectRole) === 'guide' ? [$authorId, $subjectId] : [$subjectId, $authorId];
 
         $id = $this->db->db_GetFieldFromQuery(
             'SELECT b.`id`
              FROM `bookings` b
              LEFT JOIN `reviews` r ON r.`booking_id` = b.`id` AND r.`author_id` = ' . $authorId . '
              WHERE b.`status` = "confirmed" AND b.`trip_status` = "finished"
-               AND ((b.`guest_id` = ' . $authorId . ' AND b.`guide_id` = ' . $subjectId . ')
-                 OR (b.`guide_id` = ' . $authorId . ' AND b.`guest_id` = ' . $subjectId . '))
+               AND b.`guest_id` = ' . $guestId . ' AND b.`guide_id` = ' . $guideId . '
              ORDER BY (r.`id` IS NULL) DESC, COALESCE(b.`meeting_at`, b.`created_at`) DESC, b.`id` DESC
              LIMIT 1',
             'id'
@@ -155,7 +158,7 @@ class Reviews
      * @param mixed $rating straight from the request; anything but an integer 1–5 is rejected
      * @return array the stored review, same shape as `listFor()`'s rows
      */
-    public function submit(int $authorId, int $subjectId, $rating, ?string $comment): array
+    public function submit(int $authorId, int $subjectId, string $subjectRole, $rating, ?string $comment): array
     {
         if ($authorId === $subjectId) {
             throw new RuntimeException('You cannot review yourself.');
@@ -176,7 +179,7 @@ class Reviews
         if (mb_strlen($comment, 'UTF-8') > self::MAX_COMMENT_LENGTH) {
             throw new RuntimeException('Comment must be ' . self::MAX_COMMENT_LENGTH . ' characters or fewer.');
         }
-        $bookingId = $this->eligibleBookingId($authorId, $subjectId);
+        $bookingId = $this->eligibleBookingId($authorId, $subjectId, $subjectRole);
         if (!$bookingId) {
             throw new RuntimeException('You can only review someone after a finished trip with them.');
         }
@@ -189,8 +192,8 @@ class Reviews
         // every value, and an empty comment has to be a real NULL.
         $commentSql = $comment === '' ? 'NULL' : '"' . $this->db->db_Escape($comment) . '"';
         $ok = $this->db->db_Execute(
-            'INSERT INTO `reviews` (`booking_id`, `author_id`, `subject_id`, `rating`, `comment`)
-             VALUES (' . $bookingId . ', ' . $authorId . ', ' . $subjectId . ', ' . $rating . ', ' . $commentSql . ')
+            'INSERT INTO `reviews` (`booking_id`, `author_id`, `subject_id`, `subject_role`, `rating`, `comment`)
+             VALUES (' . $bookingId . ', ' . $authorId . ', ' . $subjectId . ', "' . self::role($subjectRole) . '", ' . $rating . ', ' . $commentSql . ')
              ON DUPLICATE KEY UPDATE `rating` = VALUES(`rating`), `comment` = VALUES(`comment`)'
         );
         if (!$ok) {
@@ -218,6 +221,12 @@ class Reviews
         }
     }
 
+    /** A role as stored in `reviews.subject_role` — anything but `guide` reads as `guest`. */
+    private static function role(string $role): string
+    {
+        return $role === 'guide' ? 'guide' : 'guest';
+    }
+
     private function findByBookingAndAuthor(int $bookingId, int $authorId): ?array
     {
         $row = $this->db->db_GetRow(
@@ -233,7 +242,7 @@ class Reviews
      * seconds (in the same session time zone they were written in) so
      * `castReview()` can hand the client unambiguous ISO 8601 strings.
      */
-    private const SELECT_REVIEW = 'SELECT r.`id`, r.`booking_id`, r.`author_id`, r.`subject_id`, r.`rating`, r.`comment`,
+    private const SELECT_REVIEW = 'SELECT r.`id`, r.`booking_id`, r.`author_id`, r.`subject_id`, r.`subject_role`, r.`rating`, r.`comment`,
                 UNIX_TIMESTAMP(r.`created_at`) AS `created_ts`, UNIX_TIMESTAMP(r.`updated_at`) AS `updated_ts`,
                 u.`name` AS `author_name`, u.`image` AS `author_image`
          FROM `reviews` r
@@ -246,6 +255,7 @@ class Reviews
             'booking_id' => (int) $row['booking_id'],
             'author_id' => (int) $row['author_id'],
             'subject_id' => (int) $row['subject_id'],
+            'subject_role' => $row['subject_role'],
             'rating' => (int) $row['rating'],
             'comment' => $row['comment'],
             'created_at' => gmdate('Y-m-d\TH:i:s\Z', (int) $row['created_ts']),

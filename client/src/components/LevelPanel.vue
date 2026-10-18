@@ -24,7 +24,12 @@ const panel = ref<InstanceType<typeof PanelCard> | null>(null)
 const state = ref<LevelState | null>(null)
 const claiming = ref<number | null>(null)
 
-const dateFormat = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+const dateFormat = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 const when = (iso: string) => dateFormat.format(new Date(iso))
 
 const progress = computed(() => {
@@ -80,7 +85,12 @@ onMounted(() => {
   // renders this panel only after loading the profile — too late for the
   // router's own scroll — so it brings itself into view.
   if (window.location.hash === '#level') {
-    void nextTick(() => (panel.value?.$el as HTMLElement | undefined)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }))
+    void nextTick(() =>
+      (panel.value?.$el as HTMLElement | undefined)?.scrollIntoView?.({
+        behavior: 'smooth',
+        block: 'start',
+      }),
+    )
   }
 })
 </script>
@@ -101,36 +111,61 @@ onMounted(() => {
       </p>
 
       <div v-if="progress" class="progress">
-        <progress :value="progress.done" :max="progress.needed" :aria-label="t('profile.level.progress_label')" />
-        <span class="tiny muted">{{ tn('profile.level.to_next', progress.left, { level: levelLabel(progress.level) }) }}</span>
+        <progress
+          :value="progress.done"
+          :max="progress.needed"
+          :aria-label="t('profile.level.progress_label')"
+        />
+        <span class="tiny muted">{{
+          tn('profile.level.to_next', progress.left, { level: levelLabel(progress.level) })
+        }}</span>
       </div>
       <p v-else class="tiny muted">{{ t('profile.level.top') }}</p>
 
       <p v-if="state.sanction" class="sanction tiny" role="status">
         <strong>{{ tn('profile.level.sanction', state.sanction.levels) }}</strong>
-        <template v-if="state.sanction.until">{{ ' ' + t('profile.level.sanction_until', { date: when(state.sanction.until) }) }}</template>
+        <template v-if="state.sanction.until">{{
+          ' ' + t('profile.level.sanction_until', { date: when(state.sanction.until) })
+        }}</template>
         <template v-if="state.sanction.reason">{{ ' — ' + state.sanction.reason }}</template>
       </p>
 
       <h4 class="perks-title">{{ t('profile.level.perks') }}</h4>
       <ul class="perks">
-        <li v-if="state.picks_per_pack !== null">{{ t('profile.level.perk_picks', { count: state.picks_per_pack }) }}</li>
+        <li v-if="state.picks_per_pack !== null">
+          {{ t('profile.level.perk_picks', { count: state.picks_per_pack }) }}
+        </li>
         <li v-if="state.commission_rate !== null">
           {{ t('profile.level.perk_fee', { rate: percent(state.commission_rate) }) }}
         </li>
-        <li v-if="state.free_picks_until">{{ t('profile.level.free_picks_active', { date: when(state.free_picks_until) }) }}</li>
-        <li v-if="state.no_fee_until">{{ t('profile.level.no_fee_active', { date: when(state.no_fee_until) }) }}</li>
+        <li v-if="state.free_picks_until">
+          {{ t('profile.level.free_picks_active', { date: when(state.free_picks_until) }) }}
+        </li>
+        <li v-if="state.no_fee_until">
+          {{ t('profile.level.no_fee_active', { date: when(state.no_fee_until) }) }}
+        </li>
       </ul>
       <p class="tiny muted">{{ t(`profile.level.how_${role}`) }}</p>
 
       <h4 class="perks-title">{{ t('profile.level.bonuses') }}</h4>
       <!-- Levels::claim() refuses and activeBonusUntil() ignores bonuses while sanctioned. -->
-      <p v-if="state.sanction && state.bonuses.length" class="tiny muted" data-test="bonuses-paused">
+      <p
+        v-if="state.sanction && state.bonuses.length"
+        class="tiny muted"
+        data-test="bonuses-paused"
+      >
         {{ t('profile.level.bonuses_paused') }}
       </p>
-      <p v-if="!state.bonuses.length" class="tiny muted">{{ t(`profile.level.no_bonuses_${role}`) }}</p>
+      <p v-if="!state.bonuses.length" class="tiny muted">
+        {{ t(`profile.level.no_bonuses_${role}`) }}
+      </p>
       <ul v-else class="bonuses">
-        <li v-for="bonus in state.bonuses" :key="bonus.id" class="bonus" :data-test="`bonus-${bonus.id}`">
+        <li
+          v-for="bonus in state.bonuses"
+          :key="bonus.id"
+          class="bonus"
+          :data-test="`bonus-${bonus.id}`"
+        >
           <div>
             <strong>{{ bonusTitle(bonus) }}</strong>
             <span class="tiny muted">{{ bonusReason(bonus) }}</span>
@@ -150,7 +185,9 @@ onMounted(() => {
           <span v-else-if="bonus.state === 'active' && bonus.ends_at" class="tiny state-active">
             {{ t('profile.level.active_until', { date: when(bonus.ends_at) }) }}
           </span>
-          <span v-else-if="bonus.state === 'used'" class="tiny muted">{{ t('profile.level.used') }}</span>
+          <span v-else-if="bonus.state === 'used'" class="tiny muted">{{
+            t('profile.level.used')
+          }}</span>
         </li>
       </ul>
     </template>

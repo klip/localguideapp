@@ -189,7 +189,10 @@ describe('LoginPage — remembered device', () => {
   const DEVICE = 'd'.repeat(64)
   const until = () => new Date(Date.now() + 30 * 86_400_000).toISOString()
 
-  async function enterCode(wrapper: Awaited<ReturnType<typeof mountAt>>['wrapper'], remember: boolean) {
+  async function enterCode(
+    wrapper: Awaited<ReturnType<typeof mountAt>>['wrapper'],
+    remember: boolean,
+  ) {
     if (remember) await wrapper.find('input[type="checkbox"]').setValue(true)
     await wrapper.find('input[autocomplete="one-time-code"]').setValue('123456')
     await wrapper.find('form').trigger('submit')
@@ -205,7 +208,11 @@ describe('LoginPage — remembered device', () => {
     await logInWithPassword(first.wrapper)
     await enterCode(first.wrapper, true)
 
-    expect(verifyTwoFactor).toHaveBeenCalledWith({ challengeToken: TOKEN, code: '123456', rememberDevice: true })
+    expect(verifyTwoFactor).toHaveBeenCalledWith({
+      challengeToken: TOKEN,
+      code: '123456',
+      rememberDevice: true,
+    })
     // The device token isn't part of the persisted session.
     expect(localStorage.getItem('rockguide.session')).not.toContain(DEVICE)
 

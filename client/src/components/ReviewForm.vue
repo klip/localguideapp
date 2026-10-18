@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue'
 import { t, tn } from '@/i18n'
-import { useApi, type Review } from '@/plugins/api'
+import { useApi, type Review, type Role } from '@/plugins/api'
 import { useMessagesStore } from '@/stores/messages'
 import { characterCount, REVIEW_COMMENT_MAX } from '@/utils/reviews'
 import { reportApiError } from '@/utils/reportApiError'
@@ -19,6 +19,8 @@ import { reportApiError } from '@/utils/reportApiError'
 const props = defineProps<{
   subjectId: number
   subjectName: string
+  /** The side being reviewed — the subject's role on the finished trip. */
+  role: Role
   existing: Review | null
 }>()
 
@@ -63,6 +65,7 @@ async function submit() {
   try {
     const saved = await api.submitReview({
       subjectId: props.subjectId,
+      role: props.role,
       rating: rating.value,
       comment: comment.value.trim(),
     })
@@ -123,9 +126,9 @@ async function remove() {
             @mouseenter="hover = value"
           >
             <span aria-hidden="true">★</span>
-            <span class="visually-hidden"
-              >{{ tn('common.review_form.star_option', value, { word: starWord(value) }) }}</span
-            >
+            <span class="visually-hidden">{{
+              tn('common.review_form.star_option', value, { word: starWord(value) })
+            }}</span>
           </label>
         </template>
         <span class="tiny muted star-word" aria-hidden="true">{{

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import DualRangeSlider from './DualRangeSlider.vue'
 import { t } from '@/i18n'
 import { AGE_CATEGORY, AGE_CATEGORY_KEY, useCategoriesStore } from '@/stores/categories'
 import { useFiltersStore } from '@/stores/filters'
 import { formatRange, rangeFormatFor } from '@/utils/formatRange'
-import type { AttributeCategory } from '@/plugins/api'
+import type { AttributeCategory, Role } from '@/plugins/api'
 import type { Gender, NumericRange } from '@/types'
 
 /**
@@ -32,7 +32,19 @@ import type { Gender, NumericRange } from '@/types'
  *
  * `compact` tightens the type for the 250px desktop rail.
  */
-withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
+const props = withDefaults(
+  defineProps<{
+    compact?: boolean
+    /**
+     * Who the deck shows (`guide` on the traveller deck, `guest` on the
+     * guide's): a category only the *other* role has can't narrow it, so it
+     * isn't offered — hours on the guide's deck, food allergies on the
+     * traveller's.
+     */
+    targetRole?: Role
+  }>(),
+  { compact: false, targetRole: undefined },
+)
 
 const categoriesStore = useCategoriesStore()
 const filtersStore = useFiltersStore()
@@ -89,7 +101,26 @@ function onUnlimitedChange(category: AttributeCategory, event: Event) {
 
 /** The accordion: every category but age, which has its own slider above. */
 const accordionCategories = computed(() =>
-  categoriesStore.filterable.filter((category) => category.key !== AGE_CATEGORY_KEY),
+  categoriesStore.filterable.filter(
+    (category) => category.key !== AGE_CATEGORY_KEY && offeredForTarget(category),
+  ),
+)
+
+function offeredForTarget(category: AttributeCategory) {
+  if (!props.targetRole) return true
+  return category.scope !== (props.targetRole === 'guide' ? 'guest' : 'guide')
+}
+
+// A filter left on a category this deck can't use (set on the other deck
+// before a mode switch) would hide everyone — drop it.
+watch(
+  () => [categoriesStore.loaded, props.targetRole],
+  () => {
+    for (const category of categoriesStore.filterable) {
+      if (!offeredForTarget(category)) filtersStore.clearCategory(category.key)
+    }
+  },
+  { immediate: true },
 )
 
 /** What a category still offers: picked options have moved up to the deck as pills. */

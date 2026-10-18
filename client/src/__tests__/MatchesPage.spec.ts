@@ -232,9 +232,7 @@ describe('MatchesPage', () => {
       .fn<Api['matchOverview']>()
       .mockResolvedValueOnce({ selections: [incoming] })
       .mockResolvedValueOnce({
-        selections: [
-          { ...incoming, my_decision: 'interested', active: 1 },
-        ],
+        selections: [{ ...incoming, my_decision: 'interested', active: 1 }],
       })
     const decide = vi
       .fn<Api['decide']>()

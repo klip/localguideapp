@@ -26,13 +26,14 @@ class LegalDocuments
     public const ROLE_AGREEMENTS = ['guide' => self::GUIDE_AGREEMENT, 'guest' => self::TRAVELLER_AGREEMENT];
 
     /**
-     * Throws unless `$version` is the version of `$role`'s agreement in force
-     * — the one the client showed — and returns it.
+     * Throws unless the client showed `$role`'s own agreement (`$slug` — the
+     * two agreements can share a version date, so the version alone can't
+     * tell them apart) in the version in force (`$version`); returns it.
      */
-    public function assertRoleAgreement(string $role, string $version): string
+    public function assertRoleAgreement(string $role, string $slug, string $version): string
     {
-        $slug = self::ROLE_AGREEMENTS[$role] ?? null;
-        $current = $slug ? $this->currentVersion($slug) : null;
+        $expected = self::ROLE_AGREEMENTS[$role] ?? null;
+        $current = $expected && $slug === $expected ? $this->currentVersion($expected) : null;
         if ($current === null || $version !== $current) {
             throw new RuntimeException($role === 'guide'
                 ? 'Please accept the current guide agreement.'

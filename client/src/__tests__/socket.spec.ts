@@ -25,7 +25,10 @@ describe('plugins/socket ApiSocket', () => {
     const socket = makeSocket()
     FakeWebSocket.respond = (request) => ({ status: 200, body: { echo: request.action } })
 
-    const [a, b] = await Promise.all([socket.request({ action: 'one' }), socket.request({ action: 'two' })])
+    const [a, b] = await Promise.all([
+      socket.request({ action: 'one' }),
+      socket.request({ action: 'two' }),
+    ])
 
     expect(a).toEqual({ status: 200, body: { echo: 'one' } })
     expect(b).toEqual({ status: 200, body: { echo: 'two' } })

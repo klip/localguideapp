@@ -12,7 +12,10 @@ describe('useCurrentPosition', () => {
     const getCurrentPosition = vi.fn<Geolocation['getCurrentPosition']>((success) => {
       answers.push(success)
     })
-    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    })
     vi.stubGlobal('isSecureContext', true)
   })
 
@@ -22,14 +25,19 @@ describe('useCurrentPosition', () => {
     vi.useRealTimers()
   })
 
-  const at = { coords: { latitude: 36.14, longitude: -5.35, accuracy: Number.NaN } } as GeolocationPosition
+  const at = {
+    coords: { latitude: 36.14, longitude: -5.35, accuracy: Number.NaN },
+  } as GeolocationPosition
 
   it('resolves the position, with no accuracy when the device gives none', async () => {
     const position = useCurrentPosition()
     const result = position.locate()
     expect(position.locating.value).toBe(true)
     answers[0]!(at)
-    await expect(result).resolves.toEqual({ ok: true, position: { latitude: 36.14, longitude: -5.35, accuracy: null } })
+    await expect(result).resolves.toEqual({
+      ok: true,
+      position: { latitude: 36.14, longitude: -5.35, accuracy: null },
+    })
     expect(position.locating.value).toBe(false)
   })
 

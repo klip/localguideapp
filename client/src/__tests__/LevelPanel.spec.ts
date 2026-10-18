@@ -20,7 +20,15 @@ function state(overrides: Partial<LevelState> = {}): LevelState {
     free_picks_until: null,
     no_fee_until: null,
     bonuses: [
-      { id: 9, kind: 'free_picks', days: 3, reason: 'level_2', state: 'available', starts_at: null, ends_at: null },
+      {
+        id: 9,
+        kind: 'free_picks',
+        days: 3,
+        reason: 'level_2',
+        state: 'available',
+        starts_at: null,
+        ends_at: null,
+      },
     ],
     ...overrides,
   }
@@ -29,14 +37,19 @@ function state(overrides: Partial<LevelState> = {}): LevelState {
 function mountPanel(api: Api, role: 'guest' | 'guide' = 'guest') {
   const pinia = createPinia()
   setActivePinia(pinia)
-  return mount(LevelPanel, { props: { role }, global: { plugins: [pinia], provide: { [API_KEY]: api } } })
+  return mount(LevelPanel, {
+    props: { role },
+    global: { plugins: [pinia], provide: { [API_KEY]: api } },
+  })
 }
 
 describe('LevelPanel', () => {
   afterEach(() => vi.useRealTimers())
 
   it('shows the level, progress to the next, a guest’s pack size and an available bonus', async () => {
-    const wrapper = mountPanel(fakeApi({ myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(state()) }))
+    const wrapper = mountPanel(
+      fakeApi({ myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(state()) }),
+    )
     await flushPromises()
 
     expect(wrapper.text()).toContain('Level 2 · Explorer')
@@ -67,7 +80,9 @@ describe('LevelPanel', () => {
       next_level: 3,
       sanction: { levels: 1, until: new Date(Date.now() + 86400e3).toISOString(), reason: null },
     })
-    const wrapper = mountPanel(fakeApi({ myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(sanctioned) }))
+    const wrapper = mountPanel(
+      fakeApi({ myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(sanctioned) }),
+    )
     await flushPromises()
     expect(wrapper.text()).toContain('to reach Level 3 · Pathfinder')
     // Bonuses are paused while sanctioned: no Claim button, and a note says why.
@@ -79,11 +94,28 @@ describe('LevelPanel', () => {
     const ends = new Date(Date.now() + 3 * 86400e3).toISOString()
     const claimed = state({
       free_picks_until: ends,
-      bonuses: [{ id: 9, kind: 'free_picks', days: 3, reason: 'level_2', state: 'active', starts_at: new Date().toISOString(), ends_at: ends }],
+      bonuses: [
+        {
+          id: 9,
+          kind: 'free_picks',
+          days: 3,
+          reason: 'level_2',
+          state: 'active',
+          starts_at: new Date().toISOString(),
+          ends_at: ends,
+        },
+      ],
     })
     const payment: PaymentState = {
-      packsUnlocked: 1, capacity: 5, picksUsed: 2, selectionsLeft: 3, pickedIds: [7, 8], passedIds: [],
-      freePickIds: [], packSize: 7, freePicksUntil: ends,
+      packsUnlocked: 1,
+      capacity: 5,
+      picksUsed: 2,
+      selectionsLeft: 3,
+      pickedIds: [7, 8],
+      passedIds: [],
+      freePickIds: [],
+      packSize: 7,
+      freePicksUntil: ends,
     }
     const api = fakeApi({
       myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(state()),
@@ -98,7 +130,9 @@ describe('LevelPanel', () => {
 
     expect(api.claimBonus).toHaveBeenCalledWith({ bonusId: 9 })
     expect(wrapper.find('[data-test="bonus-9"]').text()).toMatch(/Active until/)
-    expect(useMessagesStore().items.map((i) => i.text)).toContain('Free picks are on — pick as many guides as you like.')
+    expect(useMessagesStore().items.map((i) => i.text)).toContain(
+      'Free picks are on — pick as many guides as you like.',
+    )
     expect(useMatchesStore().freePicksActive).toBe(true)
     expect(useMatchesStore().canPick).toBe(true)
   })

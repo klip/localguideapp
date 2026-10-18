@@ -12,7 +12,9 @@ import { levelLabel } from '@/utils/levels'
  * so a visitor can see *why* someone is near the top. Presentational: renders
  * nothing when there's nothing to show.
  */
-const props = withDefaults(defineProps<{ standing: Standing; onPhoto?: boolean }>(), { onPhoto: false })
+const props = withDefaults(defineProps<{ standing: Standing; onPhoto?: boolean }>(), {
+  onPhoto: false,
+})
 
 const badges = computed(() => {
   const list: { key: string; icon: string; label: string; title: string }[] = []
@@ -25,10 +27,20 @@ const badges = computed(() => {
     })
   }
   if (props.standing.verified) {
-    list.push({ key: 'verified', icon: '✓', label: t('common.standing.verified'), title: t('common.standing.verified_title') })
+    list.push({
+      key: 'verified',
+      icon: '✓',
+      label: t('common.standing.verified'),
+      title: t('common.standing.verified_title'),
+    })
   }
   if (props.standing.topRated) {
-    list.push({ key: 'top', icon: '★', label: t('common.standing.top_rated'), title: t('common.standing.top_rated_title') })
+    list.push({
+      key: 'top',
+      icon: '★',
+      label: t('common.standing.top_rated'),
+      title: t('common.standing.top_rated_title'),
+    })
   }
   if (props.standing.tripsCompleted > 0) {
     const label = tn('common.standing.trips', props.standing.tripsCompleted)

@@ -99,7 +99,7 @@ describe('VisitorProfilePage', () => {
     const api = fakeApi({ publicProfile: vi.fn<Api['publicProfile']>().mockResolvedValue(guest) })
     const wrapper = await mountPage(api)
 
-    expect(api.publicProfile).toHaveBeenCalledWith(5)
+    expect(api.publicProfile).toHaveBeenCalledWith(5, 'guest')
     const text = wrapper.text()
     expect(text).toContain('Maya, 31')
     expect(text).toContain('★ 4.5 · 2 reviews')
@@ -113,7 +113,7 @@ describe('VisitorProfilePage', () => {
     expect(text).not.toContain('@')
 
     // The review block loads for the same user.
-    expect(api.reviews).toHaveBeenCalledWith({ userId: 5, limit: 3 })
+    expect(api.reviews).toHaveBeenCalledWith({ userId: 5, role: 'guest', limit: 3 })
     expect(text).toContain('No reviews yet.')
   })
 

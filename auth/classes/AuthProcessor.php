@@ -129,7 +129,11 @@ class AuthProcessor
             throw new RuntimeException('Please accept the current terms and conditions.');
         }
         // …and of the starting role's agreement (guide or traveller), same rule.
-        $agreement = $this->legal->assertRoleAgreement($role, (string) ($this->input['agreementVersion'] ?? ''));
+        $agreement = $this->legal->assertRoleAgreement(
+            $role,
+            (string) ($this->input['agreementSlug'] ?? ''),
+            (string) ($this->input['agreementVersion'] ?? '')
+        );
         $language = (string) ($this->input['language'] ?? 'en');
         $language = preg_match('/^[a-z]{2}$/', $language) ? $language : 'en';
 
@@ -243,7 +247,11 @@ class AuthProcessor
         if (!in_array($role, Roles::APP_ROLES, true)) {
             throw new RuntimeException('Role must be "guest" or "guide".');
         }
-        $agreement = $this->legal->assertRoleAgreement($role, (string) ($this->input['agreementVersion'] ?? ''));
+        $agreement = $this->legal->assertRoleAgreement(
+            $role,
+            (string) ($this->input['agreementSlug'] ?? ''),
+            (string) ($this->input['agreementVersion'] ?? '')
+        );
         $language = (string) ($this->input['language'] ?? 'en');
         $language = preg_match('/^[a-z]{2}$/', $language) ? $language : 'en';
 

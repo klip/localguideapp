@@ -34,7 +34,7 @@ async function loadVisitor() {
   loading.value = true
   visitor.value = null
   try {
-    const profile = await api.publicProfile(Number(props.id))
+    const profile = await api.publicProfile(Number(props.id), 'guest')
     // A guide's id under /visitors/ is "not found", not a visitor page for them.
     visitor.value = (profile.roles ?? [profile.role]).includes('guest') ? profile : null
   } catch (err) {
@@ -117,7 +117,12 @@ const backTo = computed(() => (auth.activeRole === 'guide' ? '/guide/discover' :
         </PanelCard>
       </div>
 
-      <ReviewsSection :user-id="visitor.id" :subject-name="name" />
+      <ReviewsSection
+        :user-id="visitor.id"
+        :subject-name="name"
+        role="guest"
+        :roles="visitor.roles ?? [visitor.role]"
+      />
       <ReportUser :subject-id="visitor.id" :subject-name="name" />
     </template>
 

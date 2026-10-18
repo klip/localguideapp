@@ -9,7 +9,7 @@ import ReportUser from '@/components/ReportUser.vue'
 import ReviewsSection from '@/components/ReviewsSection.vue'
 import TagList from '@/components/TagList.vue'
 import { t } from '@/i18n'
-import { ApiError, useApi } from '@/plugins/api'
+import { ApiError, useApi, type Role } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useCategoriesStore } from '@/stores/categories'
 import { toGuideCard } from '@/stores/guides'
@@ -40,15 +40,19 @@ const categoriesStore = useCategoriesStore()
  * to `find()` one entry in it.
  */
 const guide = ref<Guide | null>(null)
+/** Every role they hold — the reviews get a Traveller tab when they're both. */
+const guideRoles = ref<Role[]>([])
 const loading = ref(true)
 
 async function loadGuide() {
   loading.value = true
   guide.value = null
   try {
-    const profile = await api.publicProfile(Number(props.id))
+    const profile = await api.publicProfile(Number(props.id), 'guide')
     // A guest's id under /guides/ is "not found", not a guide page for them.
-    guide.value = (profile.roles ?? [profile.role]).includes('guide') ? toGuideCard(profile) : null
+    const roles = profile.roles ?? [profile.role]
+    guide.value = roles.includes('guide') ? toGuideCard(profile) : null
+    guideRoles.value = roles
   } catch (err) {
     // A 400 here is "Profile not found." — the not-found panel says so already.
     if (!(err instanceof ApiError && err.status === 400))
@@ -161,7 +165,12 @@ function reject(id: string) {
         </PanelCard>
       </div>
 
-      <ReviewsSection :user-id="Number(guide.id)" :subject-name="guide.name" />
+      <ReviewsSection
+        :user-id="Number(guide.id)"
+        :subject-name="guide.name"
+        role="guide"
+        :roles="guideRoles"
+      />
       <ReportUser :subject-id="Number(guide.id)" :subject-name="guide.name" />
     </template>
 

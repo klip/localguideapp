@@ -637,6 +637,7 @@ describe('ProfilePage', () => {
 
     expect(addRole).toHaveBeenCalledWith({
       role: 'guest',
+      agreementSlug: 'traveller_agreement',
       agreementVersion: '2026-10-18',
       language: 'en',
     })

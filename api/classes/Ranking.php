@@ -62,12 +62,19 @@ final class Ranking
      * same person can't stack 5★ reviews. Joined as `rr`. The review count
      * and average *shown* on a profile still count every review (`Reviews`).
      */
-    public static function reviewsJoin(?int $userId = null): string
+    public static function reviewsJoin(?int $userId = null, ?string $role = null): string
     {
+        // Ratings are per role (`reviews.subject_role`): a guide is ranked on
+        // their reviews as a guide, a traveller on theirs as a traveller.
+        $conditions = array_filter([
+            $userId ? '`subject_id` = ' . $userId : null,
+            $role ? '`subject_role` = "' . ($role === 'guide' ? 'guide' : 'guest') . '"' : null,
+        ]);
+
         return 'LEFT JOIN (
                 SELECT `subject_id`, COUNT(*) AS `authors`, SUM(`author_average`) AS `author_sum` FROM (
                     SELECT `subject_id`, `author_id`, AVG(`rating`) AS `author_average` FROM `reviews`
-                    ' . ($userId ? 'WHERE `subject_id` = ' . $userId : '') . '
+                    ' . ($conditions ? 'WHERE ' . implode(' AND ', $conditions) : '') . '
                     GROUP BY `subject_id`, `author_id`
                 ) a GROUP BY `subject_id`
              ) rr ON rr.`subject_id` = u.`id`';
@@ -76,7 +83,8 @@ final class Ranking
     /**
      * Columns for the query's SELECT: the badges, and `rank_score` for
      * ORDER BY (dropped before the row is returned — see `castRow()`).
-     * Needs `u` (users), `p` (user_profiles), `rr` (`reviewsJoin()`), `ts`
+     * Needs `u` (users), `p` (user_profiles), `urx` (their `user_role` row
+     * for the role listed — headline/bio), `rr` (`reviewsJoin()`), `ts`
      * (`tripsJoin()`) and `sx` (`Levels::sanctionsJoin()`).
      */
     public static function columns(): string
@@ -99,7 +107,7 @@ final class Ranking
             + ((' . $prior . ' + COALESCE(rr.`author_sum`, 0)) / (' . self::PRIOR_REVIEWS . ' + COALESCE(rr.`authors`, 0)) - 3) * 15
             + 5 * ' . Levels::effectiveLevelSql() . '
             + IF(u.`image` IS NULL OR u.`image` = "", 0, 5)
-            + IF(p.`bio` IS NULL OR p.`bio` = "", 0, 5)
+            + IF(urx.`bio` IS NULL OR urx.`bio` = "", 0, 5)
             + GREATEST(0, ' . self::NEW_BOOST . ' * (1 - TIMESTAMPDIFF(HOUR, u.`created_at`, UTC_TIMESTAMP()) / (' . self::NEW_BOOST_DAYS . ' * 24)))
         )';
     }

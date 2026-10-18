@@ -43,9 +43,9 @@ const bars = computed(() =>
         average !== null ? average.toFixed(1) : '–'
       }}</strong>
       <StarRating :value="average ?? 0" size="lg" />
-      <span class="tiny muted" data-test="review-total"
-        >{{ tn('common.review_summary.total', total) }}</span
-      >
+      <span class="tiny muted" data-test="review-total">{{
+        tn('common.review_summary.total', total)
+      }}</span>
     </div>
   </div>
 </template>

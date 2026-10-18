@@ -22,7 +22,10 @@ describe('ProtectedNotice', () => {
   it('words it for a selection pack', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
-    const wrapper = mount(ProtectedNotice, { props: { kind: 'pack' }, global: { plugins: [pinia] } })
+    const wrapper = mount(ProtectedNotice, {
+      props: { kind: 'pack' },
+      global: { plugins: [pinia] },
+    })
     expect(wrapper.text()).toMatch(/Picks are used only when you choose a guide/)
   })
 })

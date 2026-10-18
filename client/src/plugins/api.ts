@@ -36,7 +36,8 @@ export interface RegisterPayload {
   image?: string
   /** The `LegalDocumentView.version` of the terms the user accepted; must be the one in force. */
   termsVersion: string
-  /** The version of the starting role's agreement (`roleAgreementSlug(role)`) the user accepted. */
+  /** The starting role's agreement the user accepted: its slug (`roleAgreementSlug(role)`) and version. */
+  agreementSlug: LegalSlug
   agreementVersion: string
   /** The language the terms were shown in, recorded with the acceptance. */
   language?: string
@@ -208,6 +209,12 @@ export type TwoFactorChannel = 'email' | 'sms' | 'whatsapp'
 export interface AttributeCategory {
   key: string
   label: string
+  /**
+   * Who has it: `shared` (one set for the person — languages), `per_role`
+   * (a set per role — interests/specialities), or only `guest` / `guide`.
+   * Optional so a fixture can leave it out (reads as `per_role`).
+   */
+  scope?: 'shared' | 'per_role' | 'guest' | 'guide'
   /**
    * `options` — pick values from `options` below. `range` — add one or more
    * numeric spans between `rangeMin`/`rangeMax` (hours of the day), which
@@ -556,6 +563,8 @@ export interface Review {
   booking_id: number
   author_id: number
   subject_id: number
+  /** Which side of the trip the subject was on — ratings are kept per role. */
+  subject_role?: Role
   /** A whole number, 1–5. */
   rating: number
   /** Up to 256 characters; `null` when the author left only a grade. */
@@ -590,6 +599,8 @@ export interface ReviewsPage {
 
 export interface SubmitReviewPayload {
   subjectId: number
+  /** The side the review is about — the subject's role on the finished trip. */
+  role: Role
   rating: number
   comment?: string
 }
@@ -831,8 +842,12 @@ export const api = {
    * the acceptance of its agreement (`agreementVersion`, the one shown).
    * Returns every role the account now holds.
    */
-  addRole: (payload: { role: Role; agreementVersion: string; language?: string }) =>
-    call<{ roles: Role[] }>('addRole', payload),
+  addRole: (payload: {
+    role: Role
+    agreementSlug: LegalSlug
+    agreementVersion: string
+    language?: string
+  }) => call<{ roles: Role[] }>('addRole', payload),
   /** Destroys the current session server-side — best-effort from the caller's point of view, see `AppHeader.vue`. */
   logout: () => call<{ ok: true }>('logout'),
   /** Validates the locally-cached session (see `stores/auth.ts`) against the server and slides its inactivity window forward — what `App.vue` calls on boot. */
@@ -875,9 +890,11 @@ export const api = {
   matchOverview: () => call<{ selections: MatchOverviewRow[] }>('matchOverview'),
 
   /** One guest or guide by id, never with contact details — both public profile pages. */
-  publicProfile: (userId: number) => call<PublicProfile>('publicProfile', { userId }),
+  /** One person's public face as `role` (their guide or traveller side — headline, picks and rating differ). */
+  publicProfile: (userId: number, role?: Role) =>
+    call<PublicProfile>('publicProfile', { userId, ...(role ? { role } : {}) }),
   /** A page of someone's reviews (`limit` ≤ `REVIEWS_PAGE_SIZE`) with the summary and the caller's `viewer` state. */
-  reviews: (payload: { userId: number; limit?: number; offset?: number }) =>
+  reviews: (payload: { userId: number; role: Role; limit?: number; offset?: number }) =>
     call<ReviewsPage>('reviews', payload),
   /** Creates or edits the caller's review of `subjectId` — only after a finished trip together. */
   submitReview: (payload: SubmitReviewPayload) => call<Review>('submitReview', payload),
