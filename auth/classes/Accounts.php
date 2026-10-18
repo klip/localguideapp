@@ -34,16 +34,16 @@ class Accounts
     public function getRoleName(int $userId): ?string
     {
         $name = $this->db->db_GetFieldFromQuery(
-            'SELECT r.`name` FROM `users` u JOIN `roles` r ON r.`id` = u.`role_id` WHERE u.`id` = ' . $userId,
+            'SELECT ' . Roles::nameSql((string) $userId) . ' AS `name`',
             'name'
         );
-        return $name === false ? null : $name;
+        return $name === false || $name === null ? null : $name;
     }
 
     /**
-     * Creates a `users` row plus its matching `creds` row, and logs the
-     * grant in `user_role` (separate from `users.role_id`, the account's
-     * current role — see the note atop `api/sql/003_user_role.sql`).
+     * Creates a `users` row, its `creds` row and its role in `user_role` —
+     * the only place an account's role is stored (see `lib/Roles.php`). The
+     * caller wraps this in a transaction, so a failure here leaves nothing.
      *
      * Relies on the unique index on `users.email` to reject duplicates
      * atomically, rather than check-then-insert.
@@ -61,12 +61,11 @@ class Accounts
             'SELECT `id` FROM `roles` WHERE `name` = "' . $this->db->db_Escape($roleName) . '"',
             'id'
         );
-        if (!$roleId || !in_array($roleName, ['guest', 'guide'], true)) {
+        if (!$roleId || !in_array($roleName, Roles::APP_ROLES, true)) {
             throw new RuntimeException('Unknown role: ' . $roleName);
         }
 
         $userId = $this->db->db_Insert('users', [
-            'role_id' => $roleId,
             'email' => $email,
             'name' => $name ?? '',
             'image' => $image ?? '',
@@ -86,10 +85,13 @@ class Accounts
             'salt' => $salt,
         ]);
 
-        $this->db->db_Insert('user_role', [
+        $granted = $this->db->db_Insert('user_role', [
             'user_id' => $userId,
             'role_id' => $roleId,
         ]);
+        if (!$granted) {
+            throw new RuntimeException('Could not create account.');
+        }
 
         return (int) $userId;
     }

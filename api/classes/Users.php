@@ -45,10 +45,10 @@ class Users
     public function getRoleName(int $userId): ?string
     {
         $name = $this->db->db_GetFieldFromQuery(
-            'SELECT r.`name` FROM `users` u JOIN `roles` r ON r.`id` = u.`role_id` WHERE u.`id` = ' . $userId,
+            'SELECT ' . Roles::nameSql((string) $userId) . ' AS `name`',
             'name'
         );
-        return $name === false ? null : $name;
+        return $name === false || $name === null ? null : $name;
     }
 
     /**
@@ -100,7 +100,7 @@ class Users
             return [];
         }
 
-        $where = ['u.`role_id` = ' . intval($roleId)];
+        $where = [Roles::hasSql('u.`id`', $roleName, $this->db)];
 
         if ($roleName === 'guide') {
             // A guide out on a trip isn't available: hidden until the trip's

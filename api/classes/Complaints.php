@@ -62,9 +62,8 @@ class Complaints
         }
 
         $subject = $this->db->db_GetRow(
-            'SELECT u.`id`, u.`name`, r.`name` AS `role` FROM `users` u
-             JOIN `roles` r ON r.`id` = u.`role_id`
-             WHERE u.`id` = ' . $subjectId . ' AND r.`name` IN ("guest", "guide")'
+            'SELECT u.`id`, u.`name`, ' . Roles::nameSql('u.`id`') . ' AS `role` FROM `users` u
+             WHERE u.`id` = ' . $subjectId . ' HAVING `role` IS NOT NULL'
         );
         if (!$subject) {
             throw new RuntimeException('Profile not found.');

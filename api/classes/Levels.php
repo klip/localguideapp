@@ -192,10 +192,10 @@ class Levels
     public function sync(int $userId): void
     {
         $user = $this->db->db_GetRow(
-            'SELECT u.`id`, u.`level`, r.`name` AS `role` FROM `users` u
-             JOIN `roles` r ON r.`id` = u.`role_id` WHERE u.`id` = ' . $userId
+            'SELECT u.`id`, u.`level`, ' . Roles::nameSql('u.`id`') . ' AS `role` FROM `users` u
+             WHERE u.`id` = ' . $userId
         );
-        if (!$user || !in_array($user['role'], ['guest', 'guide'], true)) {
+        if (!$user || !in_array($user['role'], Roles::APP_ROLES, true)) {
             return;
         }
 

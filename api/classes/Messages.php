@@ -156,14 +156,13 @@ class Messages
     {
         $rows = $this->db->db_GetArray(
             'SELECT s.`id` AS `selection_id`, s.`active`, s.`matched_at`,
-                    u.`id` AS `counterpart_id`, u.`name`, u.`image`, r.`name` AS `role`,
+                    u.`id` AS `counterpart_id`, u.`name`, u.`image`, ' . Roles::nameSql('u.`id`') . ' AS `role`,
                     m.`id` AS `last_id`, m.`sender_id` AS `last_sender_id`, m.`kind` AS `last_kind`, m.`body` AS `last_body`,
                     UNIX_TIMESTAMP(m.`created_at`) AS `last_ts`,
                     (SELECT COUNT(*) FROM `messages` um
                       WHERE um.`selection_id` = s.`id` AND um.`recipient_id` = ' . $userId . ' AND um.`read_at` IS NULL) AS `unread`
              FROM `selections` s
              JOIN `users` u ON u.`id` = IF(s.`guest_id` = ' . $userId . ', s.`guide_id`, s.`guest_id`)
-             LEFT JOIN `roles` r ON r.`id` = u.`role_id`
              LEFT JOIN `messages` m ON m.`id` = (SELECT MAX(m2.`id`) FROM `messages` m2 WHERE m2.`selection_id` = s.`id`)
              WHERE (s.`guest_id` = ' . $userId . ' OR s.`guide_id` = ' . $userId . ')
                AND (s.`active` = 1 OR m.`id` IS NOT NULL)
@@ -215,8 +214,8 @@ class Messages
         }
 
         $other = $this->db->db_GetRow(
-            'SELECT u.`id`, u.`name`, u.`image`, r.`name` AS `role`
-             FROM `users` u LEFT JOIN `roles` r ON r.`id` = u.`role_id`
+            'SELECT u.`id`, u.`name`, u.`image`, ' . Roles::nameSql('u.`id`') . ' AS `role`
+             FROM `users` u
              WHERE u.`id` = ' . $otherId
         );
 
