@@ -394,6 +394,8 @@ export interface AppNotification {
   kind: string
   /** The person it's about, when there is one — its toast links to them. */
   about_user_id?: number | null
+  /** The recipient's side in it — opening its link switches to that mode (`?as=`). */
+  role?: Role | null
   message: string
   created_at: string
 }

@@ -1725,7 +1725,17 @@ the plumbing, is in:
   announced per role (`users.level` is gone); `sync()` runs every role held;
   level bonus reasons are `guest_level_N`/`guide_level_N`. Sanctions stay per
   person. `myLevel` reports the acting role's `points`/`next_level_points`.
-- Not yet per role: menu badges — phase 5.
+- **Polish** (phase 5): **menu counters per role** — `Badges::countsFor()`
+  returns `byRole.guest`/`byRole.guide` (the side the user is on in each
+  pair; messages via `Messages::unreadCountsByRole()`) with the totals on
+  top; `stores/badges.ts` shows the acting role's and `otherRoleNews` puts a
+  dot on the other mode's button (and the burger). `markSeen` clears only the
+  acting role's side. **Notifications carry `role`** (`notifications.role`,
+  056 — the recipient's side; every `Bookings` notify passes `role:`,
+  `Levels` too), chat pushes carry it as well, and `notificationLink()` /
+  `withRole()` add `?as=<role>` to the toast's link; a global
+  `router.beforeEach` switches to that role (if held) and drops the query —
+  so any link, an email's included, can open the app in the right mode.
 
 ### Two-factor login & password reset
 
@@ -2364,6 +2374,10 @@ API service (`api/classes/`):
 - `api/sql/055_translations_levels_per_role.sql` — Volunteer, level points,
   per-role progress; drops the old trip-count progress strings. Applied
   2026-10-18. Re-runnable.
+- `api/sql/056_notification_role.sql` — `notifications.role`. Applied
+  2026-10-18. Not re-runnable.
+- `api/sql/057_translations_other_role_news.sql` — the mode-switch dot's
+  label. Applied 2026-10-18. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

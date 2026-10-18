@@ -25,6 +25,7 @@
   "common.app_header.nav_label": "Main",
   "common.app_header.new_count": "{count} new",
   "common.app_header.open_menu": "Open menu",
+  "common.app_header.other_role_news": "New in your other role",
   "common.app_header.picked": "{picked} / {capacity} picked",
   "common.app_header.profile": "Profile",
   "common.app_header.signed_in_as": "Signed in as {name}",

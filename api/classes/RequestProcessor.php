@@ -165,7 +165,7 @@ class RequestProcessor
             // Clears the Matches or My trips counter (see `Badges`); the
             // new counts reach the client as a `badges` push.
             case 'markSeen':
-                $this->badges->markSeen($this->requireUserId(), (string) ($this->readInput()['section'] ?? ''));
+                $this->badges->markSeen($this->requireUserId(), (string) ($this->readInput()['section'] ?? ''), $this->actingRole());
                 return [200, ['ok' => true]];
 
             // Reviews and public profiles (see `Reviews`, 013_reviews.sql).

@@ -25,9 +25,16 @@ const route = useRoute()
 /** Guides never pay/browse guides — send them to their own deck instead of the visitor-side /discover (see DiscoverPage.vue's redirect guard). */
 /** Unseen matches and trips (pushed by the server, see `stores/badges.ts`), as the red counters on their menu items. */
 const badges = useBadgesStore()
-const { matches: newMatches, trips: newTrips, messages: unreadMessages } = storeToRefs(badges)
+const {
+  matches: newMatches,
+  trips: newTrips,
+  messages: unreadMessages,
+  otherRoleNews,
+} = storeToRefs(badges)
 const hasNews = computed(
-  () => isAuthenticated.value && newMatches.value + newTrips.value + unreadMessages.value > 0,
+  () =>
+    isAuthenticated.value &&
+    (newMatches.value + newTrips.value + unreadMessages.value > 0 || otherRoleNews.value),
 )
 
 function badgeText(count: number) {
@@ -299,6 +306,15 @@ onBeforeUnmount(() => {
                         : 'common.app_header.mode_guest',
                     )
                   }}
+                  <span
+                    v-if="otherRoleNews && activeRole !== role"
+                    class="mode-dot"
+                    data-test="mode-news"
+                    :title="t('common.app_header.other_role_news')"
+                    ><span class="visually-hidden">{{
+                      t('common.app_header.other_role_news')
+                    }}</span></span
+                  >
                 </button>
               </div>
             </li>
@@ -712,5 +728,18 @@ nav .nav {
 
 .add-role {
   font-weight: 600;
+}
+.mode-option {
+  position: relative;
+}
+
+.mode-dot {
+  position: absolute;
+  top: 0.1rem;
+  right: 0.25rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--rg-red);
 }
 </style>

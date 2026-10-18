@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { initialLanguage, isLanguage, type Language } from '@/i18n'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * One route per interface in the prototype.
@@ -187,6 +188,20 @@ router.onError((error, to) => {
     // Storage blocked: reload anyway — a loop needs the same failure each time.
   }
   window.location.assign(router.resolve(to).href)
+})
+
+/**
+ * `?as=guide` / `?as=guest` on any link (a notification's toast, an email)
+ * opens it in that mode: an account holding both roles switches to it, then
+ * the query is dropped. A role the account doesn't hold is just ignored.
+ */
+router.beforeEach((to) => {
+  const as = to.query.as
+  if (as !== 'guest' && as !== 'guide') return
+  useAuthStore().setActiveRole(as)
+  const query = { ...to.query }
+  delete query.as
+  return { path: to.path, query, hash: to.hash, replace: true }
 })
 
 /**

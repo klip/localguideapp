@@ -2,7 +2,7 @@
 
 Guides travel too. An account can hold **guest** and **guide** at once and
 switches between them; everything it sees and does follows the role it is
-currently acting as. Agreed 2026-10-18; built in phases (below).
+currently acting as. Agreed and built 2026-10-18 (branch `feature/dual-roles`).
 
 ## Decisions
 
@@ -128,7 +128,11 @@ and each other person counts once (`Levels::QUALIFYING_TRIP`,
    per-role levels and announcements, Volunteer badge, points on the level
    panel.
 5. **Polish** — role-tagged notifications that switch mode, per-role badge
-   counts, copy.
+   counts, copy. **Done**: counters per role with a dot for the other
+   role, `markSeen` per role, notifications and chat pushes tagged with the
+   recipient's role, `?as=` links that switch mode.
+
+All five phases are built on `feature/dual-roles`.
 
 ## Resolved (2026-10-18)
 

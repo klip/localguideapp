@@ -12,7 +12,7 @@ import { useLegalStore } from '@/stores/legal'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
 import { useMatchesStore } from '@/stores/matches'
-import { notificationLink } from '@/utils/notificationLink'
+import { notificationLink, withRole } from '@/utils/notificationLink'
 import { syncPendingRejects } from '@/utils/pendingRejects'
 import { t } from '@/i18n'
 import { useRoute } from 'vue-router'
@@ -65,7 +65,9 @@ socket.on('badges', (message) => badges.set(message))
 // A chat message for me: a toast, unless that conversation is already open
 // (MessagesPage shows it there). The counter itself comes as `badges`.
 socket.on('message', (payload) => {
-  const message = payload.message as (ChatMessage & { sender_name?: string | null }) | undefined
+  const message = payload.message as
+    | (ChatMessage & { sender_name?: string | null; role?: string | null })
+    | undefined
   if (!message || message.mine) return
   const route = currentRoute
   if (route.name === 'messages' && Number(route.params.id) === message.sender_id) return
@@ -74,7 +76,9 @@ socket.on('message', (payload) => {
     undefined,
     NOTIFICATION_TOAST_MS,
     undefined,
-    `/messages/${message.sender_id}`,
+    message.role
+      ? withRole(`/messages/${message.sender_id}`, message.role)
+      : `/messages/${message.sender_id}`,
   )
 })
 

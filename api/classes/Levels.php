@@ -249,7 +249,7 @@ class Levels
                 . ' reached level ' . $level . ' · ' . ucfirst(self::NAMES[$level]) . '! '
                 . ($role === 'guest'
                     ? 'Your next packs have ' . self::picksPerPack($level) . ' picks.'
-                    : 'Your platform fee is now ' . round(self::commissionRate($level) * 100) . '%.'));
+                    : 'Your platform fee is now ' . round(self::commissionRate($level) * 100) . '%.'), $role);
         }
 
         $bonuses = $role === 'guest' ? self::GUEST_LEVEL_BONUSES : self::GUIDE_LEVEL_BONUSES;
@@ -383,14 +383,15 @@ class Levels
                 : 'for reaching level ' . substr($reason, strrpos($reason, '_') + 1);
             $this->notify($userId, 'bonus_granted', $kind === 'free_picks'
                 ? "You've earned {$days} days of free picks ({$why})! Claim them on your profile whenever you're ready."
-                : "You've earned {$days} days without a platform fee ({$why})! Claim them on your profile whenever you like.");
+                : "You've earned {$days} days without a platform fee ({$why})! Claim them on your profile whenever you like.",
+                $kind === 'free_picks' ? 'guest' : 'guide');
         }
     }
 
-    private function notify(int $userId, string $kind, string $message): void
+    private function notify(int $userId, string $kind, string $message, string $role): void
     {
         if ($this->notifications) {
-            $this->notifications->notifyInApp($userId, $kind, $message);
+            $this->notifications->notifyInApp($userId, $kind, $message, null, $role);
         }
     }
 }

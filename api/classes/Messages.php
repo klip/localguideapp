@@ -57,7 +57,7 @@ class Messages
             throw new RuntimeException('Messages can be ' . self::MAX_LENGTH . ' characters at most.');
         }
 
-        return $this->deliver($selection, $senderId, $recipientId, [
+        return $this->deliver($selection, $senderId, $senderRole, $recipientId, [
             'body' => ContactFilter::mask($body, 'message'),
         ]);
     }
@@ -87,7 +87,7 @@ class Messages
             $fields['accuracy_m'] = (string) max(0, min(100000, (int) round($accuracy)));
         }
 
-        return $this->deliver($selection, $senderId, $recipientId, $fields);
+        return $this->deliver($selection, $senderId, $senderRole, $recipientId, $fields);
     }
 
     /** The pair's selection, refusing unless it's an active match. */
@@ -117,7 +117,7 @@ class Messages
     }
 
     /** Stores a message, pushes it to both people, and emails an absent recipient. */
-    private function deliver(array $selection, int $senderId, int $recipientId, array $fields): array
+    private function deliver(array $selection, int $senderId, string $senderRole, int $recipientId, array $fields): array
     {
         $hadUnread = $this->unreadFrom($senderId, $recipientId) > 0;
 
@@ -133,8 +133,10 @@ class Messages
         $row = $this->find((int) $id);
         $senderName = $this->db->db_GetFieldFromQuery('SELECT `name` FROM `users` WHERE `id` = ' . $senderId, 'name');
         // `sender_name` for the recipient's "New message from …" toast.
-        $reached = $this->push->toUser($recipientId, ['type' => 'message', 'message' => self::view($row, $recipientId) + ['sender_name' => $senderName ?: null]]);
-        $this->push->toUser($senderId, ['type' => 'message', 'message' => self::view($row, $senderId)]);
+        // `role`: each side's role in this conversation — the toast opens it in that mode.
+        $reached = $this->push->toUser($recipientId, ['type' => 'message', 'message' => self::view($row, $recipientId)
+            + ['sender_name' => $senderName ?: null, 'role' => Roles::opposite($senderRole)]]);
+        $this->push->toUser($senderId, ['type' => 'message', 'message' => self::view($row, $senderId) + ['role' => $senderRole]]);
         $this->push->touch($recipientId);
 
         // An email only for someone who isn't in the app (no gateway holds a
@@ -252,19 +254,27 @@ class Messages
      * @param int[] $userIds
      * @return array<int, int>
      */
-    public static function unreadCounts(db $db, array $userIds): array
+    /**
+     * Unread messages per recipient, split by the side they're on in the
+     * conversation's pair — `[userId => ['guest' => n, 'guide' => n]]`.
+     *
+     * @param int[] $userIds
+     * @return array<int, array{guest: int, guide: int}>
+     */
+    public static function unreadCountsByRole(db $db, array $userIds): array
     {
-        $out = array_fill_keys($userIds, 0);
+        $out = array_fill_keys($userIds, ['guest' => 0, 'guide' => 0]);
         if (!$userIds) {
             return $out;
         }
         $rows = $db->db_GetArray(
-            'SELECT `recipient_id`, COUNT(*) AS `n` FROM `messages`
-             WHERE `recipient_id` IN (' . implode(',', array_map('intval', $userIds)) . ') AND `read_at` IS NULL
-             GROUP BY `recipient_id`'
+            'SELECT m.`recipient_id`, IF(s.`guest_id` = m.`recipient_id`, "guest", "guide") AS `role`, COUNT(*) AS `n`
+             FROM `messages` m JOIN `selections` s ON s.`id` = m.`selection_id`
+             WHERE m.`recipient_id` IN (' . implode(',', array_map('intval', $userIds)) . ') AND m.`read_at` IS NULL
+             GROUP BY m.`recipient_id`, `role`'
         ) ?: [];
         foreach ($rows as $row) {
-            $out[(int) $row['recipient_id']] = (int) $row['n'];
+            $out[(int) $row['recipient_id']][$row['role']] = (int) $row['n'];
         }
 
         return $out;

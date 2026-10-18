@@ -39,12 +39,25 @@ export function notificationLink(
   note: AppNotification,
   viewerRole: string | null | undefined,
 ): string | null {
+  // The side it's about (an account can hold both), else the current one.
+  const role = note.role ?? viewerRole
   const about = note.about_user_id
+  let path: string | null = BY_KIND[note.kind] ?? null
   if (about) {
-    if (note.kind === 'match') return `/messages/${about}`
+    if (note.kind === 'match') path = `/messages/${about}`
     // Their profile: a guest hears about guides, a guide about guests.
     if (note.kind === 'profile_updated')
-      return viewerRole === 'guide' ? `/visitors/${about}` : `/guides/${about}`
+      path = role === 'guide' ? `/visitors/${about}` : `/guides/${about}`
   }
-  return BY_KIND[note.kind] ?? null
+  return path && note.role ? withRole(path, note.role) : path
+}
+
+/**
+ * `path` opened as `role` — `?as=` (before any `#hash`), which the router
+ * turns into a mode switch for an account holding that role
+ * (`router/index.ts`).
+ */
+export function withRole(path: string, role: string): string {
+  const [base, hash] = path.split('#') as [string, string | undefined]
+  return `${base}${base.includes('?') ? '&' : '?'}as=${role}${hash ? `#${hash}` : ''}`
 }
