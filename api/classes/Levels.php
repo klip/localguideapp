@@ -3,13 +3,16 @@
 /**
  * Levels, the perks they bring, bonus packages and sanctions (041).
  *
- * **Level** — from successful trips (confirmed and finished) that *qualify*:
- * paid through RockGuide, or with someone whose identity is verified — so a
- * handful of sock-puppet accounts finishing free trips with each other can't
- * buy perks. Each other person counts once (the same count the ranking and
- * the trips badge use). The thresholds grow exponentially:
+ * **Level** — per role (a guide level and a traveller level for someone who
+ * is both), from **paid** trips only (confirmed, finished and paid through
+ * RockGuide — `PAID_TRIP`): free trips never progress anyone, and every paid
+ * trip counts, repeat trips with the same person included. A traveller earns
+ * 1 point per paid trip; a guide `1 + 0.5 × min(1, fee / £100)` — slightly
+ * more for a better-paid trip, capped (`pointsSql()`). A guide with finished
+ * trips but no paid one is a **Volunteer** (shown instead of a level, with
+ * their trips count). The thresholds, in points, grow exponentially:
  *
- *   0 New · 1 Starter (1 trip) · 2 Explorer (3) · 3 Pathfinder (6) ·
+ *   0 New · 1 Starter (1) · 2 Explorer (3) · 3 Pathfinder (6) ·
  *   4 Trailblazer (12) · 5 Pioneer (24) · 6 Legend (48) · 7 Icon (96)
  *
  * **Sanctions** (`user_sanctions`, set by moderators — e.g. after a
@@ -38,7 +41,7 @@
  */
 class Levels
 {
-    /** Trips needed for each level (index = level). */
+    /** Points needed for each level (index = level). */
     public const THRESHOLDS = [0, 1, 3, 6, 12, 24, 48, 96];
     public const NAMES = ['new', 'starter', 'explorer', 'pathfinder', 'trailblazer', 'pioneer', 'legend', 'icon'];
 
@@ -66,18 +69,6 @@ class Levels
         $this->notifications = $notifications;
     }
 
-    public static function levelForTrips(int $trips): int
-    {
-        $level = 0;
-        foreach (self::THRESHOLDS as $candidate => $needed) {
-            if ($trips >= $needed) {
-                $level = $candidate;
-            }
-        }
-
-        return $level;
-    }
-
     public static function picksPerPack(int $level): int
     {
         return min(self::MAX_PACK, self::BASE_PACK + max(0, $level));
@@ -89,16 +80,16 @@ class Levels
     }
 
     /**
-     * SQL for the effective level of `u`, given `ts.trips_completed`
-     * (`Ranking::tripsJoin()`) and `sx.levels` (`sanctionsJoin()`) — so the
-     * deck can rank by it in one query.
+     * SQL for the effective level of `u` in the role listed, given
+     * `ts.level_points` (`Ranking::tripsJoin()`) and `sx.levels`
+     * (`sanctionsJoin()`) — so the deck can rank by it in one query.
      */
     public static function effectiveLevelSql(): string
     {
         $cases = [];
         foreach (array_reverse(self::THRESHOLDS, true) as $level => $needed) {
             if ($level > 0) {
-                $cases[] = 'WHEN COALESCE(ts.`trips_completed`, 0) >= ' . $needed . ' THEN ' . $level;
+                $cases[] = 'WHEN COALESCE(ts.`level_points`, 0) >= ' . $needed . ' THEN ' . $level;
             }
         }
 
@@ -116,25 +107,62 @@ class Levels
              ) sx ON sx.`user_id` = u.`id`';
     }
 
-    /**
-     * SQL condition: booking `b` with the other person `o` is a qualifying
-     * trip — finished, and paid through RockGuide or with a verified person.
-     */
-    public const QUALIFYING_TRIP = 'b.`status` = "confirmed" AND b.`trip_status` = "finished"
-        AND (b.`payment_status` = "paid" OR o.`verified_at` IS NOT NULL)';
+    /** SQL condition: booking `b` is a finished trip (counted on the trips badge, free or not). */
+    public const FINISHED_TRIP = 'b.`status` = "confirmed" AND b.`trip_status` = "finished"';
 
-    public function tripsCompleted(int $userId): int
+    /** SQL condition: booking `b` is a finished trip paid through RockGuide — the only kind that earns a level. */
+    public const PAID_TRIP = '(b.`status` = "confirmed" AND b.`trip_status` = "finished" AND b.`payment_status` = "paid")';
+
+    /** A guide's points per paid trip: 1, plus up to `GUIDE_FEE_BONUS` as the fee nears `GUIDE_FEE_REFERENCE`. */
+    private const GUIDE_FEE_BONUS = 0.5;
+    private const GUIDE_FEE_REFERENCE = 100;
+
+    /**
+     * SQL: the level points booking `b` (a paid trip) earns its `$role`
+     * side — 1 for the traveller; for the guide `1 + 0.5 × min(1, fee / £100)`,
+     * slightly more for a better-paid trip, capped so price can't buy levels.
+     */
+    public static function pointsSql(string $role): string
     {
-        return (int) $this->db->db_GetFieldFromQuery(
-            'SELECT COUNT(DISTINCT `other`) AS `n` FROM (
-                SELECT b.`guide_id` AS `other` FROM `bookings` b JOIN `users` o ON o.`id` = b.`guide_id`
-                WHERE b.`guest_id` = ' . $userId . ' AND ' . self::QUALIFYING_TRIP . '
-                UNION ALL
-                SELECT b.`guest_id` AS `other` FROM `bookings` b JOIN `users` o ON o.`id` = b.`guest_id`
-                WHERE b.`guide_id` = ' . $userId . ' AND ' . self::QUALIFYING_TRIP . '
-             ) t',
-            'n'
-        );
+        return $role === 'guide'
+            ? '(1 + ' . self::GUIDE_FEE_BONUS . ' * LEAST(1, COALESCE(b.`amount`, 0) / ' . self::GUIDE_FEE_REFERENCE . '))'
+            : '1';
+    }
+
+    /**
+     * `$userId`'s record in `$role`: every finished trip, the paid ones, and
+     * the level points those earned.
+     *
+     * @return array{trips: int, paid: int, points: float}
+     */
+    public function recordFor(int $userId, string $role): array
+    {
+        $side = $role === 'guide' ? 'guide_id' : 'guest_id';
+        $row = $this->db->db_GetRow(
+            'SELECT COUNT(*) AS `trips`, COALESCE(SUM(' . self::PAID_TRIP . '), 0) AS `paid`,
+                    COALESCE(SUM(IF(' . self::PAID_TRIP . ', ' . self::pointsSql($role) . ', 0)), 0) AS `points`
+             FROM `bookings` b
+             WHERE ' . self::FINISHED_TRIP . ' AND b.`' . $side . '` = ' . $userId
+        ) ?: [];
+
+        return [
+            'trips' => (int) ($row['trips'] ?? 0),
+            'paid' => (int) ($row['paid'] ?? 0),
+            'points' => round((float) ($row['points'] ?? 0), 2),
+        ];
+    }
+
+    public static function levelForPoints(float $points): int
+    {
+        $level = 0;
+        foreach (self::THRESHOLDS as $candidate => $needed) {
+            // A hair of tolerance so 1.1 + 1.9 points read as the 3 they are.
+            if ($points + 1e-9 >= $needed) {
+                $level = $candidate;
+            }
+        }
+
+        return $level;
     }
 
     /** @return array{levels: int, until: ?string, reason: ?string} the active sanctions, summed (soonest expiry shown) */
@@ -157,9 +185,10 @@ class Levels
         ];
     }
 
-    public function effectiveLevel(int $userId): int
+    /** `$userId`'s level in `$role`, after any active sanction. */
+    public function effectiveLevel(int $userId, string $role): int
     {
-        return max(0, self::levelForTrips($this->tripsCompleted($userId)) - $this->activeSanctions($userId)['levels']);
+        return max(0, self::levelForPoints($this->recordFor($userId, $role)['points']) - $this->activeSanctions($userId)['levels']);
     }
 
     /** When `$userId`'s active bonus of `$kind` ends (ISO), or null without one — or while sanctioned. */
@@ -181,48 +210,57 @@ class Levels
     /** The guide's platform fee right now: 0 during a no-fee bonus, else by level. */
     public function guideCommissionRate(int $guideId): float
     {
-        return $this->activeBonusUntil($guideId, 'no_fee') ? 0.0 : self::commissionRate($this->effectiveLevel($guideId));
+        return $this->activeBonusUntil($guideId, 'no_fee') ? 0.0 : self::commissionRate($this->effectiveLevel($guideId, 'guide'));
     }
 
     /**
-     * Grants whatever `$userId` has earned and isn't granted yet, and tells
-     * them about a level-up (`users.level` is the level last announced) or a
-     * new bonus.
+     * Grants whatever `$userId` has earned in each role they hold and isn't
+     * granted yet, and tells them about a level-up or a new bonus.
      */
     public function sync(int $userId): void
     {
-        $user = $this->db->db_GetRow(
-            'SELECT u.`id`, u.`level`, ' . Roles::nameSql('u.`id`') . ' AS `role` FROM `users` u
-             WHERE u.`id` = ' . $userId
+        foreach (Roles::of($userId, $this->db) as $role) {
+            $this->syncRole($userId, $role);
+        }
+    }
+
+    /** `sync()` for one role: `user_role.level` is the level last announced in it. */
+    private function syncRole(int $userId, string $role): void
+    {
+        $roleRow = $this->db->db_GetRow(
+            'SELECT ur.`id`, ur.`level` FROM `user_role` ur JOIN `roles` r ON r.`id` = ur.`role_id`
+             WHERE ur.`user_id` = ' . $userId . ' AND r.`name` = "' . $this->db->db_Escape($role) . '"'
         );
-        if (!$user || !in_array($user['role'], Roles::APP_ROLES, true)) {
+        if (!$roleRow) {
             return;
         }
 
-        // `users.level` is the highest level announced, so a level comes with
-        // one announcement — not another each time a sanction expires.
-        $earned = self::levelForTrips($this->tripsCompleted($userId));
-        $level = max(0, $earned - $this->activeSanctions($userId)['levels']);
-        $previous = (int) $user['level'];
+        // The highest level announced, so a level comes with one
+        // announcement — not another each time a sanction expires.
+        $level = $this->effectiveLevel($userId, $role);
+        $previous = (int) $roleRow['level'];
         if ($level > $previous) {
-            $this->db->db_Execute('UPDATE `users` SET `level` = ' . $level . ' WHERE `id` = ' . $userId . ' AND `level` < ' . $level);
+            $this->db->db_Execute(
+                'UPDATE `user_role` SET `level` = ' . $level . ' WHERE `id` = ' . (int) $roleRow['id'] . ' AND `level` < ' . $level
+            );
         }
         if ($level > $previous && $this->db->db_GetAffectedRows() > 0) {
-            $this->notify($userId, 'level_up', 'You reached level ' . $level . ' · ' . ucfirst(self::NAMES[$level]) . '! '
-                . ($user['role'] === 'guest'
+            $this->notify($userId, 'level_up', ($role === 'guest' ? 'As a traveller, you' : 'As a guide, you')
+                . ' reached level ' . $level . ' · ' . ucfirst(self::NAMES[$level]) . '! '
+                . ($role === 'guest'
                     ? 'Your next packs have ' . self::picksPerPack($level) . ' picks.'
                     : 'Your platform fee is now ' . round(self::commissionRate($level) * 100) . '%.'));
         }
 
-        $bonuses = $user['role'] === 'guest' ? self::GUEST_LEVEL_BONUSES : self::GUIDE_LEVEL_BONUSES;
-        $kind = $user['role'] === 'guest' ? 'free_picks' : 'no_fee';
+        $bonuses = $role === 'guest' ? self::GUEST_LEVEL_BONUSES : self::GUIDE_LEVEL_BONUSES;
+        $kind = $role === 'guest' ? 'free_picks' : 'no_fee';
         foreach ($bonuses as $atLevel => $days) {
             if ($level >= $atLevel) {
-                $this->grant($userId, $kind, $days, 'level_' . $atLevel);
+                $this->grant($userId, $kind, $days, $role . '_level_' . $atLevel);
             }
         }
 
-        if ($user['role'] === 'guide') {
+        if ($role === 'guide') {
             $reviews = $this->db->db_GetRow(
                 'SELECT COUNT(*) AS `authors`, AVG(`author_average`) AS `average` FROM (
                     SELECT AVG(`rating`) AS `author_average` FROM `reviews`
@@ -245,11 +283,13 @@ class Levels
      */
     public function stateFor(int $userId, string $role): array
     {
-        $trips = $this->tripsCompleted($userId);
-        $earned = self::levelForTrips($trips);
+        $record = $this->recordFor($userId, $role);
+        $earned = self::levelForPoints($record['points']);
         $sanctions = $this->activeSanctions($userId);
         $level = max(0, $earned - $sanctions['levels']);
         $next = $earned + 1 < count(self::THRESHOLDS) ? self::THRESHOLDS[$earned + 1] : null;
+        // Each role's own bonuses: free picks for travelling, fee-free days for guiding.
+        $kind = $role === 'guest' ? 'free_picks' : 'no_fee';
 
         $bonuses = array_map(static fn(array $row): array => [
             'id' => (int) $row['id'],
@@ -263,15 +303,21 @@ class Levels
             'ends_at' => $row['ends_ts'] === null ? null : gmdate('Y-m-d\TH:i:s\Z', (int) $row['ends_ts']),
         ], $this->db->db_GetArray(
             'SELECT `id`, `kind`, `days`, `reason`, UNIX_TIMESTAMP(`starts_at`) AS `starts_ts`, UNIX_TIMESTAMP(`ends_at`) AS `ends_ts`
-             FROM `bonus_grants` WHERE `user_id` = ' . $userId . ' ORDER BY `id`'
+             FROM `bonus_grants` WHERE `user_id` = ' . $userId . ' AND `kind` = "' . $kind . '" ORDER BY `id`'
         ) ?: []);
 
         return [
+            'role' => $role,
             'level' => $level,
             'name' => self::NAMES[$level],
-            'trips_completed' => $trips,
-            'next_level_trips' => $next,
-            // The level those trips lead to (by earned level — a sanction lowers the badge, not the count).
+            // Every finished trip in this role; only the paid ones earn points.
+            'trips_completed' => $record['trips'],
+            'paid_trips' => $record['paid'],
+            'points' => $record['points'],
+            'next_level_points' => $next,
+            // A guide who has only guided for free.
+            'volunteer' => $role === 'guide' && $record['trips'] > 0 && $record['paid'] === 0,
+            // The level those points lead to (by earned level — a sanction lowers the badge, not the count).
             'next_level' => $next === null ? null : $earned + 1,
             'sanction' => $sanctions['levels'] > 0 ? $sanctions : null,
             'picks_per_pack' => $role === 'guest' ? self::picksPerPack($level) : null,
@@ -334,7 +380,7 @@ class Levels
             // folded into one by `notifyInApp()`'s duplicate check.
             $why = strpos($reason, 'reviews_') === 0
                 ? 'for ' . substr($reason, 8) . ' excellent reviewers'
-                : 'for reaching level ' . substr($reason, 6);
+                : 'for reaching level ' . substr($reason, strrpos($reason, '_') + 1);
             $this->notify($userId, 'bonus_granted', $kind === 'free_picks'
                 ? "You've earned {$days} days of free picks ({$why})! Claim them on your profile whenever you're ready."
                 : "You've earned {$days} days without a platform fee ({$why})! Claim them on your profile whenever you like.");

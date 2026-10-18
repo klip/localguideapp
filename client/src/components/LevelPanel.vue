@@ -34,11 +34,12 @@ const when = (iso: string) => dateFormat.format(new Date(iso))
 
 const progress = computed(() => {
   const s = state.value
-  if (!s || s.next_level_trips === null) return null
+  if (!s || s.next_level_points === null) return null
   return {
-    done: s.trips_completed,
-    needed: s.next_level_trips,
-    left: s.next_level_trips - s.trips_completed,
+    done: s.points,
+    needed: s.next_level_points,
+    // Guide points come in fractions (higher fees earn a little more).
+    left: Math.round((s.next_level_points - s.points) * 100) / 100,
     // The level those trips earn — not effective + 1 while a sanction lowers the badge.
     level: s.next_level ?? s.level + 1,
   }
@@ -106,9 +107,16 @@ onMounted(() => {
     <p v-if="!state" class="muted">{{ t('profile.level.loading') }}</p>
     <template v-else>
       <p class="level-line">
-        <span class="level-badge">◆ {{ levelLabel(state.level) }}</span>
+        <span v-if="state.volunteer" class="level-badge" data-test="level-volunteer"
+          >♡ {{ t('common.standing.volunteer') }}</span
+        >
+        <span v-else class="level-badge">◆ {{ levelLabel(state.level) }}</span>
         <span class="tiny muted">{{ tn('profile.level.trips', state.trips_completed) }}</span>
+        <span class="tiny muted" data-test="level-points">{{
+          t('profile.level.points', { points: state.points })
+        }}</span>
       </p>
+      <p v-if="state.volunteer" class="tiny muted">{{ t('profile.level.volunteer_hint') }}</p>
 
       <div v-if="progress" class="progress">
         <progress
@@ -117,7 +125,10 @@ onMounted(() => {
           :aria-label="t('profile.level.progress_label')"
         />
         <span class="tiny muted">{{
-          tn('profile.level.to_next', progress.left, { level: levelLabel(progress.level) })
+          t(`profile.level.to_next_${role}`, {
+            points: progress.left,
+            level: levelLabel(progress.level),
+          })
         }}</span>
       </div>
       <p v-else class="tiny muted">{{ t('profile.level.top') }}</p>

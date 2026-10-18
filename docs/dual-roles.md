@@ -124,7 +124,9 @@ and each other person counts once (`Levels::QUALIFYING_TRIP`,
    on `user_role`, attribute scopes, `reviews.subject_role`, per-role ratings
    and ranking, review tabs, role-aware filter bar and profile page.
 4. **Money-based levels** — the new progress rule, per role, in `Levels`,
-   `Ranking` and the badges.
+   `Ranking` and the badges. **Done**: points from paid trips (guide fee-weighted),
+   per-role levels and announcements, Volunteer badge, points on the level
+   panel.
 5. **Polish** — role-tagged notifications that switch mode, per-role badge
    counts, copy.
 

@@ -36,6 +36,8 @@ export interface Standing {
   tripsCompleted: number
   /** Effective level 0–7 (`Levels.php`). */
   level: number
+  /** A guide who has only guided for free — shown as "Volunteer" instead of a level. */
+  volunteer?: boolean
 }
 
 /** A local guide, shown to visitors on the visitor discovery deck. */

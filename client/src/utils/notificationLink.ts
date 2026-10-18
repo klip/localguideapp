@@ -35,12 +35,16 @@ const BY_KIND: Record<string, string> = {
   bonus_granted: '/profile#level',
 }
 
-export function notificationLink(note: AppNotification, viewerRole: string | null | undefined): string | null {
+export function notificationLink(
+  note: AppNotification,
+  viewerRole: string | null | undefined,
+): string | null {
   const about = note.about_user_id
   if (about) {
     if (note.kind === 'match') return `/messages/${about}`
     // Their profile: a guest hears about guides, a guide about guests.
-    if (note.kind === 'profile_updated') return viewerRole === 'guide' ? `/visitors/${about}` : `/guides/${about}`
+    if (note.kind === 'profile_updated')
+      return viewerRole === 'guide' ? `/visitors/${about}` : `/guides/${about}`
   }
   return BY_KIND[note.kind] ?? null
 }

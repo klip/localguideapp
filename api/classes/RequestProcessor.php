@@ -311,7 +311,7 @@ class RequestProcessor
         }
 
         // A higher level buys more picks per pack (`Levels::picksPerPack()`).
-        $this->payments->recordPackPurchase($userId, Levels::picksPerPack($this->levels->effectiveLevel($userId)));
+        $this->payments->recordPackPurchase($userId, Levels::picksPerPack($this->levels->effectiveLevel($userId, 'guest')));
 
         return $this->paymentStateFor($userId);
     }
@@ -339,7 +339,7 @@ class RequestProcessor
             // Picks made during free picks, which don't count against the pack.
             'freePickIds' => $decisions['free'],
             // What the next £5 pack holds, and an active free-picks bonus (`Levels`).
-            'packSize' => Levels::picksPerPack($this->levels->effectiveLevel($userId)),
+            'packSize' => Levels::picksPerPack($this->levels->effectiveLevel($userId, 'guest')),
             'freePicksUntil' => $this->levels->activeBonusUntil($userId, 'free_picks'),
         ];
     }

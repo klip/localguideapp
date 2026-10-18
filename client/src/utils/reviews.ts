@@ -48,7 +48,9 @@ export function timeAgo(iso: string, now: Date = new Date()): string {
   for (const [limit, size, unit] of UNITS) {
     if (seconds < limit) {
       const count = Math.floor(seconds / size)
-      return count <= 1 ? t(`common.time_ago.${unit}_single`) : tn(`common.time_ago.${unit}s`, count)
+      return count <= 1
+        ? t(`common.time_ago.${unit}_single`)
+        : tn(`common.time_ago.${unit}s`, count)
     }
   }
 

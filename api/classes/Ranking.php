@@ -33,26 +33,24 @@ final class Ranking
     private const NEW_BOOST_DAYS = 21;
 
     /**
-     * Qualifying trips per user, as guest or guide — paid or with a verified
-     * person, counting each *other person* once, so neither a pair repeating
-     * free trips nor a ring of sock puppets earns anything. Joined as `ts`. `$userId`
-     * narrows it to one person (a profile page) instead of everyone.
+     * Trips per user **in `$role`** (finished, as that side), joined as `ts`:
+     * `trips_completed` counts every one — free trips too, so a volunteer
+     * guide's record shows — while `level_points`/`paid_trips` count only
+     * paid ones, the only trips that earn a level (`Levels::pointsSql()`).
+     * `$userId` narrows it to one person (a profile page) instead of everyone.
      */
-    public static function tripsJoin(?int $userId = null): string
+    public static function tripsJoin(?int $userId, string $role): string
     {
-        $only = static fn(string $column): string => $userId ? ' AND b.`' . $column . '` = ' . $userId : '';
+        $side = $role === 'guide' ? 'guide_id' : 'guest_id';
 
-        // Qualifying trips only (`Levels::QUALIFYING_TRIP`): paid, or with a verified person.
         return 'LEFT JOIN (
-                SELECT `uid`, COUNT(DISTINCT `other`) AS `trips_completed` FROM (
-                    SELECT b.`guest_id` AS `uid`, b.`guide_id` AS `other` FROM `bookings` b
-                    JOIN `users` o ON o.`id` = b.`guide_id`
-                    WHERE ' . Levels::QUALIFYING_TRIP . $only('guest_id') . '
-                    UNION ALL
-                    SELECT b.`guide_id` AS `uid`, b.`guest_id` AS `other` FROM `bookings` b
-                    JOIN `users` o ON o.`id` = b.`guest_id`
-                    WHERE ' . Levels::QUALIFYING_TRIP . $only('guide_id') . '
-                ) t GROUP BY `uid`
+                SELECT b.`' . $side . '` AS `uid`,
+                       COUNT(*) AS `trips_completed`,
+                       SUM(' . Levels::PAID_TRIP . ') AS `paid_trips`,
+                       SUM(IF(' . Levels::PAID_TRIP . ', ' . Levels::pointsSql($role) . ', 0)) AS `level_points`
+                FROM `bookings` b
+                WHERE ' . Levels::FINISHED_TRIP . ($userId ? ' AND b.`' . $side . '` = ' . $userId : '') . '
+                GROUP BY b.`' . $side . '`
              ) ts ON ts.`uid` = u.`id`';
     }
 
@@ -87,10 +85,13 @@ final class Ranking
      * for the role listed — headline/bio), `rr` (`reviewsJoin()`), `ts`
      * (`tripsJoin()`) and `sx` (`Levels::sanctionsJoin()`).
      */
-    public static function columns(): string
+    public static function columns(string $role): string
     {
         return 'u.`verified_at` IS NOT NULL AS `verified`,
                 COALESCE(ts.`trips_completed`, 0) AS `trips_completed`,
+                ' . ($role === 'guide'
+                    ? '(COALESCE(ts.`trips_completed`, 0) > 0 AND COALESCE(ts.`paid_trips`, 0) = 0)'
+                    : '0') . ' AS `volunteer`,
                 ' . Levels::effectiveLevelSql() . ' AS `level`,
                 (COALESCE(rr.`authors`, 0) >= 5 AND rr.`author_sum` / rr.`authors` >= 4.6) AS `top_rated`,
                 ' . self::scoreSql() . ' AS `rank_score`';
@@ -118,6 +119,8 @@ final class Ranking
         $row['verified'] = (bool) (int) $row['verified'];
         $row['top_rated'] = (bool) (int) ($row['top_rated'] ?? 0);
         $row['trips_completed'] = (int) $row['trips_completed'];
+        // A guide who has only guided for free: "Volunteer" instead of a level.
+        $row['volunteer'] = (bool) (int) ($row['volunteer'] ?? 0);
         $row['level'] = (int) $row['level'];
         unset($row['rank_score']);
 

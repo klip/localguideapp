@@ -154,10 +154,12 @@ export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   verified: boolean
   /** ≥ 5 reviews averaging ≥ 4.6 (see `Ranking.php`). */
   top_rated: boolean
-  /** Finished trips, as guest or guide (each other person once). */
+  /** Finished trips in the role shown — free ones too. */
   trips_completed: number
-  /** Effective level 0–7 (`Levels.php`): from finished trips, minus any active sanction. */
+  /** Effective level 0–7 in the role shown (`Levels.php`): from paid trips' points, minus any active sanction. */
   level: number
+  /** A guide who has only guided for free so far: "Volunteer" instead of a level. */
+  volunteer?: boolean
   attributes: AttributeMap
   ranges: RangeMap
 }
@@ -636,13 +638,22 @@ export type LevelName =
 
 /** What `api.myLevel()` returns — see `Levels.php`. */
 export interface LevelState {
+  /** Levels are per role: this is the acting role's. */
+  role?: Role
   level: number
   name: LevelName
+  /** Finished trips in this role, free ones included. */
   trips_completed: number
-  /** Trips needed for the next level; null at the top. */
-  next_level_trips: number | null
-  /** The level `next_level_trips` leads to (by earned level, so above a sanctioned badge + 1). */
+  /** The paid ones — the only trips that earn points. */
+  paid_trips: number
+  /** Level points: 1 per paid trip as a traveller; 1–1.5 as a guide, more for higher fees. */
+  points: number
+  /** Points needed for the next level; null at the top. */
+  next_level_points: number | null
+  /** The level `next_level_points` leads to (by earned level, so above a sanctioned badge + 1). */
   next_level: number | null
+  /** A guide with finished trips but no paid one yet. */
+  volunteer: boolean
   /** Active sanctions, summed — they lower `level`. */
   sanction: { levels: number; until: string | null; reason: string | null } | null
   /** Guests: picks in the next £5 pack. */

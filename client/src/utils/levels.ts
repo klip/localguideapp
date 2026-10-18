@@ -5,7 +5,16 @@ import type { LevelName } from '@/plugins/api'
  * Level names in order (index = level), matching `Levels::NAMES` — the
  * thresholds are there too: 1, 3, 6, 12, 24, 48 and 96 successful trips.
  */
-export const LEVEL_NAMES: LevelName[] = ['new', 'starter', 'explorer', 'pathfinder', 'trailblazer', 'pioneer', 'legend', 'icon']
+export const LEVEL_NAMES: LevelName[] = [
+  'new',
+  'starter',
+  'explorer',
+  'pathfinder',
+  'trailblazer',
+  'pioneer',
+  'legend',
+  'icon',
+]
 
 export function levelName(level: number): string {
   const key = LEVEL_NAMES[Math.max(0, Math.min(LEVEL_NAMES.length - 1, level))]!

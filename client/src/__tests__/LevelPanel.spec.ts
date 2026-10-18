@@ -12,8 +12,11 @@ function state(overrides: Partial<LevelState> = {}): LevelState {
     level: 2,
     name: 'explorer',
     trips_completed: 4,
-    next_level_trips: 6,
+    paid_trips: 4,
+    points: 4,
+    next_level_points: 6,
     next_level: 3,
+    volunteer: false,
     sanction: null,
     picks_per_pack: 7,
     commission_rate: null,
@@ -54,7 +57,10 @@ describe('LevelPanel', () => {
 
     expect(wrapper.text()).toContain('Level 2 · Explorer')
     expect(wrapper.text()).toContain('4 successful trips')
-    expect(wrapper.text()).toContain('2 more trips with new people to reach Level 3 · Pathfinder')
+    expect(wrapper.text()).toContain(
+      '2 more points to reach Level 3 · Pathfinder — every paid trip earns 1.',
+    )
+    expect(wrapper.get('[data-test="level-points"]').text()).toBe('4 level points')
     expect(wrapper.text()).toContain('7 picks in every £5 pack')
     const bonus = wrapper.find('[data-test="bonus-9"]')
     expect(bonus.text()).toContain('3 days of free picks')
@@ -159,5 +165,36 @@ describe('LevelPanel', () => {
     expect(wrapper.find('.sanction').text()).toContain('Your level is lowered by 1')
     expect(wrapper.find('.sanction').text()).toContain('Asked a guest to pay outside the app')
     expect(wrapper.text()).toContain('Reach level 4')
+  })
+
+  it('shows a guide who has only guided for free as a Volunteer, with fractional guide points to go', async () => {
+    const wrapper = mountPanel(
+      fakeApi({
+        myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(
+          state({
+            level: 0,
+            name: 'new',
+            trips_completed: 2,
+            paid_trips: 0,
+            points: 0,
+            next_level_points: 1,
+            next_level: 1,
+            volunteer: true,
+            picks_per_pack: null,
+            commission_rate: 0.15,
+            bonuses: [],
+          }),
+        ),
+      }),
+      'guide',
+    )
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="level-volunteer"]').text()).toContain('Volunteer')
+    expect(wrapper.text()).toContain('2 successful trips')
+    expect(wrapper.text()).toContain('Your first paid trip starts your level.')
+    expect(wrapper.text()).toContain(
+      '1 more points to reach Level 1 · Starter — every paid trip earns 1 to 1.5',
+    )
   })
 })

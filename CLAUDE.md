@@ -1713,8 +1713,19 @@ the plumbing, is in:
   where the subject was on that side, deck ★ and ranking count that role's
   reviews only, and `ReviewsSection` shows "As a guide" / "As a traveller"
   tabs for someone who is both (the page's own role first).
-- Not yet per role: levels (`Levels::sync()` uses the first role) and badges
-  — phases 4–5.
+- **Levels per role, from paid trips** (phase 4, 054): a guide level and a
+  traveller level. Only paid, finished trips earn points (`Levels::PAID_TRIP`,
+  every one counts — repeat trips too): 1 per trip as a traveller,
+  `1 + 0.5 × min(1, fee / £100)` as a guide (`Levels::pointsSql()`);
+  thresholds 1, 3, 6, 12, 24, 48, 96 points. `Ranking::tripsJoin($userId,
+  $role)` gives `trips_completed` (every finished trip in that role — free
+  ones too, the badge), `paid_trips` and `level_points`; a guide with trips
+  but no paid one is `volunteer` — "♡ Volunteer" instead of a level
+  (`StandingBadges`, `LevelPanel`). `user_role.level` is the level last
+  announced per role (`users.level` is gone); `sync()` runs every role held;
+  level bonus reasons are `guest_level_N`/`guide_level_N`. Sanctions stay per
+  person. `myLevel` reports the acting role's `points`/`next_level_points`.
+- Not yet per role: menu badges — phase 5.
 
 ### Two-factor login & password reset
 
@@ -2347,6 +2358,11 @@ API service (`api/classes/`):
   on picks/spans, `reviews.subject_role` (from the booking). Applied
   2026-10-18. Not re-runnable.
 - `api/sql/053_translations_review_tabs.sql` — the review tabs. Applied
+  2026-10-18. Re-runnable.
+- `api/sql/054_levels_per_role.sql` — `user_role.level`, drops `users.level`,
+  role-prefixed level bonus reasons. Applied 2026-10-18. Not re-runnable.
+- `api/sql/055_translations_levels_per_role.sql` — Volunteer, level points,
+  per-role progress; drops the old trip-count progress strings. Applied
   2026-10-18. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.

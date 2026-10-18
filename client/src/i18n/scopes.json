@@ -183,6 +183,7 @@
       "common.image_cropper",
       "common.level",
       "common.range_picker",
+      "common.standing",
       "profile.add_role",
       "profile.contact",
       "profile.details",

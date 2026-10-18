@@ -30,7 +30,9 @@ export interface MapsLink {
   provider: 'apple' | 'google' | 'geo'
 }
 
-export function detectMapsPlatform(nav: NavigatorLike | undefined = globalThis.navigator): MapsPlatform {
+export function detectMapsPlatform(
+  nav: NavigatorLike | undefined = globalThis.navigator,
+): MapsPlatform {
   if (!nav) return 'other'
   const hinted = nav.userAgentData?.platform?.toLowerCase() ?? ''
   if (hinted === 'android') return 'android'
@@ -49,7 +51,10 @@ function coords(latitude: number, longitude: number) {
 }
 
 export function appleMapsLink(latitude: number, longitude: number, label?: string): MapsLink {
-  const params = new URLSearchParams({ ll: coords(latitude, longitude), q: label || coords(latitude, longitude) })
+  const params = new URLSearchParams({
+    ll: coords(latitude, longitude),
+    q: label || coords(latitude, longitude),
+  })
   return { href: `https://maps.apple.com/?${params}`, provider: 'apple' }
 }
 
@@ -64,7 +69,9 @@ export function googleMapsLink(latitude: number, longitude: number): MapsLink {
  */
 export function geoLink(latitude: number, longitude: number, label?: string): MapsLink {
   const at = coords(latitude, longitude)
-  const name = label ? `(${encodeURIComponent(label).replace(/\(/g, '%28').replace(/\)/g, '%29')})` : ''
+  const name = label
+    ? `(${encodeURIComponent(label).replace(/\(/g, '%28').replace(/\)/g, '%29')})`
+    : ''
   return { href: `geo:0,0?q=${at}${name}`, provider: 'geo' }
 }
 

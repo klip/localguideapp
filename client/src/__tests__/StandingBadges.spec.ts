@@ -32,7 +32,13 @@ describe('StandingBadges', () => {
 
   it('maps the server row, and appears on the deck card', () => {
     const standing = standingOf({ verified: true, top_rated: false, trips_completed: 2 })
-    expect(standing).toEqual({ verified: true, topRated: false, tripsCompleted: 2, level: 0 })
+    expect(standing).toEqual({
+      verified: true,
+      topRated: false,
+      tripsCompleted: 2,
+      level: 0,
+      volunteer: false,
+    })
 
     const card = mount(ProfileCard, {
       props: { name: 'Gina', age: 34, photo: 'none', standing },
@@ -40,5 +46,22 @@ describe('StandingBadges', () => {
     })
     expect(card.find('.photo-copy [data-test="standing-verified"]').exists()).toBe(true)
     expect(card.find('[data-test="standing-trips"]').text()).toContain('2 trips')
+  })
+
+  it('shows Volunteer instead of a level for a guide with only free trips, keeping the trips count', () => {
+    const wrapper = mount(StandingBadges, {
+      props: {
+        standing: standingOf({
+          verified: false,
+          top_rated: false,
+          trips_completed: 3,
+          level: 0,
+          volunteer: true,
+        }),
+      },
+    })
+    expect(wrapper.find('[data-test="standing-volunteer"]').text()).toContain('Volunteer')
+    expect(wrapper.find('[data-test="standing-level"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="standing-trips"]').text()).toContain('3 trips')
   })
 })

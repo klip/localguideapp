@@ -18,7 +18,16 @@ const props = withDefaults(defineProps<{ standing: Standing; onPhoto?: boolean }
 
 const badges = computed(() => {
   const list: { key: string; icon: string; label: string; title: string }[] = []
-  if (props.standing.level > 0) {
+  // A guide who has only guided for free shows that instead of a level;
+  // their first paid trip brings the real one.
+  if (props.standing.volunteer) {
+    list.push({
+      key: 'volunteer',
+      icon: '♡',
+      label: t('common.standing.volunteer'),
+      title: t('common.standing.volunteer_title'),
+    })
+  } else if (props.standing.level > 0) {
     list.push({
       key: 'level',
       icon: '◆',

@@ -210,12 +210,12 @@ class Users
 
         // Best first — see `Ranking` for the score.
         $rows = $this->db->db_GetArray(
-            'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns() . '
+            'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns($roleName) . '
              FROM `users` u
              JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . (int) $roleId . '
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . self::reviewSummaryJoin($roleName) . '
-             ' . Ranking::tripsJoin() . ' ' . Ranking::reviewsJoin(null, $roleName) . ' ' . Levels::sanctionsJoin() . '
+             ' . Ranking::tripsJoin(null, $roleName) . ' ' . Ranking::reviewsJoin(null, $roleName) . ' ' . Levels::sanctionsJoin() . '
              WHERE ' . implode(' AND ', $where) . '
              ' . Ranking::ORDER_BY
         );
@@ -256,12 +256,12 @@ class Users
         $roleId = (int) $this->findRoleIdByName($role);
 
         $row = $this->db->db_GetRow(
-            'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns() . '
+            'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns($role) . '
              FROM `users` u
              JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . $roleId . '
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . self::reviewSummaryJoin($role, $userId) . '
-             ' . Ranking::tripsJoin($userId) . ' ' . Ranking::reviewsJoin($userId, $role) . ' ' . Levels::sanctionsJoin($userId) . '
+             ' . Ranking::tripsJoin($userId, $role) . ' ' . Ranking::reviewsJoin($userId, $role) . ' ' . Levels::sanctionsJoin($userId) . '
              WHERE u.`id` = ' . $userId
         );
         if (!$row) {
