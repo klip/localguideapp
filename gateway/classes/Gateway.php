@@ -34,7 +34,7 @@ class Gateway
     /** Routed to the auth service, `sessionHash` and all. */
     private const AUTH_ACTIONS = [
         'register', 'login', 'verifyTwoFactor', 'resendTwoFactor', 'requestPasswordReset',
-        'resetPassword', 'forgetTrustedDevices', 'changePassword', 'logout', 'session',
+        'resetPassword', 'forgetTrustedDevices', 'changePassword', 'logout', 'session', 'addRole',
     ];
     /** Service actions only the gateway may call. */
     private const INTERNAL_ACTIONS = ['resolve', 'peekMany', 'pushState'];

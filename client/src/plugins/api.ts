@@ -36,8 +36,18 @@ export interface RegisterPayload {
   image?: string
   /** The `LegalDocumentView.version` of the terms the user accepted; must be the one in force. */
   termsVersion: string
+  /** The version of the starting role's agreement (`roleAgreementSlug(role)`) the user accepted. */
+  agreementVersion: string
   /** The language the terms were shown in, recorded with the acceptance. */
   language?: string
+}
+
+/** The legal documents there are: the terms, and each role's agreement. */
+export type LegalSlug = 'terms' | 'guide_agreement' | 'traveller_agreement'
+
+/** The agreement a role accepts on top of the terms (mirrors `LegalDocuments::ROLE_AGREEMENTS`). */
+export function roleAgreementSlug(role: 'guest' | 'guide'): LegalSlug {
+  return role === 'guide' ? 'guide_agreement' : 'traveller_agreement'
 }
 
 export interface LoginPayload {
@@ -816,6 +826,13 @@ export const api = {
   myProfile: () => call<MyProfile>('myProfile'),
   updateAccount: (payload: AccountUpdatePayload) => call<{ ok: true }>('updateAccount', payload),
   changePassword: (payload: ChangePasswordPayload) => call<{ ok: true }>('changePassword', payload),
+  /**
+   * "Become a guide" / "I want to travel": grants the other role, recording
+   * the acceptance of its agreement (`agreementVersion`, the one shown).
+   * Returns every role the account now holds.
+   */
+  addRole: (payload: { role: Role; agreementVersion: string; language?: string }) =>
+    call<{ roles: Role[] }>('addRole', payload),
   /** Destroys the current session server-side — best-effort from the caller's point of view, see `AppHeader.vue`. */
   logout: () => call<{ ok: true }>('logout'),
   /** Validates the locally-cached session (see `stores/auth.ts`) against the server and slides its inactivity window forward — what `App.vue` calls on boot. */
@@ -898,8 +915,8 @@ export const api = {
       language,
       ...scope,
     }),
-  /** A legal document in force (`'terms'`), in `language` or else English. Fetched on demand. No session needed. */
-  legalDocument: (slug: 'terms', language: string) =>
+  /** A legal document in force, in `language` or else English. Fetched on demand. No session needed. */
+  legalDocument: (slug: LegalSlug, language: string) =>
     call<LegalDocumentView>('legalDocument', { slug, language }),
 }
 

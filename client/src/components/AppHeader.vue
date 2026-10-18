@@ -6,7 +6,7 @@ import BrandMark from './BrandMark.vue'
 import LanguageSwitcher from './LanguageSwitcher.vue'
 import PillBadge from './PillBadge.vue'
 import { t, tn } from '@/i18n'
-import { useApi } from '@/plugins/api'
+import { useApi, type Role } from '@/plugins/api'
 import { useMatchesStore } from '@/stores/matches'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
@@ -35,6 +35,28 @@ function badgeText(count: number) {
 }
 
 const discoverTo = computed(() => (auth.activeRole === 'guide' ? '/guide/discover' : '/discover'))
+
+/** An account holding both roles switches between them; one holding one is offered the other. */
+const { roles, activeRole } = storeToRefs(auth)
+const canSwitch = computed(() => roles.value.length > 1)
+const missingRole = computed<Role | null>(() => {
+  if (!isAuthenticated.value || roles.value.length !== 1) return null
+  return roles.value[0] === 'guide' ? 'guest' : 'guide'
+})
+
+/** The decks are per role; every other page re-renders in place (App.vue keys the view by role). */
+const DECK_FOR: Record<Role, string> = { guest: '/discover', guide: '/guide/discover' }
+
+function switchRole(role: Role) {
+  if (role === activeRole.value) return
+  auth.setActiveRole(role)
+  menuOpen.value = false
+  messages.info(
+    t(role === 'guide' ? 'common.app_header.switched_guide' : 'common.app_header.switched_guest'),
+  )
+  const other = DECK_FOR[role === 'guide' ? 'guest' : 'guide']
+  if (route.path === other) void router.replace(DECK_FOR[role])
+}
 
 async function logout() {
   try {
@@ -258,7 +280,43 @@ onBeforeUnmount(() => {
                 t('common.app_header.profile')
               }}</RouterLink>
             </li>
-            <li v-if="hasAccess">
+            <li v-if="canSwitch" class="mode-switch">
+              <div role="group" :aria-label="t('common.app_header.mode_label')" class="mode-toggle">
+                <button
+                  v-for="role in ['guest', 'guide'] as const"
+                  :key="role"
+                  type="button"
+                  class="mode-option"
+                  :class="{ 'mode-option--on': activeRole === role }"
+                  :aria-pressed="activeRole === role"
+                  :data-test="`mode-${role}`"
+                  @click="switchRole(role)"
+                >
+                  {{
+                    t(
+                      role === 'guide'
+                        ? 'common.app_header.mode_guide'
+                        : 'common.app_header.mode_guest',
+                    )
+                  }}
+                </button>
+              </div>
+            </li>
+            <li v-else-if="missingRole">
+              <RouterLink
+                :to="{ path: '/profile', query: { addRole: missingRole } }"
+                class="nav-link add-role"
+                data-test="add-role-link"
+                >{{
+                  t(
+                    missingRole === 'guide'
+                      ? 'common.app_header.become_guide'
+                      : 'common.app_header.want_to_travel',
+                  )
+                }}</RouterLink
+              >
+            </li>
+            <li v-if="hasAccess && activeRole === 'guest'">
               <RouterLink to="/matches" class="nav-link">
                 <PillBadge>{{
                   freePicksActive
@@ -619,5 +677,40 @@ nav .nav {
       padding-block: calc(var(--pico-nav-link-spacing-vertical) - var(--pico-border-width) * 2);
     }
   }
+}
+.mode-toggle {
+  display: inline-flex;
+  padding: 0.15rem;
+  border: 1px solid var(--rg-line);
+  border-radius: 999px;
+  background: var(--rg-surface);
+}
+
+.mode-option {
+  width: auto;
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--rg-muted);
+  font-size: 0.85rem;
+  line-height: 1.3;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--rg-orange-50);
+    color: var(--rg-ink);
+  }
+}
+
+.mode-option--on,
+.mode-option--on:hover {
+  background: var(--pico-primary);
+  color: #fff;
+}
+
+.add-role {
+  font-weight: 600;
 }
 </style>

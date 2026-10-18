@@ -74,7 +74,9 @@ const sampleCategories: AttributeCategory[] = [
   },
 ]
 
-async function mountProfilePage(api: Api, authenticated = true) {
+async function mountProfilePage(api: Api, authenticated = true, path = '/profile') {
+  // stores/auth.ts reads the session and the chosen role back from storage.
+  localStorage.clear()
   const pinia = createPinia()
   setActivePinia(pinia)
   if (authenticated) {
@@ -94,7 +96,7 @@ async function mountProfilePage(api: Api, authenticated = true) {
       { path: '/login', name: 'login', component: { template: '<div />' } },
     ],
   })
-  router.push('/profile')
+  router.push(path)
   await router.isReady()
 
   const wrapper = mount(ProfilePage, {
@@ -106,6 +108,23 @@ async function mountProfilePage(api: Api, authenticated = true) {
   await flushPromises()
 
   return wrapper
+}
+
+/** jsdom's <dialog> is partial: stand in for showModal()/close() for a test that opens one. */
+function stubDialog() {
+  const { showModal, close } = HTMLDialogElement.prototype
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  }
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+    if (!this.hasAttribute('open')) return
+    this.removeAttribute('open')
+    this.dispatchEvent(new Event('close'))
+  }
+  return () => {
+    HTMLDialogElement.prototype.showModal = showModal
+    HTMLDialogElement.prototype.close = close
+  }
 }
 
 /**
@@ -138,19 +157,25 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(fakeApi({ myProfile, attributeCategories }))
 
     expect(myProfile).toHaveBeenCalledWith()
-    expect((wrapper.find('input[type="email"]').element as HTMLInputElement).value).toBe('sofia@example.com')
+    expect((wrapper.find('input[type="email"]').element as HTMLInputElement).value).toBe(
+      'sofia@example.com',
+    )
     expect(wrapper.find('[data-test="verification"]').text()).toMatch(/Not verified yet/)
     expect((labelled(wrapper, 'Headline').find('input').element as HTMLInputElement).value).toBe(
       'Rock scrambles',
     )
-    expect((labelled(wrapper, 'Date of birth').find('input').element as HTMLInputElement).value).toBe(
-      '1996-05-20',
+    expect(
+      (labelled(wrapper, 'Date of birth').find('input').element as HTMLInputElement).value,
+    ).toBe('1996-05-20')
+    expect(
+      (labelled(wrapper, 'Country code').find('input').element as HTMLInputElement).value,
+    ).toBe('United Kingdom (+44)')
+    expect((labelled(wrapper, 'Phone').find('input').element as HTMLInputElement).value).toBe(
+      '7700900123',
     )
-    expect((labelled(wrapper, 'Country code').find('input').element as HTMLInputElement).value).toBe(
-      'United Kingdom (+44)',
-    )
-    expect((labelled(wrapper, 'Phone').find('input').element as HTMLInputElement).value).toBe('7700900123')
-    expect((labelled(wrapper, 'Two-factor').find('select').element as HTMLSelectElement).value).toBe('email')
+    expect(
+      (labelled(wrapper, 'Two-factor').find('select').element as HTMLSelectElement).value,
+    ).toBe('email')
 
     expect(wrapper.text()).toContain('English')
     expect(wrapper.text()).toContain('Nature')
@@ -163,7 +188,9 @@ describe('ProfilePage', () => {
         myProfile: vi
           .fn<Api['myProfile']>()
           .mockResolvedValue({ ...sampleProfile, verified: true, verification_method: 'passport' }),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
       }),
     )
 
@@ -176,8 +203,12 @@ describe('ProfilePage', () => {
   it('leaves the two-factor select unselected for a legacy "none" account instead of offering it as a choice', async () => {
     const wrapper = await mountProfilePage(
       fakeApi({
-        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue({ ...sampleProfile, two_factor_method: 'none' }),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        myProfile: vi
+          .fn<Api['myProfile']>()
+          .mockResolvedValue({ ...sampleProfile, two_factor_method: 'none' }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
       }),
     )
 
@@ -188,15 +219,23 @@ describe('ProfilePage', () => {
   })
 
   it('shows remembered devices and forgets them all', async () => {
-    const forgetTrustedDevices = vi.fn<Api['forgetTrustedDevices']>().mockResolvedValue({ ok: true })
+    const forgetTrustedDevices = vi
+      .fn<Api['forgetTrustedDevices']>()
+      .mockResolvedValue({ ok: true })
     localStorage.setItem(
       'rockguide.trustedDevices',
-      JSON.stringify({ [sampleProfile.email]: { token: 'd'.repeat(64), until: '2099-01-01T00:00:00Z' } }),
+      JSON.stringify({
+        [sampleProfile.email]: { token: 'd'.repeat(64), until: '2099-01-01T00:00:00Z' },
+      }),
     )
     const wrapper = await mountProfilePage(
       fakeApi({
-        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue({ ...sampleProfile, trusted_device_count: 2 }),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        myProfile: vi
+          .fn<Api['myProfile']>()
+          .mockResolvedValue({ ...sampleProfile, trusted_device_count: 2 }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         forgetTrustedDevices,
       }),
     )
@@ -209,20 +248,30 @@ describe('ProfilePage', () => {
     expect(forgetTrustedDevices).toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('remembered device')
     expect(localStorage.getItem('rockguide.trustedDevices')).toBeNull()
-    expect(useMessagesStore().items.map((item) => item.text).join()).toContain('every device will ask for a code')
+    expect(
+      useMessagesStore()
+        .items.map((item) => item.text)
+        .join(),
+    ).toContain('every device will ask for a code')
   })
 
   it('offers only email for two-factor codes, and leaves a legacy SMS choice unselected', async () => {
     const wrapper = await mountProfilePage(
       fakeApi({
-        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue({ ...sampleProfile, two_factor_method: 'sms' }),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        myProfile: vi
+          .fn<Api['myProfile']>()
+          .mockResolvedValue({ ...sampleProfile, two_factor_method: 'sms' }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
       }),
     )
 
     const select = labelled(wrapper, 'Two-factor').find('select').element as HTMLSelectElement
     expect(select.value).toBe('')
-    const enabled = Array.from(select.options).filter((o) => !o.disabled).map((o) => o.value)
+    const enabled = Array.from(select.options)
+      .filter((o) => !o.disabled)
+      .map((o) => o.value)
     expect(enabled).toEqual(['email'])
   })
 
@@ -231,7 +280,9 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         updateAccount,
       }),
     )
@@ -254,11 +305,15 @@ describe('ProfilePage', () => {
   it('points a contact-details refusal at the field that held them, until it is edited', async () => {
     const updateProfile = vi
       .fn<Api['updateProfile']>()
-      .mockRejectedValue(new ApiError('Contact details can’t be shared here.', 400, 'contact_details', 'bio'))
+      .mockRejectedValue(
+        new ApiError('Contact details can’t be shared here.', 400, 'contact_details', 'bio'),
+      )
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         updateProfile,
       }),
     )
@@ -283,7 +338,9 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         updateProfile,
       }),
     )
@@ -297,14 +354,18 @@ describe('ProfilePage', () => {
 
     const optionInput = interestsGroup.find('.combobox input')
     await optionInput.trigger('focus')
-    const historyItem = interestsGroup.findAll('.combobox-list li').find((li) => li.text() === 'History')!
+    const historyItem = interestsGroup
+      .findAll('.combobox-list li')
+      .find((li) => li.text() === 'History')!
     await historyItem.trigger('mousedown')
 
     // The dropdown must stay open after a pick, not just the input's focus
     // — picking a second option shouldn't require blurring and clicking
     // "+" again (the reported bug: selection closed the dropdown outright).
     expect(interestsGroup.find('.combobox-list').exists()).toBe(true)
-    const foodItem = interestsGroup.findAll('.combobox-list li').find((li) => li.text() === 'Food & drink')!
+    const foodItem = interestsGroup
+      .findAll('.combobox-list li')
+      .find((li) => li.text() === 'Food & drink')!
     await foodItem.trigger('mousedown')
 
     await forms(wrapper).details.trigger('submit.prevent')
@@ -324,7 +385,9 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         updateProfile,
       }),
     )
@@ -343,19 +406,25 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
       }),
     )
 
     // food_allergies has no selections in sampleProfile — no row for it at all yet.
     const hasAllergiesRow = () =>
-      forms(wrapper).details.findAll('.attribute-group').some((group) => group.text().includes('Food allergies'))
+      forms(wrapper)
+        .details.findAll('.attribute-group')
+        .some((group) => group.text().includes('Food allergies'))
     expect(hasAllergiesRow()).toBe(false)
 
     // Reached via the bottom "Add another category" control, since it has no row of its own.
     const categoryInput = forms(wrapper).details.find('.add-category .combobox input')
     await categoryInput.trigger('focus')
-    const allergiesItem = wrapper.findAll('.combobox-list li').find((li) => li.text() === 'Food allergies')!
+    const allergiesItem = wrapper
+      .findAll('.combobox-list li')
+      .find((li) => li.text() === 'Food allergies')!
     await allergiesItem.trigger('mousedown')
 
     const allergiesGroup = forms(wrapper)
@@ -375,14 +444,18 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         updateProfile,
       }),
     )
 
     const categoryInput = forms(wrapper).details.find('.add-category .combobox input')
     await categoryInput.trigger('focus')
-    const allergiesItem = wrapper.findAll('.combobox-list li').find((li) => li.text() === 'Food allergies')!
+    const allergiesItem = wrapper
+      .findAll('.combobox-list li')
+      .find((li) => li.text() === 'Food allergies')!
     await allergiesItem.trigger('mousedown')
 
     const allergiesGroup = forms(wrapper)
@@ -391,7 +464,9 @@ describe('ProfilePage', () => {
 
     const optionInput = allergiesGroup.find('.combobox input')
     await optionInput.trigger('focus')
-    const glutenItem = allergiesGroup.findAll('.combobox-list li').find((li) => li.text() === 'Gluten')!
+    const glutenItem = allergiesGroup
+      .findAll('.combobox-list li')
+      .find((li) => li.text() === 'Gluten')!
     await glutenItem.trigger('mousedown')
 
     // Still expanded right after picking — the row shouldn't collapse mid-interaction.
@@ -410,7 +485,9 @@ describe('ProfilePage', () => {
     await flushPromises()
 
     expect(updateProfile).toHaveBeenCalledWith(
-      expect.objectContaining({ attributes: expect.objectContaining({ food_allergies: ['gluten'] }) }),
+      expect.objectContaining({
+        attributes: expect.objectContaining({ food_allergies: ['gluten'] }),
+      }),
     )
   })
 
@@ -419,7 +496,9 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         updateProfile,
       }),
     )
@@ -451,7 +530,9 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         changePassword,
       }),
     )
@@ -473,7 +554,9 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         changePassword,
       }),
     )
@@ -489,7 +572,9 @@ describe('ProfilePage', () => {
       currentPassword: 'oldpassword',
       newPassword: 'newpassword1',
     })
-    expect((password.find('input[autocomplete="current-password"]').element as HTMLInputElement).value).toBe('')
+    expect(
+      (password.find('input[autocomplete="current-password"]').element as HTMLInputElement).value,
+    ).toBe('')
   })
 
   it('shows an error toast when changing the password fails', async () => {
@@ -499,7 +584,9 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
-        attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
         changePassword,
       }),
     )
@@ -513,5 +600,66 @@ describe('ProfilePage', () => {
 
     const messages = useMessagesStore()
     expect(messages.items.map((item) => item.text)).toContain('Current password is incorrect.')
+  })
+
+  it('offers the role a guide-only account lacks, and adds it once its agreement is accepted', async () => {
+    const restore = stubDialog()
+    const legalDocument = vi.fn<Api['legalDocument']>().mockResolvedValue({
+      slug: 'traveller_agreement',
+      version: '2026-10-18',
+      language: 'en',
+      title: 'Traveller Agreement',
+      body: '## 1. Scope\n\nApplies.',
+    })
+    const addRole = vi.fn<Api['addRole']>().mockResolvedValue({ roles: ['guide', 'guest'] })
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
+        legalDocument,
+        addRole,
+      }),
+      true,
+      '/profile?addRole=guest',
+    )
+    const auth = useAuthStore()
+
+    // The header link lands here with ?addRole=: the traveller agreement opens.
+    expect(wrapper.find('[data-test="add-role-banner"]').text()).toContain('I want to travel')
+    expect(legalDocument).toHaveBeenCalledWith('traveller_agreement', 'en')
+    expect(wrapper.find('dialog').attributes('open')).toBe('')
+    expect(wrapper.find('dialog').text()).toContain('Traveller Agreement')
+
+    await wrapper.find('[data-test="accept-role"]').trigger('click')
+    await flushPromises()
+
+    expect(addRole).toHaveBeenCalledWith({
+      role: 'guest',
+      agreementVersion: '2026-10-18',
+      language: 'en',
+    })
+    expect(auth.roles).toEqual(['guide', 'guest'])
+    // …and switched into it, so the page shows the traveller's fields.
+    expect(auth.activeRole).toBe('guest')
+    restore()
+  })
+
+  it('shows which role is being edited for an account holding both', async () => {
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
+      }),
+    )
+    const auth = useAuthStore()
+    auth.setUser({ ...auth.user!, roles: ['guide', 'guest'] })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="add-role-banner"]').exists()).toBe(false)
+    expect(wrapper.find('.editing-role').text()).toContain('guide profile')
   })
 })

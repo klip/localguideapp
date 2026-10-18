@@ -71,6 +71,8 @@ class AuthProcessor
                     return [200, ['ok' => true]];
                 case 'changePassword':
                     return [200, $this->actionChangePassword()];
+                case 'addRole':
+                    return [200, $this->actionAddRole()];
                 case 'logout':
                     $this->sessions->destroy($this->sessionHash());
                     return [200, ['ok' => true]];
@@ -126,6 +128,8 @@ class AuthProcessor
         if ($currentTerms === null || $termsVersion !== $currentTerms) {
             throw new RuntimeException('Please accept the current terms and conditions.');
         }
+        // …and of the starting role's agreement (guide or traveller), same rule.
+        $agreement = $this->legal->assertRoleAgreement($role, (string) ($this->input['agreementVersion'] ?? ''));
         $language = (string) ($this->input['language'] ?? 'en');
         $language = preg_match('/^[a-z]{2}$/', $language) ? $language : 'en';
 
@@ -133,6 +137,7 @@ class AuthProcessor
         try {
             $userId = $this->accounts->register($email, $password, $role, $name, $image);
             $this->legal->recordAcceptance($userId, LegalDocuments::TERMS, $currentTerms, $language, (string) $this->context['userAgent']);
+            $this->legal->recordAcceptance($userId, LegalDocuments::ROLE_AGREEMENTS[$role], $agreement, $language, (string) $this->context['userAgent']);
             $this->db->db_Execute('COMMIT');
         } catch (Throwable $e) {
             $this->db->db_Execute('ROLLBACK');
@@ -225,6 +230,37 @@ class AuthProcessor
     }
 
     /** Verifies `currentPassword` before setting `newPassword`, then emails a notice. */
+    /**
+     * "Become a guide" / "I want to travel": grants the account its other
+     * role, together with the acceptance of that role's agreement — the
+     * version the profile page's modal showed (`agreementVersion`). Returns
+     * the account's roles.
+     */
+    private function actionAddRole(): array
+    {
+        $userId = $this->requireUserId();
+        $role = (string) ($this->input['role'] ?? '');
+        if (!in_array($role, Roles::APP_ROLES, true)) {
+            throw new RuntimeException('Role must be "guest" or "guide".');
+        }
+        $agreement = $this->legal->assertRoleAgreement($role, (string) ($this->input['agreementVersion'] ?? ''));
+        $language = (string) ($this->input['language'] ?? 'en');
+        $language = preg_match('/^[a-z]{2}$/', $language) ? $language : 'en';
+
+        $this->db->db_Execute('START TRANSACTION');
+        try {
+            $this->accounts->addRole($userId, $role);
+            $this->legal->recordAcceptance($userId, LegalDocuments::ROLE_AGREEMENTS[$role], $agreement, $language, (string) $this->context['userAgent']);
+            $this->db->db_Execute('COMMIT');
+        } catch (Throwable $e) {
+            $this->db->db_Execute('ROLLBACK');
+            throw $e;
+        }
+        Log::info('Role added', ['user_id' => $userId, 'role' => $role, 'agreement_version' => $agreement]);
+
+        return ['roles' => $this->accounts->getRoles($userId)];
+    }
+
     private function actionChangePassword(): array
     {
         $userId = $this->requireUserId();

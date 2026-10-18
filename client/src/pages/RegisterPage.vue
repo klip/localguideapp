@@ -5,7 +5,13 @@ import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import TermsDialog from '@/components/TermsDialog.vue'
 import { t } from '@/i18n'
-import { ApiError, useApi, type LegalDocumentView } from '@/plugins/api'
+import {
+  ApiError,
+  roleAgreementSlug,
+  useApi,
+  type LegalDocumentView,
+  type LegalSlug,
+} from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { formMessagePlacement } from '@/utils/formMessagePlacement'
@@ -46,8 +52,12 @@ function submit() {
   termsOpen.value = true
 }
 
-async function accept(terms: LegalDocumentView | null) {
-  if (submitting.value || !terms) return
+/** The terms, then the starting role's agreement — both accepted together. */
+const legalSlugs = computed<LegalSlug[]>(() => ['terms', roleAgreementSlug(role.value)])
+
+async function accept(documents: LegalDocumentView[] | null) {
+  const [terms, agreement] = documents ?? []
+  if (submitting.value || !terms || !agreement) return
   submitting.value = true
 
   try {
@@ -56,6 +66,7 @@ async function accept(terms: LegalDocumentView | null) {
       password: password.value,
       role: role.value,
       termsVersion: terms.version,
+      agreementVersion: agreement.version,
       language: terms.language,
     })
     termsOpen.value = false
@@ -135,11 +146,11 @@ async function accept(terms: LegalDocumentView | null) {
       </form>
     </PanelCard>
 
-    <TermsDialog ref="termsDialog" :open="termsOpen" @close="termsOpen = false">
+    <TermsDialog ref="termsDialog" :open="termsOpen" :slugs="legalSlugs" @close="termsOpen = false">
       <template #intro>
         <p class="muted">{{ t('register.terms.intro') }}</p>
       </template>
-      <template #footer="{ terms }">
+      <template #footer="{ documents }">
         <button
           type="button"
           class="secondary outline"
@@ -151,9 +162,9 @@ async function accept(terms: LegalDocumentView | null) {
         <button
           type="button"
           class="accept"
-          :disabled="!terms || submitting"
+          :disabled="!documents || submitting"
           :aria-busy="submitting"
-          @click="accept(terms)"
+          @click="accept(documents)"
         >
           {{ submitting ? t('register.form.submitting') : t('register.terms.accept') }}
         </button>

@@ -15,7 +15,32 @@
 class LegalDocuments
 {
     public const TERMS = 'terms';
-    public const SLUGS = [self::TERMS];
+    public const GUIDE_AGREEMENT = 'guide_agreement';
+    public const TRAVELLER_AGREEMENT = 'traveller_agreement';
+    public const SLUGS = [self::TERMS, self::GUIDE_AGREEMENT, self::TRAVELLER_AGREEMENT];
+
+    /**
+     * The agreement each role accepts on top of the terms — at registration
+     * for the starting role, and when adding the other one (`addRole`).
+     */
+    public const ROLE_AGREEMENTS = ['guide' => self::GUIDE_AGREEMENT, 'guest' => self::TRAVELLER_AGREEMENT];
+
+    /**
+     * Throws unless `$version` is the version of `$role`'s agreement in force
+     * — the one the client showed — and returns it.
+     */
+    public function assertRoleAgreement(string $role, string $version): string
+    {
+        $slug = self::ROLE_AGREEMENTS[$role] ?? null;
+        $current = $slug ? $this->currentVersion($slug) : null;
+        if ($current === null || $version !== $current) {
+            throw new RuntimeException($role === 'guide'
+                ? 'Please accept the current guide agreement.'
+                : 'Please accept the current traveller agreement.');
+        }
+
+        return $current;
+    }
 
     /** @var db */
     private $db;

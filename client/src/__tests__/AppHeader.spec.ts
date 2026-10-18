@@ -18,7 +18,8 @@ function testRouter() {
 async function mountHeader(signedIn: boolean) {
   const pinia = createPinia()
   setActivePinia(pinia)
-  if (signedIn) useAuthStore().setUser({ id: 1, email: 'me@example.com', role: 'guide', sessionHash: 'hash' })
+  if (signedIn)
+    useAuthStore().setUser({ id: 1, email: 'me@example.com', role: 'guide', sessionHash: 'hash' })
 
   const router = testRouter()
   router.push('/')
@@ -134,6 +135,41 @@ describe('AppHeader mobile menu', () => {
     await flushPromises()
     expect(wrapper.find('[data-test="messages-count"]').exists()).toBe(false)
     expect(wrapper.find('.burger-dot').exists()).toBe(false)
+    wrapper.unmount()
+  })
+})
+
+describe('AppHeader roles', () => {
+  it('offers the missing role to a one-role account, linking to the profile page', async () => {
+    const { wrapper } = await mountHeader(true)
+
+    const link = wrapper.find('[data-test="add-role-link"]')
+    expect(link.text()).toBe('I want to travel')
+    expect(link.attributes('href')).toBe('/profile?addRole=guest')
+    expect(wrapper.find('.mode-toggle').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('switches a dual-role account between Traveller and Guide, swapping the deck', async () => {
+    const { wrapper, router } = await mountHeader(true)
+    const auth = useAuthStore()
+    auth.setUser({ ...auth.user!, roles: ['guide', 'guest'] })
+    await router.push('/guide/discover')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="add-role-link"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="mode-guide"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.find('a[href="/guide/discover"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="mode-guest"]').trigger('click')
+    await flushPromises()
+
+    expect(auth.activeRole).toBe('guest')
+    expect(router.currentRoute.value.path).toBe('/discover')
+    expect(wrapper.find('a[href="/discover"]').exists()).toBe(true)
+    // Log out stays the last item.
+    const items = wrapper.findAll('ul.nav > li')
+    expect(items[items.length - 1]!.classes()).toContain('account')
     wrapper.unmount()
   })
 })

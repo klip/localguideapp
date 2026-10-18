@@ -28,7 +28,20 @@ const TERMS: LegalDocumentView = {
   body: 'Version 2026-10-15\n\n## 1. About\n\nOperated by [Operator: legal name].\n\n- a warning;\n- a ban.',
 }
 
-const legalDocument = () => vi.fn<Api['legalDocument']>().mockResolvedValue(TERMS)
+/** The starting role's agreement, shown after the terms and accepted with them. */
+function agreement(slug: 'guide_agreement' | 'traveller_agreement'): LegalDocumentView {
+  return {
+    slug,
+    version: '2026-10-18',
+    language: 'en',
+    title: `Agreement ${slug}`,
+    body: '## 1. Scope\n\nApplies.',
+  }
+}
+
+const bySlug = async (slug: string) =>
+  slug === 'terms' ? TERMS : agreement(slug as 'guide_agreement')
+const legalDocument = () => vi.fn<Api['legalDocument']>().mockImplementation(bySlug)
 
 // jsdom's <dialog> support is partial; stand in for the two methods used,
 // including the `close` event the browser fires.
@@ -126,6 +139,7 @@ describe('RegisterPage', () => {
       password: 'correcthorse',
       role: 'guest',
       termsVersion: '2026-10-15',
+      agreementVersion: '2026-10-18',
       language: 'en',
     })
     expect(router.currentRoute.value.path).toBe('/discover')
@@ -150,6 +164,7 @@ describe('RegisterPage', () => {
       password: 'correcthorse',
       role: 'guide',
       termsVersion: '2026-10-15',
+      agreementVersion: '2026-10-18',
       language: 'en',
     })
     expect(router.currentRoute.value.path).toBe('/profile')
@@ -175,10 +190,10 @@ describe('RegisterPage', () => {
       'Password must be at least 8 characters.',
     )
 
-    // The terms are fetched again next time, in case a newer version was the problem.
+    // Both documents are fetched again next time, in case a newer version was the problem.
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
-    expect(legal).toHaveBeenCalledTimes(2)
+    expect(legal).toHaveBeenCalledTimes(4)
   })
 
   it('Continue opens the terms, fetched on demand, and registers nothing until Accept', async () => {
@@ -193,8 +208,13 @@ describe('RegisterPage', () => {
 
     await fillAndContinue(wrapper, 'visitor@example.com', 'correcthorse')
 
-    expect(legal).toHaveBeenCalledWith('terms', 'en')
+    // The terms, then the starting role's agreement — a visitor's is the traveller one.
+    expect(legal.mock.calls).toEqual([
+      ['terms', 'en'],
+      ['traveller_agreement', 'en'],
+    ])
     const dialog = wrapper.get('dialog')
+    expect(dialog.text()).toContain('Agreement traveller_agreement')
     expect(dialog.attributes('open')).toBe('')
     expect(dialog.get('h2').text()).toBe('Terms and Conditions and Privacy Notice')
     expect(dialog.get('h3').text()).toBe('1. About')
@@ -222,14 +242,14 @@ describe('RegisterPage', () => {
     await wrapper.find('form').trigger('submit.prevent')
     await flushPromises()
     expect(wrapper.get('dialog').attributes('open')).toBe('')
-    expect(legal).toHaveBeenCalledTimes(1)
+    expect(legal).toHaveBeenCalledTimes(2)
   })
 
   it('keeps Accept disabled and offers a retry when the terms fail to load', async () => {
     const legal = vi
       .fn<Api['legalDocument']>()
       .mockRejectedValueOnce(new ApiError('Network error', 0))
-      .mockResolvedValueOnce(TERMS)
+      .mockImplementation(bySlug)
     const { wrapper } = await mountRegisterPage('/register', fakeApi({ legalDocument: legal }))
 
     await fillAndContinue(wrapper, 'visitor@example.com', 'correcthorse')

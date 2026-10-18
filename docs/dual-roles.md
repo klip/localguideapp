@@ -114,7 +114,10 @@ and each other person counts once (`Levels::QUALIFYING_TRIP`,
    (branch `feature/dual-roles`), checked end to end with two accounts
    holding both roles, matched both ways.
 2. **Adding a role** — agreements (drafted in 15 languages like the terms),
-   `addRole` in auth, the header switch, role-aware profile page.
+   `addRole` in auth, the header switch, role-aware profile page. **Done**:
+   agreements 049/050 (drafts — have them reviewed), registration accepts
+   terms + starting role's agreement, `addRole`, header switch / add-role
+   link, profile page modal.
 3. **Per-role data** — headline/bio/level on `user_role`, attribute scopes,
    `reviews.subject_role`, per-role ratings on cards and the profile tabs.
 4. **Money-based levels** — the new progress rule, per role, in `Levels`,

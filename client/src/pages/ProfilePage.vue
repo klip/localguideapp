@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AttributeCombobox, { type ComboboxSuggestion } from '@/components/AttributeCombobox.vue'
 import RangePicker from '@/components/RangePicker.vue'
 import ImageCropper from '@/components/ImageCropper.vue'
 import LevelPanel from '@/components/LevelPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
+import TermsDialog from '@/components/TermsDialog.vue'
 import { t, tn } from '@/i18n'
 import { COUNTRY_CODES } from '@/data/countryCodes'
 import {
   ApiError,
+  roleAgreementSlug,
   type AttributeCategory,
+  type LegalDocumentView,
   type MyProfile,
+  type Role,
   type TwoFactorChannel,
   useApi,
 } from '@/plugins/api'
@@ -45,6 +50,64 @@ const loadError = ref('')
 const profile = ref<MyProfile | null>(null)
 /** The profile shows the fields of the role the account is acting as. */
 const isGuide = computed(() => auth.activeRole === 'guide')
+
+const route = useRoute()
+const router = useRouter()
+
+/**
+ * "Become a guide" / "I want to travel" (the header link, `?addRole=`, or the
+ * button here): the role the account doesn't hold yet, offered only then.
+ */
+const missingRole = computed<Role | null>(() => {
+  if (auth.roles.length !== 1) return null
+  return auth.roles[0] === 'guide' ? 'guest' : 'guide'
+})
+
+/** The role being added — its agreement is open in the modal while set. */
+const addingRole = ref<Role | null>(null)
+const addingRoleBusy = ref(false)
+const agreementSlugs = computed(() =>
+  addingRole.value ? [roleAgreementSlug(addingRole.value)] : [],
+)
+
+function startAddingRole(role: Role) {
+  if (role === missingRole.value) addingRole.value = role
+}
+
+function cancelAddingRole() {
+  addingRole.value = null
+  if (route.query.addRole) void router.replace({ path: '/profile' })
+}
+
+/**
+ * Accepting the agreement grants the role and switches into it. Switching
+ * re-renders the page as that role (App.vue keys the view by role), so the
+ * reload lands on `?focus=details`, which scrolls to the role's fields.
+ */
+async function acceptRole(documents: LegalDocumentView[] | null) {
+  const role = addingRole.value
+  const agreement = documents?.[0]
+  if (!role || !agreement || addingRoleBusy.value || !auth.user) return
+  addingRoleBusy.value = true
+  try {
+    const { roles } = await api.addRole({
+      role,
+      agreementVersion: agreement.version,
+      language: agreement.language,
+    })
+    auth.setUser({ ...auth.user, roles })
+    addingRole.value = null
+    messages.success(
+      t(role === 'guide' ? 'profile.add_role.added_guide' : 'profile.add_role.added_guest'),
+    )
+    await router.replace({ path: '/profile', query: { focus: 'details' } })
+    auth.setActiveRole(role)
+  } catch (err) {
+    reportApiError(err, t('profile.add_role.failed'))
+  } finally {
+    addingRoleBusy.value = false
+  }
+}
 
 // --- Personal & contact info ------------------------------------------------
 const name = ref('')
@@ -341,6 +404,14 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+
+  const wanted = route.query.addRole
+  if (wanted === 'guide' || wanted === 'guest') startAddingRole(wanted)
+  if (route.query.focus === 'details') {
+    await nextTick()
+    profilePanelRef.value?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })
+    void router.replace({ path: '/profile' })
+  }
 })
 
 /**
@@ -469,6 +540,68 @@ async function changePassword() {
       :heading="t('profile.header.heading')"
       :lead="t('profile.header.lead')"
     />
+
+    <div
+      v-if="auth.user && !loading && missingRole"
+      class="add-role-banner"
+      data-test="add-role-banner"
+    >
+      <p class="tiny muted">
+        {{
+          t(missingRole === 'guide' ? 'profile.add_role.hint_guide' : 'profile.add_role.hint_guest')
+        }}
+      </p>
+      <button
+        type="button"
+        class="secondary"
+        data-test="add-role-button"
+        @click="startAddingRole(missingRole)"
+      >
+        {{
+          t(
+            missingRole === 'guide'
+              ? 'profile.add_role.become_guide'
+              : 'profile.add_role.want_to_travel',
+          )
+        }}
+      </button>
+    </div>
+    <p v-else-if="auth.user && !loading && auth.roles.length > 1" class="tiny muted editing-role">
+      {{ t(isGuide ? 'profile.add_role.editing_guide' : 'profile.add_role.editing_guest') }}
+    </p>
+
+    <TermsDialog :open="addingRole !== null" :slugs="agreementSlugs" @close="cancelAddingRole">
+      <template #intro>
+        <p class="muted">
+          {{
+            t(
+              addingRole === 'guide'
+                ? 'profile.add_role.intro_guide'
+                : 'profile.add_role.intro_guest',
+            )
+          }}
+        </p>
+      </template>
+      <template #footer="{ documents }">
+        <button
+          type="button"
+          class="secondary outline"
+          :disabled="addingRoleBusy"
+          @click="cancelAddingRole"
+        >
+          {{ t('profile.add_role.cancel') }}
+        </button>
+        <button
+          type="button"
+          data-test="accept-role"
+          :disabled="!documents || addingRoleBusy"
+          :aria-busy="addingRoleBusy"
+          @click="acceptRole(documents)"
+        >
+          {{ t('profile.add_role.accept') }}
+        </button>
+      </template>
+    </TermsDialog>
 
     <PanelCard v-if="!auth.user" class="narrow" :title="t('profile.signed_out.title')">
       <p class="muted">{{ t('profile.signed_out.body') }}</p>
@@ -973,5 +1106,30 @@ label {
 
 button {
   margin-top: 0.25rem;
+}
+.add-role-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--rg-orange-200);
+  border-radius: var(--rg-radius-panel);
+  background: var(--rg-orange-50);
+
+  p {
+    margin: 0;
+  }
+
+  button {
+    width: auto;
+    margin: 0;
+  }
+}
+
+.editing-role {
+  margin: 0 0 1rem;
 }
 </style>

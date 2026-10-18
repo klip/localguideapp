@@ -114,14 +114,20 @@ onMounted(async () => {
   }
 
   void syncPendingRejects(api, auth.activeRole)
+  await syncGuestPacks()
+})
 
-  // `stores/matches.ts` is in-memory only (unlike `auth`, which persists to
-  // localStorage), so a plain refresh dropped a paid-up visitor back to "0
-  // packs": the deck showed the paywall and the header read "0 / 0 picked"
-  // even though the purchases were recorded server-side. Only LoginPage and
-  // UnlockPage re-synced it, so nothing covered F5 — and this is the one
-  // place every page passes through. Guests only: guides never buy packs.
-  if (auth.activeRole !== 'guest') return
+/**
+ * `stores/matches.ts` is in-memory only (unlike `auth`, which persists to
+ * localStorage), so a plain refresh dropped a paid-up visitor back to "0
+ * packs": the deck showed the paywall and the header read "0 / 0 picked"
+ * even though the purchases were recorded server-side. Only LoginPage and
+ * UnlockPage re-synced it, so nothing covered F5 — and this is the one place
+ * every page passes through. Acting as a guest only: guides never buy packs.
+ * Runs at boot and again whenever a dual-role account switches to traveller.
+ */
+async function syncGuestPacks() {
+  if (!auth.isAuthenticated || auth.activeRole !== 'guest') return
 
   try {
     const state = await api.paymentState()
@@ -131,7 +137,14 @@ onMounted(async () => {
     // briefly sees "0 unlocked" and can revisit /unlock. A 401 has already
     // been surfaced centrally by call().
   }
-})
+}
+
+watch(
+  () => auth.activeRole,
+  (role, previous) => {
+    if (previous && role !== previous) void syncGuestPacks()
+  },
+)
 </script>
 
 <template>
@@ -139,7 +152,8 @@ onMounted(async () => {
     <MessageToaster />
     <AppHeader />
     <main>
-      <RouterView />
+      <!-- Keyed by role: switching mode re-renders the page as the other role. -->
+      <RouterView :key="auth.activeRole ?? 'signed-out'" />
     </main>
     <AppFooter />
     <CookieNotice />

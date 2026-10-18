@@ -23,6 +23,7 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     myProfile: vi.fn<Api['myProfile']>(),
     updateAccount: vi.fn<Api['updateAccount']>(),
     changePassword: vi.fn<Api['changePassword']>(),
+    addRole: vi.fn<Api['addRole']>(),
     logout: vi.fn<Api['logout']>(),
     session: vi.fn<Api['session']>(),
     unlockPack: vi.fn<Api['unlockPack']>(),

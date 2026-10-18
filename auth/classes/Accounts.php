@@ -31,6 +31,27 @@ class Accounts
         return $this->db->db_GetRowById($userId, 'users');
     }
 
+    /**
+     * Grants `$userId` a second app role (guest or guide). The caller wraps
+     * it in a transaction with the role agreement's acceptance.
+     */
+    public function addRole(int $userId, string $roleName): void
+    {
+        if (!in_array($roleName, Roles::APP_ROLES, true)) {
+            throw new RuntimeException('Unknown role: ' . $roleName);
+        }
+        if (in_array($roleName, $this->getRoles($userId), true)) {
+            throw new RuntimeException($roleName === 'guide' ? 'You are already a guide.' : 'You can already travel.');
+        }
+        $roleId = $this->db->db_GetFieldFromQuery(
+            'SELECT `id` FROM `roles` WHERE `name` = "' . $this->db->db_Escape($roleName) . '"',
+            'id'
+        );
+        if (!$roleId || !$this->db->db_Insert('user_role', ['user_id' => $userId, 'role_id' => (int) $roleId])) {
+            throw new RuntimeException('Could not add the role. Please try again.');
+        }
+    }
+
     /** @return string[] every app role the account holds, registration role first (`Roles::of()`). */
     public function getRoles(int $userId): array
     {
