@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
+import ActiveFilters from '@/components/ActiveFilters.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
@@ -47,8 +48,17 @@ watch(isDesktop, (desktop) => {
 function onFiltersToggle(event: Event) {
   filtersOpen.value = (event.target as HTMLDetailsElement).open
 }
-const { hasAccess, picks, picksUsed, capacity, selectionsLeft, canPick, packSize, freePicksActive, freePicksUntil } =
-  storeToRefs(matchesStore)
+const {
+  hasAccess,
+  picks,
+  picksUsed,
+  capacity,
+  selectionsLeft,
+  canPick,
+  packSize,
+  freePicksActive,
+  freePicksUntil,
+} = storeToRefs(matchesStore)
 const { items: guides, loading: guidesLoading } = storeToRefs(guidesStore)
 
 /**
@@ -233,7 +243,9 @@ function reject(id: string) {
       <!-- Filters: a side rail on desktop, a collapsed disclosure on mobile. -->
       <aside class="rail">
         <details class="filters-disclosure" :open="filtersOpen" @toggle="onFiltersToggle">
-          <summary><strong>{{ t('discover.filters.title') }}</strong></summary>
+          <summary>
+            <strong>{{ t('discover.filters.title') }}</strong>
+          </summary>
           <p class="tiny muted">{{ t('discover.filters.hint') }}</p>
           <FilterPanel />
         </details>
@@ -246,7 +258,9 @@ function reject(id: string) {
               <strong>{{ t('discover.deck.title') }}</strong>
               <div class="tiny muted">{{ t('discover.deck.subtitle') }}</div>
             </div>
-            <PillBadge v-if="freePicksActive" data-test="free-picks">{{ t('discover.deck.free_picks') }}</PillBadge>
+            <PillBadge v-if="freePicksActive" data-test="free-picks">{{
+              t('discover.deck.free_picks')
+            }}</PillBadge>
             <PillBadge v-else-if="hasAccess">{{
               t('discover.deck.picked', { picked: picksUsed, capacity })
             }}</PillBadge>
@@ -274,10 +288,16 @@ function reject(id: string) {
         <SelectionCounter
           v-else
           :headline="counterHeadline"
-          :caption="freePicksActive ? t('discover.counter.free_picks_caption') : t('discover.counter.pack_caption')"
+          :caption="
+            freePicksActive
+              ? t('discover.counter.free_picks_caption')
+              : t('discover.counter.pack_caption')
+          "
           :action-label="t('discover.counter.get_more', { count: packSize })"
           @action="router.push('/unlock')"
         />
+
+        <ActiveFilters />
 
         <ProfileCard
           v-if="current"
@@ -323,7 +343,9 @@ function reject(id: string) {
             {{ t('discover.empty.nobody_new_body') }}
           </p>
           <div class="empty-actions">
-            <RouterLink to="/matches" role="button">{{ t('discover.empty.view_matches') }}</RouterLink>
+            <RouterLink to="/matches" role="button">{{
+              t('discover.empty.view_matches')
+            }}</RouterLink>
           </div>
         </div>
 
@@ -344,7 +366,9 @@ function reject(id: string) {
             <button type="button" class="soft-btn" @click="filtersStore.reset()">
               {{ t('discover.empty.clear_filters') }}
             </button>
-            <RouterLink to="/matches" role="button">{{ t('discover.empty.view_matches') }}</RouterLink>
+            <RouterLink to="/matches" role="button">{{
+              t('discover.empty.view_matches')
+            }}</RouterLink>
             <button type="button" class="soft-btn" @click="matchesStore.resetPassed()">
               {{ t('discover.empty.take_another_look') }}
             </button>
@@ -380,9 +404,9 @@ function reject(id: string) {
           </ul>
           <p v-else class="tiny muted">{{ t('discover.rail.nothing_picked') }}</p>
 
-          <RouterLink to="/matches" role="button" class="soft-btn full"
-            >{{ t('discover.rail.view_matches') }}</RouterLink
-          >
+          <RouterLink to="/matches" role="button" class="soft-btn full">{{
+            t('discover.rail.view_matches')
+          }}</RouterLink>
           <RouterLink to="/unlock" role="button" class="full">
             {{ t('discover.rail.unlock_more', { count: packSize }) }}
           </RouterLink>

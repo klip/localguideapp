@@ -1,0 +1,72 @@
+-- 045: the filter panel rework — the two-handle age slider's handle names
+-- (FilterPanel.vue, DualRangeSlider.vue) and the active-filter pills above the
+-- deck (ActiveFilters.vue); drops the Edit/Done/Remove keys of the old pill
+-- layout and "Show matches" (filters apply as you pick). Re-runnable.
+
+SET NAMES utf8mb4;
+
+INSERT INTO `translations` (`language`, `key`, `value`) VALUES
+  ('en', 'common.filter_panel.age_min', 'Minimum age'),
+  ('es', 'common.filter_panel.age_min', 'Edad mínima'),
+  ('fr', 'common.filter_panel.age_min', 'Âge minimum'),
+  ('de', 'common.filter_panel.age_min', 'Mindestalter'),
+  ('zh', 'common.filter_panel.age_min', '最小年龄'),
+  ('it', 'common.filter_panel.age_min', 'Età minima'),
+  ('ja', 'common.filter_panel.age_min', '最低年齢'),
+  ('ru', 'common.filter_panel.age_min', 'Минимальный возраст'),
+  ('ko', 'common.filter_panel.age_min', '최소 나이'),
+  ('ar', 'common.filter_panel.age_min', 'الحد الأدنى للعمر'),
+  ('tr', 'common.filter_panel.age_min', 'En düşük yaş'),
+  ('pt', 'common.filter_panel.age_min', 'Idade mínima'),
+  ('el', 'common.filter_panel.age_min', 'Ελάχιστη ηλικία'),
+  ('th', 'common.filter_panel.age_min', 'อายุต่ำสุด'),
+  ('uk', 'common.filter_panel.age_min', 'Мінімальний вік'),
+  ('en', 'common.filter_panel.age_max', 'Maximum age'),
+  ('es', 'common.filter_panel.age_max', 'Edad máxima'),
+  ('fr', 'common.filter_panel.age_max', 'Âge maximum'),
+  ('de', 'common.filter_panel.age_max', 'Höchstalter'),
+  ('zh', 'common.filter_panel.age_max', '最大年龄'),
+  ('it', 'common.filter_panel.age_max', 'Età massima'),
+  ('ja', 'common.filter_panel.age_max', '最高年齢'),
+  ('ru', 'common.filter_panel.age_max', 'Максимальный возраст'),
+  ('ko', 'common.filter_panel.age_max', '최대 나이'),
+  ('ar', 'common.filter_panel.age_max', 'الحد الأقصى للعمر'),
+  ('tr', 'common.filter_panel.age_max', 'En yüksek yaş'),
+  ('pt', 'common.filter_panel.age_max', 'Idade máxima'),
+  ('el', 'common.filter_panel.age_max', 'Μέγιστη ηλικία'),
+  ('th', 'common.filter_panel.age_max', 'อายุสูงสุด'),
+  ('uk', 'common.filter_panel.age_max', 'Максимальний вік'),
+  ('en', 'common.active_filters.label', 'Active filters'),
+  ('es', 'common.active_filters.label', 'Filtros activos'),
+  ('fr', 'common.active_filters.label', 'Filtres actifs'),
+  ('de', 'common.active_filters.label', 'Aktive Filter'),
+  ('zh', 'common.active_filters.label', '已选筛选条件'),
+  ('it', 'common.active_filters.label', 'Filtri attivi'),
+  ('ja', 'common.active_filters.label', '適用中のフィルター'),
+  ('ru', 'common.active_filters.label', 'Активные фильтры'),
+  ('ko', 'common.active_filters.label', '적용된 필터'),
+  ('ar', 'common.active_filters.label', 'عوامل التصفية النشطة'),
+  ('tr', 'common.active_filters.label', 'Etkin filtreler'),
+  ('pt', 'common.active_filters.label', 'Filtros ativos'),
+  ('el', 'common.active_filters.label', 'Ενεργά φίλτρα'),
+  ('th', 'common.active_filters.label', 'ตัวกรองที่ใช้อยู่'),
+  ('uk', 'common.active_filters.label', 'Активні фільтри'),
+  ('en', 'common.active_filters.remove', 'Remove filter: {value}'),
+  ('es', 'common.active_filters.remove', 'Quitar filtro: {value}'),
+  ('fr', 'common.active_filters.remove', 'Retirer le filtre : {value}'),
+  ('de', 'common.active_filters.remove', 'Filter entfernen: {value}'),
+  ('zh', 'common.active_filters.remove', '移除筛选条件：{value}'),
+  ('it', 'common.active_filters.remove', 'Rimuovi filtro: {value}'),
+  ('ja', 'common.active_filters.remove', 'フィルターを解除：{value}'),
+  ('ru', 'common.active_filters.remove', 'Убрать фильтр: {value}'),
+  ('ko', 'common.active_filters.remove', '필터 삭제: {value}'),
+  ('ar', 'common.active_filters.remove', 'إزالة عامل التصفية: {value}'),
+  ('tr', 'common.active_filters.remove', 'Filtreyi kaldır: {value}'),
+  ('pt', 'common.active_filters.remove', 'Remover filtro: {value}'),
+  ('el', 'common.active_filters.remove', 'Αφαίρεση φίλτρου: {value}'),
+  ('th', 'common.active_filters.remove', 'ลบตัวกรอง: {value}'),
+  ('uk', 'common.active_filters.remove', 'Прибрати фільтр: {value}')
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
+
+DELETE FROM `translations`
+WHERE `key` IN ('common.filter_panel.done', 'common.filter_panel.edit', 'common.filter_panel.remove', 'common.filter_panel.show_matches');

@@ -23,7 +23,7 @@ export const AGE_CATEGORY: AttributeCategory = {
   providerLabel: null,
   multi: true,
   rangeMin: 16,
-  rangeMax: 90,
+  rangeMax: 99,
   options: [],
 }
 

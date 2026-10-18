@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import ActiveFilters from '@/components/ActiveFilters.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
@@ -124,7 +125,9 @@ function reject(id: string) {
     <div class="discovery-layout">
       <aside class="rail">
         <details class="filters-disclosure" :open="filtersOpen" @toggle="onFiltersToggle">
-          <summary><strong>{{ t('guide_discover.filters.title') }}</strong></summary>
+          <summary>
+            <strong>{{ t('guide_discover.filters.title') }}</strong>
+          </summary>
           <p class="tiny muted">{{ t('guide_discover.filters.hint') }}</p>
           <FilterPanel compact />
         </details>
@@ -137,9 +140,13 @@ function reject(id: string) {
               <strong>{{ t('guide_discover.deck.title') }}</strong>
               <div class="tiny muted">{{ t('guide_discover.deck.subtitle') }}</div>
             </div>
-            <PillBadge>{{ t('guide_discover.deck.interested', { count: interested.length }) }}</PillBadge>
+            <PillBadge>{{
+              t('guide_discover.deck.interested', { count: interested.length })
+            }}</PillBadge>
           </div>
         </template>
+
+        <ActiveFilters />
 
         <ProfileCard
           v-if="current"
@@ -164,17 +171,27 @@ function reject(id: string) {
              filtered out server-side, so an empty deck usually isn't an empty
              system. -->
         <div
-          v-else-if="initialLoadDone && visitors.length === 0 && filtersStore.isPristine && auth.isAuthenticated"
+          v-else-if="
+            initialLoadDone &&
+            visitors.length === 0 &&
+            filtersStore.isPristine &&
+            auth.isAuthenticated
+          "
           class="empty"
         >
           <h3>{{ t('guide_discover.empty.nobody_new_title') }}</h3>
           <p class="muted">
             {{ t('guide_discover.empty.nobody_new_body') }}
           </p>
-          <RouterLink to="/matches" role="button">{{ t('guide_discover.empty.view_matches') }}</RouterLink>
+          <RouterLink to="/matches" role="button">{{
+            t('guide_discover.empty.view_matches')
+          }}</RouterLink>
         </div>
 
-        <div v-else-if="initialLoadDone && visitors.length === 0 && filtersStore.isPristine" class="empty">
+        <div
+          v-else-if="initialLoadDone && visitors.length === 0 && filtersStore.isPristine"
+          class="empty"
+        >
           <h3>{{ t('guide_discover.empty.no_visitors_title') }}</h3>
           <p class="muted">{{ t('guide_discover.empty.no_visitors_body') }}</p>
         </div>

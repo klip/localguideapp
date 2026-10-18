@@ -56,6 +56,7 @@
       "unlock.toast"
     ],
     "discover": [
+      "common.active_filters",
       "common.decision_row",
       "common.filter_panel",
       "common.filters",
@@ -118,6 +119,7 @@
       "visitor_profile.toast"
     ],
     "guide-discover": [
+      "common.active_filters",
       "common.decision_row",
       "common.filter_panel",
       "common.filters",

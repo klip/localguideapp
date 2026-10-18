@@ -84,7 +84,7 @@ class Profiles
     public function getCategories(): array
     {
         $categories = $this->db->db_GetArray(
-            'SELECT `id`, `key`, `label`, `kind`, `provider_label`, `multi`, `range_min`, `range_max`
+            'SELECT `id`, `key`, `label`, `kind`, `provider_label`, `multi`, `range_min`, `range_max`, `allow_unlimited`
              FROM `attribute_categories` ORDER BY `id`'
         );
 
@@ -101,6 +101,7 @@ class Profiles
             'multi' => (bool) $category['multi'],
             'rangeMin' => $category['range_min'] === null ? null : (int) $category['range_min'],
             'rangeMax' => $category['range_max'] === null ? null : (int) $category['range_max'],
+            'allowUnlimited' => (bool) $category['allow_unlimited'],
             'options' => $optionsByCategory[(int) $category['id']] ?? [],
         ], $categories);
     }

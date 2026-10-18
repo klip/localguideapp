@@ -85,6 +85,15 @@ export const useFiltersStore = defineStore('filters', () => {
     }
   }
 
+  /** A single-span category (age): replaces whatever is there; `null` clears it. */
+  function setRange(categoryKey: string, range: NumericRange | null) {
+    if (range) {
+      filters.ranges[categoryKey] = [range[0] <= range[1] ? range : [range[1], range[0]]]
+    } else {
+      delete filters.ranges[categoryKey]
+    }
+  }
+
   function clearCategory(categoryKey: string) {
     delete filters.attributes[categoryKey]
     delete filters.ranges[categoryKey]
@@ -111,6 +120,7 @@ export const useFiltersStore = defineStore('filters', () => {
     toggleValue,
     addRange,
     removeRange,
+    setRange,
     clearCategory,
     setGender,
     reset,

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
+import ActiveFilters from '../components/ActiveFilters.vue'
 import FilterPanel from '../components/FilterPanel.vue'
 import { API_KEY, type Api, type AttributeCategory } from '@/plugins/api'
 import { useFiltersStore } from '@/stores/filters'
@@ -35,12 +36,25 @@ const sampleCategories: AttributeCategory[] = [
     rangeMax: 23,
     options: [],
   },
+  {
+    key: 'distance',
+    label: 'Distance',
+    kind: 'range',
+    providerLabel: null,
+    multi: true,
+    rangeMin: 0,
+    rangeMax: 50,
+    allowUnlimited: true,
+    options: [],
+  },
 ]
 
 /** The shared stub `Api` (see `fakeApi.ts`) with this spec's defaults. */
 function fakeApi(overrides: Partial<Api> = {}): Api {
   return baseFakeApi({
-    attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: sampleCategories }),
+    attributeCategories: vi
+      .fn<Api['attributeCategories']>()
+      .mockResolvedValue({ categories: sampleCategories }),
     ...overrides,
   })
 }
@@ -56,9 +70,18 @@ async function mountPanel() {
   return wrapper
 }
 
-function chip(wrapper: Awaited<ReturnType<typeof mountPanel>>, label: string) {
-  const found = wrapper.findAll('.tag').find((tag) => tag.text().includes(label))
-  if (!found) throw new Error(`No tag matching ${label}`)
+/** The accordion row (a `<details>`) for one category, by its summary text. */
+function category(wrapper: Awaited<ReturnType<typeof mountPanel>>, label: string) {
+  const found = wrapper
+    .findAll('details.filter-cat')
+    .find((row) => row.find('summary').text().includes(label))
+  if (!found) throw new Error(`No category matching ${label}`)
+  return found
+}
+
+function option(wrapper: Awaited<ReturnType<typeof mountPanel>>, label: string) {
+  const found = wrapper.findAll('.option').find((row) => row.text().includes(label))
+  if (!found) throw new Error(`No option matching ${label}`)
   return found
 }
 
@@ -115,40 +138,155 @@ describe('filters store', () => {
 })
 
 describe('FilterPanel', () => {
-  it('offers whatever categories the server returned, plus Age', async () => {
+  it('lists every server category as an accordion row, with Age pulled out beside gender', async () => {
     const wrapper = await mountPanel()
 
-    const addable = wrapper.findAll('.tag--add').map((tag) => tag.text())
-    expect(addable).toEqual(['+ Languages', '+ Hour of the day', '+ Age'])
+    const rows = wrapper.findAll('details.filter-cat summary').map((summary) => summary.text())
+    expect(rows).toEqual(['Languages', 'Hour of the day', 'Distance'])
+    expect(wrapper.find('.person').text()).toContain('Age')
+    // No pills: categories are rows, not tag buttons.
+    expect(wrapper.find('.tag').exists()).toBe(false)
   })
 
-  it('opens a category first, then filters by the values inside it', async () => {
+  it('moves a picked option out of its category into a pill above the deck, and back on ×', async () => {
     const wrapper = await mountPanel()
+    const pills = mount(ActiveFilters, {
+      global: { plugins: [getActivePinia()!], provide: { [API_KEY]: fakeApi() } },
+    })
     const store = useFiltersStore()
 
-    // Nothing is offered as a value until its category is picked.
-    expect(wrapper.text()).not.toContain('English')
+    const languages = category(wrapper, 'Languages')
+    expect(option(wrapper, 'English').find('.option-mark').text()).toBe('+')
+    expect(pills.find('.filter-pill').exists()).toBe(false)
 
-    await chip(wrapper, '+ Languages').trigger('click')
-    expect(wrapper.text()).toContain('English')
-
-    await chip(wrapper, 'English').trigger('click')
+    await option(wrapper, 'English').trigger('click')
     expect(store.valuesFor('languages')).toEqual(['English'])
+    expect(languages.findAll('.option').map((row) => row.text())).toEqual(['Spanish+'])
+    expect(languages.find('.count').text()).toBe('1')
+    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual(['English'])
+
+    await pills.find('.filter-pill-remove').trigger('click')
+    expect(store.valuesFor('languages')).toEqual([])
+    expect(languages.findAll('.option')).toHaveLength(2)
+    expect(languages.find('.count').exists()).toBe(false)
+    expect(pills.find('.filter-pill').exists()).toBe(false)
   })
 
-  it('renders a range category as a slider that adds spans', async () => {
+  it('shows gender, age and hour spans as pills too, each removable', async () => {
+    setActivePinia(createPinia())
+    const store = useFiltersStore()
+    const pills = mount(ActiveFilters, {
+      global: { plugins: [getActivePinia()!], provide: { [API_KEY]: fakeApi() } },
+    })
+
+    store.setGender('female')
+    store.setRange('age', [25, 40])
+    store.addRange('hour_of_day', [9, 13])
+    await flushPromises()
+    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual([
+      'Female',
+      'Age 25–40',
+      'hour_of_day 09:00–13:00',
+    ])
+
+    for (const _ of [1, 2, 3]) await pills.find('.filter-pill-remove').trigger('click')
+    expect(store.isPristine).toBe(true)
+  })
+
+  it('has no apply button — picking a filter is the query — and an icon on Clear filters', async () => {
+    const wrapper = await mountPanel()
+
+    expect(wrapper.find('button[type="submit"]').exists()).toBe(false)
+    expect(wrapper.find('.clear-btn').exists()).toBe(false)
+
+    await option(wrapper, 'Spanish').trigger('click')
+    expect(wrapper.find('.clear-btn svg').exists()).toBe(true)
+  })
+
+  it('filters a range category with one two-handle slider, applied as it moves', async () => {
     const wrapper = await mountPanel()
     const store = useFiltersStore()
 
-    await chip(wrapper, '+ Hour of the day').trigger('click')
-    const sliders = wrapper.findAll('input[type="range"]')
-    expect(sliders).toHaveLength(2)
+    const hours = category(wrapper, 'Hour of the day')
+    const [from, to] = hours.findAll('input[type="range"]')
+    expect(hours.find('.add-btn').exists()).toBe(false)
+    expect(from?.attributes('min')).toBe('0')
+    expect(to?.attributes('max')).toBe('23')
+    expect(hours.find('[data-test="span-hour_of_day"]').text()).toBe('00:00–23:00')
 
-    await sliders[0]?.setValue(9)
-    await sliders[1]?.setValue(13)
-    await wrapper.find('.add-btn').trigger('click')
-
+    await from?.setValue(9)
+    await to?.setValue(13)
     expect(store.rangesFor('hour_of_day')).toEqual([[9, 13]])
+    expect(hours.find('[data-test="span-hour_of_day"]').text()).toBe('09:00–13:00')
+    expect(hours.find('.count').text()).toBe('1')
+
+    // Back to the full day means no hours filter.
+    await from?.setValue(0)
+    await to?.setValue(23)
+    expect(store.filters.ranges).not.toHaveProperty('hour_of_day')
+  })
+
+  it('offers an Unlimited switch where the category allows it: on and muted by default, off activates the range', async () => {
+    const wrapper = await mountPanel()
+    const store = useFiltersStore()
+
+    expect(category(wrapper, 'Hour of the day').find('[role="switch"]').exists()).toBe(false)
+
+    const distance = category(wrapper, 'Distance')
+    const toggle = distance.find<HTMLInputElement>('[data-test="unlimited-distance"]')
+    const sliders = () => distance.findAll<HTMLInputElement>('input[type="range"]')
+    expect(toggle.element.checked).toBe(true)
+    expect(sliders().every((slider) => slider.element.disabled)).toBe(true)
+    expect(store.filters.ranges).not.toHaveProperty('distance')
+
+    await toggle.setValue(false)
+    expect(sliders().some((slider) => slider.element.disabled)).toBe(false)
+    expect(store.rangesFor('distance')).toEqual([[0, 50]])
+
+    await sliders()[1]?.setValue(10)
+    expect(store.rangesFor('distance')).toEqual([[0, 10]])
+    // Dragging back to the full extent keeps the range on — only the switch turns it off.
+    await sliders()[1]?.setValue(50)
+    expect(store.rangesFor('distance')).toEqual([[0, 50]])
+    expect(toggle.element.checked).toBe(false)
+
+    await toggle.setValue(true)
+    expect(store.filters.ranges).not.toHaveProperty('distance')
+    expect(sliders().every((slider) => slider.element.disabled)).toBe(true)
+
+    // Removing its pill (or Clear filters) puts it back to Unlimited too.
+    await toggle.setValue(false)
+    store.reset()
+    await flushPromises()
+    expect(toggle.element.checked).toBe(true)
+  })
+
+  it('filters age with one two-handle slider, 16 to 99, kept in the store', async () => {
+    const wrapper = await mountPanel()
+    const store = useFiltersStore()
+
+    const [low, high] = wrapper.findAll('.person input[type="range"]')
+    expect(low?.attributes('min')).toBe('16')
+    expect(high?.attributes('max')).toBe('99')
+    expect(wrapper.find('[data-test="age-value"]').text()).toBe('16–99')
+    expect(store.rangesFor('age')).toEqual([])
+
+    await low?.setValue(25)
+    await high?.setValue(40)
+    expect(store.rangesFor('age')).toEqual([[25, 40]])
+    expect(wrapper.find('[data-test="age-value"]').text()).toBe('25–40')
+
+    // A remount (the rail collapsing on mobile) reads it back from the store.
+    const again = mount(FilterPanel, {
+      global: { plugins: [getActivePinia()!], provide: { [API_KEY]: fakeApi() } },
+    })
+    await flushPromises()
+    expect(again.find('[data-test="age-value"]').text()).toBe('25–40')
+
+    // Back to both ends means no age filter at all.
+    await low?.setValue(16)
+    await high?.setValue(99)
+    expect(store.filters.ranges).not.toHaveProperty('age')
   })
 
   it('keeps gender a dropdown, since it is a constant rather than a tag list', async () => {
