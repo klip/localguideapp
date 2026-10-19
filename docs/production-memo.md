@@ -33,13 +33,17 @@ real users and real money. Add to this list whenever a shortcut is taken.
 | Now | For production |
 | --- | --- |
 | **Geocoding through Photon's public server** (`photon.komoot.io`, OpenStreetMap data, free, fair use, no guarantee). | A paid or self-hosted geocoder: self-hosted Photon/Nominatim, or LocationIQ / Mapbox / Google Places. The proxy action keeps the client unchanged; only `Geocoder.php` changes. Check the provider's attribution and caching terms. |
+| **Itinerary places are geocoded through the same Photon server**, one call per stop after Claude reads the text, within a 15-second budget. | Same replacement as above; a paid geocoder also makes the per-stop calls faster and more reliable. |
 | Maps links open Apple/Google Maps; no map is drawn in the app. | If an in-app map is added, a tile provider with a production plan. |
 
 ## AI
 
 | Now | For production |
 | --- | --- |
-| Claude API called directly with one API key (planned). | Per-user and global spend limits, monitoring of cost per feature, a data-processing agreement, and retention settings reviewed. |
+| **Claude API called directly with one key** (`lib/Ai.php`, `ANTHROPIC_API_KEY` in `localguideapp.env`): the travel planner reads itineraries (`claude-haiku-5-5`) and ranks and explains guides (`claude-sonnet-5-5`). | A key per environment from a secrets manager, a global monthly spend cap set in the Anthropic console, alerting on the `AI call failed` logs and on cost per feature (`input_tokens`/`output_tokens` are logged per call), a data-processing agreement, and retention settings reviewed. |
+| **Per-user limits are simple Redis counters** (`TripPlanner::RUNS_PER_DAY` 10 plans, `PARSES_PER_DAY` 30 readings), not enforced if Redis is down. | Limits tied to plans/abuse signals, enforced fail-closed; caching identical plans (same stops, same candidates) to save calls. |
+| **Anthropic isn't named as a processor** in the privacy text, and the planner sends guides' public profile text and the traveller's interests/languages to it. | Add Anthropic to `legal_placeholders` (processors) and the privacy notice in a new terms version. |
+| **The planner worker is one container** (`lemp-rg-planner`, `api/bin/planner.php`). | Run two or more replicas (claims are `SKIP LOCKED`); scale on queue length. |
 
 ## Legal
 

@@ -111,7 +111,11 @@ class Users
      *     that distance (distance − their radius ≤ maxKm). A flexible guide
      *     (no radius) always passes; a guide with no base never does.
      *     Browsing travellers, both use their search area
-     *     (`traveller_areas`, fresh for 30 days; rows carry `area_label`).
+     *     (`traveller_areas`, fresh for 30 days; rows carry `area_label`) or
+     *     the nearest stop still ahead on their saved trips, whichever is
+     *     closer; rows carry that stop as `next_stop` (without `near`, the
+     *     soonest one).
+     *   ids?: int[]  — server-side only: just these people (`TripPlanner`).
      */
     public function searchByRole(string $roleName, array $filters, Profiles $profiles, ?int $viewerId = null): array
     {
@@ -155,6 +159,13 @@ class Users
                     WHERE s.`guide_id` = ' . $viewerId . ' AND s.`guest_id` = u.`id` AND s.`guide_decision` IS NOT NULL
                 )';
             }
+        }
+
+        // Server-side only (`readFilters()` never sets it): just these people —
+        // the travel planner showing the guides it suggested.
+        if (isset($filters['ids'])) {
+            $ids = array_filter(array_map('intval', (array) $filters['ids']), fn($id) => $id > 0);
+            $where[] = $ids ? 'u.`id` IN (' . implode(',', $ids) . ')' : '0 = 1';
         }
 
         $gender = $filters['gender'] ?? null;
@@ -235,13 +246,24 @@ class Users
         } else {
             $locationJoin = 'LEFT JOIN `traveller_areas` ta ON ta.`user_id` = u.`id`
                 AND ta.`updated_at` > UTC_TIMESTAMP() - INTERVAL ' . self::SEARCH_AREA_DAYS . ' DAY';
-            $locationColumns = ', ta.`label` AS `area_label`';
+            // …and the stops of their saved trips still ahead (`TripPlanner`):
+            // a traveller is near wherever their area or one of those stops is.
+            $stopsFrom = 'FROM `trip_plan_stops` tps JOIN `trip_plans` tp ON tp.`id` = tps.`plan_id`
+                WHERE tp.`user_id` = u.`id` AND tps.`depart_on` >= UTC_DATE()';
             if ($near) {
-                $distanceSql = Places::distanceKmSql('ta.`point`', $near);
+                $areaKm = Places::distanceKmSql('ta.`point`', $near);
+                $stopKm = Places::distanceKmSql('tps.`point`', $near);
+                $nearestStopKm = '(SELECT MIN(' . $stopKm . ') ' . $stopsFrom . ')';
+                // LEAST() is NULL if either is; this is the smaller of the two that exist.
+                $distanceSql = 'LEAST(COALESCE(' . $areaKm . ', ' . $nearestStopKm . '), COALESCE(' . $nearestStopKm . ', ' . $areaKm . '))';
+                $nextStopSql = '(SELECT tps.`id` ' . $stopsFrom . ' ORDER BY ' . $stopKm . ', tps.`arrive_on` LIMIT 1)';
                 if ($maxKm) {
-                    $where[] = '(ta.`user_id` IS NOT NULL AND ' . $distanceSql . ' <= ' . (int) $maxKm . ')';
+                    $where[] = '(' . $distanceSql . ' IS NOT NULL AND ' . $distanceSql . ' <= ' . (int) $maxKm . ')';
                 }
+            } else {
+                $nextStopSql = '(SELECT tps.`id` ' . $stopsFrom . ' ORDER BY tps.`arrive_on`, tps.`id` LIMIT 1)';
             }
+            $locationColumns = ', ta.`label` AS `area_label`, ' . $nextStopSql . ' AS `next_stop_id`';
         }
 
         // Best first — see `Ranking` for the score.
@@ -263,6 +285,7 @@ class Users
 
         $userIds = array_map(fn($row) => (int) $row['id'], $rows);
         $attributes = $profiles->getAttributesFor($userIds, $roleName);
+        $stops = $roleName === 'guest' ? $this->tripStops(array_column($rows, 'next_stop_id')) : [];
 
         foreach ($rows as &$row) {
             $row = Ranking::castRow($this->castReviewSummary($row));
@@ -271,10 +294,36 @@ class Users
             // — the client types both of these as maps keyed by category.
             $row['attributes'] = (object) ($attributes['attributes'][$id] ?? []);
             $row['ranges'] = (object) ($attributes['ranges'][$id] ?? []);
+            if ($roleName === 'guest') {
+                $row['next_stop'] = $stops[(int) $row['next_stop_id']] ?? null;
+                unset($row['next_stop_id']);
+            }
         }
         unset($row);
 
         return $rows;
+    }
+
+    /**
+     * Trip stops by id — the town and dates a guide may see on a traveller's
+     * card ("Visiting Lisbon, 3–5 May"), never the trip itself.
+     *
+     * @return array<int, array{label: string, arriveOn: string, departOn: string}>
+     */
+    private function tripStops(array $stopIds): array
+    {
+        $ids = array_filter(array_map('intval', $stopIds));
+        if (!$ids) {
+            return [];
+        }
+        $stops = [];
+        foreach ($this->db->db_GetArray(
+            'SELECT `id`, `label`, `arrive_on`, `depart_on` FROM `trip_plan_stops` WHERE `id` IN (' . implode(',', array_unique($ids)) . ')'
+        ) as $stop) {
+            $stops[(int) $stop['id']] = ['label' => $stop['label'], 'arriveOn' => $stop['arrive_on'], 'departOn' => $stop['depart_on']];
+        }
+
+        return $stops;
     }
 
     /**

@@ -17,6 +17,7 @@ export const visitors: Visitor[] = [
     standing: { verified: true, topRated: true, tripsCompleted: 24, level: 5 },
     photo: 'var(--rg-photo-visitor)',
     areaLabel: null,
+    nextStop: null,
     distanceKm: null,
   },
   {
@@ -31,6 +32,7 @@ export const visitors: Visitor[] = [
     standing: { verified: true, topRated: true, tripsCompleted: 24, level: 5 },
     photo: 'linear-gradient(135deg, #c9d8de, #7f94a3 48%, #dcd9d2)',
     areaLabel: null,
+    nextStop: null,
     distanceKm: null,
   },
   {
@@ -45,6 +47,7 @@ export const visitors: Visitor[] = [
     standing: { verified: true, topRated: true, tripsCompleted: 24, level: 5 },
     photo: 'linear-gradient(135deg, #ded0c0, #94867a 48%, #d3cfc8)',
     areaLabel: null,
+    nextStop: null,
     distanceKm: null,
   },
 ]

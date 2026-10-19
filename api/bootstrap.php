@@ -1,7 +1,7 @@
 <?php
 
-// Every class the API service is made of, for its two entry points:
-// `index.php` (internal HTTP, called by the gateway) and `bin/scheduler.php`.
+// Every class the API service is made of, for its entry points:
+// `index.php` (internal HTTP, called by the gateway), `bin/scheduler.php` and `bin/planner.php`.
 require_once __DIR__.'/../lib/bootstrap.php';
 require_once __DIR__.'/classes/Ranking.php';
 require_once __DIR__.'/classes/Levels.php';
@@ -14,6 +14,7 @@ require_once __DIR__.'/classes/Bookings.php';
 require_once __DIR__.'/classes/Selections.php';
 require_once __DIR__.'/classes/Places.php';
 require_once __DIR__.'/classes/Geocoder.php';
+require_once __DIR__.'/classes/TripPlanner.php';
 require_once __DIR__.'/classes/Profiles.php';
 require_once __DIR__.'/classes/Reviews.php';
 require_once __DIR__.'/classes/Messages.php';

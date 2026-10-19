@@ -18,6 +18,7 @@ import { useFiltersStore } from '@/stores/filters'
 import { useMessagesStore } from '@/stores/messages'
 import { useVisitorsStore } from '@/stores/visitors'
 import { formatDistance } from '@/utils/distance'
+import { formatStay } from '@/utils/tripDates'
 import { debounce } from '@/utils/debounce'
 import { reportApiError } from '@/utils/reportApiError'
 import type { DiscoveryFilters } from '@/types'
@@ -68,13 +69,22 @@ onMounted(async () => {
 
 watch(filters, (next) => debouncedLoad(next), { deep: true })
 
-// "2 adults · Looking in Lisbon, Portugal · 3 km away" — each part when there is one.
+// "2 adults · Visiting Lisbon, 3–5 May · 3 km away" (a planned stop), or
+// "… · Looking in Lisbon, Portugal · …" (where they're searching) — each part when there is one.
 const currentMeta = computed(() => {
   const visitor = current.value
   if (!visitor) return undefined
+  const stop = visitor.nextStop
   return [
     visitor.party,
-    visitor.areaLabel ? t('guide_discover.deck.looking_in', { place: visitor.areaLabel }) : null,
+    stop
+      ? t('guide_discover.deck.visiting', {
+          place: stop.label,
+          dates: formatStay(stop.arriveOn, stop.departOn),
+        })
+      : visitor.areaLabel
+        ? t('guide_discover.deck.looking_in', { place: visitor.areaLabel })
+        : null,
     visitor.distanceKm !== null ? formatDistance(visitor.distanceKm) : null,
   ]
     .filter((part): part is string => !!part)

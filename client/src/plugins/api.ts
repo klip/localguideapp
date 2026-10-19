@@ -166,8 +166,79 @@ export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   distance_km?: number | null
   /** A traveller's search area ("Lisbon, Portugal"), on the guide's deck — where they're looking for guides. */
   area_label?: string | null
+  /** On the guide's deck: the traveller's planned stop nearest the search point (else the soonest), still ahead. */
+  next_stop?: TripStopVisit | null
   attributes: AttributeMap
   ranges: RangeMap
+}
+
+/** Where and when a traveller will be — a trip stop as guides see it. */
+export interface TripStopVisit {
+  label: string
+  /** `YYYY-MM-DD` */
+  arriveOn: string
+  departOn: string
+}
+
+/** One suggested guide for a stop (`TripPlanner`), best first. */
+export interface TripSuggestion {
+  guideId: number
+  /** Claude's one line on why, in the plan's language; `null` when it didn't rank them. */
+  reason: string | null
+  distanceKm: number | null
+}
+
+export interface TripStop extends TripStopVisit {
+  id: number
+  countryCode: string | null
+  latitude: number
+  longitude: number
+  /** `null` until the planner has looked. */
+  suggestions: TripSuggestion[] | null
+}
+
+/** `pending`/`processing`: the planner is finding guides (a `trip_plan` push says when it's done). */
+export type TripPlanStatus = 'pending' | 'processing' | 'ready' | 'failed'
+
+/** A saved trip with its stops and the suggested guides' cards (`guides`, the deck's row shape). */
+export interface TripPlan {
+  id: number
+  title: string | null
+  status: TripPlanStatus
+  /** Whether Claude ordered and explained the suggestions. */
+  aiRanked: boolean
+  generatedAt: string | null
+  createdAt: string
+  stops: TripStop[]
+  guides: ProfileAccount[]
+}
+
+/** A saved trip in the list, without its suggestions. */
+export interface TripPlanSummary {
+  id: number
+  title: string | null
+  status: TripPlanStatus
+  createdAt: string
+  firstDay: string | null
+  lastDay: string | null
+  stopCount: number
+  /** The first three places. */
+  places: string[]
+}
+
+/** A stop as sent to `saveTripPlan`. */
+export interface TripStopInput {
+  place: PlacePoint
+  arriveOn: string
+  departOn: string
+}
+
+/** A stop read from free text (`parseItinerary`): `place` is the geocoder's best guess, `null` when it found none. */
+export interface ParsedStop {
+  query: string
+  arriveOn: string | null
+  departOn: string | null
+  place: Place | null
 }
 
 /** Fields `RequestProcessor::actionUpdateProfile()` accepts (beyond the session-derived caller identity) — every one optional and independent. */
@@ -985,6 +1056,21 @@ export const api = {
   setSearchArea: (area: PlacePoint | null) => call<{ ok: true }>('setSearchArea', { area }),
   /** The acting guide's own base (`null` when not set, or not acting as a guide). */
   myGuideBase: () => call<{ base: GuideBase | null }>('myGuideBase'),
+  /** The traveller's saved trips, newest first. */
+  tripPlans: () => call<{ plans: TripPlanSummary[] }>('tripPlans'),
+  /** One saved trip with its suggestions. */
+  tripPlan: (planId: number) => call<TripPlan>('tripPlan', { planId }),
+  /** Saves a trip (new without `planId`) and queues finding its guides — it comes back `pending`. */
+  saveTripPlan: (payload: {
+    planId?: number
+    title: string | null
+    language: string
+    stops: TripStopInput[]
+  }) => call<TripPlan>('saveTripPlan', payload),
+  deleteTripPlan: (planId: number) => call<{ ok: true }>('deleteTripPlan', { planId }),
+  /** Reads an itinerary written in words into stops to check (Claude reads it, the geocoder places it). */
+  parseItinerary: (text: string, language: string) =>
+    call<{ stops: ParsedStop[] }>('parseItinerary', { text, language }),
   /** A legal document in force, in `language` or else English. Fetched on demand. No session needed. */
   legalDocument: (slug: LegalSlug, language: string) =>
     call<LegalDocumentView>('legalDocument', { slug, language }),

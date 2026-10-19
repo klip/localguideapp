@@ -21,6 +21,7 @@ final class Geocoder
     private const CACHE_SECONDS = 7 * 86400;
     /** Towns, cities and areas — not streets or houses: a base or a destination is a place, never an address. */
     private const LAYERS = ['city', 'locality', 'district', 'county', 'state', 'country'];
+    private const TOWN_KINDS = ['city', 'locality'];
     /** Photon names places in these; other languages get local names. */
     private const LANGUAGES = ['en', 'de', 'fr'];
     /** Requests per second to the public server, across every service replica — fair use. */
@@ -60,8 +61,10 @@ final class Geocoder
         $places = [];
         foreach ($features as $feature) {
             $place = $this->toPlace($feature);
-            // The same town often comes back as its city and its county.
-            if ($place && !isset($places[$place['label']])) {
+            // The same town often comes back as its city and its county, under
+            // one label: keep the town's point, not the county's middle.
+            if ($place && (!isset($places[$place['label']])
+                || in_array($place['kind'], self::TOWN_KINDS, true) && !in_array($places[$place['label']]['kind'], self::TOWN_KINDS, true))) {
                 $places[$place['label']] = $place;
             }
         }

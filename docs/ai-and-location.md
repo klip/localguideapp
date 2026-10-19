@@ -114,6 +114,25 @@ stays on the server and results are cached in Redis. Choice below.
 - Stops feed phase A's guide deck (guides see visitors coming to their area,
   with dates) and can later trigger "a new guide joined near your stop".
 
+**As built (2026-10-19)** — differences from the above:
+- Claude answers through **structured output** (`output_config.format`, a
+  JSON schema), not a forced tool: `claude-sonnet-5-5` refuses a forced
+  `tool_choice`.
+- **One Claude call per plan** ranks every stop at once (about 1k tokens in
+  and 200 out for three stops, ~4 s), not one per stop. Claude may pick fewer
+  than four; the rest are topped up in SQL order, without a reason.
+- Candidates are guides whose area comes within **50 km** of the stop
+  (`maxKm` semantics: distance − radius), flexible guides included — one
+  search instead of "within radius, else nearest within 50 km"; the
+  proximity boost already puts guides covering the stop first.
+- Free text: Claude returns each place's English name, country name and
+  ISO code; the geocoder is asked for "place country" (Photon finds "Malaga"
+  in Spain only that way) and the result in that country — a town before a
+  province — is used.
+- The worker is its own container, `lemp-rg-planner` (`api/bin/planner.php`).
+- Limits: 10 plans and 30 readings per traveller per day (Redis), 20 saved
+  trips, 14 stops, a stop of up to 60 days, up to a year ahead.
+
 **Not included**: a calendar of guide availability (dates are used for
 filtering out trips under way and for display; a real availability calendar
 is a separate feature), itinerary suggestions (what to see), bookings from
@@ -205,9 +224,9 @@ verification provider does all three and returns the extracted fields.
 | A1 ✅ | Guide base + radius on the profile, geocoder proxy, migration dropping `distance` | decision 3, 4 |
 | A2 ✅ | `near` in search + proximity in ranking + distance on cards | A1 |
 | A3 ✅ | Login location, location pill, `?near=`, guide deck by visitor location, global copy + every country | A2 |
-| B1 | `lib/Ai.php`, job worker, `trip_plans` tables | — |
-| B2 | Planner page, stops editor, matching + re-rank, results, push | A2, B1 |
-| B3 | Free-text itinerary, stops on the guide deck | B2 |
+| B1 ✅ | `lib/Ai.php`, job worker, `trip_plans` tables | — |
+| B2 ✅ | Planner page, stops editor, matching + re-rank, results, push | A2, B1 |
+| B3 ✅ | Free-text itinerary, stops on the guide deck | B2 |
 | C0 | Provider contract, DPIA, privacy/terms version, consent copy | decisions 1, 2 |
 | C1 | `identity_checks`, webhook route, upload flow, badge | C0 |
 | C2 | "Use these details" prompt, re-verification rules, duplicate-document guard | C1 |

@@ -181,6 +181,21 @@
       "messages.thread",
       "messages.toast"
     ],
+    "planner": [
+      "common.distance",
+      "common.guide_card",
+      "common.level",
+      "common.place_search",
+      "common.rating",
+      "common.standing",
+      "common.time_ago",
+      "planner.card",
+      "planner.editor",
+      "planner.page",
+      "planner.results",
+      "planner.toast",
+      "planner.trips"
+    ],
     "profile": [
       "common.attribute_combobox",
       "common.contact",

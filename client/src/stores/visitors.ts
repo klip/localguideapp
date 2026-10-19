@@ -20,6 +20,7 @@ function toVisitorCard(account: ProfileAccount): Visitor {
     photo: account.image ? `url("${account.image}")` : 'var(--rg-photo-visitor)',
     areaLabel: account.area_label ?? null,
     distanceKm: account.distance_km ?? null,
+    nextStop: account.next_stop ?? null,
   }
 }
 

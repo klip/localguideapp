@@ -3,6 +3,8 @@
 
 $md: 760px;
 $lg: 1024px;
+// The header's full menu row (AppHeader.vue) — below it, the drawer.
+$xl: 1280px;
 
 @mixin md {
   @media (min-width: $md) {
@@ -12,6 +14,12 @@ $lg: 1024px;
 
 @mixin lg {
   @media (min-width: $lg) {
+    @content;
+  }
+}
+
+@mixin xl {
+  @media (min-width: $xl) {
     @content;
   }
 }

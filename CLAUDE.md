@@ -72,12 +72,13 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
   - `api/` — every other action, plus the scheduler (`api/bin/scheduler.php`).
   - `mailer/` — the mail worker that sends the email outbox.
   - `lib/` — shared by all of them: `db`, `Log`, `RedisClient`/`Resp`,
-    `MailQueue`, `ServiceHttp`, `ImageData`, `AuthenticationException`.
+    `MailQueue`, `ServiceHttp`, `ImageData`, `AuthenticationException`,
+    `Ai` (the Claude API).
 - `deploy/` — config the docker-lemp stack mounts: `php/rockguide.ini`, and
   `observability/` (Loki, Alloy, Grafana provisioning + dashboard).
 - `docs/scaling.md` — database load, scaling proposals, the GKE target.
-- `docs/ai-and-location.md` — plan (not built): location search, the AI
-  travel planner, document verification.
+- `docs/ai-and-location.md` — location search (built), the AI travel
+  planner (built), document verification (not yet).
 - `docs/production-memo.md` — every development stand-in (simulated
   payments, Gmail, free geocoder, Claude ID checks, …) and what replaces it
   in production. Add to it whenever a shortcut is taken.
@@ -143,7 +144,7 @@ into the next test's fresh `Pinia` instance.
 
 - `src/pages/` — one component per route (Home, Register, Login, Unlock,
   Discover, GuideProfile, VisitorProfile, GuideDiscover,
-  Matches, Trips, Profile, ForgotPassword, ResetPassword, NotFound).
+  Matches, Trips, Planner, Profile, ForgotPassword, ResetPassword, NotFound).
 - `src/router/index.ts` — documents the mapping from the original static
   prototype's scroll sections to routes; read the comment there before adding
   routes.
@@ -252,6 +253,10 @@ path/name table) and the shared `src/components/` each is built from:
 - **`TripsPage.vue`** (`/trips`) — confirmed trips for both roles,
   scheduled / in progress / past (see "My trips" below); `SectionTitle`,
   a `PanelCard` per trip, `PillBadge`, `BookingPanel`.
+- **`PlannerPage.vue`** (`/planner`, traveller mode) — the travel planner
+  (see "Travel planner"); `SectionTitle`, `PanelCard`, `PlaceSearch`,
+  `PlannerGuideCard` (one suggested guide: photo, headline, distance,
+  Claude's reason, Full profile, Interested).
 - **`ProfilePage.vue`** (`/profile`) — the self-service account/profile
   editor (see "Self-service profile editing" below); `PanelCard` × 2,
   `AttributeCombobox` (the phone country-code field, and the whole dynamic
@@ -622,9 +627,9 @@ longer behind a paywall — what's gated is "Interested":
 
 ### Mobile burger menu (`AppHeader.vue`)
 
-Below `lg` (1024px — `DESKTOP_QUERY` in the component must match
-`breakpoints.$lg`; it was `md`/760px until "My trips" made a guest's row 7
-items) the nav collapses to the logo plus a burger button; the
+Below `xl` (1280px — `DESKTOP_QUERY` in the component must match
+`breakpoints.$xl`; it was `lg`/1024px until "Trip planner" made a dual-role
+traveller's row need ~1,290px, and `md`/760px before that) the nav collapses to the logo plus a burger button; the
 links open in a drawer that slides in from the right over a dimmed
 backdrop. **It's one `.drawer` element styled two ways, not two copies of
 the nav:** mobile-first CSS makes it a `position: fixed` off-canvas panel,
@@ -1056,6 +1061,7 @@ from when one PHP process did everything; behind it are services (see
   an expired session stops getting pushes.
 - **Pushes** go through Redis pub/sub, channel `user:<id>`: the API
   publishes `{ type: 'notification', notification }` as each row is written,
+  `{ type: 'trip_plan', planId, status }` when a trip's guides are ready,
   and `{ type: 'badges', matches, trips }` once per request for everyone it
   touched (`Push::touch()`/`flush()`). Each gateway subscribes for the users
   it holds sockets for and drops a counts message identical to the last.
@@ -1806,6 +1812,53 @@ the plumbing, is in:
   territory (243, A–Z), names from CLDR as `common.country.<iso2>`, and a
   shared code reads as its `primary` country (+44 → United Kingdom).
 
+### Travel planner (`docs/ai-and-location.md`, phase B)
+
+- **A trip** (`trip_plans` + `trip_plan_stops`, 064): an optional name and
+  1–14 stops, each a place (`PlaceSearch`; point rounded to ~1 km) and
+  dates (up to 60 days, starting within a year, not over). `/planner`
+  (traveller mode; "Trip planner" in the menu) lists the traveller's trips
+  (`?trip=<id>` opens one) and edits the open one.
+- **Free text** (`parseItinerary`): "Lisbon 3–5 May, then Porto" → Claude
+  (`Ai::MODEL_FAST`, structured output) returns each place's English name,
+  country name and ISO code and the dates (resolved against today); the
+  server geocodes "place country", preferring a town in that country, and
+  returns `[{ query, arriveOn, departOn, place | null }]` for the traveller
+  to check — a `null` place is flagged on the stop. Synchronous, ≤ 15 s of
+  geocoding.
+- **Finding guides is a job**: `saveTripPlan` stores the trip as `pending`
+  and pushes a wake-up on Redis `planner:wake`; the planner worker
+  (`lemp-rg-planner`, `api/bin/planner.php`, `TripPlanner::processNext()`,
+  `SKIP LOCKED`, 3 attempts) runs, per stop, `Users::searchByRole('guide',
+  { near: stop, maxKm: 50 })` for the traveller (so decided-on guides and
+  guides on a trip drop out), nudges the first 36 by shared interests and
+  languages, keeps 12, then **one Claude call for the whole trip**
+  (`Ai::MODEL_SMART`) picks up to 4 per stop with one sentence each, in the
+  trip's language — candidates go out as opaque refs (`s1g3`) with only
+  public profile text; an unknown ref is dropped, reasons are
+  `ContactFilter::mask()`ed. Fewer than 4 are topped up in SQL order without
+  a reason; if Claude fails the stop gets the SQL order and `ai_ranked = 0`
+  ("Ordered by reviews and distance."). The result is stored as JSON on the
+  stop (`[{ guideId, reason, distanceKm }]`) and pushed as `{ type:
+  'trip_plan', planId, status }` (the gateway forwards it); the page also
+  re-checks every 8 s while waiting.
+- **Results**: per stop, "1 · Lisbon  3–5 May", the cards, and "Only N
+  guides near …" / "No guides near … yet". `tripPlan` returns the cards
+  fresh (`searchByRole` with the server-only `ids` filter and
+  `includeDecided`). **Interested** is the deck's: `matchesStore.pick()` then
+  `decide()`, a pick each; with no pack it goes to `/unlock`.
+- **Guides see upcoming stops**: on the guide's deck a traveller's location
+  is their search area *or* their nearest stop still ahead, whichever is
+  closer to the guide's point (`maxKm` and ranking use it); rows carry
+  `next_stop` (`{ label, arriveOn, departOn }`, the soonest without a point),
+  shown as "Visiting Seville, Nov 14 – 16". The planner page tells the
+  traveller that guides see the town and dates only.
+- **Limits**: 10 plans and 30 readings per traveller per day (Redis
+  counters), 20 saved trips. Every Claude call logs purpose, model, time and
+  tokens — never the prompt.
+- Dates on the client: `utils/tripDates.ts` (`formatStay()` — plain calendar
+  dates, printed in UTC in the UI language).
+
 ### Two-factor login & password reset
 
 Both by email, both in `auth/classes/AccountSecurity.php`, backed by
@@ -1873,6 +1926,7 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
 | auth | `auth/index.php` (php-fpm) | `lemp-rg-auth`, via nginx `:8082` | MySQL, Redis (sessions), outbox |
 | api | `api/index.php` (php-fpm) | `lemp-rg-api`, via nginx `:8081` | MySQL, Redis (publish), outbox |
 | scheduler | `api/bin/scheduler.php` | `lemp-rg-scheduler` | MySQL, Redis |
+| planner | `api/bin/planner.php` | `lemp-rg-planner` | MySQL, Redis (wake-ups, publish), Claude API, Photon |
 | mailer | `mailer/bin/mail-worker.php` | `lemp-rg-mailer` | MySQL (outbox), Redis (wake-ups), SMTP |
 
 - **Internal HTTP contract** (`lib/ServiceHttp.php`): `POST /` with the JSON
@@ -1890,7 +1944,8 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
   can run as several replicas (the scheduler's Redis lock and the mailer's
   `SKIP LOCKED` claims make those two safe to duplicate too).
 - **Long-running PHP**: after changing code, restart what runs it —
-  `docker restart lemp-ws` (gateway/), `lemp-rg-scheduler` (api/),
+  `docker restart lemp-ws` (gateway/), `lemp-rg-scheduler` and
+  `lemp-rg-planner` (api/),
   `lemp-rg-mailer` (mailer/). php-fpm (`lemp-rg-api`, `lemp-rg-auth`)
   picks changes up per request.
 
@@ -1930,9 +1985,10 @@ repo, at `../../docker-compose.yaml` relative to here — i.e.
 - The RockGuide services above (`ws`, `rg-api`, `rg-auth`, `rg-scheduler`,
   `rg-mailer`), all built from `./php`, with `deploy/php/rockguide.ini`
   (errors logged, never displayed) and `restart: unless-stopped`. Their
-  settings — DB_*, PEPPER, SMTP_*, MAIL_*, APP_URL, INTERNAL_TOKEN, REDIS_* —
+  settings — DB_*, PEPPER, SMTP_*, MAIL_*, APP_URL, INTERNAL_TOKEN, REDIS_*,
+  ANTHROPIC_API_KEY —
   come from `docker-lemp/php/localguideapp.env`, outside this repo. Never
-  commit it. `docker compose up -d ws rg-api rg-auth rg-scheduler rg-mailer`.
+  commit it. `docker compose up -d ws rg-api rg-auth rg-scheduler rg-planner rg-mailer`.
 - `redis` / `lemp-redis` — Redis 7.4 with AOF and a password
   (`docker-lemp/php/redis.env`); not published to the host.
 - `loki`, `alloy`, `grafana` (`lemp-loki`, `lemp-alloy`, `lemp-grafana`) —
@@ -2017,7 +2073,7 @@ is a `503` from the gateway.
 | `requestPasswordReset` | no | `api.requestPasswordReset(payload)` | `email` | `{ ok: true }` always | `AccountSecurity::requestPasswordReset()` |
 | `resetPassword` | no | `api.resetPassword(payload)` | `token, newPassword` (≥8) | `{ ok: true }` | `AccountSecurity::resetPassword()` |
 | `guides` | optional* | `api.guides(filters?, includeDecided?)` | `gender?, attributes?, ranges?, ageRanges?, includeDecided?, near?` `{ latitude, longitude }`, `maxKm?` (1–20000, with `near`) | `{ guides: ProfileAccount[] }` best-first, each with `verified, top_rated, trips_completed` (see "Ranking & badges"), plus `distance_km` with `near` (see "Location") | `Users::searchByRole('guide', ...)` |
-| `visitors` | optional* | `api.visitors(filters?, includeDecided?)` | same filter shape as `guides` | `{ visitors: ProfileAccount[] }` | `Users::searchByRole('guest', ...)` |
+| `visitors` | optional* | `api.visitors(filters?, includeDecided?)` | same filter shape as `guides` | `{ visitors: ProfileAccount[] }`, each with `area_label` and `next_stop` (a planned stop still ahead — see "Travel planner") | `Users::searchByRole('guest', ...)` |
 | `attributeCategories` | no | `api.attributeCategories()` | — | `{ categories: AttributeCategory[] }` | `Profiles::getCategories()` |
 | `myProfile` | **yes** | `api.myProfile()` | — | `MyProfile` (+ `trusted_device_count`) | `Users::getFullAccount()`, `AccountSecurity::trustedDeviceCount()` |
 | `updateProfile` | **yes** | `api.updateProfile(payload)` | `dateOfBirth?, gender?, headline?, bio?, priceAmount?, priceLabel?, priceNote?, includes?, party?, durationHours?, attributes?, newCategoryLabels?, ranges?, base?, radiusKm?` (guide only: where they guide, `null` removes; radius `null` = flexible) — every field independent (no `rating`/`tours` since 013) | `{ ok: true }` | `actionUpdateProfile()` → `Profiles::setProfile()`/`setAttributeValues()`/`setRanges()`/`setGuideBase()` |
@@ -2052,6 +2108,11 @@ is a `503` from the gateway.
 | `setSearchArea` | **yes** (traveller) | `api.setSearchArea(area)` | `area` (`{ latitude, longitude, label, countryCode? }` or `null` to clear) | `{ ok: true }` | `Profiles::setSearchArea()` |
 | `myGuideBase` | **yes** | `api.myGuideBase()` | — | `{ base: GuideBase \| null }` (null unless acting as a guide with a base) | `Profiles::getGuideBase()` |
 | `reverseGeocode` | no | `api.reverseGeocode(point, language)` | `latitude, longitude, language` | `{ place: Place \| null }` (the town, at the point rounded to 2 decimals) | `Geocoder::reverse()` |
+| `tripPlans` | **yes** (traveller) | `api.tripPlans()` | — | `{ plans: TripPlanSummary[] }` (`id, title, status, createdAt, firstDay, lastDay, stopCount, places`) newest first | `TripPlanner::listFor()` |
+| `tripPlan` | **yes** (traveller) | `api.tripPlan(planId)` | `planId` | `TripPlan` (`id, title, status` `pending\|processing\|ready\|failed`, `aiRanked, generatedAt, createdAt, stops` with `suggestions`, `guides: ProfileAccount[]`) | `TripPlanner::get()` |
+| `saveTripPlan` | **yes** (traveller) | `api.saveTripPlan(payload)` | `planId?` (replaces), `title?` (≤80), `language`, `stops: [{ place: { label, countryCode?, latitude, longitude }, arriveOn, departOn }]` (1–14) | `TripPlan` (`pending`; the worker pushes `trip_plan`) | `TripPlanner::save()` |
+| `deleteTripPlan` | **yes** (traveller) | `api.deleteTripPlan(planId)` | `planId` | `{ ok: true }` | `TripPlanner::delete()` |
+| `parseItinerary` | **yes** (traveller) | `api.parseItinerary(text, language)` | `text` (3–1000), `language` | `{ stops: ParsedStop[] }` (`query, arriveOn, departOn, place \| null`) | `TripPlanner::parseItinerary()` |
 | `legalDocument` | no | `api.legalDocument(slug, language)` | `slug` (`'terms'`), `language` | `LegalDocumentView` (`slug, version, language, title, body`, placeholders filled) | `LegalDocuments::current()` |
 
 \* `guides`/`visitors`/`reviews` work signed out, but personalise themselves when a
@@ -2465,6 +2526,10 @@ API service (`api/classes/`):
   cruise copy reworded for a global service. Applied 2026-10-19. Re-runnable.
 - `api/sql/063_translations_countries.sql` — the 176 country names the phone
   picker lacked (CLDR). Applied 2026-10-19. Re-runnable.
+- `api/sql/064_trip_plans.sql` — `trip_plans`, `trip_plan_stops` (see
+  "Travel planner"). Applied 2026-10-19. Re-runnable.
+- `api/sql/065_translations_planner.sql` — the planner page, its menu link,
+  "Visiting {place}, {dates}". Applied 2026-10-19. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

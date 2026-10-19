@@ -79,14 +79,16 @@ async function logout() {
 }
 
 /**
- * Mobile menu. Below `lg` the same `.drawer` that sits inline on desktop
+ * Mobile menu. Below `xl` the same `.drawer` that sits inline on desktop
  * becomes an off-canvas panel sliding in from the right (pure CSS — see the
  * styles below), so the links are only written once. While open: page
  * scroll is locked, Tab cycles within the drawer, Escape / the backdrop /
  * the close button / following any link closes it.
  */
-// `lg`, not `md`: with "My trips" a guest's row is 7 items, too many for 760px.
-const DESKTOP_QUERY = '(min-width: 1024px)' // keep in sync with `bp.$lg`
+// `xl` (1280px): a dual-role traveller's row — Discover, Trip planner, Matches,
+// My trips, Messages, Profile, the mode switch, picks, language, Log out — needs
+// about 1,290px in English; narrower, it wrapped.
+const DESKTOP_QUERY = '(min-width: 1280px)' // keep in sync with `bp.$xl`
 
 const menuOpen = ref(false)
 const burgerRef = ref<HTMLButtonElement | null>(null)
@@ -247,6 +249,11 @@ onBeforeUnmount(() => {
             <li>
               <RouterLink :to="discoverTo" class="nav-link">{{
                 t('common.app_header.discover')
+              }}</RouterLink>
+            </li>
+            <li v-if="isAuthenticated && activeRole === 'guest'">
+              <RouterLink to="/planner" class="nav-link" data-test="nav-planner">{{
+                t('common.app_header.planner')
               }}</RouterLink>
             </li>
             <li v-if="isAuthenticated">
@@ -455,7 +462,7 @@ nav {
   text-align: center;
   pointer-events: none;
 
-  @include bp.lg {
+  @include bp.xl {
     position: absolute;
     top: -0.1rem;
     inset-inline-end: -0.2rem;
@@ -624,7 +631,7 @@ nav .nav {
 
 // --- Desktop: inline nav ------------------------------------------------------
 
-@include bp.lg {
+@include bp.xl {
   .burger,
   .drawer-head,
   .drawer-user,

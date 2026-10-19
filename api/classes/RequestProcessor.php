@@ -34,6 +34,8 @@ class RequestProcessor
     private $profiles;
     /** @var Geocoder */
     private $geocoder;
+    /** @var TripPlanner */
+    private $planner;
     /** @var Reviews */
     private $reviews;
     /** @var Translations */
@@ -68,6 +70,7 @@ class RequestProcessor
         $this->selections = new Selections($db, $this->users, $this->payments, $this->bookings, $this->levels);
         $this->profiles = new Profiles($db);
         $this->geocoder = new Geocoder($redis);
+        $this->planner = new TripPlanner($db, $redis, $this->users, $this->profiles, $this->geocoder, $this->push, new Ai());
         $this->reviews = new Reviews($db, $this->levels);
         $this->translations = new Translations($db);
         $this->messages = new Messages($db, $this->push, $this->notifications);
@@ -274,6 +277,34 @@ class RequestProcessor
             case 'reverseGeocode':
                 $point = Places::readPoint($this->readInput(), 'reverseGeocode');
                 return [200, ['place' => $this->geocoder->reverse($point['latitude'], $point['longitude'], $this->readLanguage())]];
+
+            // The travel planner (`TripPlanner`), traveller mode only: saved
+            // trips; saving queues the guide suggestions for the planner
+            // worker, which pushes `trip_plan` when they're ready.
+            case 'tripPlans':
+                return [200, ['plans' => $this->planner->listFor($this->requireTraveller())]];
+
+            case 'tripPlan':
+                return [200, $this->planner->get($this->requireTraveller(), $this->requirePlanId())];
+
+            case 'saveTripPlan':
+                $userId = $this->requireTraveller();
+                $input = $this->readInput();
+                $planId = isset($input['planId']) ? $this->requirePlanId() : null;
+                return [200, $this->planner->save($userId, $planId, $input['title'] ?? null, $this->readLanguage(), $input['stops'] ?? null)];
+
+            case 'deleteTripPlan':
+                $this->planner->delete($this->requireTraveller(), $this->requirePlanId());
+                return [200, ['ok' => true]];
+
+            // An itinerary in words → stops for the traveller to check (Claude
+            // reads it, the geocoder places it).
+            case 'parseItinerary':
+                return [200, ['stops' => $this->planner->parseItinerary(
+                    $this->requireTraveller(),
+                    $this->readInput()['text'] ?? '',
+                    $this->readLanguage()
+                )]];
 
             // Gateway-only (never routed for a client): what a socket that just
             // signed in should be shown — unread notifications (marked read
@@ -923,6 +954,27 @@ class RequestProcessor
         }
 
         return $this->userId;
+    }
+
+    /** The caller, acting as a traveller — the planner is theirs. */
+    private function requireTraveller(): int
+    {
+        $userId = $this->requireUserId();
+        if ($this->actingRole() !== 'guest') {
+            throw new RuntimeException('The trip planner is for travellers.');
+        }
+
+        return $userId;
+    }
+
+    private function requirePlanId(): int
+    {
+        $planId = $this->readInput()['planId'] ?? null;
+        if (!is_int($planId) || $planId <= 0) {
+            throw new RuntimeException('planId is required.');
+        }
+
+        return $planId;
     }
 
     /** The request's `targetId` — the other person an action is about. */

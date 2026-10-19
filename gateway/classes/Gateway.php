@@ -20,7 +20,8 @@
  * Gateway → client
  * - `{ type: "notification", notification }`, `{ type: "badges", matches,
  *   trips, messages }`, `{ type: "message", message }` (a chat message,
- *   live only) and `{ type: "messages_read", reader_id, up_to_id, read_at }`,
+ *   live only), `{ type: "messages_read", reader_id, up_to_id, read_at }`
+ *   and `{ type: "trip_plan", planId, status }` (a trip's guides are ready),
  *   which the services publish to Redis channel `user:<id>`
  *   (`Push`). This gateway subscribes to that channel while it holds a
  *   connection for the user, and on sign-in fetches what was waiting
@@ -337,6 +338,14 @@ class Gateway
                 // A chat message (`Messages`): live only — the conversation
                 // is fetched again whenever it's opened, so nothing to replay.
                 $this->send($id, ['type' => 'message', 'message' => $message['message']]);
+            } elseif (($message['type'] ?? '') === 'trip_plan') {
+                // A trip's guide suggestions are ready (or failed) — `TripPlanner`.
+                // Live only: the planner page fetches the plan when opened.
+                $this->send($id, [
+                    'type' => 'trip_plan',
+                    'planId' => (int) ($message['planId'] ?? 0),
+                    'status' => (string) ($message['status'] ?? ''),
+                ]);
             } elseif (($message['type'] ?? '') === 'messages_read') {
                 // The other side read up to `up_to_id` — the sender's "Seen".
                 $this->send($id, [

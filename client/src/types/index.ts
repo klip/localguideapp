@@ -85,8 +85,10 @@ export interface Visitor {
   photo: string
   /** Where they're looking for guides ("Lisbon, Portugal"), when they've said lately. */
   areaLabel: string | null
-  /** Km from the guide's search point to that area (0 = under 1 km); `null` without one. */
+  /** Km from the guide's search point to that area or stop (0 = under 1 km); `null` without one. */
   distanceKm: number | null
+  /** A planned stop still ahead (the one nearest the search point, else the soonest), or `null`. */
+  nextStop: { label: string; arriveOn: string; departOn: string } | null
 }
 
 /** A chosen place: its point and how to name it (from the place search). */

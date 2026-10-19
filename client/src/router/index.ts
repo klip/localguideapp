@@ -145,6 +145,12 @@ const router = createRouter({
       props: true,
     },
     {
+      // A traveller's trips and the guides suggested for each stop (see PlannerPage.vue).
+      path: '/planner',
+      name: 'planner',
+      component: () => import('@/pages/PlannerPage.vue'),
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('@/pages/ProfilePage.vue'),
