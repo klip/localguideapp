@@ -27,6 +27,21 @@ const pills = computed<Pill[]>(() => {
   const { filters } = filtersStore
   const out: Pill[] = []
 
+  if (filters.near) {
+    out.push({
+      id: 'near',
+      label: t('common.active_filters.near', { place: filters.near.label }),
+      remove: () => filtersStore.setNear(null),
+    })
+    if (filters.maxKm) {
+      out.push({
+        id: 'maxKm',
+        label: t('common.filter_panel.within', { km: filters.maxKm }),
+        remove: () => filtersStore.setMaxKm(null),
+      })
+    }
+  }
+
   if (filters.gender) {
     out.push({
       id: 'gender',

@@ -16,6 +16,16 @@
  *   level (`Levels`: from finished trips, minus any active
  *     sanction): 5 × level — Starter +5 … Icon +35         0 … +35
  *   a photo +5, a bio +5                                     0 … +10
+ *   a new account, fading over 21 days                       0 … +15
+ *   searching near a point (`near`): +60 within the person's
+ *     own radius (an empty, flexible radius counts as 25 km
+ *     here), fading to 0 at 100 km beyond it, plus up to +15
+ *     fading over 1,000 km (so nearer still helps further
+ *     out); no location: 0                                     0 … +75
+ *
+ * Proximity outweighs everything else on purpose: someone searching Lisbon
+ * wants Lisbon guides first, and moving the search point has to reorder the
+ * deck.
  *
  * The score itself never leaves the server (so nobody tunes their profile to
  * a number); the client gets the facts behind it as badges:
@@ -31,6 +41,12 @@ final class Ranking
     /** A new account's boost (points) and how many days it takes to fade out. */
     private const NEW_BOOST = 15;
     private const NEW_BOOST_DAYS = 21;
+    /** Proximity: points within the radius, how far beyond it they fade out, and the radius assumed for a flexible one. */
+    private const NEAR_BOOST = 60;
+    private const NEAR_FADE_KM = 100;
+    private const FLEXIBLE_RADIUS_KM = 25;
+    private const FAR_BOOST = 15;
+    private const FAR_FADE_KM = 1000;
 
     /**
      * Trips per user **in `$role`** (finished, as that side), joined as `ts`:
@@ -85,7 +101,7 @@ final class Ranking
      * for the role listed — headline/bio), `rr` (`reviewsJoin()`), `ts`
      * (`tripsJoin()`) and `sx` (`Levels::sanctionsJoin()`).
      */
-    public static function columns(string $role): string
+    public static function columns(string $role, ?string $distanceSql = null, ?string $radiusSql = null): string
     {
         return 'u.`verified_at` IS NOT NULL AS `verified`,
                 COALESCE(ts.`trips_completed`, 0) AS `trips_completed`,
@@ -94,14 +110,24 @@ final class Ranking
                     : '0') . ' AS `volunteer`,
                 ' . Levels::effectiveLevelSql() . ' AS `level`,
                 (COALESCE(rr.`authors`, 0) >= 5 AND rr.`author_sum` / rr.`authors` >= 4.6) AS `top_rated`,
-                ' . self::scoreSql() . ' AS `rank_score`';
+                ' . self::scoreSql($distanceSql, $radiusSql) . ' AS `rank_score`';
     }
 
     public const ORDER_BY = 'ORDER BY `rank_score` DESC, u.`id` DESC';
 
-    private static function scoreSql(): string
+    /**
+     * `$distanceSql`: km from the search point to the person (NULL when they
+     * have no location); `$radiusSql`: their travel radius (NULL = flexible).
+     * Both null: no search point, no proximity term.
+     */
+    private static function scoreSql(?string $distanceSql = null, ?string $radiusSql = null): string
     {
         $prior = self::PRIOR_REVIEWS . ' * ' . self::PRIOR_AVERAGE;
+        $beyond = 'GREATEST(0, ' . $distanceSql . ' - '
+            . ($radiusSql === null ? self::FLEXIBLE_RADIUS_KM : 'COALESCE(' . $radiusSql . ', ' . self::FLEXIBLE_RADIUS_KM . ')') . ')';
+        $proximity = $distanceSql === null ? '' : '
+            + COALESCE(' . self::NEAR_BOOST . ' * GREATEST(0, 1 - ' . $beyond . ' / ' . self::NEAR_FADE_KM . ')
+                + ' . self::FAR_BOOST . ' * GREATEST(0, 1 - ' . $beyond . ' / ' . self::FAR_FADE_KM . '), 0)';
 
         return '(
             IF(u.`verified_at` IS NULL, 0, 30)
@@ -109,7 +135,7 @@ final class Ranking
             + 5 * ' . Levels::effectiveLevelSql() . '
             + IF(u.`image` IS NULL OR u.`image` = "", 0, 5)
             + IF(urx.`bio` IS NULL OR urx.`bio` = "", 0, 5)
-            + GREATEST(0, ' . self::NEW_BOOST . ' * (1 - TIMESTAMPDIFF(HOUR, u.`created_at`, UTC_TIMESTAMP()) / (' . self::NEW_BOOST_DAYS . ' * 24)))
+            + GREATEST(0, ' . self::NEW_BOOST . ' * (1 - TIMESTAMPDIFF(HOUR, u.`created_at`, UTC_TIMESTAMP()) / (' . self::NEW_BOOST_DAYS . ' * 24)))' . $proximity . '
         )';
     }
 
@@ -122,6 +148,10 @@ final class Ranking
         // A guide who has only guided for free: "Volunteer" instead of a level.
         $row['volunteer'] = (bool) (int) ($row['volunteer'] ?? 0);
         $row['level'] = (int) $row['level'];
+        // Only when searching near a point; null for someone with no location.
+        if (array_key_exists('distance_km', $row)) {
+            $row['distance_km'] = $row['distance_km'] === null ? null : (int) $row['distance_km'];
+        }
         unset($row['rank_score']);
 
         return $row;

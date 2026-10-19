@@ -1761,6 +1761,25 @@ the plumbing, is in:
   (`geocode:<sha1>`), at most 5 upstream calls a second across replicas.
   `Places.php` holds the point SQL (`axis-order=lat-long`,
   `ST_Distance_Sphere`).
+- **Searching near a point** (phase A2): `filters.near` (a `PlacePoint`) and
+  `filters.maxKm` in `stores/filters.ts`; `deckRequest()` sends `near` as
+  `{ latitude, longitude }` (never the label) and `maxKm` only with it.
+  `Users::searchByRole()` joins `guide_bases` for the guide deck: rows carry
+  `distance_km` (whole km, 0 = under 1), guides with no base go last, and
+  `maxKm` keeps guides whose area comes within it (distance − radius ≤
+  maxKm; a flexible guide always passes, one with no base never does).
+  **Proximity in the ranking** (`Ranking::scoreSql()`): +60 inside the
+  person's radius (flexible counts as 25 km here), fading to 0 at 100 km
+  beyond, plus +15 fading over 1,000 km — it outweighs everything else on
+  purpose, so moving the point reorders the deck.
+- `near` ranks, it doesn't filter: it isn't counted by `isPristine`/
+  `activeCount`, and Clear filters (`reset()`) keeps it; `setNear(null)` also
+  drops `maxKm`. `LocationFilter.vue` tops the filter bar on the traveller's
+  deck ("📍 Lisbon · Change" / "Anywhere · Set a location", then Distance:
+  an "Unlimited" switch, on by default, waking a 1–200 km slider at 25);
+  `ActiveFilters` shows "Near Lisbon" and "Within 25 km" pills. The card's
+  meta line reads "★ 4.8 · 1 review · 3 km away" (`utils/distance.ts`). The
+  guide's deck has no location yet (travellers have none).
 
 ### Two-factor login & password reset
 
@@ -1972,7 +1991,7 @@ is a `503` from the gateway.
 | `resendTwoFactor` | no | `api.resendTwoFactor(payload)` | `challengeToken` | `TwoFactorChallenge` | `AccountSecurity::resendLoginCode()` |
 | `requestPasswordReset` | no | `api.requestPasswordReset(payload)` | `email` | `{ ok: true }` always | `AccountSecurity::requestPasswordReset()` |
 | `resetPassword` | no | `api.resetPassword(payload)` | `token, newPassword` (≥8) | `{ ok: true }` | `AccountSecurity::resetPassword()` |
-| `guides` | optional* | `api.guides(filters?, includeDecided?)` | `gender?, attributes?, ranges?, ageRanges?, includeDecided?` | `{ guides: ProfileAccount[] }` best-first, each with `verified, top_rated, trips_completed` (see "Ranking & badges") | `Users::searchByRole('guide', ...)` |
+| `guides` | optional* | `api.guides(filters?, includeDecided?)` | `gender?, attributes?, ranges?, ageRanges?, includeDecided?, near?` `{ latitude, longitude }`, `maxKm?` (1–20000, with `near`) | `{ guides: ProfileAccount[] }` best-first, each with `verified, top_rated, trips_completed` (see "Ranking & badges"), plus `distance_km` with `near` (see "Location") | `Users::searchByRole('guide', ...)` |
 | `visitors` | optional* | `api.visitors(filters?, includeDecided?)` | same filter shape as `guides` | `{ visitors: ProfileAccount[] }` | `Users::searchByRole('guest', ...)` |
 | `attributeCategories` | no | `api.attributeCategories()` | — | `{ categories: AttributeCategory[] }` | `Profiles::getCategories()` |
 | `myProfile` | **yes** | `api.myProfile()` | — | `MyProfile` (+ `trusted_device_count`) | `Users::getFullAccount()`, `AccountSecurity::trustedDeviceCount()` |
@@ -2410,6 +2429,8 @@ API service (`api/classes/`):
   Applied 2026-10-19. Not re-runnable.
 - `api/sql/059_translations_guide_base.sql` — place search and "Where you
   guide". Applied 2026-10-19. Re-runnable.
+- `api/sql/060_translations_location_filter.sql` — the location and
+  distance filter, their pills, "3 km away". Applied 2026-10-19. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

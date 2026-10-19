@@ -65,6 +65,8 @@ export interface Guide {
   standing: Standing
   /** CSS background value standing in for the photo until imagery exists. */
   photo: string
+  /** Km from the deck's search point to where they guide (0 = under 1 km); `null` without one. */
+  distanceKm: number | null
 }
 
 /** A visiting party, shown to guides on the guide discovery deck. */
@@ -93,10 +95,23 @@ export interface Visitor {
  * `AGE_CATEGORY` in `stores/categories.ts`), which is why `plugins/api.ts`
  * peels it off into its own `ageRanges` request field.
  */
+/** A chosen place: its point and how to name it (from the place search). */
+export interface PlacePoint {
+  /** "Lisbon, Portugal" */
+  label: string
+  countryCode: string | null
+  latitude: number
+  longitude: number
+}
+
 export interface DiscoveryFilters {
   gender: Gender | null
   attributes: AttributeMap
   ranges: RangeMap
+  /** Where to search near: closer people rank first and cards show the distance. Not a filter by itself. */
+  near: PlacePoint | null
+  /** With `near`: only people whose area comes within this many km. `null` = unlimited. */
+  maxKm: number | null
 }
 
 /** How a card was dispatched from a discovery deck. */

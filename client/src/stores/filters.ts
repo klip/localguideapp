@@ -1,9 +1,9 @@
 import { computed, reactive } from 'vue'
 import { defineStore } from 'pinia'
-import type { DiscoveryFilters, Gender, NumericRange } from '@/types'
+import type { DiscoveryFilters, Gender, NumericRange, PlacePoint } from '@/types'
 
 function emptyFilters(): DiscoveryFilters {
-  return { gender: null, attributes: {}, ranges: {} }
+  return { gender: null, attributes: {}, ranges: {}, near: null, maxKm: null }
 }
 
 /** Two spans are the same span — used to keep a category's list free of exact duplicates. */
@@ -19,6 +19,10 @@ function sameRange(a: NumericRange, b: NumericRange) {
  * invented), so a new category becomes filterable without touching this file.
  * That's the whole point of the rewrite — the old store hardcoded
  * `LANGUAGES`, `ACTIVITY_OPTIONS` and `GENDER_OPTIONS` lists.
+ *
+ * `near` is the search point (it ranks, it doesn't filter, so it doesn't
+ * count as a filter and Clear filters keeps it); `maxKm` is the distance
+ * filter, meaningful only with a point.
  */
 export const useFiltersStore = defineStore('filters', () => {
   const filters = reactive<DiscoveryFilters>(emptyFilters())
@@ -33,6 +37,7 @@ export const useFiltersStore = defineStore('filters', () => {
     let count = filters.gender ? 1 : 0
     for (const values of Object.values(filters.attributes)) count += values.length
     for (const ranges of Object.values(filters.ranges)) count += ranges.length
+    if (filters.near && filters.maxKm) count++
     return count
   })
 
@@ -103,8 +108,21 @@ export const useFiltersStore = defineStore('filters', () => {
     filters.gender = gender
   }
 
+  /** The search point; clearing it clears the distance filter too. */
+  function setNear(point: PlacePoint | null) {
+    filters.near = point
+    if (!point) filters.maxKm = null
+  }
+
+  /** At most this many km from `near`; `null` = unlimited. */
+  function setMaxKm(km: number | null) {
+    filters.maxKm = km
+  }
+
+  /** Every filter off — the search point stays (it's where, not what). */
   function reset() {
     filters.gender = null
+    filters.maxKm = null
     for (const key of Object.keys(filters.attributes)) delete filters.attributes[key]
     for (const key of Object.keys(filters.ranges)) delete filters.ranges[key]
   }
@@ -123,6 +141,8 @@ export const useFiltersStore = defineStore('filters', () => {
     setRange,
     clearCategory,
     setGender,
+    setNear,
+    setMaxKm,
     reset,
   }
 })

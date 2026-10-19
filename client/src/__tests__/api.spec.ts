@@ -89,6 +89,27 @@ describe('plugins/api call()', () => {
     expect(lastRequest()).not.toHaveProperty('actingRole')
   })
 
+  it('sends the search point and the distance limit, and the limit only with a point', async () => {
+    setActivePinia(createPinia())
+    FakeWebSocket.respond = () => ({ status: 200, body: { guides: [] } })
+    const lisbon = {
+      label: 'Lisbon, Portugal',
+      countryCode: 'PT',
+      latitude: 38.72,
+      longitude: -9.14,
+    }
+    const base = { gender: null, attributes: {}, ranges: {} }
+
+    await api.guides({ ...base, near: lisbon, maxKm: 25 })
+    expect(lastRequest()).toMatchObject({ near: { latitude: 38.72, longitude: -9.14 }, maxKm: 25 })
+    // Only the point travels, not its name.
+    expect((lastRequest().near as Record<string, unknown>).label).toBeUndefined()
+
+    await api.guides({ ...base, near: null, maxKm: 25 })
+    expect(lastRequest()).not.toHaveProperty('near')
+    expect(lastRequest()).not.toHaveProperty('maxKm')
+  })
+
   it('clears the local session when a request comes back 401', async () => {
     setActivePinia(createPinia())
     const auth = useAuthStore()

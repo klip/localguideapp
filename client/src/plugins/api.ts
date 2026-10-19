@@ -3,7 +3,9 @@ import { t } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
 import { socket, type SocketResponse } from '@/plugins/socket'
-import type { AttributeMap, DiscoveryFilters, Gender, RangeMap } from '@/types'
+import type { AttributeMap, DiscoveryFilters, Gender, PlacePoint, RangeMap } from '@/types'
+
+export type { PlacePoint }
 
 /**
  * Thrown for every failure mode of a request: network failure, a
@@ -160,6 +162,8 @@ export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   level: number
   /** A guide who has only guided for free so far: "Volunteer" instead of a level. */
   volunteer?: boolean
+  /** Km to them from the deck's `near` point (0 = under 1 km); `null`/absent without a point or a location. */
+  distance_km?: number | null
   attributes: AttributeMap
   ranges: RangeMap
 }
@@ -208,14 +212,6 @@ export interface Place {
   longitude: number
   /** The provider's type — city, state, country… */
   kind: string
-}
-
-/** What's stored for a chosen place: its point and how to name it. */
-export interface PlacePoint {
-  label: string
-  countryCode: string | null
-  latitude: number
-  longitude: number
 }
 
 /** Where a guide works (`guide_bases`); the point is rounded to ~1 km. */
@@ -828,11 +824,17 @@ function deckRequest(filters?: DiscoveryFilters): Record<string, unknown> {
 
   const { [AGE_FILTER_KEY]: ageRanges, ...ranges } = filters.ranges
 
+  const near = filters.near
+    ? { latitude: filters.near.latitude, longitude: filters.near.longitude }
+    : null
+
   return {
     ...(filters.gender ? { gender: filters.gender } : {}),
     attributes: filters.attributes,
     ranges,
     ...(ageRanges?.length ? { ageRanges } : {}),
+    ...(near ? { near } : {}),
+    ...(near && filters.maxKm ? { maxKm: filters.maxKm } : {}),
   }
 }
 

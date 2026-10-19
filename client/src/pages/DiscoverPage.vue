@@ -22,6 +22,7 @@ import { useMatchesStore } from '@/stores/matches'
 import { debounce } from '@/utils/debounce'
 import { addPendingReject } from '@/utils/pendingRejects'
 import { formatRating } from '@/utils/reviews'
+import { formatDistance } from '@/utils/distance'
 import { anchorTo } from '@/stores/messages'
 import { reportApiError } from '@/utils/reportApiError'
 import type { DiscoveryFilters } from '@/types'
@@ -100,11 +101,16 @@ const deck = computed(() => guides.value.filter((guide) => !matchesStore.isDecid
 const current = computed(() => deck.value[0])
 
 /** From real reviews — omitted until a guide has at least one, rather than showing "★ 0 · 0 reviews". */
-const currentMeta = computed(() =>
-  current.value && current.value.reviewCount > 0
-    ? formatRating(current.value.ratingAverage, current.value.reviewCount)
-    : undefined,
-)
+// "★ 4.8 (12) · 3 km away" — each part only when there is one.
+const currentMeta = computed(() => {
+  const guide = current.value
+  if (!guide) return undefined
+  const parts = [
+    guide.reviewCount > 0 ? formatRating(guide.ratingAverage, guide.reviewCount) : null,
+    guide.distanceKm !== null ? formatDistance(guide.distanceKm) : null,
+  ].filter((part): part is string => part !== null)
+  return parts.length ? parts.join(' · ') : undefined
+})
 
 const pickedGuides = computed(() => picks.value.map(guidesStore.find).filter((guide) => !!guide))
 

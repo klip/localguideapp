@@ -35,6 +35,7 @@ export function toGuideCard(account: ProfileAccount | PublicProfile): Guide {
     ranges: account.ranges ?? {},
     standing: standingOf(account),
     photo: account.image ? `url("${account.image}")` : 'var(--rg-photo-guide)',
+    distanceKm: 'distance_km' in account ? (account.distance_km ?? null) : null,
   }
 }
 

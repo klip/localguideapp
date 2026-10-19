@@ -2,6 +2,7 @@
 import { computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import DualRangeSlider from './DualRangeSlider.vue'
+import LocationFilter from './LocationFilter.vue'
 import { t } from '@/i18n'
 import { AGE_CATEGORY, AGE_CATEGORY_KEY, useCategoriesStore } from '@/stores/categories'
 import { useFiltersStore } from '@/stores/filters'
@@ -10,7 +11,8 @@ import type { AttributeCategory, Role } from '@/plugins/api'
 import type { Gender, NumericRange } from '@/types'
 
 /**
- * The discovery filter form, in two parts:
+ * The discovery filter form: where to search (`LocationFilter` — the search
+ * point and the distance limit, on the traveller's deck), then two parts:
  *
  * - **The person** — gender (a dropdown) and age (one slider, two handles).
  *   Both are human constants rather than tag lists, so they sit together at
@@ -119,6 +121,9 @@ function onGenderChange(event: Event) {
 
 <template>
   <div class="filter-panel" :class="{ compact }">
+    <!-- Travellers have no location yet, so the guide's deck can't measure one. -->
+    <LocationFilter v-if="targetRole !== 'guest'" />
+
     <fieldset class="person">
       <label class="tiny">
         {{ t('common.filter_panel.gender') }}
@@ -292,19 +297,6 @@ function onGenderChange(event: Event) {
 
   strong {
     margin-left: auto;
-  }
-}
-
-// Pico's role="switch" checkbox, kept small for the rail.
-.unlimited {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  cursor: pointer;
-
-  input {
-    margin: 0;
   }
 }
 

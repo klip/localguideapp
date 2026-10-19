@@ -215,6 +215,74 @@ describe('FilterPanel', () => {
     expect(store.filters.ranges).not.toHaveProperty('hour_of_day')
   })
 
+  it('searches near a place, with an Unlimited switch that wakes the distance slider', async () => {
+    const wrapper = await mountPanel()
+    const pills = mount(ActiveFilters, {
+      global: { plugins: [getActivePinia()!], provide: { [API_KEY]: fakeApi() } },
+    })
+    const store = useFiltersStore()
+    const location = wrapper.find('[data-test="location-filter"]')
+    const toggle = location.find<HTMLInputElement>('[data-test="distance-unlimited"]')
+    const slider = location.find<HTMLInputElement>('[data-test="distance-slider"]')
+
+    // No place yet: anywhere, and nothing to measure distance from.
+    expect(location.text()).toContain('Anywhere')
+    expect(toggle.element.disabled).toBe(true)
+    expect(slider.element.disabled).toBe(true)
+
+    store.setNear({
+      label: 'Lisbon, Portugal',
+      countryCode: 'PT',
+      latitude: 38.72,
+      longitude: -9.14,
+    })
+    await flushPromises()
+    expect(location.find('[data-test="near-label"]').text()).toContain('Lisbon, Portugal')
+    expect(toggle.element.checked).toBe(true)
+    expect(slider.element.disabled).toBe(true)
+    // A place ranks, it doesn't filter.
+    expect(store.isPristine).toBe(true)
+    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual([
+      'Near Lisbon, Portugal',
+    ])
+
+    await toggle.setValue(false)
+    expect(store.filters.maxKm).toBe(25)
+    expect(slider.element.disabled).toBe(false)
+    await slider.setValue(60)
+    expect(store.filters.maxKm).toBe(60)
+    expect(location.find('[data-test="distance-value"]').text()).toBe('Within 60 km')
+    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual([
+      'Near Lisbon, Portugal',
+      'Within 60 km',
+    ])
+
+    // Clear filters drops the limit but keeps where.
+    store.reset()
+    await flushPromises()
+    expect(store.filters.maxKm).toBeNull()
+    expect(store.filters.near?.label).toBe('Lisbon, Portugal')
+    expect(toggle.element.checked).toBe(true)
+
+    // Removing the place (its pill's ×) takes the limit with it.
+    store.setMaxKm(10)
+    await flushPromises()
+    await pills.find('.filter-pill-remove').trigger('click')
+    expect(store.filters.near).toBeNull()
+    expect(store.filters.maxKm).toBeNull()
+  })
+
+  it('leaves location out of the guide’s deck, where travellers have none yet', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const wrapper = mount(FilterPanel, {
+      props: { targetRole: 'guest' },
+      global: { plugins: [pinia], provide: { [API_KEY]: fakeApi() } },
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-test="location-filter"]').exists()).toBe(false)
+  })
+
   it('filters age with one two-handle slider, 16 to 99, kept in the store', async () => {
     const wrapper = await mountPanel()
     const store = useFiltersStore()

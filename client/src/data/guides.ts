@@ -17,11 +17,15 @@ export const guides: Guide[] = [
     bio: 'I’m a local history nerd who prefers hidden lanes, good coffee and viewpoints without the coach-bus queue.',
     includes:
       'route planning, private guiding, attraction coordination and café stop. Tickets not included.',
-    attributes: { languages: ['English', 'Spanish'], interests: ['history', 'food', 'photography'] },
+    attributes: {
+      languages: ['English', 'Spanish'],
+      interests: ['history', 'food', 'photography'],
+    },
     ranges: {},
     gender: 'female',
     standing: { verified: true, topRated: true, tripsCompleted: 24, level: 5 },
     photo: 'var(--rg-photo-guide)',
+    distanceKm: null,
   },
   {
     id: 'daniel',
@@ -33,12 +37,14 @@ export const guides: Guide[] = [
     priceLabel: '£120 / 6 hours',
     priceNote: 'Upper Rock nature route',
     bio: 'Ex-park ranger. I take small groups along the quiet trails, time the macaque encounters properly, and know where the light is good at 5pm.',
-    includes: 'trail planning, private guiding and transport between trailheads. Tickets not included.',
+    includes:
+      'trail planning, private guiding and transport between trailheads. Tickets not included.',
     attributes: { languages: ['English'], interests: ['nature', 'photography', 'history'] },
     ranges: {},
     gender: 'male',
     standing: { verified: true, topRated: true, tripsCompleted: 24, level: 5 },
     photo: 'linear-gradient(135deg, #cfe0d2, #7f9a86 48%, #dcd6c6)',
+    distanceKm: null,
   },
   {
     id: 'amina',
@@ -56,6 +62,7 @@ export const guides: Guide[] = [
     gender: 'female',
     standing: { verified: true, topRated: true, tripsCompleted: 24, level: 5 },
     photo: 'linear-gradient(135deg, #f4cfae, #b58f7a 48%, #e6d9cd)',
+    distanceKm: null,
   },
   {
     id: 'tom',
@@ -67,12 +74,14 @@ export const guides: Guide[] = [
     priceLabel: '£110 / 5 hours',
     priceNote: 'Siege tunnels deep dive',
     bio: 'Twenty years on the Rock and a genuine obsession with the Great Siege. Expect detail, dates, and a lot of tunnel.',
-    includes: 'route planning, private guiding and tunnel access coordination. Tickets not included.',
+    includes:
+      'route planning, private guiding and tunnel access coordination. Tickets not included.',
     attributes: { languages: ['English', 'Spanish'], interests: ['history'] },
     ranges: {},
     gender: 'male',
     standing: { verified: true, topRated: true, tripsCompleted: 24, level: 5 },
     photo: 'linear-gradient(135deg, #d8c3b0, #8a7a6d 48%, #cfc6bd)',
+    distanceKm: null,
   },
 ]
 

@@ -325,7 +325,23 @@ class RequestProcessor
             // Not a filter as such: opts out of hiding candidates the caller
             // already decided on (see `Users::searchByRole()`).
             'includeDecided' => !empty($input['includeDecided']),
+            // Where to search near (ranks closer people first), and how far
+            // at most — only meaningful with `near`.
+            'near' => Places::readPoint($input['near'] ?? null, 'near'),
+            'maxKm' => $this->readMaxKm($input['maxKm'] ?? null),
         ];
+    }
+
+    private function readMaxKm($maxKm): ?int
+    {
+        if ($maxKm === null) {
+            return null;
+        }
+        if (!is_int($maxKm) || $maxKm < 1 || $maxKm > 20000) {
+            throw new RuntimeException('maxKm must be a whole number of kilometres, 1–20000.');
+        }
+
+        return $maxKm;
     }
 
     private function actionUnlockPack(): array

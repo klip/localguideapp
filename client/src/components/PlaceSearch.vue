@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { currentLanguage, t } from '@/i18n'
 import { useApi, type Place, type PlacePoint } from '@/plugins/api'
 import { useCurrentPosition } from '@/composables/useCurrentPosition'
@@ -19,8 +19,10 @@ const props = withDefaults(
     near?: { latitude: number; longitude: number } | null
     allowCurrent?: boolean
     inputId?: string
+    /** Focus the input on mount — when it opens in place of a "Change" button. */
+    autofocus?: boolean
   }>(),
-  { placeholder: undefined, near: null, allowCurrent: true, inputId: undefined },
+  { placeholder: undefined, near: null, allowCurrent: true, inputId: undefined, autofocus: false },
 )
 
 const emit = defineEmits<{ 'update:modelValue': [place: PlacePoint] }>()
@@ -30,6 +32,7 @@ const position = useCurrentPosition()
 const listId = useId()
 const fallbackInputId = useId()
 
+const input = ref<HTMLInputElement | null>(null)
 const query = ref(props.modelValue?.label ?? '')
 const results = ref<Place[]>([])
 const open = ref(false)
@@ -153,6 +156,13 @@ async function useCurrent() {
   )
 }
 
+onMounted(() => {
+  if (props.autofocus) {
+    input.value?.focus()
+    input.value?.select()
+  }
+})
+
 onBeforeUnmount(() => {
   clearTimeout(timer)
   request++
@@ -163,6 +173,7 @@ onBeforeUnmount(() => {
   <div class="place-search">
     <input
       :id="inputId ?? fallbackInputId"
+      ref="input"
       v-model="query"
       type="search"
       role="combobox"

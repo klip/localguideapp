@@ -104,6 +104,12 @@ class Users
      *     `range` categories (hours of the day): matches a candidate whose
      *     own spans overlap any requested one, *or* who stored none at all
      *   includeDecided?: bool  — see below
+     *   near?: {latitude, longitude}  — the search point: rows carry
+     *     `distance_km` to it and closer people rank higher (`Ranking`).
+     *     Browsing guides, it's measured to their base (`guide_bases`).
+     *   maxKm?: int  — with `near`: only guides whose area comes within
+     *     that distance (distance − their radius ≤ maxKm). A flexible guide
+     *     (no radius) always passes; a guide with no base never does.
      */
     public function searchByRole(string $roleName, array $filters, Profiles $profiles, ?int $viewerId = null): array
     {
@@ -208,16 +214,37 @@ class Users
                 OR EXISTS (' . $ownRows . ' AND (' . implode(' OR ', $overlaps) . ')))';
         }
 
+        // Distance from the search point to where each guide works.
+        $near = $filters['near'] ?? null;
+        $locationJoin = '';
+        $distanceSql = null;
+        $radiusSql = null;
+        if ($near && $roleName === 'guide') {
+            $locationJoin = 'LEFT JOIN `guide_bases` gb ON gb.`user_id` = u.`id`';
+            $distanceSql = Places::distanceKmSql('gb.`point`', $near);
+            $radiusSql = 'gb.`radius_km`';
+
+            $maxKm = $filters['maxKm'] ?? null;
+            if ($maxKm) {
+                $where[] = '(gb.`user_id` IS NOT NULL AND (gb.`radius_km` IS NULL OR ' . $distanceSql . ' - gb.`radius_km` <= ' . (int) $maxKm . '))';
+            }
+        }
+
         // Best first — see `Ranking` for the score.
         $rows = $this->db->db_GetArray(
-            'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns($roleName) . '
+            'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns($roleName, $distanceSql, $radiusSql)
+                . ($distanceSql ? ', ROUND(' . $distanceSql . ') AS `distance_km`' : '') . '
              FROM `users` u
              JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . (int) $roleId . '
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
+             ' . $locationJoin . '
              ' . self::reviewSummaryJoin($roleName) . '
              ' . Ranking::tripsJoin(null, $roleName) . ' ' . Ranking::reviewsJoin(null, $roleName) . ' ' . Levels::sanctionsJoin() . '
              WHERE ' . implode(' AND ', $where) . '
-             ' . Ranking::ORDER_BY
+             ' . ($distanceSql
+                // Searching near somewhere: people with no location go last.
+                ? str_replace('ORDER BY ', 'ORDER BY `distance_km` IS NULL, ', Ranking::ORDER_BY)
+                : Ranking::ORDER_BY)
         );
 
         $userIds = array_map(fn($row) => (int) $row['id'], $rows);
