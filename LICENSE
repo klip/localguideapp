@@ -1,0 +1,103 @@
+PROPRIETARY LICENSE — ALL RIGHTS RESERVED
+
+Copyright (c) 2026 klip (design.klipart@gmail.com). All rights reserved.
+
+1. OWNERSHIP
+
+This repository and everything in it — source code, object code, database
+schemas and migrations, documentation, legal texts, translations, user
+interface text, designs, layouts, graphics, icons, logos, names (including
+"LocalGuideFinder" and "RockGuide"), concepts and all other material, in any
+form, together with every copy, modification and derivative work of any of
+it (together, the "Work") — is the sole and exclusive property of the
+copyright holder named above (the "Owner").
+
+All rights in the Work, including all copyright, moral rights, database
+rights, design rights, trade mark rights, rights in confidential information
+and all other intellectual property rights anywhere in the world, and all
+commercial and creative rights of every kind, belong to the Owner alone.
+
+2. NO LICENSE GRANTED
+
+No license or right of any kind is granted to anyone, whether expressly, by
+implication, by estoppel or otherwise. The Work being visible or accessible
+(for example in a public repository) does not grant any right to use it.
+
+Without the Owner's prior written permission, signed by the Owner, no one
+may, in whole or in part:
+
+  (a) copy, reproduce, download, store, or mirror the Work;
+  (b) modify, adapt, translate, or create derivative works from the Work;
+  (c) distribute, publish, sell, sublicense, rent, lend, or otherwise make
+      the Work available to anyone;
+  (d) use the Work, or run it, for any commercial or non-commercial purpose,
+      including offering it or anything based on it as a product or service;
+  (e) reverse engineer, decompile, or disassemble the Work, except to the
+      extent applicable law expressly permits this despite this restriction;
+  (f) use the Work, or any part of it, to train, fine-tune, test, or improve
+      any machine learning or artificial intelligence system;
+  (g) use any name, logo, design, or other branding in the Work; or
+  (h) remove or alter this notice or any other ownership notice in the Work.
+
+The only exception is viewing the repository, and forking it within the
+hosting service, to the extent the hosting service's terms of service
+require the Owner to allow this. That exception grants no other right,
+including any right to use, run, copy outside the hosting service, or
+distribute the Work.
+
+3. CONTRIBUTIONS
+
+Anything submitted to this repository by anyone (code, text, designs,
+suggestions or other material) becomes part of the Work. By submitting it,
+the contributor assigns to the Owner all rights in it, worldwide and without
+any payment. Where an assignment is not possible, the contributor grants the
+Owner an exclusive, perpetual, irrevocable, royalty-free, worldwide license,
+which the Owner may sublicense and transfer, to use it in any way, and
+waives any moral rights in it to the extent the law allows.
+
+4. THIRD-PARTY MATERIAL
+
+Third-party software and material used by the Work — such as the packages
+listed in client/package.json, which are not part of this repository —
+remain the property of their respective owners and are governed by their
+own licenses. Third-party material included in this repository is listed
+under "Third-party notices" below. Nothing in this license claims ownership
+of third-party material.
+
+5. NO WARRANTY
+
+The Work is provided "as is", without warranty of any kind. The Owner is not
+liable for any claim, damages or other liability arising from any use of the
+Work.
+
+6. ENFORCEMENT
+
+Any use of the Work that this license does not permit infringes the Owner's
+rights and may lead to civil and criminal liability. Any permission granted
+by the Owner applies only on the terms the Owner states in writing, and can
+be withdrawn at any time unless the written permission says otherwise.
+
+For permission requests, contact the Owner at design.klipart@gmail.com.
+
+--------------------------------------------------------------------------
+
+THIRD-PARTY NOTICES
+
+The "handshake" icon path in client/src/components/NavIcon.vue comes from
+Lucide (https://lucide.dev), used under the ISC License:
+
+  ISC License
+
+  Copyright (c) Lucide Contributors
+
+  Permission to use, copy, modify, and/or distribute this software for any
+  purpose with or without fee is hereby granted, provided that the above
+  copyright notice and this permission notice appear in all copies.
+
+  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
+  IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.

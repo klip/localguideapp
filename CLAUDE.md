@@ -8,6 +8,11 @@ files is "RockGuide"; the directory and package are named
 
 Git repository, branch `main`.
 
+Proprietary — all rights reserved (`LICENSE`; `client/package.json` says
+`"license": "UNLICENSED"`). Third-party material copied into the repo (like
+NavIcon's Lucide handshake) must keep its notice under "Third-party notices"
+in `LICENSE`.
+
 ## Progress so far
 
 **Working end-to-end, against the real backend (nothing mocked in these
