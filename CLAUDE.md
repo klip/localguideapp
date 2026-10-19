@@ -78,6 +78,9 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
 - `docs/scaling.md` — database load, scaling proposals, the GKE target.
 - `docs/ai-and-location.md` — plan (not built): location search, the AI
   travel planner, document verification.
+- `docs/production-memo.md` — every development stand-in (simulated
+  payments, Gmail, free geocoder, Claude ID checks, …) and what replaces it
+  in production. Add to it whenever a shortcut is taken.
 - `admin/` — empty placeholder, presumably a future admin panel.
 - Root `node_modules/` has no corresponding root `package.json`; ignore it,
   the real dependency tree lives in `client/`.

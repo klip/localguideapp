@@ -1,6 +1,7 @@
 # Location, travel planner and document verification
 
-Three features asked for on 2026-10-19, planned here, not built yet:
+Three features asked for on 2026-10-19; decisions below. Built on branch
+`feature/location` (from `feature/dual-roles`), phase by phase:
 
 1. **Location as a search filter** — on login the app reads the device's
    location and searches near it; the user can move the search point (to
@@ -175,28 +176,27 @@ verification provider does all three and returns the extracted fields.
   requests. A failed AI step degrades to the plain SQL order without
   explanations, never to an error page.
 
-## Decisions needed
+## Decisions (2026-10-19)
 
-1. **Verification checks** — *recommended:* a verification provider
-   (Stripe Identity fits if real payments go through Stripe later; Veriff,
-   Onfido, Persona are the alternatives) doing authenticity + liveness + face
-   match + extraction. *Alternative:* Claude reads the document, and every
-   upload goes to a person in a manual review queue before the badge.
-2. **When the badge appears** — you asked for "upon document upload".
-   *Recommended:* when the check **passes** (usually under a minute with a
-   provider), showing "Verification in progress" until then. A badge on
-   upload alone would let anyone get +30 and a ✓ with any picture.
-3. **Geocoder** — Google Places (best place search, paid per request),
-   Mapbox (cheaper, good), or OpenStreetMap via a hosted Nominatim such as
-   LocationIQ (cheapest; weaker autocomplete).
-4. **Guide area** — *recommended:* one base point + radius. Alternative:
-   several areas per guide (more flexible, more UI).
-5. **Do planner suggestions cost picks?** *Recommended:* yes, same as the
-   deck — Interested from the planner is the same decision.
-6. **Location prompt** — on every login, or once and then reuse until
-   changed (recommended: ask once per session, explain first).
-7. **Beyond Gibraltar?** Multi-city search and the planner assume guides
-   anywhere; the marketing copy and `index.html` title would change.
+1. **Claude does the checking for now**, switched to a dedicated verification
+   provider for production (`docs/production-memo.md`). In development Claude
+   reads the document's fields, checks expiry and that the images look like a
+   real document and a real person; it does **not** compare the selfie with
+   the document photo (face matching isn't something Claude is used for) —
+   that comes with the provider.
+2. **The badge appears when the check passes**, with "Verification in
+   progress" until then.
+3. **Geocoder: free for development** — Photon's public server
+   (`photon.komoot.io`, OpenStreetMap data, made for search-as-you-type),
+   behind a server-side proxy with a Redis cache. Production: self-hosted or
+   paid (memo).
+4. **One base point + radius per guide.** An empty radius means **flexible**:
+   the guide will travel any distance, so they pass every distance filter.
+   (For ranking, an empty radius counts as 25 km, so a flexible guide in
+   Tokyo doesn't outrank one in Lisbon for a Lisbon search.)
+5. **Planner suggestions cost picks**, like the deck.
+6. **Location asked once per session**, after a one-line explanation.
+7. **Global service**: nothing is limited to Gibraltar; the copy changes.
 
 ## Phases and order
 
