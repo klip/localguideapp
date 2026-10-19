@@ -35,7 +35,7 @@ export const guides: Guide[] = [
     ratingAverage: 4.8,
     reviewCount: 62,
     priceLabel: '£120 / 6 hours',
-    priceNote: 'Upper Rock nature route',
+    priceNote: 'Coastal nature route',
     bio: 'Ex-park ranger. I take small groups along the quiet trails, time the macaque encounters properly, and know where the light is good at 5pm.',
     includes:
       'trail planning, private guiding and transport between trailheads. Tickets not included.',
@@ -55,7 +55,7 @@ export const guides: Guide[] = [
     reviewCount: 23,
     priceLabel: '£80 / 4 hours',
     priceNote: 'Relaxed half day',
-    bio: 'Short, easy days built around eating well. Good with kids, good with grandparents, no forced marches up the Rock.',
+    bio: 'Short, easy days built around eating well. Good with kids, good with grandparents, no forced marches up the hills.',
     includes: 'route planning, private guiding and two tasting stops. Food costs not included.',
     attributes: { languages: ['English', 'Spanish', 'Arabic'], interests: ['food', 'family'] },
     ranges: {},
@@ -73,7 +73,7 @@ export const guides: Guide[] = [
     reviewCount: 88,
     priceLabel: '£110 / 5 hours',
     priceNote: 'Siege tunnels deep dive',
-    bio: 'Twenty years on the Rock and a genuine obsession with the Great Siege. Expect detail, dates, and a lot of tunnel.',
+    bio: 'Twenty years guiding in the old town and a genuine obsession with its history. Expect detail, dates, and a lot of hidden corners.',
     includes:
       'route planning, private guiding and tunnel access coordination. Tickets not included.',
     attributes: { languages: ['English', 'Spanish'], interests: ['history'] },

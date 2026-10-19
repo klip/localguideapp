@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ActiveFilters from '@/components/ActiveFilters.vue'
+import LocationPrompt from '@/components/LocationPrompt.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
@@ -15,6 +16,7 @@ import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
 import { t, tn } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
+import { useDeckLocation } from '@/composables/useDeckLocation'
 import { useCategoriesStore } from '@/stores/categories'
 import { useFiltersStore } from '@/stores/filters'
 import { useGuidesStore } from '@/stores/guides'
@@ -30,6 +32,8 @@ import type { DiscoveryFilters } from '@/types'
 const router = useRouter()
 const api = useApi()
 const auth = useAuthStore()
+// The search point in the URL, and (travellers) on the server for guides to see.
+useDeckLocation()
 const categoriesStore = useCategoriesStore()
 const filtersStore = useFiltersStore()
 const matchesStore = useMatchesStore()
@@ -262,7 +266,13 @@ function reject(id: string) {
           <div class="row-between">
             <div>
               <strong>{{ t('discover.deck.title') }}</strong>
-              <div class="tiny muted">{{ t('discover.deck.subtitle') }}</div>
+              <div class="tiny muted">
+                {{
+                  filters.near
+                    ? t('discover.deck.subtitle_near', { place: filters.near.label })
+                    : t('discover.deck.subtitle')
+                }}
+              </div>
             </div>
             <PillBadge v-if="freePicksActive" data-test="free-picks">{{
               t('discover.deck.free_picks')
@@ -303,6 +313,7 @@ function reject(id: string) {
           @action="router.push('/unlock')"
         />
 
+        <LocationPrompt />
         <ActiveFilters />
 
         <ProfileCard

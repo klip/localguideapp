@@ -272,7 +272,7 @@ describe('FilterPanel', () => {
     expect(store.filters.maxKm).toBeNull()
   })
 
-  it('leaves location out of the guide’s deck, where travellers have none yet', async () => {
+  it('offers location on the guide’s deck too — travellers say where they’re looking', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const wrapper = mount(FilterPanel, {
@@ -280,7 +280,7 @@ describe('FilterPanel', () => {
       global: { plugins: [pinia], provide: { [API_KEY]: fakeApi() } },
     })
     await flushPromises()
-    expect(wrapper.find('[data-test="location-filter"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="location-filter"]').exists()).toBe(true)
   })
 
   it('filters age with one two-handle slider, 16 to 99, kept in the store', async () => {

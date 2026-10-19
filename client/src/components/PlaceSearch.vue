@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { currentLanguage, t } from '@/i18n'
 import { useApi, type Place, type PlacePoint } from '@/plugins/api'
 import { useCurrentPosition } from '@/composables/useCurrentPosition'
+import { currentPlace } from '@/utils/currentPlace'
 
 /**
  * Type a town or city, pick one from the suggestions (`api.geocode()`), or
@@ -129,31 +130,10 @@ function onBlur() {
 
 async function useCurrent() {
   locationError.value = null
-  const result = await position.locate()
+  const result = await currentPlace(api, position)
   if (!result) return
-  if (!result.ok) {
-    locationError.value = t(
-      result.reason === 'denied'
-        ? 'common.place_search.location_denied'
-        : 'common.place_search.location_failed',
-    )
-    return
-  }
-  const point = { latitude: result.position.latitude, longitude: result.position.longitude }
-  let place: Place | null = null
-  try {
-    place = (await api.reverseGeocode(point, currentLanguage.value)).place
-  } catch {
-    // Named or not, the point is what matters.
-  }
-  choose(
-    place ?? {
-      label: t('common.place_search.current_location'),
-      countryCode: null,
-      latitude: Math.round(point.latitude * 100) / 100,
-      longitude: Math.round(point.longitude * 100) / 100,
-    },
-  )
+  if (result.ok) choose(result.place)
+  else locationError.value = result.message
 }
 
 onMounted(() => {

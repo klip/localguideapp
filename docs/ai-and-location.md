@@ -202,9 +202,9 @@ verification provider does all three and returns the extracted fields.
 
 | Phase | Contents | Depends on |
 | --- | --- | --- |
-| A1 | Guide base + radius on the profile, geocoder proxy, migration dropping `distance` | decision 3, 4 |
-| A2 | `near` in search + proximity in ranking + distance on cards | A1 |
-| A3 | Login location, location pill, `?near=`, guide deck by visitor location | A2 |
+| A1 ✅ | Guide base + radius on the profile, geocoder proxy, migration dropping `distance` | decision 3, 4 |
+| A2 ✅ | `near` in search + proximity in ranking + distance on cards | A1 |
+| A3 ✅ | Login location, location pill, `?near=`, guide deck by visitor location, global copy + every country | A2 |
 | B1 | `lib/Ai.php`, job worker, `trip_plans` tables | — |
 | B2 | Planner page, stops editor, matching + re-rank, results, push | A2, B1 |
 | B3 | Free-text itinerary, stops on the guide deck | B2 |

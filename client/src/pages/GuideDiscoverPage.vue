@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import ActiveFilters from '@/components/ActiveFilters.vue'
+import LocationPrompt from '@/components/LocationPrompt.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
@@ -11,10 +12,12 @@ import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
 import { t } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
+import { useDeckLocation } from '@/composables/useDeckLocation'
 import { useCategoriesStore } from '@/stores/categories'
 import { useFiltersStore } from '@/stores/filters'
 import { useMessagesStore } from '@/stores/messages'
 import { useVisitorsStore } from '@/stores/visitors'
+import { formatDistance } from '@/utils/distance'
 import { debounce } from '@/utils/debounce'
 import { reportApiError } from '@/utils/reportApiError'
 import type { DiscoveryFilters } from '@/types'
@@ -30,6 +33,8 @@ const api = useApi()
 const messages = useMessagesStore()
 
 const auth = useAuthStore()
+// The search point in the URL, and (travellers) on the server for guides to see.
+useDeckLocation()
 const categoriesStore = useCategoriesStore()
 const filtersStore = useFiltersStore()
 const { filters } = storeToRefs(filtersStore)
@@ -62,6 +67,19 @@ onMounted(async () => {
 })
 
 watch(filters, (next) => debouncedLoad(next), { deep: true })
+
+// "2 adults · Looking in Lisbon, Portugal · 3 km away" — each part when there is one.
+const currentMeta = computed(() => {
+  const visitor = current.value
+  if (!visitor) return undefined
+  return [
+    visitor.party,
+    visitor.areaLabel ? t('guide_discover.deck.looking_in', { place: visitor.areaLabel }) : null,
+    visitor.distanceKm !== null ? formatDistance(visitor.distanceKm) : null,
+  ]
+    .filter((part): part is string => !!part)
+    .join(' · ')
+})
 
 const interested = ref<string[]>([])
 const passed = ref<string[]>([])
@@ -138,7 +156,13 @@ function reject(id: string) {
           <div class="row-between">
             <div>
               <strong>{{ t('guide_discover.deck.title') }}</strong>
-              <div class="tiny muted">{{ t('guide_discover.deck.subtitle') }}</div>
+              <div class="tiny muted">
+                {{
+                  filters.near
+                    ? t('guide_discover.deck.subtitle_near', { place: filters.near.label })
+                    : t('guide_discover.deck.subtitle')
+                }}
+              </div>
             </div>
             <PillBadge>{{
               t('guide_discover.deck.interested', { count: interested.length })
@@ -146,6 +170,7 @@ function reject(id: string) {
           </div>
         </template>
 
+        <LocationPrompt />
         <ActiveFilters />
 
         <ProfileCard
@@ -154,7 +179,7 @@ function reject(id: string) {
           :name="current.name"
           :age="current.age"
           :photo="current.photo"
-          :meta="current.party"
+          :meta="currentMeta"
           :bio="current.bio"
           :tags="categoriesStore.tagsFor(current.attributes)"
           :profile-link="{ name: 'visitor-profile', params: { id: current.id } }"

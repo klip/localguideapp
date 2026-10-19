@@ -12,7 +12,7 @@ import type { Gender, NumericRange } from '@/types'
 
 /**
  * The discovery filter form: where to search (`LocationFilter` — the search
- * point and the distance limit, on the traveller's deck), then two parts:
+ * point and the distance limit), then two parts:
  *
  * - **The person** — gender (a dropdown) and age (one slider, two handles).
  *   Both are human constants rather than tag lists, so they sit together at
@@ -121,8 +121,7 @@ function onGenderChange(event: Event) {
 
 <template>
   <div class="filter-panel" :class="{ compact }">
-    <!-- Travellers have no location yet, so the guide's deck can't measure one. -->
-    <LocationFilter v-if="targetRole !== 'guest'" />
+    <LocationFilter />
 
     <fieldset class="person">
       <label class="tiny">

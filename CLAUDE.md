@@ -1778,8 +1778,33 @@ the plumbing, is in:
   deck ("📍 Lisbon · Change" / "Anywhere · Set a location", then Distance:
   an "Unlimited" switch, on by default, waking a 1–200 km slider at 25);
   `ActiveFilters` shows "Near Lisbon" and "Within 25 km" pills. The card's
-  meta line reads "★ 4.8 · 1 review · 3 km away" (`utils/distance.ts`). The
-  guide's deck has no location yet (travellers have none).
+  meta line reads "★ 4.8 · 1 review · 3 km away" (`utils/distance.ts`).
+- **The search point per role, per session** (phase A3): `stores/filters.ts`
+  keeps `near` in `sessionStorage` (`rockguide.near.<role>`) and swaps it
+  when the acting role changes — a traveller searches where they're going, a
+  guide near where they work. `useDeckLocation()` (both Discover pages) puts
+  it in the URL (`?near=lat,lng&place=…`, which wins on arrival; changes
+  `router.replace` the query) and, for a signed-in traveller, sends it to
+  `api.setSearchArea()`.
+- **Asked once per session** (`LocationPrompt.vue`, above the pills on both
+  decks, signed in only): an explanation, then "Use my location" (device
+  once → `reverseGeocode`, via `utils/currentPlace.ts`, shared with
+  `PlaceSearch`), "Choose a place" or "Not now"
+  (`rockguide.locationAsked.<role>`). It doesn't ask when a point is set
+  already, when the browser has already granted location (read silently), or
+  for a guide with a base (`api.myGuideBase()`, used silently).
+- **The guide's deck by location**: a traveller's search area is stored in
+  `traveller_areas` (061; label + point rounded to ~1 km, read while under
+  30 days old, deleted when they clear it). Browsing travellers, rows carry
+  `area_label` ("Looking in Lisbon, Portugal" on the card) and, with `near`,
+  `distance_km`, the proximity boost and `maxKm` (no radius here); travellers
+  with no area go last. The deck subtitles read "Near {place}" /
+  "Travellers looking near {place}".
+- **Global copy** (062/063): nothing names Gibraltar or cruise days any more
+  (hero, deck subtitle, placeholders, `index.html` title/description, the
+  marketing mocks); the phone country-code list holds every country and
+  territory (243, A–Z), names from CLDR as `common.country.<iso2>`, and a
+  shared code reads as its `primary` country (+44 → United Kingdom).
 
 ### Two-factor login & password reset
 
@@ -2024,6 +2049,8 @@ is a `503` from the gateway.
 | `deleteReview` | **yes** | `api.deleteReview(payload)` | `reviewId` | `{ ok: true }` | `Reviews::delete()` |
 | `translations` | no | `api.translations(language, scope?)` | `language` (one of the 15 codes), `scopes?` / `except?` (key prefixes, `page` or `page.widget`) | `{ language, strings: { key: value } }` (always an object; `400` "Unsupported language." otherwise) | `Translations::forLanguage()` |
 | `geocode` | no | `api.geocode(query, language, near?)` | `query` (2–120 chars), `language`, `near?` `{ latitude, longitude }` | `{ places: Place[] }` (`label, name, countryCode, latitude, longitude, kind`) | `Geocoder::search()` |
+| `setSearchArea` | **yes** (traveller) | `api.setSearchArea(area)` | `area` (`{ latitude, longitude, label, countryCode? }` or `null` to clear) | `{ ok: true }` | `Profiles::setSearchArea()` |
+| `myGuideBase` | **yes** | `api.myGuideBase()` | — | `{ base: GuideBase \| null }` (null unless acting as a guide with a base) | `Profiles::getGuideBase()` |
 | `reverseGeocode` | no | `api.reverseGeocode(point, language)` | `latitude, longitude, language` | `{ place: Place \| null }` (the town, at the point rounded to 2 decimals) | `Geocoder::reverse()` |
 | `legalDocument` | no | `api.legalDocument(slug, language)` | `slug` (`'terms'`), `language` | `LegalDocumentView` (`slug, version, language, title, body`, placeholders filled) | `LegalDocuments::current()` |
 
@@ -2431,6 +2458,13 @@ API service (`api/classes/`):
   guide". Applied 2026-10-19. Re-runnable.
 - `api/sql/060_translations_location_filter.sql` — the location and
   distance filter, their pills, "3 km away". Applied 2026-10-19. Re-runnable.
+- `api/sql/061_traveller_areas.sql` — `traveller_areas` (where a traveller
+  is looking for guides). Applied 2026-10-19. Re-runnable.
+- `api/sql/062_translations_location_prompt_global.sql` — the location
+  prompt, "Near {place}" subtitles, "Looking in {place}"; the Gibraltar/
+  cruise copy reworded for a global service. Applied 2026-10-19. Re-runnable.
+- `api/sql/063_translations_countries.sql` — the 176 country names the phone
+  picker lacked (CLDR). Applied 2026-10-19. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

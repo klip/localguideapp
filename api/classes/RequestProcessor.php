@@ -256,6 +256,21 @@ class RequestProcessor
                     Places::readPoint($this->readInput()['near'] ?? null, 'near')
                 )]];
 
+            // Where a traveller is looking for guides (the deck's search
+            // point), so guides near there can find them; null clears it.
+            case 'setSearchArea':
+                $userId = $this->requireUserId();
+                if ($this->actingRole() !== 'guest') {
+                    throw new RuntimeException('Only a traveller has a search area.');
+                }
+                $this->profiles->setSearchArea($userId, $this->readPlace($this->readInput()['area'] ?? null, 'area'));
+                return [200, ['ok' => true]];
+
+            // A guide's own base — the guide's deck searches near it by default.
+            case 'myGuideBase':
+                $userId = $this->requireUserId();
+                return [200, ['base' => $this->actingRole() === 'guide' ? $this->profiles->getGuideBase($userId) : null]];
+
             case 'reverseGeocode':
                 $point = Places::readPoint($this->readInput(), 'reverseGeocode');
                 return [200, ['place' => $this->geocoder->reverse($point['latitude'], $point['longitude'], $this->readLanguage())]];
@@ -604,7 +619,7 @@ class RequestProcessor
             if ($role !== 'guide') {
                 throw new RuntimeException('Only a guide sets where they guide.');
             }
-            $this->profiles->setGuideBase($userId, $this->readGuideBase($input['base']), $this->readRadius($input['radiusKm'] ?? null));
+            $this->profiles->setGuideBase($userId, $this->readPlace($input['base'], 'base'), $this->readRadius($input['radiusKm'] ?? null));
         }
 
         $this->bookings->onProfileUpdated($userId);
@@ -612,19 +627,25 @@ class RequestProcessor
         return ['ok' => true];
     }
 
-    /** @return array{latitude: float, longitude: float, label: string, countryCode: ?string}|null */
-    private function readGuideBase($base): ?array
+    /**
+     * A chosen place from a request (`{ latitude, longitude, label,
+     * countryCode? }`), or null. Its label is shown to other people, so it's
+     * checked for contact details like any profile text.
+     *
+     * @return array{latitude: float, longitude: float, label: string, countryCode: ?string}|null
+     */
+    private function readPlace($place, string $field): ?array
     {
-        $point = Places::readPoint($base, 'base');
+        $point = Places::readPoint($place, $field);
         if ($point === null) {
             return null;
         }
-        $label = trim(preg_replace('/\s+/u', ' ', (string) ($base['label'] ?? '')));
+        $label = trim(preg_replace('/\s+/u', ' ', (string) ($place['label'] ?? '')));
         if ($label === '' || mb_strlen($label) > 160) {
-            throw new RuntimeException('base needs a place name (up to 160 characters).');
+            throw new RuntimeException($field . ' needs a place name (up to 160 characters).');
         }
-        ContactFilter::assertClean($label, 'base');
-        $country = strtoupper((string) ($base['countryCode'] ?? ''));
+        ContactFilter::assertClean($label, $field);
+        $country = strtoupper((string) ($place['countryCode'] ?? ''));
 
         return $point + [
             'label' => $label,

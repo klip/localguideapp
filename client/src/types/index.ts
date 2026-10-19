@@ -74,7 +74,7 @@ export interface Visitor {
   id: string
   name: string
   age: number
-  /** Party and arrival context, e.g. "2 adults · Aurora Vista cruise". */
+  /** Party and arrival context, e.g. "2 adults · weekend in Lisbon". */
   party: string
   bio: string
   /** Requested tour length in hours. */
@@ -83,6 +83,19 @@ export interface Visitor {
   ranges: RangeMap
   standing: Standing
   photo: string
+  /** Where they're looking for guides ("Lisbon, Portugal"), when they've said lately. */
+  areaLabel: string | null
+  /** Km from the guide's search point to that area (0 = under 1 km); `null` without one. */
+  distanceKm: number | null
+}
+
+/** A chosen place: its point and how to name it (from the place search). */
+export interface PlacePoint {
+  /** "Lisbon, Portugal" */
+  label: string
+  countryCode: string | null
+  latitude: number
+  longitude: number
 }
 
 /**
@@ -95,15 +108,6 @@ export interface Visitor {
  * `AGE_CATEGORY` in `stores/categories.ts`), which is why `plugins/api.ts`
  * peels it off into its own `ageRanges` request field.
  */
-/** A chosen place: its point and how to name it (from the place search). */
-export interface PlacePoint {
-  /** "Lisbon, Portugal" */
-  label: string
-  countryCode: string | null
-  latitude: number
-  longitude: number
-}
-
 export interface DiscoveryFilters {
   gender: Gender | null
   attributes: AttributeMap

@@ -18,6 +18,8 @@ function toVisitorCard(account: ProfileAccount): Visitor {
     ranges: account.ranges ?? {},
     standing: standingOf(account),
     photo: account.image ? `url("${account.image}")` : 'var(--rg-photo-visitor)',
+    areaLabel: account.area_label ?? null,
+    distanceKm: account.distance_km ?? null,
   }
 }
 
@@ -33,7 +35,9 @@ export const useVisitorsStore = defineStore('visitors', () => {
   const loading = ref(false)
 
   const items = computed(() =>
-    currentIds.value.map((id) => byId.value.get(id)).filter((visitor): visitor is Visitor => !!visitor),
+    currentIds.value
+      .map((id) => byId.value.get(id))
+      .filter((visitor): visitor is Visitor => !!visitor),
   )
 
   async function load(filters?: DiscoveryFilters) {

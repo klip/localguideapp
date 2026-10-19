@@ -1,6 +1,45 @@
-import { computed, reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { defineStore } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 import type { DiscoveryFilters, Gender, NumericRange, PlacePoint } from '@/types'
+
+/** The search point is kept per role for the browser session (a reload keeps it; a new tab asks again). */
+function nearKey(role: string | null) {
+  return `rockguide.near.${role ?? 'anonymous'}`
+}
+
+function readNear(role: string | null): PlacePoint | null {
+  try {
+    const value = JSON.parse(
+      sessionStorage.getItem(nearKey(role)) ?? 'null',
+    ) as Partial<PlacePoint> | null
+    if (
+      value &&
+      typeof value.label === 'string' &&
+      typeof value.latitude === 'number' &&
+      typeof value.longitude === 'number'
+    ) {
+      return {
+        label: value.label,
+        countryCode: typeof value.countryCode === 'string' ? value.countryCode : null,
+        latitude: value.latitude,
+        longitude: value.longitude,
+      }
+    }
+  } catch {
+    // Blocked or garbled storage: no saved point.
+  }
+  return null
+}
+
+function writeNear(role: string | null, near: PlacePoint | null) {
+  try {
+    if (near) sessionStorage.setItem(nearKey(role), JSON.stringify(near))
+    else sessionStorage.removeItem(nearKey(role))
+  } catch {
+    // Not kept, that's all.
+  }
+}
 
 function emptyFilters(): DiscoveryFilters {
   return { gender: null, attributes: {}, ranges: {}, near: null, maxKm: null }
@@ -22,10 +61,25 @@ function sameRange(a: NumericRange, b: NumericRange) {
  *
  * `near` is the search point (it ranks, it doesn't filter, so it doesn't
  * count as a filter and Clear filters keeps it); `maxKm` is the distance
- * filter, meaningful only with a point.
+ * filter, meaningful only with a point. The point is per role — a traveller
+ * searches where they're going, a guide near where they work — and kept in
+ * `sessionStorage` for the session.
  */
 export const useFiltersStore = defineStore('filters', () => {
-  const filters = reactive<DiscoveryFilters>(emptyFilters())
+  const auth = useAuthStore()
+  const filters = reactive<DiscoveryFilters>({ ...emptyFilters(), near: readNear(auth.activeRole) })
+
+  watch(
+    () => auth.activeRole,
+    (role) => {
+      filters.near = readNear(role)
+      filters.maxKm = null
+    },
+  )
+  watch(
+    () => filters.near,
+    (near) => writeNear(auth.activeRole, near),
+  )
 
   /** Category keys with at least one selection, in insertion order — what the bar renders as groups. */
   const activeCategories = computed(() => [

@@ -110,6 +110,8 @@ class Users
      *   maxKm?: int  — with `near`: only guides whose area comes within
      *     that distance (distance − their radius ≤ maxKm). A flexible guide
      *     (no radius) always passes; a guide with no base never does.
+     *     Browsing travellers, both use their search area
+     *     (`traveller_areas`, fresh for 30 days; rows carry `area_label`).
      */
     public function searchByRole(string $roleName, array $filters, Profiles $profiles, ?int $viewerId = null): array
     {
@@ -214,26 +216,38 @@ class Users
                 OR EXISTS (' . $ownRows . ' AND (' . implode(' OR ', $overlaps) . ')))';
         }
 
-        // Distance from the search point to where each guide works.
+        // Where each person is: a guide's base; a traveller's search area
+        // (where they're looking for guides — only while fresh).
         $near = $filters['near'] ?? null;
-        $locationJoin = '';
+        $maxKm = $filters['maxKm'] ?? null;
         $distanceSql = null;
         $radiusSql = null;
-        if ($near && $roleName === 'guide') {
-            $locationJoin = 'LEFT JOIN `guide_bases` gb ON gb.`user_id` = u.`id`';
-            $distanceSql = Places::distanceKmSql('gb.`point`', $near);
-            $radiusSql = 'gb.`radius_km`';
-
-            $maxKm = $filters['maxKm'] ?? null;
-            if ($maxKm) {
-                $where[] = '(gb.`user_id` IS NOT NULL AND (gb.`radius_km` IS NULL OR ' . $distanceSql . ' - gb.`radius_km` <= ' . (int) $maxKm . '))';
+        $locationColumns = '';
+        if ($roleName === 'guide') {
+            $locationJoin = $near ? 'LEFT JOIN `guide_bases` gb ON gb.`user_id` = u.`id`' : '';
+            if ($near) {
+                $distanceSql = Places::distanceKmSql('gb.`point`', $near);
+                $radiusSql = 'gb.`radius_km`';
+                if ($maxKm) {
+                    $where[] = '(gb.`user_id` IS NOT NULL AND (gb.`radius_km` IS NULL OR ' . $distanceSql . ' - gb.`radius_km` <= ' . (int) $maxKm . '))';
+                }
+            }
+        } else {
+            $locationJoin = 'LEFT JOIN `traveller_areas` ta ON ta.`user_id` = u.`id`
+                AND ta.`updated_at` > UTC_TIMESTAMP() - INTERVAL ' . self::SEARCH_AREA_DAYS . ' DAY';
+            $locationColumns = ', ta.`label` AS `area_label`';
+            if ($near) {
+                $distanceSql = Places::distanceKmSql('ta.`point`', $near);
+                if ($maxKm) {
+                    $where[] = '(ta.`user_id` IS NOT NULL AND ' . $distanceSql . ' <= ' . (int) $maxKm . ')';
+                }
             }
         }
 
         // Best first — see `Ranking` for the score.
         $rows = $this->db->db_GetArray(
             'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns($roleName, $distanceSql, $radiusSql)
-                . ($distanceSql ? ', ROUND(' . $distanceSql . ') AS `distance_km`' : '') . '
+                . ($distanceSql ? ', ROUND(' . $distanceSql . ') AS `distance_km`' : '') . $locationColumns . '
              FROM `users` u
              JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . (int) $roleId . '
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
@@ -314,6 +328,9 @@ class Users
      * `REVIEW_SUMMARY_JOIN`, not from `user_profiles.rating`/`tours`, which
      * users used to be able to set themselves and are no longer read.
      */
+    /** How long a traveller's search area counts as where they are. */
+    private const SEARCH_AREA_DAYS = 30;
+
     private const PROFILE_COLUMNS = 'u.`id`, u.`name`, u.`image`, u.`created_at`,
                     TIMESTAMPDIFF(YEAR, p.`date_of_birth`, CURDATE()) AS `age`,
                     p.`gender`, urx.`headline`, urx.`bio`, p.`price_label`, p.`price_note`,

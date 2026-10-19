@@ -164,6 +164,8 @@ export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   volunteer?: boolean
   /** Km to them from the deck's `near` point (0 = under 1 km); `null`/absent without a point or a location. */
   distance_km?: number | null
+  /** A traveller's search area ("Lisbon, Portugal"), on the guide's deck — where they're looking for guides. */
+  area_label?: string | null
   attributes: AttributeMap
   ranges: RangeMap
 }
@@ -979,6 +981,10 @@ export const api = {
   /** The town at a point ("use my location"), or `null`. No session needed. */
   reverseGeocode: (point: { latitude: number; longitude: number }, language: string) =>
     call<{ place: Place | null }>('reverseGeocode', { ...point, language }),
+  /** Where the traveller is looking for guides (their deck's search point), so guides near it can find them; `null` clears it. */
+  setSearchArea: (area: PlacePoint | null) => call<{ ok: true }>('setSearchArea', { area }),
+  /** The acting guide's own base (`null` when not set, or not acting as a guide). */
+  myGuideBase: () => call<{ base: GuideBase | null }>('myGuideBase'),
   /** A legal document in force, in `language` or else English. Fetched on demand. No session needed. */
   legalDocument: (slug: LegalSlug, language: string) =>
     call<LegalDocumentView>('legalDocument', { slug, language }),

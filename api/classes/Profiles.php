@@ -151,6 +151,30 @@ class Profiles
         );
     }
 
+    /**
+     * Where `$userId` is looking for guides as a traveller (the deck's
+     * search point), so guides can find travellers coming their way; null
+     * removes it. Rounded to ~1 km, like a guide's base.
+     *
+     * @param array{latitude: float, longitude: float, label: string, countryCode: ?string}|null $area
+     */
+    public function setSearchArea(int $userId, ?array $area): void
+    {
+        if ($area === null) {
+            $this->db->db_Execute('DELETE FROM `traveller_areas` WHERE `user_id` = ' . $userId);
+            return;
+        }
+
+        $point = Places::pointSql(['latitude' => round($area['latitude'], 2), 'longitude' => round($area['longitude'], 2)]);
+        $country = $area['countryCode'] === null ? 'NULL' : '"' . $this->db->db_Escape($area['countryCode']) . '"';
+        $this->db->db_Execute(
+            'INSERT INTO `traveller_areas` (`user_id`, `label`, `country_code`, `point`)
+             VALUES (' . $userId . ', "' . $this->db->db_Escape($area['label']) . '", ' . $country . ', ' . $point . ')
+             ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `country_code` = VALUES(`country_code`),
+                 `point` = VALUES(`point`), `updated_at` = CURRENT_TIMESTAMP'
+        );
+    }
+
     /** @var db */
     private $db;
 

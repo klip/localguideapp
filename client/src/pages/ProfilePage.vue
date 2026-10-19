@@ -10,7 +10,7 @@ import PlaceSearch from '@/components/PlaceSearch.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import TermsDialog from '@/components/TermsDialog.vue'
 import { t, tn } from '@/i18n'
-import { COUNTRY_CODES } from '@/data/countryCodes'
+import { COUNTRY_CODES, countryForDialCode } from '@/data/countryCodes'
 import {
   ApiError,
   roleAgreementSlug,
@@ -357,7 +357,13 @@ function applyProfile(data: MyProfile) {
 
   const { code, number } = splitPhone(data.phone ?? '')
   phoneCountryCode.value = code
-  phoneCountryQuery.value = countryCodeSuggestions.value.find((s) => s.value === code)?.label ?? ''
+  const country = countryForDialCode(code)
+  phoneCountryQuery.value = country
+    ? t('profile.contact.country_option', {
+        country: t(`common.country.${country.iso2}`),
+        dial_code: country.dialCode,
+      })
+    : ''
   phoneNumber.value = number
 
   // Only email can be chosen for now; anything else loads unselected so the
