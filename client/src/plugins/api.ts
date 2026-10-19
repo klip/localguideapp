@@ -192,6 +192,36 @@ export interface ProfileUpdatePayload {
    * `Profiles::setRanges()`.
    */
   ranges?: RangeMap
+  /** Where a guide works (guide role only): sets it, or `null` removes it. */
+  base?: PlacePoint | null
+  /** How far they'll travel, in km; `null` = flexible (any distance). Sent with `base`. */
+  radiusKm?: number | null
+}
+
+/** A town or area from the place search (`Geocoder.php`). */
+export interface Place {
+  /** "Lisbon, Portugal" */
+  label: string
+  name: string
+  countryCode: string | null
+  latitude: number
+  longitude: number
+  /** The provider's type — city, state, country… */
+  kind: string
+}
+
+/** What's stored for a chosen place: its point and how to name it. */
+export interface PlacePoint {
+  label: string
+  countryCode: string | null
+  latitude: number
+  longitude: number
+}
+
+/** Where a guide works (`guide_bases`); the point is rounded to ~1 km. */
+export interface GuideBase extends PlacePoint {
+  /** `null` = flexible: travels any distance. */
+  radiusKm: number | null
 }
 
 /** Every value `two_factor_method` can hold, including the legacy `'none'` a pre-existing account may still carry. */
@@ -232,12 +262,6 @@ export interface AttributeCategory {
   multi: boolean
   rangeMin: number | null
   rangeMax: number | null
-  /**
-   * A `range` category the filter bar can leave "Unlimited" (a switch, on by
-   * default, muting the slider) — `distance`. Always sent by the server;
-   * optional so a fixture can leave it out.
-   */
-  allowUnlimited?: boolean
   options: { value: string; label: string }[]
 }
 
@@ -278,6 +302,8 @@ export interface MyProfile {
   verification_method: 'id_card' | 'passport' | 'driving_licence' | null
   attributes: AttributeMap
   ranges: RangeMap
+  /** Where they guide — set only while editing as a guide, `null` otherwise or when not set. */
+  guide_base?: GuideBase | null
 }
 
 /** Fields `RequestProcessor::actionUpdateAccount()` accepts (beyond the session-derived caller identity) — every one optional and independent. */
@@ -945,6 +971,12 @@ export const api = {
       language,
       ...scope,
     }),
+  /** Towns and areas matching `query` (≥ 2 characters), best first; `near` favours ones close to it. No session needed. */
+  geocode: (query: string, language: string, near?: { latitude: number; longitude: number }) =>
+    call<{ places: Place[] }>('geocode', { query, language, ...(near ? { near } : {}) }),
+  /** The town at a point ("use my location"), or `null`. No session needed. */
+  reverseGeocode: (point: { latitude: number; longitude: number }, language: string) =>
+    call<{ place: Place | null }>('reverseGeocode', { ...point, language }),
   /** A legal document in force, in `language` or else English. Fetched on demand. No session needed. */
   legalDocument: (slug: LegalSlug, language: string) =>
     call<LegalDocumentView>('legalDocument', { slug, language }),

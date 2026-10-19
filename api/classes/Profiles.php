@@ -100,6 +100,57 @@ class Profiles
         );
     }
 
+    /**
+     * Where `$userId` guides (`guide_bases`): `{ label, countryCode,
+     * latitude, longitude, radiusKm }` — `radiusKm` null means flexible (they
+     * travel any distance) — or null when they haven't said.
+     */
+    public function getGuideBase(int $userId): ?array
+    {
+        $row = $this->db->db_GetRow(
+            'SELECT `label`, `country_code`, ST_Latitude(`point`) AS `latitude`, ST_Longitude(`point`) AS `longitude`, `radius_km`
+             FROM `guide_bases` WHERE `user_id` = ' . $userId
+        );
+        if (!$row) {
+            return null;
+        }
+
+        return [
+            'label' => $row['label'],
+            'countryCode' => $row['country_code'],
+            'latitude' => (float) $row['latitude'],
+            'longitude' => (float) $row['longitude'],
+            'radiusKm' => $row['radius_km'] === null ? null : (int) $row['radius_km'],
+        ];
+    }
+
+    /**
+     * Sets (or, with null, removes) where `$userId` guides. The point is
+     * rounded to two decimals (~1 km), so "use where I am now" never stores
+     * someone's front door. `$radiusKm` null = flexible.
+     *
+     * @param array{latitude: float, longitude: float, label: string, countryCode: ?string}|null $base
+     */
+    public function setGuideBase(int $userId, ?array $base, ?int $radiusKm): void
+    {
+        if ($base === null) {
+            $this->db->db_Execute('DELETE FROM `guide_bases` WHERE `user_id` = ' . $userId);
+            return;
+        }
+
+        $point = Places::pointSql(['latitude' => round($base['latitude'], 2), 'longitude' => round($base['longitude'], 2)]);
+        $label = '"' . $this->db->db_Escape($base['label']) . '"';
+        $country = $base['countryCode'] === null ? 'NULL' : '"' . $this->db->db_Escape($base['countryCode']) . '"';
+        $radius = $radiusKm === null ? 'NULL' : (string) $radiusKm;
+
+        $this->db->db_Execute(
+            'INSERT INTO `guide_bases` (`user_id`, `label`, `country_code`, `point`, `radius_km`)
+             VALUES (' . $userId . ', ' . $label . ', ' . $country . ', ' . $point . ', ' . $radius . ')
+             ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `country_code` = VALUES(`country_code`),
+                 `point` = VALUES(`point`), `radius_km` = VALUES(`radius_km`)'
+        );
+    }
+
     /** @var db */
     private $db;
 
@@ -145,7 +196,7 @@ class Profiles
     public function getCategories(): array
     {
         $categories = $this->db->db_GetArray(
-            'SELECT `id`, `key`, `label`, `kind`, `scope`, `provider_label`, `multi`, `range_min`, `range_max`, `allow_unlimited`
+            'SELECT `id`, `key`, `label`, `kind`, `scope`, `provider_label`, `multi`, `range_min`, `range_max`
              FROM `attribute_categories` ORDER BY `id`'
         );
 
@@ -163,7 +214,6 @@ class Profiles
             'multi' => (bool) $category['multi'],
             'rangeMin' => $category['range_min'] === null ? null : (int) $category['range_min'],
             'rangeMax' => $category['range_max'] === null ? null : (int) $category['range_max'],
-            'allowUnlimited' => (bool) $category['allow_unlimited'],
             'options' => $optionsByCategory[(int) $category['id']] ?? [],
         ], $categories);
     }

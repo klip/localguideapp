@@ -19,7 +19,7 @@ import type { Gender, NumericRange } from '@/types'
  *   native `<details>` with Pico's own chevron). Opening one lists its
  *   options as full-width link rows; picking one moves it out of the list and
  *   into a pill above the deck (`ActiveFilters.vue`), whose × puts it back. A
- *   `range` category (hours, distance) gets one two-handle slider, like age —
+ *   `range` category (hours of the day) gets one two-handle slider, like age —
  *   a single span, applied as it's dragged, shown as a pill too.
  *
  * There's no "apply" step: both decks refetch (debounced) whenever the filter
@@ -71,32 +71,11 @@ function spanFor(category: AttributeCategory): NumericRange {
   )
 }
 
-/**
- * Live, like age: each drag is the query, and back to the full extent clears
- * it — except where the category offers "Unlimited", whose switch is the only
- * way back to no filter (so dragging can't flip the switch under the user).
- */
+/** Live, like age: each drag is the query, and back to the full extent clears it. */
 function setSpan(category: AttributeCategory, range: NumericRange) {
   const unconstrained =
     range[0] <= (category.rangeMin ?? 0) && range[1] >= (category.rangeMax ?? 100)
-  filtersStore.setRange(category.key, unconstrained && !category.allowUnlimited ? null : range)
-}
-
-/**
- * "Unlimited" is on whenever the category has no span in the filter —
- * derived, so a pill's × or Clear filters turn it back on too.
- */
-function isUnlimited(category: AttributeCategory) {
-  return !!category.allowUnlimited && filtersStore.rangesFor(category.key).length === 0
-}
-
-/** Off activates the range at its full extent (the slider wakes up); on drops it. */
-function onUnlimitedChange(category: AttributeCategory, event: Event) {
-  const unlimited = (event.target as HTMLInputElement).checked
-  filtersStore.setRange(
-    category.key,
-    unlimited ? null : [category.rangeMin ?? 0, category.rangeMax ?? 100],
-  )
+  filtersStore.setRange(category.key, unconstrained ? null : range)
 }
 
 /** The accordion: every category but age, which has its own slider above. */
@@ -178,23 +157,12 @@ function onGenderChange(event: Event) {
 
         <div v-if="category.kind === 'range'" class="cat-body span">
           <div class="span-head tiny">
-            <label v-if="category.allowUnlimited" class="unlimited">
-              <input
-                type="checkbox"
-                role="switch"
-                :checked="isUnlimited(category)"
-                :data-test="`unlimited-${category.key}`"
-                @change="onUnlimitedChange(category, $event)"
-              />
-              {{ t('common.filter_panel.unlimited') }}
-            </label>
-            <strong :class="{ muted: isUnlimited(category) }" :data-test="`span-${category.key}`">{{
+            <strong :data-test="`span-${category.key}`">{{
               formatRange(spanFor(category), rangeFormatFor(category.key))
             }}</strong>
           </div>
           <DualRangeSlider
             :model-value="spanFor(category)"
-            :disabled="isUnlimited(category)"
             :min="category.rangeMin ?? 0"
             :max="category.rangeMax ?? 100"
             :min-label="`${category.label}: ${t('common.range_picker.from')}`"

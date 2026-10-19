@@ -32,6 +32,8 @@ class RequestProcessor
     private $notifications;
     /** @var Profiles */
     private $profiles;
+    /** @var Geocoder */
+    private $geocoder;
     /** @var Reviews */
     private $reviews;
     /** @var Translations */
@@ -65,6 +67,7 @@ class RequestProcessor
         $this->bookings = new Bookings($db, $this->notifications, $this->levels);
         $this->selections = new Selections($db, $this->users, $this->payments, $this->bookings, $this->levels);
         $this->profiles = new Profiles($db);
+        $this->geocoder = new Geocoder($redis);
         $this->reviews = new Reviews($db, $this->levels);
         $this->translations = new Translations($db);
         $this->messages = new Messages($db, $this->push, $this->notifications);
@@ -243,6 +246,20 @@ class RequestProcessor
             case 'legalDocument':
                 return [200, $this->actionLegalDocument()];
 
+            // Place search (a guide's base, the deck's search point): names ↔
+            // coordinates through `Geocoder`. No session needed — the deck
+            // works signed out too.
+            case 'geocode':
+                return [200, ['places' => $this->geocoder->search(
+                    (string) ($this->readInput()['query'] ?? ''),
+                    $this->readLanguage(),
+                    Places::readPoint($this->readInput()['near'] ?? null, 'near')
+                )]];
+
+            case 'reverseGeocode':
+                $point = Places::readPoint($this->readInput(), 'reverseGeocode');
+                return [200, ['place' => $this->geocoder->reverse($point['latitude'], $point['longitude'], $this->readLanguage())]];
+
             // Gateway-only (never routed for a client): what a socket that just
             // signed in should be shown — unread notifications (marked read
             // now) and the current counters.
@@ -256,6 +273,14 @@ class RequestProcessor
             default:
                 return [404, ['error' => 'Unknown action.']];
         }
+    }
+
+    /** The request's `language` if it's one of ours, else English. */
+    private function readLanguage(): string
+    {
+        $language = (string) ($this->readInput()['language'] ?? 'en');
+
+        return in_array($language, Translations::LANGUAGES, true) ? $language : 'en';
     }
 
     /** The request currently being processed (see `process()`). */
@@ -557,9 +582,50 @@ class RequestProcessor
             }
         }
 
+        // Where a guide works: `base` present sets it (null removes it);
+        // `radiusKm` is how far they'll travel, null = flexible.
+        if (array_key_exists('base', $input)) {
+            if ($role !== 'guide') {
+                throw new RuntimeException('Only a guide sets where they guide.');
+            }
+            $this->profiles->setGuideBase($userId, $this->readGuideBase($input['base']), $this->readRadius($input['radiusKm'] ?? null));
+        }
+
         $this->bookings->onProfileUpdated($userId);
 
         return ['ok' => true];
+    }
+
+    /** @return array{latitude: float, longitude: float, label: string, countryCode: ?string}|null */
+    private function readGuideBase($base): ?array
+    {
+        $point = Places::readPoint($base, 'base');
+        if ($point === null) {
+            return null;
+        }
+        $label = trim(preg_replace('/\s+/u', ' ', (string) ($base['label'] ?? '')));
+        if ($label === '' || mb_strlen($label) > 160) {
+            throw new RuntimeException('base needs a place name (up to 160 characters).');
+        }
+        ContactFilter::assertClean($label, 'base');
+        $country = strtoupper((string) ($base['countryCode'] ?? ''));
+
+        return $point + [
+            'label' => $label,
+            'countryCode' => preg_match('/^[A-Z]{2}$/', $country) ? $country : null,
+        ];
+    }
+
+    private function readRadius($radius): ?int
+    {
+        if ($radius === null || $radius === '') {
+            return null;
+        }
+        if (!is_int($radius) || $radius < 1 || $radius > 1000) {
+            throw new RuntimeException('radiusKm must be a whole number of kilometres, 1–1000, or empty for flexible.');
+        }
+
+        return $radius;
     }
 
     /**

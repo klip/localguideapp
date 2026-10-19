@@ -182,6 +182,7 @@
       "common.gender",
       "common.image_cropper",
       "common.level",
+      "common.place_search",
       "common.range_picker",
       "common.standing",
       "profile.add_role",

@@ -36,17 +36,6 @@ const sampleCategories: AttributeCategory[] = [
     rangeMax: 23,
     options: [],
   },
-  {
-    key: 'distance',
-    label: 'Distance',
-    kind: 'range',
-    providerLabel: null,
-    multi: true,
-    rangeMin: 0,
-    rangeMax: 50,
-    allowUnlimited: true,
-    options: [],
-  },
 ]
 
 /** The shared stub `Api` (see `fakeApi.ts`) with this spec's defaults. */
@@ -142,7 +131,7 @@ describe('FilterPanel', () => {
     const wrapper = await mountPanel()
 
     const rows = wrapper.findAll('details.filter-cat summary').map((summary) => summary.text())
-    expect(rows).toEqual(['Languages', 'Hour of the day', 'Distance'])
+    expect(rows).toEqual(['Languages', 'Hour of the day'])
     expect(wrapper.find('.person').text()).toContain('Age')
     // No pills: categories are rows, not tag buttons.
     expect(wrapper.find('.tag').exists()).toBe(false)
@@ -224,41 +213,6 @@ describe('FilterPanel', () => {
     await from?.setValue(0)
     await to?.setValue(23)
     expect(store.filters.ranges).not.toHaveProperty('hour_of_day')
-  })
-
-  it('offers an Unlimited switch where the category allows it: on and muted by default, off activates the range', async () => {
-    const wrapper = await mountPanel()
-    const store = useFiltersStore()
-
-    expect(category(wrapper, 'Hour of the day').find('[role="switch"]').exists()).toBe(false)
-
-    const distance = category(wrapper, 'Distance')
-    const toggle = distance.find<HTMLInputElement>('[data-test="unlimited-distance"]')
-    const sliders = () => distance.findAll<HTMLInputElement>('input[type="range"]')
-    expect(toggle.element.checked).toBe(true)
-    expect(sliders().every((slider) => slider.element.disabled)).toBe(true)
-    expect(store.filters.ranges).not.toHaveProperty('distance')
-
-    await toggle.setValue(false)
-    expect(sliders().some((slider) => slider.element.disabled)).toBe(false)
-    expect(store.rangesFor('distance')).toEqual([[0, 50]])
-
-    await sliders()[1]?.setValue(10)
-    expect(store.rangesFor('distance')).toEqual([[0, 10]])
-    // Dragging back to the full extent keeps the range on — only the switch turns it off.
-    await sliders()[1]?.setValue(50)
-    expect(store.rangesFor('distance')).toEqual([[0, 50]])
-    expect(toggle.element.checked).toBe(false)
-
-    await toggle.setValue(true)
-    expect(store.filters.ranges).not.toHaveProperty('distance')
-    expect(sliders().every((slider) => slider.element.disabled)).toBe(true)
-
-    // Removing its pill (or Clear filters) puts it back to Unlimited too.
-    await toggle.setValue(false)
-    store.reset()
-    await flushPromises()
-    expect(toggle.element.checked).toBe(true)
   })
 
   it('filters age with one two-handle slider, 16 to 99, kept in the store', async () => {

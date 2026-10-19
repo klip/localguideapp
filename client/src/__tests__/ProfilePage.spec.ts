@@ -525,6 +525,92 @@ describe('ProfilePage', () => {
     expect(payload.newCategoryLabels?.dietary_needs).toBe('Dietary needs')
   })
 
+  it('lets a guide pick where they guide and how far they travel, empty meaning flexible', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const updateProfile = vi.fn<Api['updateProfile']>().mockResolvedValue({ ok: true })
+    const lisbon = {
+      label: 'Lisbon, Portugal',
+      name: 'Lisbon',
+      countryCode: 'PT',
+      latitude: 38.72,
+      longitude: -9.14,
+      kind: 'city',
+    }
+    const geocode = vi.fn<Api['geocode']>().mockResolvedValue({ places: [lisbon] })
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
+        updateProfile,
+        geocode,
+      }),
+    )
+
+    const base = wrapper.find('[data-test="guide-base"]')
+    expect(base.find<HTMLInputElement>('[data-test="guide-radius"]').element.disabled).toBe(true)
+    await base.find('[data-test="place-input"]').setValue('lisb')
+    await vi.advanceTimersByTimeAsync(350)
+    await flushPromises()
+    expect(geocode).toHaveBeenCalledWith('lisb', 'en', undefined)
+    await base.find('[data-test="place-option-0"]').trigger('mousedown')
+    await base.find('[data-test="guide-radius"]').setValue(30)
+
+    await forms(wrapper).details.trigger('submit.prevent')
+    await flushPromises()
+    expect(updateProfile).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        base: { label: 'Lisbon, Portugal', countryCode: 'PT', latitude: 38.72, longitude: -9.14 },
+        radiusKm: 30,
+      }),
+    )
+
+    await base.find('[data-test="guide-radius"]').setValue('')
+    await forms(wrapper).details.trigger('submit.prevent')
+    await flushPromises()
+    expect(updateProfile).toHaveBeenLastCalledWith(expect.objectContaining({ radiusKm: null }))
+
+    await base.find('[data-test="guide-base-remove"]').trigger('click')
+    await forms(wrapper).details.trigger('submit.prevent')
+    await flushPromises()
+    expect(updateProfile).toHaveBeenLastCalledWith(expect.objectContaining({ base: null }))
+    vi.useRealTimers()
+  })
+
+  it('prefills a saved base, and never sends one while editing as a traveller', async () => {
+    const updateProfile = vi.fn<Api['updateProfile']>().mockResolvedValue({ ok: true })
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue({
+          ...sampleProfile,
+          guide_base: {
+            label: 'Kyoto, Japan',
+            countryCode: 'JP',
+            latitude: 35.01,
+            longitude: 135.77,
+            radiusKm: null,
+          },
+        }),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
+        updateProfile,
+      }),
+    )
+    expect(wrapper.find('.base-chosen').text()).toContain('Kyoto, Japan')
+    expect(wrapper.find<HTMLInputElement>('[data-test="guide-radius"]').element.value).toBe('')
+
+    const auth = useAuthStore()
+    auth.setUser({ ...auth.user!, roles: ['guide', 'guest'] })
+    auth.setActiveRole('guest')
+    await flushPromises()
+    expect(wrapper.find('[data-test="guide-base"]').exists()).toBe(false)
+    await forms(wrapper).details.trigger('submit.prevent')
+    await flushPromises()
+    expect(updateProfile.mock.lastCall![0]).not.toHaveProperty('base')
+  })
+
   it('rejects a password change when confirmation does not match, without calling the API', async () => {
     const changePassword = vi.fn<Api['changePassword']>()
     const wrapper = await mountProfilePage(

@@ -1517,17 +1517,12 @@ picks; open it and the remaining options are full-width link-style rows
 and into a pill above the deck's cards** (`ActiveFilters.vue`, on both
 Discover pages, just before the `ProfileCard`); the pill's × removes the
 filter and the option reappears in its category. Gender, age and hour spans
-show as pills too. **Every `range` category (hours, distance) is one
+show as pills too. **Every `range` category (hours of the day) is one
 `DualRangeSlider`** inside its accordion row, like age: a single span,
 applied as it's dragged, and dragging back to the full extent clears it — no
 Add button. (`RangePicker`, with its several spans, is the profile page's.)
-A range category with `allow_unlimited` (048; `distance` only) also gets an
-**"Unlimited" switch** (Pico `role="switch"`), on by default with the
-slider muted (`DualRangeSlider`'s `disabled`) — no filter at all. Switching
-it off stores the full extent and wakes the slider; for such a category,
-dragging back to the ends keeps the range — only the switch clears it. The
-switch is derived from the store (on ⇔ no span), so the pill's × and Clear
-filters turn it back on. **There's
+Distance isn't a category any more (058 dropped the old self-typed spans) —
+see "Location". **There's
 no apply button** — both decks already refetch (debounced) on every filter
 change. "Clear filters" (funnel-with-× icon) shows once anything is set.
 Accordion state is the browser's own (uncontrolled `<details>`); every value
@@ -1545,8 +1540,8 @@ category a user invented on their profile page five minutes ago.
   checkboxes in the bar.
 - **`range` categories in the bar are a single span** (`filtersStore.
   setRange()`); the store and the server still accept several. `hour_of_day`
-  runs 00:00–23:00, `distance` 0–50 km. `utils/formatRange.ts` prints them
-  ("09:00–13:00", "0–5 km") — the one place category keys are named.
+  runs 00:00–23:00. `utils/formatRange.ts` prints them ("09:00–13:00") —
+  the one place category keys are named.
 - **`age` is a category in the UI but not in the database.** There's
   nothing to store per user — it's derived from `date_of_birth` — so
   `stores/categories.ts` injects a synthetic `AGE_CATEGORY` (16–99) and
@@ -1745,6 +1740,27 @@ the plumbing, is in:
   `withRole()` add `?as=<role>` to the toast's link; a global
   `router.beforeEach` switches to that role (if held) and drops the query —
   so any link, an email's included, can open the app in the right mode.
+
+### Location (`docs/ai-and-location.md`, phase A)
+
+- **A guide's base** (058, `guide_bases`): a place label, country, a point
+  (SRID 4326, rounded to 2 decimals ≈ 1 km — never an address) and
+  `radius_km`, how far they'll travel; **empty = flexible** (any distance).
+  Set on the profile page in guide mode ("Where you guide": `PlaceSearch` +
+  a km field) through `updateProfile`'s `base` (`null` removes it) and
+  `radiusKm`; `myProfile` returns `guide_base`. Only the guide role may send
+  `base`; its label goes through `ContactFilter::assertClean()`.
+- **Place search** (`PlaceSearch.vue`): a combobox over `api.geocode()`
+  (≥ 2 characters, 300 ms debounce, arrows/Enter/Escape) plus "Use my current
+  location" (`useCurrentPosition` → `api.reverseGeocode()`, which names the
+  town, not the street). `v-model` changes only when a place is picked.
+- **`Geocoder.php`** proxies Photon's public server (OpenStreetMap,
+  free — a development stand-in, see `docs/production-memo.md`): towns and
+  areas only (no streets), labels like "Lisbon, Portugal", `lang` for
+  en/de/fr (local names otherwise), cached 7 days in Redis
+  (`geocode:<sha1>`), at most 5 upstream calls a second across replicas.
+  `Places.php` holds the point SQL (`axis-order=lat-long`,
+  `ST_Distance_Sphere`).
 
 ### Two-factor login & password reset
 
@@ -1988,6 +2004,8 @@ is a `503` from the gateway.
 | `submitReview` | **yes** | `api.submitReview(payload)` | `subjectId, rating, comment?` | `Review` (`id, booking_id, author_id, subject_id, rating, comment, created_at, updated_at, author_name, author_image`) | `Reviews::submit()` (upsert) |
 | `deleteReview` | **yes** | `api.deleteReview(payload)` | `reviewId` | `{ ok: true }` | `Reviews::delete()` |
 | `translations` | no | `api.translations(language, scope?)` | `language` (one of the 15 codes), `scopes?` / `except?` (key prefixes, `page` or `page.widget`) | `{ language, strings: { key: value } }` (always an object; `400` "Unsupported language." otherwise) | `Translations::forLanguage()` |
+| `geocode` | no | `api.geocode(query, language, near?)` | `query` (2–120 chars), `language`, `near?` `{ latitude, longitude }` | `{ places: Place[] }` (`label, name, countryCode, latitude, longitude, kind`) | `Geocoder::search()` |
+| `reverseGeocode` | no | `api.reverseGeocode(point, language)` | `latitude, longitude, language` | `{ place: Place \| null }` (the town, at the point rounded to 2 decimals) | `Geocoder::reverse()` |
 | `legalDocument` | no | `api.legalDocument(slug, language)` | `slug` (`'terms'`), `language` | `LegalDocumentView` (`slug, version, language, title, body`, placeholders filled) | `LegalDocuments::current()` |
 
 \* `guides`/`visitors`/`reviews` work signed out, but personalise themselves when a
@@ -2387,6 +2405,11 @@ API service (`api/classes/`):
   2026-10-18. Not re-runnable.
 - `api/sql/057_translations_other_role_news.sql` — the mode-switch dot's
   label. Applied 2026-10-18. Re-runnable.
+- `api/sql/058_guide_bases.sql` — `guide_bases`; drops the `distance`
+  category (and its spans) and `attribute_categories.allow_unlimited`.
+  Applied 2026-10-19. Not re-runnable.
+- `api/sql/059_translations_guide_base.sql` — place search and "Where you
+  guide". Applied 2026-10-19. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

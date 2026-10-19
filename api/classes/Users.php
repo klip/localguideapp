@@ -374,6 +374,8 @@ class Users
         $row['acting_role'] = $role;
         $row['attributes'] = (object) $profiles->getAttributeValuesFor($userId, $role);
         $row['ranges'] = (object) $profiles->getRangesFor($userId, $role);
+        // Where they guide — only shown while editing as a guide.
+        $row['guide_base'] = $role === 'guide' ? $profiles->getGuideBase($userId) : null;
 
         return $row;
     }

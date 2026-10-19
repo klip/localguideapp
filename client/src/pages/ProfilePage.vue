@@ -6,6 +6,7 @@ import RangePicker from '@/components/RangePicker.vue'
 import ImageCropper from '@/components/ImageCropper.vue'
 import LevelPanel from '@/components/LevelPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
+import PlaceSearch from '@/components/PlaceSearch.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import TermsDialog from '@/components/TermsDialog.vue'
 import { t, tn } from '@/i18n'
@@ -17,6 +18,7 @@ import {
   type LegalDocumentView,
   type LegalSlug,
   type MyProfile,
+  type PlacePoint,
   type Role,
   type TwoFactorChannel,
   useApi,
@@ -169,6 +171,9 @@ const priceNote = ref('')
 const includes = ref('')
 const party = ref('')
 const durationHours = ref<number | null>(null)
+// Where a guide works, and how far they'll travel (empty = flexible).
+const guideBase = ref<PlacePoint | null>(null)
+const radiusKm = ref<number | ''>('')
 const savingProfile = ref(false)
 const profilePanelRef = ref<HTMLElement | null>(null)
 
@@ -369,6 +374,16 @@ function applyProfile(data: MyProfile) {
   includes.value = data.includes ?? ''
   party.value = data.party ?? ''
   durationHours.value = data.duration_hours
+  const base = data.guide_base ?? null
+  guideBase.value = base
+    ? {
+        label: base.label,
+        countryCode: base.countryCode,
+        latitude: base.latitude,
+        longitude: base.longitude,
+      }
+    : null
+  radiusKm.value = base?.radiusKm ?? ''
 
   for (const key of Object.keys(selectedAttributes)) delete selectedAttributes[key]
   Object.assign(selectedAttributes, data.attributes)
@@ -499,6 +514,12 @@ async function saveProfile() {
       attributes: { ...selectedAttributes },
       newCategoryLabels: { ...newCategoryLabels },
       ranges: { ...selectedRanges },
+      ...(isGuide.value
+        ? {
+            base: guideBase.value,
+            radiusKm: radiusKm.value === '' ? null : Math.round(radiusKm.value),
+          }
+        : {}),
     })
     messages.success(t('profile.toast.profile_saved'), anchorTo('element', profilePanelRef.value))
   } catch (err) {
@@ -822,6 +843,40 @@ async function changePassword() {
             </label>
 
             <template v-if="isGuide">
+              <fieldset class="guide-base" data-test="guide-base">
+                <legend>{{ t('profile.details.base_title') }}</legend>
+                <label for="guide-base-place" class="tiny muted">{{
+                  t('profile.details.base_hint')
+                }}</label>
+                <PlaceSearch v-model="guideBase" input-id="guide-base-place" />
+                <p v-if="guideBase" class="tiny base-chosen">
+                  📍 {{ guideBase.label }}
+                  <button
+                    type="button"
+                    class="link-btn"
+                    data-test="guide-base-remove"
+                    @click="guideBase = null"
+                  >
+                    {{ t('profile.details.base_remove') }}
+                  </button>
+                </p>
+                <label>
+                  {{ t('profile.details.radius_label') }}
+                  <input
+                    v-model.number="radiusKm"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    step="1"
+                    :disabled="!guideBase"
+                    aria-describedby="radius-hint"
+                    data-test="guide-radius"
+                  />
+                  <small id="radius-hint" class="muted">{{
+                    t('profile.details.radius_hint')
+                  }}</small>
+                </label>
+              </fieldset>
               <label>
                 {{ t('profile.details.price_amount') }}
                 <input
@@ -975,6 +1030,22 @@ async function changePassword() {
   .profile-level {
     flex-shrink: 0;
   }
+}
+
+.guide-base {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem 0.25rem;
+  border: 1px solid var(--rg-line);
+  border-radius: var(--rg-radius-soft);
+
+  legend {
+    padding: 0 0.35rem;
+    font-weight: 600;
+  }
+}
+
+.base-chosen {
+  margin: 0 0 0.75rem;
 }
 
 .trusted-devices {
