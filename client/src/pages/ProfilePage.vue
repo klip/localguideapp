@@ -546,11 +546,14 @@ async function changePassword() {
 
 <template>
   <section class="section shell">
-    <SectionTitle
-      :eyebrow="t('profile.header.eyebrow')"
-      :heading="t('profile.header.heading')"
-      :lead="t('profile.header.lead')"
-    />
+    <div class="profile-head">
+      <SectionTitle
+        :eyebrow="t('profile.header.eyebrow')"
+        :heading="t('profile.header.heading')"
+        :lead="t('profile.header.lead')"
+      />
+      <LevelPanel v-if="profile && auth.activeRole" class="profile-level" :role="auth.activeRole" />
+    </div>
 
     <div
       v-if="auth.user && !loading && missingRole"
@@ -955,14 +958,24 @@ async function changePassword() {
           </form>
         </PanelCard>
       </div>
-
-      <LevelPanel v-if="profile && auth.activeRole" :role="auth.activeRole" />
     </div>
   </section>
 </template>
 
 <style scoped lang="scss">
 @use 'breakpoints' as bp;
+
+// The level badge sits at the top right, level with the eyebrow.
+.profile-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+
+  .profile-level {
+    flex-shrink: 0;
+  }
+}
 
 .trusted-devices {
   margin: -0.5rem 0 1rem;

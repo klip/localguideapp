@@ -27,7 +27,7 @@ function state(overrides: Partial<LevelState> = {}): LevelState {
         id: 9,
         kind: 'free_picks',
         days: 3,
-        reason: 'level_2',
+        reason: 'guest_level_2',
         state: 'available',
         starts_at: null,
         ends_at: null,
@@ -66,15 +66,56 @@ describe('LevelPanel', () => {
     expect(bonus.text()).toContain('3 days of free picks')
     expect(bonus.text()).toContain('For reaching Level 2 · Explorer')
     expect(bonus.find('button').text()).toBe('Claim')
+    expect(bonus.text()).toContain('For reaching Level 2 · Explorer')
+  })
+
+  it('shows only the badge until the "?" is hovered or clicked', async () => {
+    const wrapper = mountPanel(
+      fakeApi({ myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(state()) }),
+    )
+    await flushPromises()
+    // v-show; isVisible() would need the wrapper attached to the document.
+    const shown = () =>
+      (wrapper.find('[data-test="level-popover"]').element as HTMLElement).style.display !== 'none'
+    const help = wrapper.find('[data-test="level-help"]')
+
+    expect(wrapper.find('.level-badge').text()).toBe('◆ Level 2 · Explorer')
+    expect(shown()).toBe(false)
+
+    await help.element.parentElement!.dispatchEvent(
+      Object.assign(new Event('pointerenter'), { pointerType: 'mouse' }),
+    )
+    await wrapper.vm.$nextTick()
+    expect(shown()).toBe(true)
+    expect(help.attributes('aria-expanded')).toBe('true')
+
+    vi.useFakeTimers()
+    help.element.parentElement!.dispatchEvent(
+      Object.assign(new Event('pointerleave'), { pointerType: 'mouse' }),
+    )
+    vi.advanceTimersByTime(200)
+    await wrapper.vm.$nextTick()
+    expect(shown()).toBe(false)
+
+    // Clicking pins it open (touch, keyboard); Escape closes it.
+    await help.trigger('click')
+    expect(shown()).toBe(true)
+    await wrapper.find('[data-test="level-panel"]').trigger('keydown', { key: 'Escape' })
+    expect(shown()).toBe(false)
   })
 
   it('scrolls itself into view when a notification linked to /profile#level', async () => {
     const scrollIntoView = vi.fn<(arg?: boolean | ScrollIntoViewOptions) => void>()
     Element.prototype.scrollIntoView = scrollIntoView
     history.replaceState(null, '', '#level')
-    mountPanel(fakeApi({ myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(state()) }))
+    const wrapper = mountPanel(
+      fakeApi({ myLevel: vi.fn<Api['myLevel']>().mockResolvedValue(state()) }),
+    )
     await flushPromises()
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    expect(
+      (wrapper.find('[data-test="level-popover"]').element as HTMLElement).style.display,
+    ).not.toBe('none')
     history.replaceState(null, '', location.pathname)
     Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
   })

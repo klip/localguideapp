@@ -868,7 +868,11 @@ behind it as badges instead.
   the base/marketing number; `freePicksActive` re-evaluates itself when the
   bonus ends); the header and deck show "Free picks on" and the Discover
   counter "Free picks until …";
-  `StandingBadges` shows "◆ Level n · Name"; `LevelPanel` on `/profile`.
+  `StandingBadges` shows "◆ Level n · Name"; on `/profile`, `LevelPanel` is
+  just the level badge at the top right of the page header with a "?" beside
+  it — hovering the "?" (or clicking it, for touch and keyboard; Escape or a
+  click elsewhere closes) opens a popover with the progress, perks, sanction
+  and bonuses to claim.
 - No money moves: like packs and fees, the commission is recorded, not taken.
 
 ### Reporting a user (`ReportUser.vue`, `Complaints.php`)
@@ -1014,7 +1018,7 @@ next sign-in (`pushState`). `App.vue` shows each
 as a 10 s info toast that **links to what it's about** (`utils/notificationLink.ts`):
 pending requests → Matches, confirmed/finished trips → My trips, `match` → the
 chat with them, `profile_updated` → their profile, `level_up`/`bonus_granted`
-→ `/profile#level` (LevelPanel scrolls itself there once the page has loaded);
+→ `/profile#level` (LevelPanel scrolls itself there with its popover open once the page has loaded);
 an unknown kind is a plain toast. The person comes from
 `notifications.about_user_id` (043, the optional last argument of `notify()`/
 `notifyInApp()` — set for `match`, `profile_updated` and the meeting-place
