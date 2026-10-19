@@ -27,7 +27,7 @@ const steps = computed(() =>
     <section class="hero section shell">
       <div class="hero-grid">
         <div>
-          <PillBadge>{{ t('home.hero.badge') }}</PillBadge>
+          <PillBadge><span aria-hidden="true">🌍</span> {{ t('home.hero.badge') }}</PillBadge>
           <h1>{{ t('home.hero.heading') }}</h1>
           <p class="lead">
             {{ t('home.hero.lead') }}

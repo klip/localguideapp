@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import NavIcon from './NavIcon.vue'
 import { t } from '@/i18n'
 /** The two-up pass / interested control at the foot of every discovery card. */
 withDefaults(
@@ -19,10 +20,10 @@ const emit = defineEmits<{
 <template>
   <div class="decision-row">
     <button type="button" class="reject" :disabled="disabled" @click="emit('reject')">
-      {{ rejectLabel ?? t('common.decision_row.reject') }}
+      <span aria-hidden="true">✕</span> {{ rejectLabel ?? t('common.decision_row.reject') }}
     </button>
     <button type="button" class="accept" :disabled="disabled" @click="emit('accept')">
-      {{ acceptLabel ?? t('common.decision_row.interested') }}
+      <NavIcon name="matches" />{{ acceptLabel ?? t('common.decision_row.interested') }}
     </button>
   </div>
 </template>

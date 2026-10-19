@@ -9,8 +9,7 @@
     "common.message_toaster",
     "common.messages",
     "common.modal_dialog",
-    "common.terms_dialog",
-    "discover.deck"
+    "common.terms_dialog"
   ],
   "routes": {
     "home": [
@@ -75,6 +74,7 @@
       "common.time_ago",
       "discover.auth_modal",
       "discover.counter",
+      "discover.deck",
       "discover.empty",
       "discover.filters",
       "discover.pay_modal",

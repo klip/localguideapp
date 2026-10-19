@@ -51,7 +51,7 @@ describe('App', () => {
     })
 
     expect(wrapper.find('.app-shell').exists()).toBe(true)
-    expect(wrapper.text()).toContain('RockGuide')
+    expect(wrapper.text()).toContain('LocalGuideFinder')
     expect(wrapper.text()).toContain('Find your local. Skip the tourist shuffle.')
   })
 
@@ -96,8 +96,8 @@ describe('App', () => {
     const matchesStore = useMatchesStore()
     expect(matchesStore.packsUnlocked).toBe(2)
     expect(matchesStore.hasAccess).toBe(true)
-    // Picks come back too, so the header reads "2 / 10 picked" rather than
-    // "0 / 10" for a visitor who has already spent some of the pack.
+    // Picks come back too, so the Discover counter reads "2 / 10 picked"
+    // rather than "0 / 10" for a visitor who has already spent some of the pack.
     expect(matchesStore.picks).toEqual(['18', '42'])
     expect(matchesStore.passed).toEqual(['7'])
     expect(matchesStore.isPicked('18')).toBe(true)

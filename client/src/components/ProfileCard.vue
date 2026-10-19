@@ -64,9 +64,10 @@ const emit = defineEmits<{
           <strong>{{ priceLabel }}</strong>
           <div v-if="priceNote" class="tiny muted">{{ priceNote }}</div>
         </div>
-        <RouterLink v-if="profileLink" class="tiny" :to="profileLink">{{
-          t('common.profile_card.full_profile')
-        }}</RouterLink>
+        <RouterLink v-if="profileLink" class="tiny" :to="profileLink"
+          >{{ t('common.profile_card.full_profile') }}
+          <span class="rtl-flip" aria-hidden="true">→</span></RouterLink
+        >
       </div>
 
       <p v-if="bio">{{ bio }}</p>

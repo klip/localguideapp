@@ -247,7 +247,7 @@ path/name table) and the shared `src/components/` each is built from:
   never contact details — then a `ReviewsSection`. No accept/reject here;
   a guide's id reads as "Visitor not found".
 - There is **no `/shortlist` page any more** — it was removed; every
-  "View matches" link and the header's picks-pill go to `/matches`.
+  "View matches" link goes to `/matches`.
 - **`MatchesPage.vue`** (`/matches`) — match management for both roles
   (see "Match management" below); `SectionTitle`, `PanelCard`, `PillBadge`.
 - **`TripsPage.vue`** (`/trips`) — confirmed trips for both roles,
@@ -267,7 +267,7 @@ path/name table) and the shared `src/components/` each is built from:
 App shell (mounted once, in `App.vue`, around every page — see
 `App.vue`'s own boot-time session check under "Sessions" below):
 `AppHeader.vue` (the nav — see "Talking to the API" for its role-aware,
-auth-aware CTA logic, and "Mobile burger menu" below for the drawer), `MessageToaster.vue` (renders `stores/messages.ts`'s
+auth-aware CTA logic, and "Header & mobile menu" below for the layout), `MessageToaster.vue` (renders `stores/messages.ts`'s
 toast queue), `AppFooter.vue` (uses `BrandMark` in its `as="text"` form, plus
 the terms/privacy links), `CookieNotice.vue` and a `TermsDialog` — see
 "Terms and conditions".
@@ -279,11 +279,14 @@ own — every one just takes props/emits):
 - `SectionTitle.vue` — eyebrow (rendered as a `PillBadge`) + heading +
   optional lead, at the top of every page section.
 - `PillBadge.vue` — small rounded label; `tone="warm" | "neutral"`.
-- `BrandMark.vue` — the "RockGuide" wordmark, as a link (default,
-  `AppHeader.vue`) or bare text (`as="text"`, `AppFooter.vue`).
+- `BrandMark.vue` — the logo: a map pin with a magnifier and the
+  "LocalGuideFinder" wordmark (working name — the code and the page title
+  still say RockGuide), as a link (default, `AppHeader.vue`) or bare text
+  (`as="text"`, `AppFooter.vue`, the mobile drawer).
 - `TagList.vue` — a wrapping row of soft tag chips.
 - `DecisionRow.vue` — the reject/accept button pair every card's footer
-  uses; default labels "✕ Reject"/"♥ Interested" — `DiscoverPage.vue`,
+  uses; default labels "✕ Reject"/"🤝 Interested" (the handshake is
+  `NavIcon`) — `DiscoverPage.vue`,
   `GuideDiscoverPage.vue` and `GuideProfilePage.vue` all use the defaults,
   no page currently overrides them.
 - `ProfileCard.vue` — the swipeable card itself: photo, name/age, a meta
@@ -422,28 +425,15 @@ own — every one just takes props/emits):
   in `onMounted()` if `auth.user?.role === 'guide'`, before ever calling
   `guidesStore.load()` — covers a stale bookmark or browser back/forward
   landing a guide there directly, not just the two navigation paths.
-- **`AppHeader.vue`'s picks-pill and "Log out" are two independent `v-if`s,
-  not a `v-if`/`v-else-if` pair** — the picks-pill (link to `/matches`,
-  shown whenever `useMatchesStore().hasAccess`) and "Log out" (shown
-  whenever `useAuthStore().isAuthenticated`, regardless of `hasAccess`) can
-  and do render together for a visitor who's unlocked a pack. They used to
-  be `v-else-if`'d, which meant **any authenticated visitor with
-  `hasAccess` had no way to log out at all** — the picks-pill took over
-  that slot in the nav and never gave it back. "Log out" calls
-  `api.logout()` best-effort, then `auth.clear()`, pushes a success toast,
-  and routes home. When signed out, the header shows **both** a "Log in"
-  link (`/login`) and the "Get started" CTA (`/register`) side by side —
-  previously only "Get started" was shown, so a signed-out returning user
-  (including one who just got redirected here by a session-expiry toast,
-  see "Sessions" below) had no direct link back to `/login` from the nav,
-  only the small "Already registered? Log in" text buried on the register
-  page itself. A "Profile" link to `/profile` is a separate, independent
-  nav item shown whenever `isAuthenticated` — it doesn't participate in any
-  of this, so it's visible alongside whichever combination of the above is
-  showing. **"How it works" (`/about#how`) is the mirror image of those** — it
-  renders only while signed *out* (`v-if="!isAuthenticated"`), being
-  marketing copy a signed-in user is already past; the `#how` section
-  itself still exists on `HomePage.vue` for anyone who lands on `/`.
+- **`AppHeader.vue`'s account corner**: signed in, the profile circle and
+  "Log out" — which calls `api.logout()` best-effort, then `auth.clear()`,
+  pushes a success toast, and routes home. Signed out, **both** a "Log in"
+  link (`/login`) and the "Get started" CTA (`/register`), so a returning
+  user (including one sent here by a session-expiry toast, see "Sessions")
+  has a direct way back to `/login`. **"How it works" (`/about#how`)**
+  renders only while signed *out* — marketing copy a signed-in user is
+  already past; the `#how` section still exists on `HomePage.vue`. See
+  "Header & mobile menu" for the layout.
 - Payments/matching actions — `api.unlockPack()`, `api.paymentState()`,
   `api.decide()`, `api.revokeSelection()` — no longer take
   an explicit `userId`; the caller's identity comes from the session hash
@@ -508,6 +498,11 @@ for Arabic; a missing form falls back to `_other`).
   load (a constant array of labels, a prop default) won't follow a language
   change — use a computed/getter (see `HomePage.vue`'s `steps`,
   `AGE_CATEGORY.label`) or a template fallback (`rejectLabel ?? t(...)`).
+- **No icons in translations**: symbols (✓ ✕ ★ 🌍, the handshake) go in the
+  template next to `t()`, `aria-hidden`; a directional arrow is
+  `<span class="rtl-flip" aria-hidden="true">→</span>` (← for back), which
+  `_utilities.scss` mirrors under `dir="rtl"`. `formatRating()` adds the ★
+  itself. So a translator never places or mirrors one.
 - **Adding a string**: add the key to `en.json` *and* a row per language to
   the `translations` table (or a new migration); `en.json` alone renders but
   isn't CMS-editable. Card placeholders (`toGuideCard()`) are resolved when a
@@ -625,40 +620,52 @@ longer behind a paywall — what's gated is "Interested":
   `title`, `close-label`, emits `close`) — same mechanics as
   `ReviewsDialog.vue`.
 
-### Mobile burger menu (`AppHeader.vue`)
+### Header & mobile menu (`AppHeader.vue`)
 
-Below `xl` (1280px — `DESKTOP_QUERY` in the component must match
-`breakpoints.$xl`; it was `lg`/1024px until "Trip planner" made a dual-role
-traveller's row need ~1,290px, and `md`/760px before that) the nav collapses to the logo plus a burger button; the
-links open in a drawer that slides in from the right over a dimmed
-backdrop. **It's one `.drawer` element styled two ways, not two copies of
-the nav:** mobile-first CSS makes it a `position: fixed` off-canvas panel,
-and `@include bp.lg` resets it to the old inline row. Add new nav items
-once, inside `.drawer > ul.nav`.
+**Desktop (from `xl`, 1280px — `DESKTOP_QUERY` must match `breakpoints.$xl`)
+is two rows.** Top: logo and language switch on the left; on the right the
+role switch, the **profile circle** (the user's photo, else their initial,
+linking to `/profile` — there's no "Profile" menu item) and Log out (signed
+out: Log in + Get started). Below: the menu links — How it works (signed out), Discover, Trip planner
+(traveller), Matches, My trips, Messages — each with a line icon
+(`NavIcon.vue`: bulb, compass, map, handshake, suitcase, speech bubble; give a
+new link one too) — black, 0.9rem; the active one has
+a 4px underline and a 1px white text shadow (in the mobile drawer it's bold
+instead). There's no picks counter in the header any more (the
+Discover page's sidebar has it).
 
-- **Log out's position is a requirement, not an accident**: it is always the
-  *last* item in `ul.nav` (`AppHeader.spec.ts` asserts that), which puts it
-  at the foot of the mobile drawer and at the far right of the desktop bar.
-  The `account` class carries it: `margin-top: auto` plus `position: sticky;
-  bottom: 0` (on the drawer's `--rg-surface` background) so it stays on
-  screen even when the links overflow a short viewport, and `margin-left:
-  auto` with `position: static` in the `bp.lg` block for the desktop row.
-  Keep the desktop block's `position`/`background` resets if you touch the
-  mobile rule — without them the drawer's sticky/opaque styling leaks into
-  the top bar.
-
+- **The role switch**: a dual-role account gets "Travel [switch] Guide" —
+  Pico's iOS-style switch (`<input type="checkbox" role="switch">`,
+  `data-test="role-switch"`, on = guiding; the words switch too, the current
+  one in bold) — switching in place (see "Acting role"). A one-role account
+  gets "Start travelling" / "Become a guide" (`add-role-link`, to
+  `/profile?addRole=…`). A red dot by the other role's word is news there.
+- **The photo** isn't in `AuthResult` (too big for `localStorage`):
+  `stores/avatar.ts` fetches `myProfile` once per signed-in user, and
+  `ProfilePage` calls `avatar.set()` after saving a new photo.
+- **It's one `.drawer` element styled two ways, not two copies of the
+  menu.** Below `xl` it's a `position: fixed` off-canvas panel (logo +
+  burger in the bar); from `xl` it's `display: contents`, so its parts sit
+  directly on the `nav`'s grid (`grid-template-areas: 'logo lang . role me
+  account' / 'links …'`). Add a link once, inside `.drawer > ul.nav`.
+- **Mobile drawer, top to bottom**: logo + ✕, the language switch, the
+  profile (photo, "Profile", "Signed in as …"), the links, the role switch
+  (a little padding below the last link), and Log out at the foot.
+- **Log out is always the drawer's last element** (`AppHeader.spec.ts`
+  asserts it): the foot of the mobile drawer, the far right of the desktop
+  bar. `.account` carries it — `margin-top: auto` plus `position: sticky;
+  bottom: 0` on mobile so it stays on screen when the links overflow, reset
+  to `position: static` in the `xl` block.
 - **`.topbar`'s blur is on `::before`, not on `.topbar` itself.**
   `backdrop-filter` makes an element the containing block for its
   `position: fixed` descendants, so on `.topbar` it would trap the drawer
-  and backdrop inside the 60px header. Don't move it back.
+  and backdrop inside the header. Don't move it back.
 - Closed-state `visibility: hidden` (delayed until the slide-out finishes)
-  keeps the off-screen links out of the tab order.
+  keeps the off-screen links out of the tab order; the `xl` block resets it.
 - While open: `body` scroll is locked, focus moves into the drawer and Tab
   cycles inside it. Escape or the ✕ closes it and puts focus back on the
   burger. The backdrop, any link click (even to the current route), a route
-  change, or widening past `lg` also close it.
-- A "Signed in as …" line shows only in the drawer. "Matches" (`/matches`)
-  and "My trips" (`/trips`) sit before "Profile" whenever `isAuthenticated`.
+  change, or widening past `xl` also close it.
 
 ### Match management (`MatchesPage.vue`, `/matches`)
 
@@ -693,8 +700,8 @@ sorts every pair into four tabs:
   again" after a finished trip is on the trip card; the new payment brings
   the pair back here as pending until the guide accepts.
 - This is where a guide finds a match the visitor completed (see the gap
-  under "Progress so far"). The Discover page's "View matches" links and
-  the header's picks-pill lead here.
+  under "Progress so far"). The Discover page's "View matches" links
+  lead here.
 
 ### My trips (`TripsPage.vue`, `/trips`)
 
@@ -1138,7 +1145,7 @@ client-side `matchesFilters()`) is gone; don't recreate it.
   original copy, where an empty result really does mean an empty system.
 - **`GuideDiscoverPage.vue` uses the exact same one-card-at-a-time deck and
   `ProfileCard`/`DecisionRow` accept/reject buttons as `DiscoverPage.vue`**
-  (same default labels, "✕ Reject"/"♥ Interested" — no custom overrides),
+  (same default labels, "✕ Reject"/"Interested" with the handshake — no custom overrides),
   just without that page's pack/paywall framing: no `hasAccess`/`canPick`
   gate, no `SelectionCounter`/unlock CTA, since guides never pay and never
   run out of swipes. The header `PillBadge` instead reads
@@ -1703,10 +1710,10 @@ the plumbing, is in:
   the page re-renders as that role and scrolls to its fields
   (`?focus=details`). The profile page also has its own button for it.
 - **Mode switch**: a dual-role account gets a Traveller | Guide toggle in the
-  menu (`AppHeader.vue`, `.mode-toggle`). Switching swaps the deck route,
-  toasts, and re-renders the current page (`App.vue` keys `<RouterView>` by
-  `auth.activeRole`); `App.vue` re-syncs a guest's packs on the switch, and
-  the picks pill shows only in traveller mode. The profile page says which
+  menu (`AppHeader.vue`, "Travel [switch] Guide").
+  Switching swaps the deck route, toasts, and re-renders the current page
+  (`App.vue` keys `<RouterView>` by `auth.activeRole`); `App.vue` re-syncs a
+  guest's packs on the switch. The profile page says which
   role's profile is being edited.
 - **Per role** (phase 3, 052): **headline and description** live on the
   `user_role` row (`Profiles::setRoleText()`; `user_profiles.headline/bio`
@@ -2530,6 +2537,14 @@ API service (`api/classes/`):
   "Travel planner"). Applied 2026-10-19. Re-runnable.
 - `api/sql/065_translations_planner.sql` — the planner page, its menu link,
   "Visiting {place}, {dates}". Applied 2026-10-19. Re-runnable.
+- `api/sql/066_translations_header.sql` — the header's role switch
+  ("Travel", "Start travelling"); drops the old toggle label and the picks
+  counter. Applied 2026-10-19. Re-runnable.
+- `api/sql/067_translations_interested_icon.sql` — "Interested" without
+  its ♥ (the buttons draw the handshake). Applied 2026-10-19. Re-runnable.
+- `api/sql/068_translations_icons_out.sql` — every leading/trailing ✓ ✕ ★
+  ← → 🌍 ♥ removed from the UI strings, 15 languages and plural forms (the
+  templates draw them). Applied 2026-10-19. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

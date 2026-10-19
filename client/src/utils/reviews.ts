@@ -4,9 +4,9 @@ import { t, tn } from '@/i18n'
 /** The most characters a review comment may have — mirrors `Reviews::MAX_COMMENT_LENGTH`. */
 export const REVIEW_COMMENT_MAX = 256
 
-/** "★ 4.6 · 12 reviews" — the card/hero line. Callers only render it when `count > 0`. */
+/** "★ 4.6 · 12 reviews" — the card/hero line (the star is added here, not in the translation). Callers only render it when `count > 0`. */
 export function formatRating(average: number, count: number): string {
-  return tn('common.rating.summary', count, { average: average.toFixed(1) })
+  return `★ ${tn('common.rating.summary', count, { average: average.toFixed(1) })}`
 }
 
 /**

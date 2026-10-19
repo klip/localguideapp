@@ -1,9 +1,9 @@
-import { afterEach, describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
-import { API_KEY } from '@/plugins/api'
+import { API_KEY, type Api, type MyProfile } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgesStore } from '@/stores/badges'
 import { fakeApi } from './fakeApi'
@@ -15,7 +15,7 @@ function testRouter() {
   })
 }
 
-async function mountHeader(signedIn: boolean) {
+async function mountHeader(signedIn: boolean, api: Api = fakeApi()) {
   const pinia = createPinia()
   setActivePinia(pinia)
   if (signedIn)
@@ -27,7 +27,7 @@ async function mountHeader(signedIn: boolean) {
 
   const wrapper = mount(AppHeader, {
     attachTo: document.body,
-    global: { plugins: [pinia, router], provide: { [API_KEY]: fakeApi() } },
+    global: { plugins: [pinia, router], provide: { [API_KEY]: api } },
   })
   return { wrapper, router }
 }
@@ -91,13 +91,33 @@ describe('AppHeader mobile menu', () => {
     expect(signedIn.wrapper.find('a[href="/about#how"]').exists()).toBe(false)
     expect(signedIn.wrapper.text()).toContain('Signed in as')
 
-    // Log out is always the last nav item: the foot of the mobile drawer,
-    // and the far right of the desktop bar.
-    const items = signedIn.wrapper.findAll('.nav li')
-    const last = items[items.length - 1]
-    expect(last?.text()).toContain('Log out')
-    expect(last?.classes()).toContain('account')
+    // Log out is always last: the foot of the mobile drawer, and the far
+    // right of the desktop header.
+    const last = signedIn.wrapper.find('.drawer').element.lastElementChild
+    expect(last?.classList.contains('account')).toBe(true)
+    expect(last?.textContent).toContain('Log out')
+    // The language comes first in the drawer, right after its head.
+    expect(signedIn.wrapper.find('.drawer-head + .language').exists()).toBe(true)
     signedIn.wrapper.unmount()
+  })
+
+  it('shows the profile circle with the photo, or the initial without one', async () => {
+    const noPhoto = await mountHeader(true)
+    await flushPromises()
+    expect(noPhoto.wrapper.get('[data-test="nav-profile"] .avatar').text()).toBe('M')
+    noPhoto.wrapper.unmount()
+
+    const api = fakeApi({
+      myProfile: vi
+        .fn<Api['myProfile']>()
+        .mockResolvedValue({ image: 'data:image/png;base64,AAAA' } as MyProfile),
+    })
+    const withPhoto = await mountHeader(true, api)
+    await flushPromises()
+    const img = withPhoto.wrapper.get('[data-test="nav-profile"] .avatar img')
+    expect(img.attributes('src')).toBe('data:image/png;base64,AAAA')
+    expect(withPhoto.wrapper.get('[data-test="nav-profile"]').attributes('href')).toBe('/profile')
+    withPhoto.wrapper.unmount()
   })
 
   it('puts red counters on Matches and My trips for unseen ones, and a dot on the burger', async () => {
@@ -144,13 +164,13 @@ describe('AppHeader roles', () => {
     const { wrapper } = await mountHeader(true)
 
     const link = wrapper.find('[data-test="add-role-link"]')
-    expect(link.text()).toBe('I want to travel')
+    expect(link.text()).toBe('Start travelling')
     expect(link.attributes('href')).toBe('/profile?addRole=guest')
-    expect(wrapper.find('.mode-toggle').exists()).toBe(false)
+    expect(wrapper.find('[data-test="role-switch"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
-  it('switches a dual-role account between Traveller and Guide, swapping the deck', async () => {
+  it('switches a dual-role account with Travel [switch] Guide, swapping the deck', async () => {
     const { wrapper, router } = await mountHeader(true)
     const auth = useAuthStore()
     auth.setUser({ ...auth.user!, roles: ['guide', 'guest'] })
@@ -158,18 +178,21 @@ describe('AppHeader roles', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="add-role-link"]').exists()).toBe(false)
-    expect(wrapper.get('[data-test="mode-guide"]').attributes('aria-pressed')).toBe('true')
+    // "Travel [switch] Guide": on means guiding.
+    const toggle = wrapper.get<HTMLInputElement>('[data-test="role-switch"]')
+    expect(toggle.attributes('role')).toBe('switch')
+    expect(toggle.element.checked).toBe(true)
+    expect(wrapper.get('.role-toggle').text()).toBe('TravelGuide')
     expect(wrapper.find('a[href="/guide/discover"]').exists()).toBe(true)
 
-    await wrapper.get('[data-test="mode-guest"]').trigger('click')
+    await toggle.setValue(false)
     await flushPromises()
 
     expect(auth.activeRole).toBe('guest')
     expect(router.currentRoute.value.path).toBe('/discover')
     expect(wrapper.find('a[href="/discover"]').exists()).toBe(true)
-    // Log out stays the last item.
-    const items = wrapper.findAll('ul.nav > li')
-    expect(items[items.length - 1]!.classes()).toContain('account')
+    expect(toggle.element.checked).toBe(false)
+    expect(wrapper.get('.role-word--on').text()).toBe('Travel')
     wrapper.unmount()
   })
 })

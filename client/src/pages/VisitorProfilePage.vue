@@ -64,7 +64,10 @@ const backTo = computed(() => (auth.activeRole === 'guide' ? '/guide/discover' :
 <template>
   <section class="section shell">
     <p class="tiny">
-      <RouterLink :to="backTo">{{ t('visitor_profile.page.back') }}</RouterLink>
+      <RouterLink :to="backTo"
+        ><span class="rtl-flip" aria-hidden="true">←</span>
+        {{ t('visitor_profile.page.back') }}</RouterLink
+      >
     </p>
 
     <PanelCard v-if="loading" :title="t('visitor_profile.page.loading')" />

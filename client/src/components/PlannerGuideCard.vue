@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import NavIcon from './NavIcon.vue'
 import StandingBadges from './StandingBadges.vue'
 import { t } from '@/i18n'
 import type { Guide } from '@/types'
@@ -26,7 +27,7 @@ const emit = defineEmits<{ interested: [] }>()
 const meta = computed(() =>
   [
     props.guide.reviewCount > 0
-      ? `★ ${formatRating(props.guide.ratingAverage, props.guide.reviewCount)}`
+      ? formatRating(props.guide.ratingAverage, props.guide.reviewCount)
       : null,
     props.distanceKm !== null ? formatDistance(props.distanceKm) : null,
     props.guide.priceLabel || null,
@@ -52,11 +53,13 @@ const meta = computed(() =>
       <p v-if="meta" class="tiny muted">{{ meta }}</p>
       <p v-if="reason" class="reason tiny" data-test="planner-reason">{{ reason }}</p>
       <div class="actions">
-        <RouterLink :to="`/guides/${guide.id}`" class="tiny">{{
-          t('planner.card.profile')
-        }}</RouterLink>
+        <RouterLink :to="`/guides/${guide.id}`" class="tiny"
+          >{{ t('planner.card.profile') }}
+          <span class="rtl-flip" aria-hidden="true">→</span></RouterLink
+        >
         <button v-if="picked" type="button" class="secondary" disabled data-test="planner-picked">
-          {{ t('planner.card.picked') }}
+          <NavIcon name="matches" />{{ t('planner.card.picked') }}
+          <span aria-hidden="true">✓</span>
         </button>
         <button
           v-else
@@ -65,7 +68,7 @@ const meta = computed(() =>
           data-test="planner-interested"
           @click="emit('interested')"
         >
-          {{ t('planner.card.interested') }}
+          <NavIcon name="matches" />{{ t('planner.card.interested') }}
         </button>
       </div>
     </div>

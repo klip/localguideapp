@@ -597,6 +597,9 @@ async function interested(guideId: number) {
 
 .planner-layout {
   display: grid;
+  // minmax(0, …): without it the column grows to its widest child (the date
+  // inputs) and the page scrolls sideways on a phone.
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
 
   @include bp.lg {
@@ -676,7 +679,7 @@ async function interested(guideId: number) {
 
 .dates {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.75rem;
 
   label,

@@ -4,25 +4,21 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import BrandMark from './BrandMark.vue'
 import LanguageSwitcher from './LanguageSwitcher.vue'
-import PillBadge from './PillBadge.vue'
+import NavIcon from './NavIcon.vue'
 import { t, tn } from '@/i18n'
 import { useApi, type Role } from '@/plugins/api'
-import { useMatchesStore } from '@/stores/matches'
 import { useAuthStore } from '@/stores/auth'
+import { useAvatarStore } from '@/stores/avatar'
 import { useBadgesStore } from '@/stores/badges'
 import { useMessagesStore } from '@/stores/messages'
 
 const api = useApi()
-const matchesStore = useMatchesStore()
-const { hasAccess, picksUsed, capacity, freePicksActive } = storeToRefs(matchesStore)
-
 const auth = useAuthStore()
 const { isAuthenticated, user } = storeToRefs(auth)
 const messages = useMessagesStore()
 const router = useRouter()
 const route = useRoute()
 
-/** Guides never pay/browse guides — send them to their own deck instead of the visitor-side /discover (see DiscoverPage.vue's redirect guard). */
 /** Unseen matches and trips (pushed by the server, see `stores/badges.ts`), as the red counters on their menu items. */
 const badges = useBadgesStore()
 const {
@@ -41,9 +37,29 @@ function badgeText(count: number) {
   return count > 99 ? '99+' : String(count)
 }
 
+/** Guides never browse guides — their deck is /guide/discover (see DiscoverPage.vue's redirect guard). */
 const discoverTo = computed(() => (auth.activeRole === 'guide' ? '/guide/discover' : '/discover'))
 
-/** An account holding both roles switches between them; one holding one is offered the other. */
+/** The profile circle: the user's photo, else their initial (see `stores/avatar.ts`). */
+const avatar = useAvatarStore()
+const { image: avatarImage } = storeToRefs(avatar)
+const initial = computed(() =>
+  Array.from((user.value?.name || user.value?.email || '?').trim())[0]!.toUpperCase(),
+)
+watch(
+  () => user.value?.id ?? null,
+  (id) => {
+    if (id === null) avatar.clear()
+    else void avatar.load(api, id)
+  },
+  { immediate: true },
+)
+
+/**
+ * The role switch: a dual-role account gets "Travel [switch] Guide" (on =
+ * guiding); a one-role account is offered the other role ("Start
+ * travelling" / "Become a guide", through the profile page).
+ */
 const { roles, activeRole } = storeToRefs(auth)
 const canSwitch = computed(() => roles.value.length > 1)
 const missingRole = computed<Role | null>(() => {
@@ -79,15 +95,12 @@ async function logout() {
 }
 
 /**
- * Mobile menu. Below `xl` the same `.drawer` that sits inline on desktop
- * becomes an off-canvas panel sliding in from the right (pure CSS — see the
- * styles below), so the links are only written once. While open: page
- * scroll is locked, Tab cycles within the drawer, Escape / the backdrop /
- * the close button / following any link closes it.
+ * Mobile menu. Below `xl` the same `.drawer` whose parts sit in the desktop
+ * header's two rows becomes an off-canvas panel sliding in from the right
+ * (pure CSS — see the styles below), so everything is only written once.
+ * While open: page scroll is locked, Tab cycles within the drawer, Escape /
+ * the backdrop / the close button / following any link closes it.
  */
-// `xl` (1280px): a dual-role traveller's row — Discover, Trip planner, Matches,
-// My trips, Messages, Profile, the mode switch, picks, language, Log out — needs
-// about 1,290px in English; narrower, it wrapped.
 const DESKTOP_QUERY = '(min-width: 1280px)' // keep in sync with `bp.$xl`
 
 const menuOpen = ref(false)
@@ -96,7 +109,9 @@ const drawerRef = ref<HTMLElement | null>(null)
 
 function focusables(): HTMLElement[] {
   return Array.from(
-    drawerRef.value?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? [],
+    drawerRef.value?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), select:not([disabled])',
+    ) ?? [],
   )
 }
 
@@ -172,9 +187,7 @@ onBeforeUnmount(() => {
   <header class="topbar">
     <div class="shell">
       <nav :aria-label="t('common.app_header.nav_label')">
-        <ul class="logo">
-          <li><BrandMark /></li>
-        </ul>
+        <BrandMark class="logo" />
 
         <button
           ref="burgerRef"
@@ -203,6 +216,12 @@ onBeforeUnmount(() => {
           <span v-if="hasNews" class="burger-dot" aria-hidden="true" />
         </button>
 
+        <!--
+          Desktop: the drawer's parts are laid out on the header's grid —
+          logo + language on the left and role switch, profile circle and
+          Log out on the right of the top row, the links in a row below.
+          Mobile: the same parts, top to bottom, in a slide-in panel.
+        -->
         <div
           id="site-menu"
           ref="drawerRef"
@@ -235,30 +254,47 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <p v-if="user" class="drawer-user tiny muted">
-            {{ t('common.app_header.signed_in_as', { name: user.name || user.email }) }}
-          </p>
+          <div class="language"><LanguageSwitcher /></div>
+
+          <RouterLink
+            v-if="user"
+            to="/profile"
+            class="me"
+            :title="t('common.app_header.profile')"
+            data-test="nav-profile"
+          >
+            <span class="avatar" aria-hidden="true">
+              <img v-if="avatarImage" :src="avatarImage" alt="" />
+              <template v-else>{{ initial }}</template>
+            </span>
+            <span class="me-text">
+              <strong class="me-label">{{ t('common.app_header.profile') }}</strong>
+              <span class="me-name tiny muted">{{
+                t('common.app_header.signed_in_as', { name: user.name || user.email })
+              }}</span>
+            </span>
+          </RouterLink>
 
           <ul class="nav">
             <!-- Marketing copy for prospects only — a signed-in user is past it. -->
             <li v-if="!isAuthenticated">
-              <RouterLink to="/about#how" class="nav-link">{{
-                t('common.app_header.how_it_works')
-              }}</RouterLink>
+              <RouterLink to="/about#how" class="nav-link"
+                ><NavIcon name="how" />{{ t('common.app_header.how_it_works') }}</RouterLink
+              >
             </li>
             <li>
-              <RouterLink :to="discoverTo" class="nav-link">{{
-                t('common.app_header.discover')
-              }}</RouterLink>
+              <RouterLink :to="discoverTo" class="nav-link"
+                ><NavIcon name="discover" />{{ t('common.app_header.discover') }}</RouterLink
+              >
             </li>
             <li v-if="isAuthenticated && activeRole === 'guest'">
-              <RouterLink to="/planner" class="nav-link" data-test="nav-planner">{{
-                t('common.app_header.planner')
-              }}</RouterLink>
+              <RouterLink to="/planner" class="nav-link" data-test="nav-planner"
+                ><NavIcon name="planner" />{{ t('common.app_header.planner') }}</RouterLink
+              >
             </li>
             <li v-if="isAuthenticated">
               <RouterLink to="/matches" class="nav-link nav-link--counted">
-                {{ t('common.app_header.matches')
+                <NavIcon name="matches" />{{ t('common.app_header.matches')
                 }}<span v-if="newMatches" class="nav-count" data-test="matches-count"
                   ><span aria-hidden="true">{{ badgeText(newMatches) }}</span
                   ><span class="visually-hidden">{{
@@ -269,7 +305,7 @@ onBeforeUnmount(() => {
             </li>
             <li v-if="isAuthenticated">
               <RouterLink to="/trips" class="nav-link nav-link--counted">
-                {{ t('common.app_header.my_trips')
+                <NavIcon name="trips" />{{ t('common.app_header.my_trips')
                 }}<span v-if="newTrips" class="nav-count" data-test="trips-count"
                   ><span aria-hidden="true">{{ badgeText(newTrips) }}</span
                   ><span class="visually-hidden">{{
@@ -280,7 +316,7 @@ onBeforeUnmount(() => {
             </li>
             <li v-if="isAuthenticated">
               <RouterLink to="/messages" class="nav-link nav-link--counted">
-                {{ t('common.app_header.messages')
+                <NavIcon name="messages" />{{ t('common.app_header.messages')
                 }}<span v-if="unreadMessages" class="nav-count" data-test="messages-count"
                   ><span aria-hidden="true">{{ badgeText(unreadMessages) }}</span
                   ><span class="visually-hidden">{{
@@ -289,100 +325,95 @@ onBeforeUnmount(() => {
                 >
               </RouterLink>
             </li>
-            <li v-if="isAuthenticated">
-              <RouterLink to="/profile" class="nav-link">{{
-                t('common.app_header.profile')
-              }}</RouterLink>
-            </li>
-            <li v-if="canSwitch" class="mode-switch">
-              <div role="group" :aria-label="t('common.app_header.mode_label')" class="mode-toggle">
-                <button
-                  v-for="role in ['guest', 'guide'] as const"
-                  :key="role"
-                  type="button"
-                  class="mode-option"
-                  :class="{ 'mode-option--on': activeRole === role }"
-                  :aria-pressed="activeRole === role"
-                  :data-test="`mode-${role}`"
-                  @click="switchRole(role)"
-                >
-                  {{
-                    t(
-                      role === 'guide'
-                        ? 'common.app_header.mode_guide'
-                        : 'common.app_header.mode_guest',
-                    )
-                  }}
-                  <span
-                    v-if="otherRoleNews && activeRole !== role"
-                    class="mode-dot"
-                    data-test="mode-news"
-                    :title="t('common.app_header.other_role_news')"
-                    ><span class="visually-hidden">{{
-                      t('common.app_header.other_role_news')
-                    }}</span></span
-                  >
-                </button>
-              </div>
-            </li>
-            <li v-else-if="missingRole">
-              <RouterLink
-                :to="{ path: '/profile', query: { addRole: missingRole } }"
-                class="nav-link add-role"
-                data-test="add-role-link"
-                >{{
-                  t(
-                    missingRole === 'guide'
-                      ? 'common.app_header.become_guide'
-                      : 'common.app_header.want_to_travel',
-                  )
-                }}</RouterLink
-              >
-            </li>
-            <li v-if="hasAccess && activeRole === 'guest'">
-              <RouterLink to="/matches" class="nav-link">
-                <PillBadge>{{
-                  freePicksActive
-                    ? t('discover.deck.free_picks')
-                    : t('common.app_header.picked', { picked: picksUsed, capacity })
-                }}</PillBadge>
-              </RouterLink>
-            </li>
-            <li class="language"><LanguageSwitcher /></li>
-            <li v-if="isAuthenticated" class="account">
-              <button type="button" class="outline logout-btn" @click="logout">
-                <svg
-                  class="logout-icon"
-                  viewBox="0 0 24 24"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                {{ t('common.app_header.log_out') }}
-              </button>
-            </li>
-            <template v-else>
-              <li class="account">
-                <RouterLink to="/register" role="button">{{
-                  t('common.app_header.get_started')
-                }}</RouterLink>
-              </li>
-              <li>
-                <RouterLink to="/login" class="nav-link tiny">{{
-                  t('common.app_header.log_in')
-                }}</RouterLink>
-              </li>
-            </template>
           </ul>
+
+          <div v-if="canSwitch || missingRole" class="role-switch">
+            <div v-if="canSwitch" class="role-toggle">
+              <!-- The words switch too (mouse/touch); the switch itself is the control. -->
+              <span
+                class="role-word"
+                :class="{ 'role-word--on': activeRole === 'guest' }"
+                aria-hidden="true"
+                @click="switchRole('guest')"
+                >{{ t('common.app_header.switch_travel')
+                }}<span
+                  v-if="otherRoleNews && activeRole !== 'guest'"
+                  class="role-dot"
+                  data-test="mode-news"
+                  :title="t('common.app_header.other_role_news')"
+              /></span>
+              <input
+                type="checkbox"
+                role="switch"
+                class="role-switch-input"
+                :checked="activeRole === 'guide'"
+                :aria-label="t('common.app_header.mode_guide')"
+                :aria-describedby="otherRoleNews ? 'other-role-news' : undefined"
+                data-test="role-switch"
+                @change="
+                  switchRole(($event.target as HTMLInputElement).checked ? 'guide' : 'guest')
+                "
+              />
+              <span
+                class="role-word"
+                :class="{ 'role-word--on': activeRole === 'guide' }"
+                aria-hidden="true"
+                @click="switchRole('guide')"
+                >{{ t('common.app_header.mode_guide')
+                }}<span
+                  v-if="otherRoleNews && activeRole !== 'guide'"
+                  class="role-dot"
+                  data-test="mode-news"
+                  :title="t('common.app_header.other_role_news')"
+              /></span>
+              <span v-if="otherRoleNews" id="other-role-news" class="visually-hidden">{{
+                t('common.app_header.other_role_news')
+              }}</span>
+            </div>
+            <RouterLink
+              v-else-if="missingRole"
+              :to="{ path: '/profile', query: { addRole: missingRole } }"
+              class="role-btn"
+              data-test="add-role-link"
+              >{{
+                t(
+                  missingRole === 'guide'
+                    ? 'common.app_header.become_guide'
+                    : 'common.app_header.want_to_travel',
+                )
+              }}</RouterLink
+            >
+          </div>
+
+          <div class="account">
+            <button v-if="isAuthenticated" type="button" class="outline logout-btn" @click="logout">
+              <svg
+                class="logout-icon"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              {{ t('common.app_header.log_out') }}
+            </button>
+            <template v-else>
+              <RouterLink to="/login" class="login-link">{{
+                t('common.app_header.log_in')
+              }}</RouterLink>
+              <RouterLink to="/register" role="button" class="get-started">{{
+                t('common.app_header.get_started')
+              }}</RouterLink>
+            </template>
+          </div>
         </div>
       </nav>
     </div>
@@ -400,6 +431,7 @@ onBeforeUnmount(() => {
 @use 'breakpoints' as bp;
 
 $drawer-speed: 0.28s;
+$link-color: #000;
 
 .topbar {
   position: sticky;
@@ -409,8 +441,8 @@ $drawer-speed: 0.28s;
 
   // The blur lives on a pseudo-element, not .topbar itself: `backdrop-filter`
   // makes an element the containing block for its `position: fixed`
-  // descendants, which would trap the mobile drawer inside the header's
-  // 60px height instead of the viewport.
+  // descendants, which would trap the mobile drawer inside the header
+  // instead of the viewport.
   &::before {
     content: '';
     position: absolute;
@@ -426,22 +458,40 @@ nav {
   align-items: center;
 }
 
+.logo {
+  font-size: 1.1rem;
+}
+
+// --- Menu links ------------------------------------------------------------
+
+nav .nav {
+  margin: 0;
+
+  li {
+    padding: 0;
+  }
+}
+
 .nav-link {
+  color: $link-color;
+  font-size: 0.9rem;
   text-decoration: none;
-}
 
-.logout-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
+  &:hover,
+  &:focus-visible {
+    color: $link-color;
+    text-decoration: underline;
+    text-underline-offset: 0.55em;
+  }
 
-.logout-icon {
-  flex-shrink: 0;
+  &.router-link-active {
+    color: $link-color;
+    font-weight: 600;
+  }
 }
 
 // The red unseen-count bubble: beside the label in the mobile drawer, over
-// the item's top-right corner in the desktop bar.
+// the item's top-right corner in the desktop row.
 .nav-link--counted {
   position: relative;
 }
@@ -460,15 +510,147 @@ nav {
   font-weight: 700;
   line-height: 1.15rem;
   text-align: center;
+  text-shadow: none;
   pointer-events: none;
 
   @include bp.xl {
     position: absolute;
-    top: -0.1rem;
-    inset-inline-end: -0.2rem;
+    top: -0.55rem;
+    inset-inline-end: -0.95rem;
     margin: 0;
   }
 }
+
+// --- Profile circle, role switch, account ------------------------------------
+
+.me {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--rg-ink);
+  text-decoration: none;
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.4rem;
+  height: 2.4rem;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--rg-line);
+  background: var(--rg-orange-100);
+  color: var(--rg-orange-500);
+  font-weight: 800;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.me:hover .avatar,
+.me:focus-visible .avatar,
+.me.router-link-active .avatar {
+  box-shadow: 0 0 0 2px var(--rg-orange-300);
+}
+
+.me-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.me-name {
+  overflow-wrap: anywhere;
+}
+
+.role-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  margin: 0;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--rg-ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--rg-ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--rg-ink);
+    border-color: var(--rg-ink);
+    color: #fff;
+  }
+}
+
+// "Travel [switch] Guide" — Pico's switch, the current role's word in bold.
+.role-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+
+  .role-switch-input {
+    margin: 0;
+  }
+}
+
+.role-word {
+  position: relative;
+  color: var(--rg-muted);
+  cursor: pointer;
+}
+
+.role-word--on {
+  color: var(--rg-ink);
+  font-weight: 600;
+  cursor: default;
+}
+
+.role-dot {
+  position: absolute;
+  top: -0.3rem;
+  inset-inline-end: -0.55rem;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: #e5332a;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.logout-icon {
+  flex-shrink: 0;
+}
+
+.login-link {
+  color: $link-color;
+  font-size: 0.9rem;
+}
+
+// --- Burger and close buttons ----------------------------------------------
 
 .burger {
   position: relative;
@@ -483,12 +665,6 @@ nav {
   border-radius: 50%;
   background: #e5332a;
   box-shadow: 0 0 0 2px #fff;
-}
-
-// Pico marks the matched route link; keep it subtle in the top bar.
-.nav-link.router-link-active {
-  color: var(--rg-ink);
-  font-weight: 600;
 }
 
 .burger,
@@ -513,6 +689,8 @@ nav {
 }
 
 // --- Mobile: off-canvas drawer (default) -------------------------------------
+// Top to bottom: logo + close, language, profile, links, role switch, and
+// Log out pinned to the foot.
 
 .drawer {
   position: fixed;
@@ -550,52 +728,66 @@ nav {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.75rem;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
 }
 
-.drawer-user {
-  margin: 0 0 0.5rem;
-  overflow-wrap: anywhere;
+.language {
+  margin-bottom: 0.75rem;
+
+  :deep(.language-switcher) {
+    width: 100%;
+  }
+}
+
+.me {
+  padding: 0.6rem 0.25rem;
+  border-bottom: 1px solid var(--rg-line);
 }
 
 nav .nav {
-  flex: 1;
   flex-direction: column;
   align-items: stretch;
-  margin: 0;
 
   li {
     display: block;
-    padding: 0;
   }
 
   .nav-link {
     display: block;
     margin: 0;
-    padding: 0.85rem 0.25rem;
+    padding: 0.8rem 0.25rem;
     border-radius: 0;
     border-bottom: 1px solid var(--rg-line);
-    color: var(--rg-ink);
-    font-size: 1rem;
+  }
+}
 
-    &.tiny {
-      border-bottom: 0;
-      text-align: center;
-      font-size: 0.9rem;
-    }
+.role-switch {
+  padding-top: 0.75rem;
+
+  .role-btn {
+    width: 100%;
   }
 
-  // Account actions sit at the foot of the drawer — `margin-top: auto` when
-  // the links are short, and stuck to the bottom edge (rather than scrolled
-  // out of reach) once they overflow a short viewport.
-  .account {
-    position: sticky;
-    bottom: 0;
-    margin-top: auto;
-    padding-top: 1.25rem;
-    padding-bottom: 0.25rem;
-    background: var(--rg-surface);
+  .role-toggle {
+    display: flex;
+    justify-content: center;
+    padding-block: 0.25rem;
   }
+}
+
+// Account actions sit at the foot of the drawer — `margin-top: auto` when
+// the links are short, and stuck to the bottom edge (rather than scrolled
+// out of reach) once they overflow a short viewport.
+.account {
+  position: sticky;
+  bottom: 0;
+  flex-direction: column-reverse;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-top: auto;
+  padding-top: 1.25rem;
+  padding-bottom: 0.25rem;
+  background: var(--rg-surface);
 
   .logout-btn,
   [role='button'] {
@@ -603,6 +795,10 @@ nav .nav {
     margin: 0;
     justify-content: center;
     padding-block: 0.7rem;
+  }
+
+  .login-link {
+    text-align: center;
   }
 }
 
@@ -629,124 +825,103 @@ nav .nav {
   }
 }
 
-// --- Desktop: inline nav ------------------------------------------------------
+// --- Desktop: two rows ---------------------------------------------------------
+// Top: logo, language … role switch, profile circle, Log out. Below: links.
 
 @include bp.xl {
+  nav {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto auto auto;
+    grid-template-areas:
+      'logo lang . role me account'
+      'links links links links links links';
+    column-gap: 1rem;
+    padding-block: 0.6rem 0;
+  }
+
+  .logo {
+    grid-area: logo;
+  }
+
   .burger,
   .drawer-head,
-  .drawer-user,
+  .me-text,
   .backdrop {
     display: none;
   }
 
+  // Its parts are placed on the nav's grid directly.
   .drawer {
-    position: static;
-    width: auto;
-    height: auto;
-    display: block;
-    padding: 0;
-    overflow: visible;
-    background: none;
-    border: 0;
-    box-shadow: none;
-    transform: none;
+    display: contents;
     visibility: visible;
-    transition: none;
   }
 
-  nav .nav {
+  .language {
+    grid-area: lang;
+    margin: 0;
+
+    :deep(.language-switcher) {
+      width: auto;
+    }
+  }
+
+  .role-switch {
+    grid-area: role;
+    padding: 0;
+
+    .role-btn {
+      width: auto;
+    }
+  }
+
+  .me {
+    grid-area: me;
+    padding: 0;
+    border: 0;
+  }
+
+  .account {
+    grid-area: account;
+    position: static;
     flex-direction: row;
-    justify-content: end;
-    align-items: baseline;
-    margin: 0 calc(var(--pico-nav-element-spacing-horizontal) * -1) 0 0;
-
-    li {
-      display: inline-block;
-      padding: var(--pico-nav-element-spacing-vertical) var(--pico-nav-element-spacing-horizontal);
-    }
-
-    .nav-link {
-      display: inline-block;
-      margin: calc(var(--pico-nav-link-spacing-vertical) * -1)
-        calc(var(--pico-nav-link-spacing-horizontal) * -1);
-      padding: var(--pico-nav-link-spacing-vertical) var(--pico-nav-link-spacing-horizontal);
-      border-bottom: 0;
-      border-radius: var(--pico-border-radius);
-      color: var(--pico-primary);
-      font-size: inherit;
-
-      &.tiny {
-        font-size: 0.8rem;
-      }
-
-      &.router-link-active {
-        color: var(--rg-ink);
-      }
-    }
-
-    // Pinned to the far right of the bar, whatever else is in the nav.
-    .account {
-      position: static;
-      margin-top: 0;
-      margin-left: auto;
-      padding-top: var(--pico-nav-element-spacing-vertical);
-      padding-bottom: var(--pico-nav-element-spacing-vertical);
-      background: none;
-    }
+    align-items: center;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    background: none;
 
     .logout-btn,
     [role='button'] {
       width: auto;
-      padding-block: calc(var(--pico-nav-link-spacing-vertical) - var(--pico-border-width) * 2);
+      padding: 0.4rem 0.9rem;
+      font-size: 0.85rem;
     }
   }
-}
-.mode-toggle {
-  display: inline-flex;
-  padding: 0.15rem;
-  border: 1px solid var(--rg-line);
-  border-radius: 999px;
-  background: var(--rg-surface);
-}
 
-.mode-option {
-  width: auto;
-  margin: 0;
-  padding: 0.25rem 0.75rem;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  color: var(--rg-muted);
-  font-size: 0.85rem;
-  line-height: 1.3;
+  nav .nav {
+    grid-area: links;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 1.75rem;
+    margin-top: 0.6rem;
+    padding: 0.55rem 0 2px;
 
-  &:hover,
-  &:focus-visible {
-    background: var(--rg-orange-50);
-    color: var(--rg-ink);
+    li {
+      display: inline-block;
+    }
+
+    .nav-link {
+      display: inline-block;
+      padding: 0.15rem 0 0;
+      border-bottom: 0;
+
+      &.router-link-active {
+        font-weight: inherit;
+        text-decoration: underline 4px;
+        text-underline-offset: 0.35em;
+      }
+    }
   }
-}
-
-.mode-option--on,
-.mode-option--on:hover {
-  background: var(--pico-primary);
-  color: #fff;
-}
-
-.add-role {
-  font-weight: 600;
-}
-.mode-option {
-  position: relative;
-}
-
-.mode-dot {
-  position: absolute;
-  top: 0.1rem;
-  right: 0.25rem;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--rg-red);
 }
 </style>

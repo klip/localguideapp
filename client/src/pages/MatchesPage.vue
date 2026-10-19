@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import BookingPanel from '@/components/BookingPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
+import NavIcon from '@/components/NavIcon.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import { useLiveSection } from '@/composables/useLiveSection'
@@ -337,7 +338,7 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
                   :disabled="busyId !== null"
                   @click="act(row, 'interested', $event)"
                 >
-                  {{ t('matches.actions.accept') }}
+                  <NavIcon name="matches" />{{ t('matches.actions.accept') }}
                 </button>
                 <button
                   type="button"

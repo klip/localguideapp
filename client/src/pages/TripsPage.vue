@@ -269,9 +269,10 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
               >
             </p>
             <p v-if="reviewLink(trip)" class="note">
-              <RouterLink :to="reviewLink(trip)!" class="tiny">{{
-                t('trips.card.leave_review', { name: displayName(trip) })
-              }}</RouterLink>
+              <RouterLink :to="reviewLink(trip)!" class="tiny"
+                >{{ t('trips.card.leave_review', { name: displayName(trip) }) }}
+                <span class="rtl-flip" aria-hidden="true">→</span></RouterLink
+              >
             </p>
 
             <BookingPanel

@@ -101,7 +101,10 @@ function reject(id: string) {
 <template>
   <section class="section shell">
     <p class="tiny">
-      <RouterLink to="/discover">{{ t('guide_profile.page.back') }}</RouterLink>
+      <RouterLink to="/discover"
+        ><span class="rtl-flip" aria-hidden="true">←</span>
+        {{ t('guide_profile.page.back') }}</RouterLink
+      >
     </p>
 
     <PanelCard v-if="loading" :title="t('guide_profile.page.loading')" />

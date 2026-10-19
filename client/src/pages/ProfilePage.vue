@@ -24,6 +24,7 @@ import {
   useApi,
 } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
+import { useAvatarStore } from '@/stores/avatar'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { reportApiError } from '@/utils/reportApiError'
 import { rangeFormatFor } from '@/utils/formatRange'
@@ -45,6 +46,7 @@ import type { Gender, NumericRange, RangeMap } from '@/types'
 
 const api = useApi()
 const auth = useAuthStore()
+const avatar = useAvatarStore()
 const messages = useMessagesStore()
 
 const loading = ref(true)
@@ -493,6 +495,7 @@ async function saveAccount() {
       roles: auth.user.roles,
       sessionHash: auth.user.sessionHash,
     })
+    if (image) avatar.set(image)
     messages.success(t('profile.toast.contact_saved'), anchorTo('element', accountPanelRef.value))
   } catch (err) {
     reportSaveError(err, t('profile.toast.contact_failed'), accountPanelRef.value)

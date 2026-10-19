@@ -60,6 +60,13 @@
 
 // Read by screen readers, not shown — labels for purely visual controls (the
 // review star picker, the histogram bars).
+// A directional arrow written next to t() (→ "onwards", ← "back"): mirrored
+// for right-to-left languages, where onwards points left.
+[dir='rtl'] .rtl-flip {
+  display: inline-block;
+  transform: scaleX(-1);
+}
+
 .visually-hidden {
   position: absolute !important;
   width: 1px;

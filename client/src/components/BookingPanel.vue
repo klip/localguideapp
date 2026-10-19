@@ -275,9 +275,10 @@ function guideCancel() {
       </p>
       <p v-else-if="finished" class="booking-line">
         <PillBadge tone="neutral">{{ t('common.booking_panel.trip_finished') }}</PillBadge>
-        <RouterLink :to="reviewLink" class="tiny">{{
-          t('common.booking_panel.leave_review', { name })
-        }}</RouterLink>
+        <RouterLink :to="reviewLink" class="tiny"
+          >{{ t('common.booking_panel.leave_review', { name }) }}
+          <span class="rtl-flip" aria-hidden="true">→</span></RouterLink
+        >
       </p>
     </template>
 
@@ -395,7 +396,7 @@ function guideCancel() {
           :disabled="busy"
           @click="op('accept', t('common.booking_panel.accepted', { name }))"
         >
-          {{ t('common.booking_panel.accept') }}
+          <span aria-hidden="true">✓</span> {{ t('common.booking_panel.accept') }}
         </button>
         <button type="button" class="reject" :disabled="busy" @click="show('decline')">
           {{ t('common.booking_panel.decline') }}
