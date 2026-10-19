@@ -76,6 +76,8 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
 - `deploy/` — config the docker-lemp stack mounts: `php/rockguide.ini`, and
   `observability/` (Loki, Alloy, Grafana provisioning + dashboard).
 - `docs/scaling.md` — database load, scaling proposals, the GKE target.
+- `docs/ai-and-location.md` — plan (not built): location search, the AI
+  travel planner, document verification.
 - `admin/` — empty placeholder, presumably a future admin panel.
 - Root `node_modules/` has no corresponding root `package.json`; ignore it,
   the real dependency tree lives in `client/`.
