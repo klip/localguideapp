@@ -16,6 +16,7 @@
  *                                           the user holds (the gateway checks)
  *     X-Request-Id: <id>                    for correlating log lines
  *     X-Client-User-Agent: <ua>             the browser's, from the socket handshake
+ *     X-Client-Ip: <ip>                     the browser's address (`ClientIp`)
  *   → the status and JSON body the action produced
  *
  *   GET /healthz → 200 {"ok":true}          liveness probe, no token needed
@@ -73,6 +74,7 @@ final class ServiceHttp
         // name. Requests identified by a session hash carry no token (until
         // sessions are retired, docs/auth-cms-plan.md phase 5).
         $sid = null;
+        $did = null;
         $authorization = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
         if ($authorization !== '') {
             $claims = strncmp($authorization, 'Bearer ', 7) === 0 ? Jwt::verify(substr($authorization, 7), 'app') : null;
@@ -81,15 +83,19 @@ final class ServiceHttp
                 return;
             }
             $sid = (string) ($claims['sid'] ?? '');
+            $did = isset($claims['did']) ? (int) $claims['did'] : null;
         }
 
         $context = [
             'userId' => $userId > 0 ? $userId : null,
             // The sign-in family of the caller's access token, when they used one.
             'sid' => $sid,
+            // The caller's `devices` row, when their token names one.
+            'did' => $did,
             // Checked by the gateway against the user's roles before it's sent.
             'actingRole' => $userId > 0 && in_array($actingRole, Roles::APP_ROLES, true) ? $actingRole : null,
             'userAgent' => (string) ($_SERVER['HTTP_X_CLIENT_USER_AGENT'] ?? ''),
+            'clientIp' => (string) (filter_var((string) ($_SERVER['HTTP_X_CLIENT_IP'] ?? ''), FILTER_VALIDATE_IP) ?: ''),
             'requestId' => preg_replace('/[^A-Za-z0-9-]/', '', (string) ($_SERVER['HTTP_X_REQUEST_ID'] ?? '')),
         ];
         Log::context(array_filter([

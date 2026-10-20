@@ -1615,7 +1615,7 @@ category a user invented on their profile page five minutes ago.
 
 ### Sign-in: access tokens and the refresh cookie
 
-Phases 1 and 2 of `docs/auth-cms-plan.md` are in: the client signs in with **signed
+Phases 1–3 of `docs/auth-cms-plan.md` are in: the client signs in with **signed
 tokens**; the old Redis sessions still work alongside (for any old client)
 until phase 5 retires them.
 
@@ -1684,6 +1684,40 @@ until phase 5 retires them.
   `api.logoutEverywhere()` → `POST /auth/logoutEverywhere` — the account is
   taken from the refresh cookie, every sign-in and old session ends, the
   other devices' sockets are unbound, and this tab goes to `/login`.
+- **Devices and the sign-in history** (phase 3, 072): every `/auth/*`
+  request carries `device` — what the browser says about itself
+  (`utils/deviceInfo.ts`: browser and system from Client Hints, else the
+  server reads the User-Agent; screen, pixel ratio, colour depth, touch
+  points, time zone, languages, CPU cores, memory class — **no canvas or
+  WebGL**, decided). `auth/classes/Devices.php` cleans it up
+  (`normalize()`) and stores it as **keyed hashes, one per component**
+  (HMAC-SHA256 with `FINGERPRINT_KEY`, auth env only — one-way, and per
+  component so a browser update still matches the rest) plus a combined
+  `fingerprint_hash` of the stable ones; plain text only for the user's own
+  list: a label ("Chrome on macOS") and the place. A `devices` row per
+  account and device cookie (updated on sign-in and every refresh);
+  `login_events` gets register, login, a wrong password (`login_failed`,
+  with a keyed hash of the address typed — never a device row, so attempts
+  can't add devices to someone's account), `two_factor_required`/`_ok`, a
+  refresh only from a new address or changed browser (else it would be a row
+  per quarter hour), logout, logout everywhere, a signed-out device, a
+  reused token. The scheduler trims it hourly: rows after 12 months, IPs
+  after 90 days.
+- **The client's IP** (`lib/ClientIp.php`): nginx adds `X-Forwarded-For` on
+  `/ws`, Vite on `/auth/*`; it's believed only from a trusted proxy
+  (`TRUSTED_PROXIES`, CIDRs, default loopback + private ranges — set the load
+  balancer's ranges in production), and the client is the right-most hop
+  that isn't one. The gateway passes it to the services as `X-Client-Ip`.
+  **Place** (`auth/classes/GeoIp.php`) is looked up only when
+  `GEO_LOOKUP_URL` is set (a template with `{ip}`, off by default — it sends
+  the address away; never for private addresses), cached 30 days.
+- **"Signed in on"** (profile page, contact panel): `api.myDevices()` lists
+  the browsers with a live sign-in (label, place, "Active 2 hours ago"),
+  "This device" — the access token's `did` claim names the caller's
+  `devices` row — and **Sign out** for the others: `api.signOutDevice(id)`
+  revokes every sign-in from that browser (`Tokens::revokeDevice()`), its
+  sockets unbound at once. (073 has the text.) `trusted_devices` (2FA
+  "remember me") is still separate — folding it in is left for later.
 - `addRole` (still on the socket) returns a new access token whose `roles`
   claim includes the new role (`Tokens::reissueAccess()`, using the caller's
   `sid` from the verified token); `api.addRole` adopts it.
@@ -1697,8 +1731,9 @@ until phase 5 retires them.
   verifying, a forged token, a role the token lacks, rotation, reuse
   revoking the family, Origin/Content-Type refusals, logout killing its
   access token at once, sign out everywhere unbinding another device, the
-  old session path); `api.spec.ts` and `ProfilePage.spec.ts` cover the
-  client side.
+  devices list and signing one out, the old session path);
+  `lib/tests/ClientIpTest.php`; `api.spec.ts` and `ProfilePage.spec.ts`
+  cover the client side.
 
 ### Acting role (one account, both roles)
 
@@ -2022,9 +2057,10 @@ repo, at `../../docker-compose.yaml` relative to here — i.e.
   `rg-mailer`), all built from `./php`, with `deploy/php/belikelocal.ini`
   (errors logged, never displayed) and `restart: unless-stopped`. Their
   settings — DB_*, PEPPER, SMTP_*, MAIL_*, APP_URL, INTERNAL_TOKEN, REDIS_*,
-  ANTHROPIC_API_KEY, JWT_PUBLIC_KEYS —
+  ANTHROPIC_API_KEY, JWT_PUBLIC_KEYS (optional: TRUSTED_PROXIES,
+  GEO_LOOKUP_URL) —
   come from `docker-lemp/php/localguideapp.env`, outside this repo; the
-  token-signing key (`JWT_KID`, `JWT_PRIVATE_KEY`) is in
+  token-signing key (`JWT_KID`, `JWT_PRIVATE_KEY`) and `FINGERPRINT_KEY` are in
   `docker-lemp/php/localguideapp-auth.env`, given to `rg-auth` only. Never
   commit either. A changed env file needs the container recreated
   (`docker compose up -d --force-recreate …`), not just restarted. `docker compose up -d ws rg-api rg-auth rg-scheduler rg-planner rg-mailer`.
@@ -2142,6 +2178,8 @@ is a `503` from the gateway.
 | `claimBonus` | **yes** | `api.claimBonus(payload)` | `bonusId` | `LevelState` | `Levels::claim()` |
 | `reportUser` | **yes** | `api.reportUser(payload)` | `subjectId, title` (≤120), `description` (≤2000) | `{ id, status: 'open', created_at }` | `Complaints::file()` |
 | `logout` | the refresh cookie | `api.logout()` — **HTTP** `POST /auth/logout` | — | `{ ok: true }`, cookie cleared, every tab signs out | `AuthHttp` → `Tokens::revokeByToken()` (the WebSocket `logout` still ends a session hash) |
+| `myDevices` | **yes** | `api.myDevices()` | — | `{ devices: MyDevice[] }` (`id, label, place, country, last_seen_at, first_seen_at, current`) — browsers with a live sign-in | `AuthProcessor::actionMyDevices()` → `Devices::signedInFor()` |
+| `signOutDevice` | **yes** | `api.signOutDevice(id)` | `deviceId` | `{ ok: true, current }` (this browser → the tab signs out too) | `Tokens::revokeDevice()` |
 | `logoutEverywhere` | the refresh cookie | `api.logoutEverywhere()` — **HTTP** `POST /auth/logoutEverywhere` | — | `{ ok: true }`, cookie cleared; 401 without a live cookie | `AuthHttp` → `AuthProcessor::signOutEverywhere()` → `Tokens::revokeAllFor()`, `Session::destroyAllFor()` |
 | `session` | **yes** | `api.session()` (unused since tokens) | — | `AuthResult` with the unrotated `sessionHash` — for a session-hash client | `actionSession()` |
 | `publicProfile` | optional | `api.publicProfile(userId)` | `userId` | `PublicProfile` (a `ProfileAccount` minus `email`, plus `role`; `400` "Profile not found." for an unknown id or a non-guest/guide) | `Users::getPublicProfile()` |
@@ -2208,7 +2246,8 @@ Shared (`lib/`):
 - `lib/AuthenticationException.php` — mapped to `401` by both processors.
 - `lib/Jwt.php` — signs (auth only) and verifies (everyone) access tokens;
   `lib/Origins.php` — the allowed browser origins (gateway, `AuthHttp`);
-  `lib/Revocations.php` — revoked sign-ins in Redis and on `auth:revoked`.
+  `lib/Revocations.php` — revoked sign-ins in Redis and on `auth:revoked`;
+  `lib/ClientIp.php` — the browser's address behind our proxies.
 - `lib/Roles.php` — SQL for reading a user's role from `user_role`.
 
 Auth service (`auth/classes/`):
@@ -2223,6 +2262,8 @@ Auth service (`auth/classes/`):
 - `AccountSecurity.php` — 2FA codes, trusted devices, password resets
   (emails queued through `MailQueue`).
 - `Session.php` — Redis sessions (the old path, see "Sign-in").
+- `Devices.php` — devices, keyed device hashes, `login_events`; `GeoIp.php`
+  — optional IP → place.
 - `Tokens.php` — access tokens and refresh-token rotation; `AuthHttp.php` —
   the browser-facing `POST /auth/*` endpoint with the cookies
   (`auth/public.php`).
@@ -2596,6 +2637,10 @@ API service (`api/classes/`):
   Applied 2026-10-20. Re-runnable.
 - `api/sql/071_translations_sign_out_everywhere.sql` — "Sign out on all
   devices", its hint and toasts. Applied 2026-10-20. Re-runnable.
+- `api/sql/072_devices_login_events.sql` — `devices`, `login_events` (see
+  "Sign-in"). Applied 2026-10-20. Re-runnable.
+- `api/sql/073_translations_devices.sql` — the "Signed in on" list. Applied
+  2026-10-20. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

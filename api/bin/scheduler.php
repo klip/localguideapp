@@ -4,7 +4,9 @@
  * The scheduler (container `lemp-rg-scheduler`): runs `Bookings::sweep()`
  * every `SWEEP_EVERY_SECONDS` — expiring unanswered booking requests,
  * starting trips and finishing them on time, with their notifications and
- * emails — and pushes the resulting counter changes.
+ * emails — and pushes the resulting counter changes. Hourly it also trims
+ * the sign-in history (`login_events`, 072): rows after 12 months, their IP
+ * addresses after 90 days.
  *
  *   php /var/www/localguideapp/api/bin/scheduler.php
  *
@@ -24,6 +26,8 @@ set_time_limit(0);
 
 const SWEEP_EVERY_SECONDS = 30;
 const LOCK_KEY = 'lock:bookings-sweep';
+const PRUNE_EVERY_SECONDS = 3600;
+$lastPrune = 0;
 
 $db = new db();
 $redis = new RedisClient();
@@ -44,6 +48,11 @@ while (true) {
             $db->ensureConnected();
             $bookings->sweep();
             $push->flush();
+            if (time() - $lastPrune >= PRUNE_EVERY_SECONDS) {
+                $lastPrune = time();
+                $db->db_Execute('DELETE FROM `login_events` WHERE `created_at` < UTC_TIMESTAMP() - INTERVAL 365 DAY LIMIT 5000');
+                $db->db_Execute('UPDATE `login_events` SET `ip` = NULL WHERE `ip` IS NOT NULL AND `created_at` < UTC_TIMESTAMP() - INTERVAL 90 DAY LIMIT 5000');
+            }
             Log::debug('Sweep done', ['ms' => (int) ((microtime(true) - $started) * 1000)]);
         }
     } catch (Throwable $e) {

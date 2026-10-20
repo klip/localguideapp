@@ -147,6 +147,8 @@ class WebSocketServer
         stream_set_blocking($socket, false);
         $this->clients[(int) $socket] = [
             'socket' => $socket,
+            // Who connected (nginx, normally) — handed to onOpen as `:peer`.
+            'peer' => (string) stream_socket_get_name($socket, true),
             'handshaken' => false,
             'in' => '',
             'out' => '',
@@ -239,6 +241,7 @@ class WebSocketServer
             . "Upgrade: websocket\r\nConnection: Upgrade\r\n"
             . "Sec-WebSocket-Accept: {$accept}\r\n\r\n";
         $this->clients[$id]['handshaken'] = true;
+        $headers[':peer'] = $this->clients[$id]['peer'];
 
         return $headers;
     }

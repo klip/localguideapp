@@ -135,10 +135,10 @@ describe('plugins/api call()', () => {
     const result = await api.login({ email: 'b@example.com', password: 'secret123' })
 
     expect(fetchMock.mock.calls[0]![0]).toBe('/auth/login')
-    expect(JSON.parse(String(fetchMock.mock.calls[0]![1]!.body))).toEqual({
-      email: 'b@example.com',
-      password: 'secret123',
-    })
+    const sent = JSON.parse(String(fetchMock.mock.calls[0]![1]!.body))
+    expect(sent).toMatchObject({ email: 'b@example.com', password: 'secret123' })
+    // …with what the browser says about itself, for the devices list.
+    expect(sent.device).toMatchObject({ timeZone: expect.any(String) })
     expect(result).toMatchObject({ id: 5 })
     expect(useAuthStore().accessToken).toBe('token-9')
     expect(useAuthStore().user?.id).toBe(5)

@@ -22,6 +22,7 @@ if (PHP_SAPI !== 'cli') {
 require_once __DIR__.'/../../lib/Log.php';
 require_once __DIR__.'/../../lib/Resp.php';
 require_once __DIR__.'/../../lib/Origins.php';
+require_once __DIR__.'/../../lib/ClientIp.php';
 require_once __DIR__.'/../../lib/Jwt.php';
 require_once __DIR__.'/../../lib/RedisClient.php';
 require_once __DIR__.'/../../lib/Revocations.php';

@@ -17,6 +17,7 @@ import {
   type AttributeCategory,
   type LegalDocumentView,
   type LegalSlug,
+  type MyDevice,
   type MyProfile,
   type PlacePoint,
   type Role,
@@ -27,6 +28,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useAvatarStore } from '@/stores/avatar'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { reportApiError } from '@/utils/reportApiError'
+import { timeAgo } from '@/utils/reviews'
 import { rangeFormatFor } from '@/utils/formatRange'
 import { forgetTrustedDevice } from '@/utils/trustedDevice'
 import type { Gender, NumericRange, RangeMap } from '@/types'
@@ -420,6 +422,44 @@ async function forgetDevices(event: MouseEvent) {
   }
 }
 
+/** The browsers this account is signed in on — this one can't be signed out from the list. */
+const devices = ref<MyDevice[]>([])
+const signingOutDevice = ref<number | null>(null)
+
+async function loadDevices() {
+  try {
+    devices.value = (await api.myDevices()).devices
+  } catch {
+    // Best-effort: the rest of the page doesn't need it.
+  }
+}
+
+function deviceMeta(device: MyDevice): string {
+  return [device.place, t('profile.devices.last_active', { time: timeAgo(device.last_seen_at) })]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+async function signOutDevice(device: MyDevice, event: MouseEvent) {
+  if (signingOutDevice.value !== null) return
+  const placement = anchorTo('element', event.currentTarget as HTMLElement | null)
+  signingOutDevice.value = device.id
+  try {
+    await api.signOutDevice(device.id)
+    devices.value = devices.value.filter((d) => d.id !== device.id)
+    messages.success(
+      t('profile.toast.device_signed_out', {
+        device: device.label || t('profile.devices.unknown'),
+      }),
+      placement,
+    )
+  } catch (err) {
+    reportApiError(err, t('profile.toast.device_sign_out_failed'), placement)
+  } finally {
+    signingOutDevice.value = null
+  }
+}
+
 /** Every sign-in of the account ends — this one too — so it's back to the login page. */
 const signingOutEverywhere = ref(false)
 
@@ -443,6 +483,7 @@ onMounted(async () => {
     loading.value = false
     return
   }
+  void loadDevices()
 
   try {
     const [profileResult, categoriesResult] = await Promise.all([
@@ -778,6 +819,33 @@ async function changePassword() {
                 {{ t('profile.contact.forget_devices') }}
               </button>
             </p>
+            <div v-if="devices.length" class="devices" data-test="devices">
+              <p class="tiny muted devices-title">{{ t('profile.devices.title') }}</p>
+              <ul>
+                <li v-for="device in devices" :key="device.id">
+                  <span class="device-text">
+                    <span class="device-name">{{
+                      device.label || t('profile.devices.unknown')
+                    }}</span>
+                    <span class="tiny muted">{{ deviceMeta(device) }}</span>
+                  </span>
+                  <span v-if="device.current" class="tiny this-device">
+                    {{ t('profile.devices.this_device') }}
+                  </span>
+                  <button
+                    v-else
+                    type="button"
+                    class="link-btn tiny"
+                    data-test="sign-out-device"
+                    :aria-busy="signingOutDevice === device.id"
+                    :disabled="signingOutDevice !== null"
+                    @click="signOutDevice(device, $event)"
+                  >
+                    {{ t('profile.devices.sign_out') }}
+                  </button>
+                </li>
+              </ul>
+            </div>
             <p class="tiny muted sign-out-everywhere">
               <button
                 type="button"
@@ -1089,6 +1157,44 @@ async function changePassword() {
 
 .trusted-devices {
   margin: -0.5rem 0 1rem;
+}
+
+.devices {
+  margin: 1rem 0 0.75rem;
+
+  ul {
+    margin: 0;
+    padding: 0;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    list-style: none;
+  }
+}
+
+.devices-title {
+  margin-bottom: 0.25rem;
+}
+
+.device-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.device-name {
+  font-size: 0.9rem;
+}
+
+.this-device {
+  flex-shrink: 0;
+  font-weight: 600;
 }
 
 .link-btn {

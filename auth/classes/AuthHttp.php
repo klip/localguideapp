@@ -75,12 +75,20 @@ final class AuthHttp
         $requestId = bin2hex(random_bytes(8));
         $userAgent = mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
         Log::context(['request_id' => $requestId, 'action' => $action]);
-        $deviceId = $this->deviceId();
+        $client = [
+            'deviceHash' => $this->deviceId(),
+            // What the browser says about itself (`device`, utils/deviceInfo.ts), cleaned up.
+            'info' => Devices::normalize($input['device'] ?? null, $userAgent),
+            'ip' => ClientIp::resolve((string) ($_SERVER['REMOTE_ADDR'] ?? ''), (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '')),
+            'userAgent' => $userAgent,
+            'requestId' => $requestId,
+        ];
+        unset($input['device']);
 
         try {
             switch ($action) {
                 case 'refresh':
-                    [$status, $body] = $this->refresh($deviceId, $userAgent);
+                    [$status, $body] = $this->refresh($client);
                     break;
                 case 'logoutEverywhere':
                     $userId = $this->processor->tokens()->userForToken((string) ($_COOKIE[self::REFRESH_COOKIE] ?? ''));
@@ -91,15 +99,21 @@ final class AuthHttp
                     }
                     Log::context(['user_id' => $userId]);
                     $this->processor->signOutEverywhere($userId, 'logout_everywhere');
+                    $this->record('logout_everywhere', $userId, $client);
                     [$status, $body] = [200, ['ok' => true]];
                     break;
                 case 'logout':
-                    $this->processor->tokens()->revokeByToken((string) ($_COOKIE[self::REFRESH_COOKIE] ?? ''), 'logout');
+                    $cookie = (string) ($_COOKIE[self::REFRESH_COOKIE] ?? '');
+                    $userId = $this->processor->tokens()->userForToken($cookie);
+                    $this->processor->tokens()->revokeByToken($cookie, 'logout');
                     self::clearCookie(self::REFRESH_COOKIE);
+                    if ($userId !== null) {
+                        $this->record('logout', $userId, $client);
+                    }
                     [$status, $body] = [200, ['ok' => true]];
                     break;
                 default:
-                    [$status, $body] = $this->signIn($action, $input, $deviceId, $userAgent, $requestId);
+                    [$status, $body] = $this->signIn($action, $input, $client);
             }
         } catch (Throwable $e) {
             Log::exception('Request failed', $e);
@@ -111,46 +125,85 @@ final class AuthHttp
     }
 
     /** register / login / verifyTwoFactor: the account action, then tokens instead of a session. */
-    private function signIn(string $action, array $input, string $deviceId, string $userAgent, string $requestId): array
+    private function signIn(string $action, array $input, array $client): array
     {
         [$status, $body] = $this->processor->process(
             ['action' => $action] + $input,
-            ['userId' => null, 'sid' => null, 'userAgent' => $userAgent, 'requestId' => $requestId, 'withSession' => false]
+            ['userId' => null, 'sid' => null, 'did' => null, 'userAgent' => $client['userAgent'],
+             'clientIp' => $client['ip'], 'requestId' => $client['requestId'], 'withSession' => false]
         );
+
+        if ($action === 'login' && !isset($body['id'])) {
+            // A wrong password (on any address — its keyed hash is kept), or
+            // the password right and a code on its way.
+            $email = (string) ($input['email'] ?? '');
+            $user = $email !== '' ? $this->processor->accounts()->findByEmail(trim($email)) : null;
+            $event = $status === 200 ? 'two_factor_required' : 'login_failed';
+            $this->processor->devices()->record($event, $user ? (int) $user['id'] : null,
+                $this->processor->devices()->describe($client['info'], $client['ip']),
+                $client['deviceHash'], $client['ip'], $client['userAgent'], $email);
+        }
         // A 2FA challenge, or an error: no sign-in yet.
         if ($status !== 200 || !isset($body['id'])) {
             return [$status, $body];
         }
 
-        $tokens = $this->processor->tokens()->issue((int) $body['id'], $deviceId, $userAgent);
+        $userId = (int) $body['id'];
+        $device = $this->processor->devices()->touch($userId, $client['deviceHash'], $client['info'], $client['ip']);
+        $tokens = $this->processor->tokens()->issue($userId, $client['deviceHash'], $client['userAgent']);
         $this->setRefreshCookie($tokens['refreshToken']);
-        unset($tokens['refreshToken']);
+        $this->processor->devices()->record(
+            ['register' => 'register', 'login' => 'login', 'verifyTwoFactor' => 'two_factor_ok'][$action],
+            $userId, $device, $client['deviceHash'], $client['ip'], $client['userAgent']
+        );
 
-        return [200, $body + $tokens];
+        return [200, $body + $this->processor->tokens()->access($userId, $tokens['sid'], $device['id'])];
     }
 
-    private function refresh(string $deviceId, string $userAgent): array
+    private function refresh(array $client): array
     {
+        $tokens = $this->processor->tokens();
         try {
-            $tokens = $this->processor->tokens()->rotate((string) ($_COOKIE[self::REFRESH_COOKIE] ?? ''), $deviceId, $userAgent);
+            $rotated = $tokens->rotate((string) ($_COOKIE[self::REFRESH_COOKIE] ?? ''), $client['deviceHash'], $client['userAgent']);
         } catch (AuthenticationException $e) {
             self::clearCookie(self::REFRESH_COOKIE);
+            if ($tokens->lastFailure === 'reuse') {
+                $this->record('reuse_detected', (int) $tokens->lastFailureUserId, $client);
+            }
             return [401, ['error' => $e->getMessage()]];
         }
-        Log::context(['user_id' => $tokens['userId']]);
+        Log::context(['user_id' => $rotated['userId']]);
 
-        $user = $this->processor->accounts()->findById($tokens['userId']);
+        $user = $this->processor->accounts()->findById($rotated['userId']);
         if (!$user) {
             self::clearCookie(self::REFRESH_COOKIE);
             return [401, ['error' => 'Your session has expired. Please log in again.']];
         }
-        $this->setRefreshCookie($tokens['refreshToken']);
+        $this->setRefreshCookie($rotated['refreshToken']);
 
-        return [200, [
-            'accessToken' => $tokens['accessToken'],
-            'accessExpiresAt' => $tokens['accessExpiresAt'],
+        // Every refresh updates the device; only one from a new address or a
+        // changed browser makes the history (it'd be one row per quarter hour).
+        $device = $this->processor->devices()->touch($rotated['userId'], $client['deviceHash'], $client['info'], $client['ip']);
+        if ($device['changed']) {
+            $this->processor->devices()->record('refresh', $rotated['userId'], $device,
+                $client['deviceHash'], $client['ip'], $client['userAgent']);
+        }
+
+        return [200, $tokens->access($rotated['userId'], $rotated['sid'], $device['id']) + [
             'user' => $this->processor->userSummary($user),
         ]];
+    }
+
+    /**
+     * A history row for an account action that isn't using the device (a
+     * logout, a reused token) — so the device row itself is left as it was.
+     */
+    private function record(string $event, int $userId, array $client): void
+    {
+        $devices = $this->processor->devices();
+        $device = $devices->describe($client['info'], $client['ip'])
+            + ['id' => $devices->idFor($userId, $client['deviceHash'])];
+        $devices->record($event, $userId, $device, $client['deviceHash'], $client['ip'], $client['userAgent']);
     }
 
     /** SHA-256 of this browser's device cookie, setting (or renewing) the cookie. */

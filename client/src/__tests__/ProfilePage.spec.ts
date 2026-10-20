@@ -254,6 +254,63 @@ describe('ProfilePage', () => {
     ).toContain('every device will ask for a code')
   })
 
+  it('lists the signed-in devices, marks this one, and signs another out', async () => {
+    const recent = new Date(Date.now() - 2 * 3600_000).toISOString()
+    const signOutDevice = vi
+      .fn<Api['signOutDevice']>()
+      .mockResolvedValue({ ok: true, current: false })
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
+        myDevices: vi.fn<Api['myDevices']>().mockResolvedValue({
+          devices: [
+            {
+              id: 3,
+              label: 'Chrome on macOS',
+              place: 'Lisbon',
+              country: 'PT',
+              last_seen_at: recent,
+              first_seen_at: recent,
+              current: true,
+            },
+            {
+              id: 9,
+              label: 'Safari on iPhone',
+              place: null,
+              country: null,
+              last_seen_at: recent,
+              first_seen_at: recent,
+              current: false,
+            },
+          ],
+        }),
+        signOutDevice,
+      }),
+    )
+
+    const list = wrapper.find('[data-test="devices"]')
+    expect(list.text()).toContain('Chrome on macOS')
+    expect(list.text()).toContain('Lisbon · Active 2 hours ago')
+    expect(list.text()).toContain('This device')
+    // Only the other device offers "Sign out".
+    const buttons = list.findAll('[data-test="sign-out-device"]')
+    expect(buttons).toHaveLength(1)
+
+    await buttons[0]!.trigger('click')
+    await flushPromises()
+
+    expect(signOutDevice).toHaveBeenCalledWith(9)
+    expect(wrapper.find('[data-test="devices"]').text()).not.toContain('Safari on iPhone')
+    expect(
+      useMessagesStore()
+        .items.map((item) => item.text)
+        .join(),
+    ).toContain('Signed out of Safari on iPhone.')
+  })
+
   it('signs out on all devices and goes to the login page', async () => {
     const logoutEverywhere = vi.fn<Api['logoutEverywhere']>().mockResolvedValue({ ok: true })
     const wrapper = await mountProfilePage(

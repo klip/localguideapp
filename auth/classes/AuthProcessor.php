@@ -34,15 +34,17 @@ class AuthProcessor
     private $legal;
     /** @var Tokens */
     private $tokens;
+    /** @var Devices */
+    private $devices;
     /** @var array */
     private $input = [];
     /**
      * `withSession: false` — called through `AuthHttp`, which issues tokens
      * instead of a Redis session.
      *
-     * @var array{userId: ?int, sid: ?string, userAgent: string, requestId: string, withSession: bool}
+     * @var array{userId: ?int, sid: ?string, did: ?int, userAgent: string, clientIp: string, requestId: string, withSession: bool}
      */
-    private $context = ['userId' => null, 'sid' => null, 'userAgent' => '', 'requestId' => '', 'withSession' => true];
+    private $context = ['userId' => null, 'sid' => null, 'did' => null, 'userAgent' => '', 'clientIp' => '', 'requestId' => '', 'withSession' => true];
 
     public function __construct(db $db, RedisClient $redis)
     {
@@ -52,6 +54,12 @@ class AuthProcessor
         $this->security = new AccountSecurity($db, $this->accounts, new MailQueue($db, $redis), $this->sessions);
         $this->legal = new LegalDocuments($db);
         $this->tokens = new Tokens($db, $this->accounts, $redis);
+        $this->devices = new Devices($db, new GeoIp($redis));
+    }
+
+    public function devices(): Devices
+    {
+        return $this->devices;
     }
 
     public function tokens(): Tokens
@@ -109,6 +117,10 @@ class AuthProcessor
                 case 'logout':
                     $this->sessions->destroy($this->sessionHash());
                     return [200, ['ok' => true]];
+                case 'myDevices':
+                    return [200, $this->actionMyDevices()];
+                case 'signOutDevice':
+                    return [200, $this->actionSignOutDevice()];
                 case 'session':
                     return [200, $this->actionSession()];
 
@@ -315,10 +327,40 @@ class AuthProcessor
         // Signed in with tokens: a new access token, so its `roles` claim
         // includes the new role straight away.
         if ($this->context['sid']) {
-            $result += $this->tokens->reissueAccess($userId, (string) $this->context['sid']);
+            $result += $this->tokens->access($userId, (string) $this->context['sid'], $this->context['did']);
         }
 
         return $result;
+    }
+
+    /** "Your devices": the browsers signed in now, this one marked. */
+    private function actionMyDevices(): array
+    {
+        $userId = $this->requireUserId();
+        $current = $this->context['did'];
+
+        return ['devices' => array_map(
+            static fn(array $device): array => $device + ['current' => $current !== null && $device['id'] === $current],
+            $this->devices->signedInFor($userId)
+        )];
+    }
+
+    /** Signs one of the account's browsers out — every sign-in made from it, at once. */
+    private function actionSignOutDevice(): array
+    {
+        $userId = $this->requireUserId();
+        $deviceRowId = (int) ($this->input['deviceId'] ?? 0);
+        $hash = $deviceRowId > 0 ? $this->devices->deviceHashOf($userId, $deviceRowId) : null;
+        if ($hash === null) {
+            throw new RuntimeException('That device isn’t signed in to your account.');
+        }
+
+        $this->tokens->revokeDevice($userId, $hash, 'device_signed_out');
+        $this->devices->record('device_signed_out', $userId, ['id' => $deviceRowId], $hash,
+            (string) $this->context['clientIp'], (string) $this->context['userAgent']);
+        Log::info('Device signed out', ['user_id' => $userId, 'device' => $deviceRowId]);
+
+        return ['ok' => true, 'current' => $deviceRowId === $this->context['did']];
     }
 
     private function actionChangePassword(): array

@@ -49,6 +49,7 @@ real users and real money. Add to this list whenever a shortcut is taken.
 
 | Now | For production |
 | --- | --- |
+| **Device data and the sign-in history are collected** (browser, system, screen, time zone, languages, CPU/memory class as keyed hashes; IP 90 days; events 12 months) and two security cookies are set, but the privacy notice (terms section 9) and the cookie notice don't mention them yet. | Add them — purpose (account security, fraud prevention), retention, the user's own devices list — and bump `NOTICE_VERSION`; the lawyer reviews it (docs/auth-cms-plan.md §2, "Legal"). |
 | **Terms, privacy notice and role agreements are drafts** (`docs/legal/`). | A lawyer reviews them in every language that will be offered. |
 | **`legal_placeholders` are all NULL** (operator, controller, processors, DPO, EU/UK representative, authority, retention, governing law), shown as `[label]`. | Fill them: `UPDATE legal_placeholders SET value = …`. |
 | Existing accounts never accepted any terms or role agreement. | A re-accept prompt on next login. |
@@ -63,6 +64,9 @@ real users and real money. Add to this list whenever a shortcut is taken.
 
 | Now | For production |
 | --- | --- |
+| **IP → place is off** (`GEO_LOOKUP_URL` unset; any value sends users' IP addresses to that service). Devices and sign-ins have no place. | MaxMind GeoLite2 (free account + licence key) on our own servers, read locally — no address leaves them; replace `GeoIp::lookup()`'s HTTP call with it. |
+| `TRUSTED_PROXIES` defaults to loopback + private ranges (the docker network). | Set it to the load balancer's ranges (on GCP: 35.191.0.0/16, 130.211.0.0/22), or every IP reads as the balancer's. |
+| `FINGERPRINT_KEY` is in `localguideapp-auth.env`. | Secret Manager, auth only. Never rotate casually: a new key makes every device look new. |
 | The token-signing key pair (`JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEYS`, kid `2026-10`) is in the docker-lemp env files (the private one in `localguideapp-auth.env`, rg-auth only). | Secret Manager, the private key mounted into the auth service only; a key rotation every few months (new kid, old public key kept 90 days). |
 | Sign-in (`POST /auth/*`) reaches the auth service through Vite's dev-server proxy (nginx `:8083`). Safari refuses the `Secure` cookies on plain `http://localhost` (Chrome and Firefox accept them). | The `belikelocal.club` server routes `/auth/` to rg-auth's `public.php`, over HTTPS, on the same origin as the app. |
 | The allowed origins (`lib/Origins.php`) are hard-coded: belikelocal.club (+ www, admin, api) and `localhost:5173`. | Drop `localhost:5173` from the production build of the list (or move it into `WS_EXTRA_ORIGINS` for development only). |

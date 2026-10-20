@@ -45,6 +45,7 @@ class Gateway
     private const AUTH_ACTIONS = [
         'register', 'login', 'verifyTwoFactor', 'resendTwoFactor', 'requestPasswordReset',
         'resetPassword', 'forgetTrustedDevices', 'changePassword', 'logout', 'session', 'addRole',
+        'myDevices', 'signOutDevice',
     ];
     /** Service actions only the gateway may call. */
     private const INTERNAL_ACTIONS = ['resolve', 'peekMany', 'pushState'];
@@ -123,6 +124,8 @@ class Gateway
                     'tokenSid' => null,
                     'tokenIat' => null,
                     'userAgent' => mb_substr((string) ($headers['user-agent'] ?? ''), 0, 255),
+                    // The browser's address, from nginx's X-Forwarded-For (`ClientIp`).
+                    'clientIp' => ClientIp::resolve((string) ($headers[':peer'] ?? ''), (string) ($headers['x-forwarded-for'] ?? '')),
                     'badges' => null,
                     'bindSeq' => 0,
                     'notes' => [],
@@ -196,6 +199,7 @@ class Gateway
         }
 
         $userAgent = $this->connections[$id]['userAgent'] ?? '';
+        $clientIp = $this->connections[$id]['clientIp'] ?? '';
         $token = (string) ($message['accessToken'] ?? '');
         unset($message['accessToken']);
         $claims = $token !== '' ? $this->verifyToken($token) : null;
@@ -205,9 +209,9 @@ class Gateway
             // (changePassword, addRole…); otherwise as before (sessionHash).
             if ($claims !== null) {
                 unset($message['sessionHash'], $message['actingRole']);
-                $this->call($this->authUrl, $message, (int) $claims['sub'], $requestId, $userAgent, $reply, null, $token);
+                $this->call($this->authUrl, $message, (int) $claims['sub'], $requestId, $userAgent, $reply, null, $token, $clientIp);
             } else {
-                $this->call($this->authUrl, $message, null, $requestId, $userAgent, $reply);
+                $this->call($this->authUrl, $message, null, $requestId, $userAgent, $reply, null, null, $clientIp);
             }
             return;
         }
@@ -227,7 +231,7 @@ class Gateway
             $this->call($this->apiUrl, $message, $userId, $requestId, $userAgent,
                 function (int $status, array $body) use ($reply, $userId): void {
                     $reply($status, $body, $userId);
-                }, $actingRole, $token);
+                }, $actingRole, $token, $clientIp);
             return;
         }
 
@@ -286,13 +290,16 @@ class Gateway
      * an unreachable service comes back as 503. `$bearer` is the caller's
      * access token, which the service verifies again.
      */
-    private function call(string $url, array $payload, ?int $userId, string $requestId, string $userAgent, callable $done, ?string $actingRole = null, ?string $bearer = null): void
+    private function call(string $url, array $payload, ?int $userId, string $requestId, string $userAgent, callable $done, ?string $actingRole = null, ?string $bearer = null, string $clientIp = ''): void
     {
         $headers = [
             'X-Internal-Token' => $this->internalToken,
             'X-Request-Id' => $requestId,
             'X-Client-User-Agent' => $userAgent,
         ];
+        if ($clientIp !== '') {
+            $headers['X-Client-Ip'] = $clientIp;
+        }
         if ($bearer !== null) {
             $headers['Authorization'] = 'Bearer ' . $bearer;
         }

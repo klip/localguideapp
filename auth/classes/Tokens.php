@@ -38,11 +38,16 @@ class Tokens
         $this->redis = $redis;
     }
 
+    /** Why the last `rotate()` refused: `reuse` (a copied token — the family is revoked), else `expired`. */
+    public $lastFailure = null;
+    /** The account of a reused token, when that's why `rotate()` refused. */
+    public $lastFailureUserId = null;
+
     /**
      * A new sign-in: a fresh family. Returns `refreshToken` (for the cookie
-     * only) plus what the client gets in the body (`clientFields()`).
+     * only) and its `sid`; the access token comes from `access()`.
      *
-     * @return array{refreshToken: string, accessToken: string, accessExpiresAt: int}
+     * @return array{refreshToken: string, sid: string}
      */
     public function issue(int $userId, ?string $deviceId, string $userAgent): array
     {
@@ -51,17 +56,19 @@ class Tokens
         $refresh = $this->insert($userId, $sid, $deviceId, null, $now, $now + self::ABSOLUTE_TTL_SECONDS, $userAgent);
         Log::info('Signed in', ['user_id' => $userId, 'sid' => substr($sid, 0, 8)]);
 
-        return ['refreshToken' => $refresh] + $this->access($userId, $sid, $now);
+        return ['refreshToken' => $refresh, 'sid' => $sid];
     }
 
     /**
      * Swaps a refresh token for a new pair. 401 (`AuthenticationException`)
      * for anything unknown, expired, revoked or reused.
      *
-     * @return array{refreshToken: string, accessToken: string, accessExpiresAt: int, userId: int}
+     * @return array{refreshToken: string, sid: string, userId: int}
      */
     public function rotate(string $refreshToken, ?string $deviceId, string $userAgent): array
     {
+        $this->lastFailure = 'expired';
+        $this->lastFailureUserId = null;
         if (!preg_match('/^[A-Za-z0-9_-]{43}$/', $refreshToken)) {
             throw new AuthenticationException('Your session has expired. Please log in again.');
         }
@@ -85,6 +92,7 @@ class Tokens
             if ($row['used'] !== null && $now - (int) $row['used'] > self::GRACE_SECONDS) {
                 $this->revokeFamily((string) $row['sid'], 'reuse_detected');
                 $this->db->db_Execute('COMMIT');
+                [$this->lastFailure, $this->lastFailureUserId] = ['reuse', $userId];
                 Log::warning('Refresh token reused; family revoked', ['user_id' => $userId, 'sid' => substr((string) $row['sid'], 0, 8)]);
                 throw new AuthenticationException('Your session has expired. Please log in again.');
             }
@@ -104,18 +112,48 @@ class Tokens
             throw $e;
         }
 
-        return ['refreshToken' => $refresh, 'userId' => $userId] + $this->access($userId, (string) $row['sid'], $now);
+        $this->lastFailure = null;
+
+        return ['refreshToken' => $refresh, 'sid' => (string) $row['sid'], 'userId' => $userId];
     }
 
     /**
-     * A new access token in an existing family — after the account's roles
-     * change (`addRole`), so the `roles` claim is current at once.
+     * An access token for a sign-in (`sid`) on a device (`did`, the `devices`
+     * row — so the devices list can say "This device"). Also after the
+     * account's roles change (`addRole`), so the `roles` claim is current.
      *
      * @return array{accessToken: string, accessExpiresAt: int}
      */
-    public function reissueAccess(int $userId, string $sid): array
+    public function access(int $userId, string $sid, ?int $did = null): array
     {
-        return $this->access($userId, $sid, time());
+        $now = time();
+        $expires = $now + self::ACCESS_TTL_SECONDS;
+
+        return [
+            'accessToken' => Jwt::sign(array_filter([
+                'aud' => 'app',
+                'sub' => (string) $userId,
+                'sid' => $sid,
+                'did' => $did,
+                'roles' => $this->accounts->getRoles($userId),
+                'iat' => $now,
+                'exp' => $expires,
+                'jti' => bin2hex(random_bytes(8)),
+            ], static fn($value): bool => $value !== null)),
+            'accessExpiresAt' => $expires,
+        ];
+    }
+
+    /** Signs one device out: every live sign-in made from it. */
+    public function revokeDevice(int $userId, string $deviceHash, string $reason): void
+    {
+        $sids = array_column((array) $this->db->db_GetArray(
+            'SELECT DISTINCT `sid` FROM `refresh_tokens`
+             WHERE `user_id` = ' . $userId . ' AND `device_id` = "' . $this->db->db_Escape($deviceHash) . '" AND `revoked_at` IS NULL'
+        ), 'sid');
+        foreach ($sids as $sid) {
+            $this->revokeFamily((string) $sid, $reason);
+        }
     }
 
     /** Logout: ends the sign-in the refresh token belongs to (no-op for an unknown one). */
@@ -213,24 +251,5 @@ class Tokens
         }
 
         return $token;
-    }
-
-    /** @return array{accessToken: string, accessExpiresAt: int} */
-    private function access(int $userId, string $sid, int $now): array
-    {
-        $expires = $now + self::ACCESS_TTL_SECONDS;
-
-        return [
-            'accessToken' => Jwt::sign([
-                'aud' => 'app',
-                'sub' => (string) $userId,
-                'sid' => $sid,
-                'roles' => $this->accounts->getRoles($userId),
-                'iat' => $now,
-                'exp' => $expires,
-                'jti' => bin2hex(random_bytes(8)),
-            ]),
-            'accessExpiresAt' => $expires,
-        ];
     }
 }

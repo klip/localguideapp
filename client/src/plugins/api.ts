@@ -3,6 +3,7 @@ import { t } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useMessagesStore } from '@/stores/messages'
 import { socket, type SocketResponse } from '@/plugins/socket'
+import { deviceInfo } from '@/utils/deviceInfo'
 import type { AttributeMap, DiscoveryFilters, Gender, PlacePoint, RangeMap } from '@/types'
 
 export type { PlacePoint }
@@ -91,6 +92,21 @@ export interface AuthResult {
   accessToken?: string
   /** When `accessToken` expires, Unix seconds. */
   accessExpiresAt?: number
+}
+
+/** A browser the account is signed in on — "Your devices" (`myDevices`). */
+export interface MyDevice {
+  id: number
+  /** "Chrome on macOS". */
+  label: string
+  /** Roughly where it was last used, when known. */
+  place: string | null
+  country: string | null
+  /** ISO 8601 UTC. */
+  last_seen_at: string
+  first_seen_at: string
+  /** The browser making this request. */
+  current: boolean
 }
 
 /** What `POST /auth/refresh` returns. */
@@ -908,7 +924,9 @@ async function authPost<T>(action: string, payload: object = {}): Promise<T> {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      // What this browser says about itself, with every sign-in step (the
+      // account's devices list and history, `auth/classes/Devices.php`).
+      body: JSON.stringify({ ...payload, device: await deviceInfo() }),
     })
   } catch {
     throw new ApiError(t('common.api.unreachable'), 0)
@@ -1130,6 +1148,17 @@ export const api = {
     } finally {
       signedOut(false)
     }
+  },
+  /** The browsers this account is signed in on now, this one marked `current`. */
+  myDevices: () => call<{ devices: MyDevice[] }>('myDevices'),
+  /**
+   * Signs one browser out — its access tokens stop working at once. Signing
+   * out this one (`current`) signs this tab out too.
+   */
+  signOutDevice: async (deviceId: number) => {
+    const result = await call<{ ok: true; current: boolean }>('signOutDevice', { deviceId })
+    if (result.current) signedOut(false)
+    return result
   },
   /**
    * Ends every sign-in of the account — other devices' too, at once (their
