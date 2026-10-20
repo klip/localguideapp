@@ -41,15 +41,21 @@ export const useVisitorsStore = defineStore('visitors', () => {
       .filter((visitor): visitor is Visitor => !!visitor),
   )
 
+  let latestRequest = 0
+
   async function load(filters?: DiscoveryFilters) {
+    // Fetches can overlap (a slider drag, the location arriving); only the
+    // newest one may set the deck, or a slow wider answer overwrites it.
+    const request = ++latestRequest
     loading.value = true
     try {
       const result = await api.visitors(filters)
+      if (request !== latestRequest) return
       const mapped = result.visitors.map(toVisitorCard)
       for (const visitor of mapped) byId.value.set(visitor.id, visitor)
       currentIds.value = mapped.map((visitor) => visitor.id)
     } finally {
-      loading.value = false
+      if (request === latestRequest) loading.value = false
     }
   }
 

@@ -109,7 +109,8 @@ class Users
      *     Browsing guides, it's measured to their base (`guide_bases`).
      *   maxKm?: int  — with `near`: only guides whose area comes within
      *     that distance (distance − their radius ≤ maxKm). A flexible guide
-     *     (no radius) always passes; a guide with no base never does.
+     *     (no radius) counts as 25 km (`Ranking::FLEXIBLE_RADIUS_KM`); a
+     *     guide with no base never passes.
      *     Browsing travellers, both use their search area
      *     (`traveller_areas`, fresh for 30 days; rows carry `area_label`) or
      *     the nearest stop still ahead on their saved trips, whichever is
@@ -240,7 +241,11 @@ class Users
                 $distanceSql = Places::distanceKmSql('gb.`point`', $near);
                 $radiusSql = 'gb.`radius_km`';
                 if ($maxKm) {
-                    $where[] = '(gb.`user_id` IS NOT NULL AND (gb.`radius_km` IS NULL OR ' . $distanceSql . ' - gb.`radius_km` <= ' . (int) $maxKm . '))';
+                    // A flexible guide (no radius) counts as covering 25 km
+                    // here too, as in the ranking — "flexible" isn't "anywhere
+                    // on Earth", so a guide in Bangkok stays out of a 1 km
+                    // search in Lisbon.
+                    $where[] = '(gb.`user_id` IS NOT NULL AND ' . $distanceSql . ' - COALESCE(gb.`radius_km`, ' . Ranking::FLEXIBLE_RADIUS_KM . ') <= ' . (int) $maxKm . ')';
                 }
             }
         } else {

@@ -1785,7 +1785,9 @@ the plumbing, is in:
   `Users::searchByRole()` joins `guide_bases` for the guide deck: rows carry
   `distance_km` (whole km, 0 = under 1), guides with no base go last, and
   `maxKm` keeps guides whose area comes within it (distance − radius ≤
-  maxKm; a flexible guide always passes, one with no base never does).
+  maxKm; a flexible guide counts as a 25 km radius there, as in the ranking —
+  it used to pass every limit, so a 1 km search showed guides an ocean away;
+  one with no base never passes).
   **Proximity in the ranking** (`Ranking::scoreSql()`): +60 inside the
   person's radius (flexible counts as 25 km here), fading to 0 at 100 km
   beyond, plus +15 fading over 1,000 km — it outweighs everything else on
