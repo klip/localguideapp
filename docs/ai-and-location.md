@@ -122,7 +122,7 @@ stays on the server and results are cached in Redis. Choice below.
   and 200 out for three stops, ~4 s), not one per stop. Claude may pick fewer
   than four; the rest are topped up in SQL order, without a reason.
 - Candidates are guides whose area comes within **50 km** of the stop
-  (`maxKm` semantics: distance − radius), flexible guides included — one
+  (`maxKm` semantics: distance − radius, a flexible guide as 25 km) — one
   search instead of "within radius, else nearest within 50 km"; the
   proximity boost already puts guides covering the stop first.
 - Free text: Claude returns each place's English name, country name and
@@ -210,9 +210,10 @@ verification provider does all three and returns the extracted fields.
    behind a server-side proxy with a Redis cache. Production: self-hosted or
    paid (memo).
 4. **One base point + radius per guide.** An empty radius means **flexible**:
-   the guide will travel any distance, so they pass every distance filter.
-   (For ranking, an empty radius counts as 25 km, so a flexible guide in
-   Tokyo doesn't outrank one in Lisbon for a Lisbon search.)
+   the guide will travel. For both ranking and the distance limit it counts
+   as 25 km, so a flexible guide in Tokyo neither outranks one in Lisbon nor
+   shows up in a 10 km Lisbon search. (It used to pass every distance limit,
+   which made the limit look broken — changed 2026-10-20.)
 5. **Planner suggestions cost picks**, like the deck.
 6. **Location asked once per session**, after a one-line explanation.
 7. **Global service**: nothing is limited to Gibraltar; the copy changes.

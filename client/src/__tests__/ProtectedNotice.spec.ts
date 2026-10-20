@@ -5,14 +5,14 @@ import ProtectedNotice from '../components/ProtectedNotice.vue'
 import { useLegalStore } from '@/stores/legal'
 
 describe('ProtectedNotice', () => {
-  it('explains what paying a guide through RockGuide covers, and opens the terms at 5.1', async () => {
+  it('explains what paying a guide through BeLikeLocal covers, and opens the terms at 5.1', async () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     const wrapper = mount(ProtectedNotice, { props: { kind: 'fee' }, global: { plugins: [pinia] } })
 
-    expect(wrapper.text()).toContain('Protected by RockGuide')
+    expect(wrapper.text()).toContain('Protected by BeLikeLocal')
     expect(wrapper.text()).toMatch(/refunded by the rules shown/)
-    expect(wrapper.text()).toMatch(/outside RockGuide aren’t covered/)
+    expect(wrapper.text()).toMatch(/outside BeLikeLocal aren’t covered/)
 
     await wrapper.find('button').trigger('click')
     expect(useLegalStore().termsOpen).toBe(true)

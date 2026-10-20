@@ -264,18 +264,18 @@ class AccountSecurity
         $minutes = (int) (self::RESET_TTL_SECONDS / 60);
         $this->mail->enqueue(
             (string) $user['email'],
-            'Reset your RockGuide password',
+            'Reset your BeLikeLocal password',
             self::greeting($user)
-            . "Someone (hopefully you) asked to reset the password for your RockGuide account.\n\n"
+            . "Someone (hopefully you) asked to reset the password for your BeLikeLocal account.\n\n"
             . "Choose a new password here — the link works once, for the next {$minutes} minutes:\n{$link}\n\n"
-            . "If you didn't ask for this, ignore this email; your password stays as it is.\n\nRockGuide",
+            . "If you didn't ask for this, ignore this email; your password stays as it is.\n\nBeLikeLocal",
             'password_reset',
             MailQueue::PRIORITY_HIGH
         );
     }
 
     /** Sets a new password from a reset link, spends the link, and signs the account out everywhere. */
-    public function resetPassword(string $token, string $newPassword): void
+    public function resetPassword(string $token, string $newPassword): int
     {
         self::assertPasswordStrength($newPassword);
 
@@ -295,6 +295,8 @@ class AccountSecurity
         if ($user) {
             $this->notifyPasswordChanged($user);
         }
+
+        return $userId;
     }
 
     /** Lets the account owner know their password changed — a reset, or a change from the profile page. */
@@ -302,11 +304,11 @@ class AccountSecurity
     {
         $this->mail->enqueue(
             (string) $user['email'],
-            'Your RockGuide password was changed',
+            'Your BeLikeLocal password was changed',
             self::greeting($user)
-            . "The password for your RockGuide account was just changed.\n\n"
+            . "The password for your BeLikeLocal account was just changed.\n\n"
             . "If that was you, there's nothing to do. If it wasn't, reset your password straight away:\n"
-            . self::appUrl() . "/forgot-password\n\nRockGuide",
+            . self::appUrl() . "/forgot-password\n\nBeLikeLocal",
             'password_changed'
         );
     }
@@ -362,11 +364,11 @@ class AccountSecurity
         $minutes = (int) (self::LOGIN_CODE_TTL_SECONDS / 60);
         $this->mail->enqueue(
             (string) $user['email'],
-            "Your RockGuide login code: {$code}",
+            "Your BeLikeLocal login code: {$code}",
             self::greeting($user)
             . "Your login code is:\n\n    {$code}\n\n"
             . "It works for {$minutes} minutes. If you didn't just try to log in, someone has your password — "
-            . "reset it at " . self::appUrl() . "/forgot-password\n\nRockGuide",
+            . "reset it at " . self::appUrl() . "/forgot-password\n\nBeLikeLocal",
             'login_code',
             MailQueue::PRIORITY_HIGH
         );

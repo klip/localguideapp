@@ -31,5 +31,14 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
+    // Sign-in (`POST /auth/*`, HttpOnly cookies) must be on the app's own
+    // origin: forward it to the auth service's browser endpoint
+    // (auth/public.php, nginx :8083 on the docker network).
+    proxy: {
+      '/auth/': {
+        target: process.env.AUTH_PROXY_TARGET ?? 'http://nginx:8083',
+        xfwd: true,
+      },
+    },
   },
 })

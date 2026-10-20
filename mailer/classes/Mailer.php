@@ -8,7 +8,7 @@
  * environment:
  *
  *   SMTP_HOST, SMTP_PORT (default 587), SMTP_USER, SMTP_PASS
- *   MAIL_FROM (default SMTP_USER), MAIL_FROM_NAME (default "RockGuide")
+ *   MAIL_FROM (default SMTP_USER), MAIL_FROM_NAME (default "BeLikeLocal")
  *   MAIL_REDIRECT_TO — development only: every message goes to this address
  *                      instead, with the real recipient noted in the body.
  *
@@ -86,7 +86,7 @@ class Mailer
 
     private function message(string $from, string $to, string $subject, string $body): string
     {
-        $fromName = self::env('MAIL_FROM_NAME') ?: 'RockGuide';
+        $fromName = self::env('MAIL_FROM_NAME') ?: 'BeLikeLocal';
         $domain = substr(strrchr($from, '@') ?: '@localhost', 1);
 
         $headers = [

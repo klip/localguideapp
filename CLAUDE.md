@@ -1,10 +1,12 @@
-# RockGuide
+# BeLikeLocal
 
 A Tinder-style app for matching visitors with local guides: visitors swipe
 through a deck of guides (and vice versa), pick from a purchased pack of
-selections, and chat once matched (contact details are never shared). Working name in code/prototype
-files is "RockGuide"; the directory and package are named
-`localguideapp`, and the GitHub repo is `localguide`.
+selections, and chat once matched (contact details are never shared). The
+brand is "BeLikeLocal" (logo "Be [thumbs up] Local", domain
+`belikelocal.club`). The directory and package are named `localguideapp`,
+and the GitHub repo is `localguide`. The `rg` prefix (`lemp-rg-*`
+containers, `--rg-*` CSS tokens) is just a short prefix; leave it.
 
 Git repository, branch `main`.
 
@@ -17,7 +19,7 @@ in `LICENSE`.
 
 **Working end-to-end, against the real backend (nothing mocked in these
 paths):** registration/login with real password hashing (`Auth.php`) and
-server-side sessions (5-minute sliding expiry, see "Sessions"); role-based
+signed access tokens and an HttpOnly refresh cookie (see "Sign-in"); role-based
 post-register/post-login redirects (guide vs. guest); self-service profile
 editing — contact info, 2FA channel, photo, guide/visitor profile fields,
 and a user-extensible interest/language/allergy taxonomy — all via
@@ -79,11 +81,13 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
   - `lib/` — shared by all of them: `db`, `Log`, `RedisClient`/`Resp`,
     `MailQueue`, `ServiceHttp`, `ImageData`, `AuthenticationException`,
     `Ai` (the Claude API).
-- `deploy/` — config the docker-lemp stack mounts: `php/rockguide.ini`, and
+- `deploy/` — config the docker-lemp stack mounts: `php/belikelocal.ini`, and
   `observability/` (Loki, Alloy, Grafana provisioning + dashboard).
 - `docs/scaling.md` — database load, scaling proposals, the GKE target.
 - `docs/ai-and-location.md` — location search (built), the AI travel
   planner (built), document verification (not yet).
+- `docs/auth-cms-plan.md` — proposal: signed access/refresh tokens, device
+  fingerprints and suspicious logins, the CMS (not built yet).
 - `docs/production-memo.md` — every development stand-in (simulated
   payments, Gmail, free geocoder, Claude ID checks, …) and what replaces it
   in production. Add to it whenever a shortcut is taken.
@@ -124,7 +128,7 @@ step and the forgot/reset password pages, `DiscoverPage.spec.ts` — the
 open deck and both modals, `pendingRejects.spec.ts`, `i18n.spec.ts` —
 interpolation, plural forms, the English fallback layers and RTL) plus one
 plain-module test, `api.spec.ts`, for `plugins/api.ts`'s `call()` itself
-(session-hash attachment, 401-triggered auto-logout — see "Sessions"
+(access-token attachment, renew-and-retry on a 401, sign-in over HTTP — see "Sign-in"
 above; it mocks `fetch` via `vi.stubGlobal` rather than going through a
 component). The pattern for a page that calls the API: build a local test
 router (routes it actually navigates to/from), the shared `fakeApi()` stub
@@ -136,7 +140,7 @@ per test, also passed to `setActivePinia()` so a store can be inspected
 after mount (`useMessagesStore().items`) the same way the component sees
 it. `App.spec.ts` needs the same `[API_KEY]` provide as of this session
 feature — `App.vue` calls `useApi()` synchronously in its own setup body
-(see "Sessions" above) — even though its one test never triggers a call
+(see "Sign-in" above) — even though its one test never triggers a call
 (anonymous render, and `App.vue` only calls `api.session()` when a cached
 session already exists). Any test that calls `useAuthStore().setUser()`
 should also clean up `localStorage` afterward (see `api.spec.ts`) — the
@@ -162,7 +166,7 @@ into the next test's fresh `Pinia` instance.
   `App.vue` re-fetches `packsUnlocked` at boot for guests, but `picks`/
   `passed` genuinely start empty again — see below), `auth` (the signed-in user + session hash, set by
   `RegisterPage`/`LoginPage` and persisted to `localStorage` — see
-  "Sessions" below), `messages` (global toast queue — see below),
+  "Sign-in" below), `messages` (global toast queue — see below),
   `guides`/`visitors` (real discovery-deck data — see "Real guide/visitor
   cards" below). Because `matches` doesn't survive a reload the way
   `auth` now does, two places re-sync it from the server: `App.vue` on every
@@ -201,7 +205,7 @@ into the next test's fresh `Pinia` instance.
   dial codes for `ProfilePage.vue`'s phone country-code picker — see
   "Self-service profile editing" below. Not exhaustive; add more entries
   if a real user needs one that's missing.
-- `prototype/rockguide-pico-ui-prototype.html` — the original static
+- `prototype/belikelocal-pico-ui-prototype.html` — the original static
   prototype the current routes/screens were derived from; useful as a design
   reference.
 
@@ -270,7 +274,7 @@ path/name table) and the shared `src/components/` each is built from:
   `PanelCard`.
 
 App shell (mounted once, in `App.vue`, around every page — see
-`App.vue`'s own boot-time session check under "Sessions" below):
+`App.vue`'s own boot-time session check under "Sign-in" below):
 `AppHeader.vue` (the nav — see "Talking to the API" for its role-aware,
 auth-aware CTA logic, and "Header & mobile menu" below for the layout), `MessageToaster.vue` (renders `stores/messages.ts`'s
 toast queue), `AppFooter.vue` (uses `BrandMark` in its `as="text"` form, plus
@@ -284,10 +288,11 @@ own — every one just takes props/emits):
 - `SectionTitle.vue` — eyebrow (rendered as a `PillBadge`) + heading +
   optional lead, at the top of every page section.
 - `PillBadge.vue` — small rounded label; `tone="warm" | "neutral"`.
-- `BrandMark.vue` — the logo: a map pin with a magnifier and the
-  "LocalGuideFinder" wordmark (working name — the code and the page title
-  still say RockGuide), as a link (default, `AppHeader.vue`) or bare text
-  (`as="text"`, `AppFooter.vue`, the mobile drawer).
+- `BrandMark.vue` — the logo: "Be [thumbs up] Local", read "Be Like Local"
+  after the domain `belikelocal.club` (the thumb is our own SVG drawing and
+  is announced as "Like"),
+  as a link (default, `AppHeader.vue`) or bare text (`as="text"`,
+  `AppFooter.vue`, the mobile drawer).
 - `TagList.vue` — a wrapping row of soft tag chips.
 - `DecisionRow.vue` — the reject/accept button pair every card's footer
   uses; default labels "✕ Reject"/"🤝 Interested" (the handshake is
@@ -327,7 +332,7 @@ own — every one just takes props/emits):
   works" row only.
 - `MapPinLinks.vue` — "Open in Apple Maps · Open in Google Maps" for a map
   pin, the viewer's own maps app first (a booking's meeting pin).
-- `ProtectedNotice.vue` — "Protected by RockGuide" before every payment
+- `ProtectedNotice.vue` — "Protected by BeLikeLocal" before every payment
   (see "Terms and conditions"); opens the terms at 5.1.
 - `PriceBox.vue` — the warm-gradient £5 price panel; full-width on
   `HomePage.vue`, `compact` on `UnlockPage.vue`.
@@ -351,7 +356,7 @@ own — every one just takes props/emits):
   `provide` rather than a bare module import. Sends
   `{ action, ...payload }` over the API WebSocket (`plugins/socket.ts`, see
   "Realtime" — not `fetch`) to `VITE_API_BASE_URL` + `/ws` (see
-  `.env.development`; defaults to `https://api.rockguide.com` if unset) and
+  `.env.development`; defaults to `https://api.belikelocal.club` if unset) and
   matches `RequestProcessor`'s actions 1:1: `api.register()`, `api.login()`,
   `api.guides(filters?)`, `api.visitors(filters?)` (filtered server-side —
   see "Real guide/visitor cards" below), `api.updateProfile()`,
@@ -434,7 +439,7 @@ own — every one just takes props/emits):
   "Log out" — which calls `api.logout()` best-effort, then `auth.clear()`,
   pushes a success toast, and routes home. Signed out, **both** a "Log in"
   link (`/login`) and the "Get started" CTA (`/register`), so a returning
-  user (including one sent here by a session-expiry toast, see "Sessions")
+  user (including one sent here by a session-expiry toast, see "Sign-in")
   has a direct way back to `/login`. **"How it works" (`/about#how`)**
   renders only while signed *out* — marketing copy a signed-in user is
   already past; the `#how` section still exists on `HomePage.vue`. See
@@ -442,7 +447,7 @@ own — every one just takes props/emits):
 - Payments/matching actions — `api.unlockPack()`, `api.paymentState()`,
   `api.decide()`, `api.revokeSelection()` — no longer take
   an explicit `userId`; the caller's identity comes from the session hash
-  `call()` attaches automatically (see "Sessions" below). `UnlockPage.vue` calls `unlockPack()`
+  `call()` attaches automatically (see "Sign-in" below). `UnlockPage.vue` calls `unlockPack()`
   for real and syncs the result into `useMatchesStore().applyPaymentState()`.
   (`api.matches()`/`Selections::getActiveMatches()` were removed with the
   `/shortlist` page, their only caller — `/matches` uses `matchOverview()`.)
@@ -479,7 +484,7 @@ for Arabic; a missing form falls back to `_other`).
   router's *base* (`router/index.ts`, `createWebHistory('/es/')`), not a
   route param, so routes and links stay language-free (`to="/matches"`
   renders `/es/matches`) and active-link matching works. A URL naming a
-  supported language wins over localStorage (`rockguide.language`) and is
+  supported language wins over localStorage (`belikelocal.language`) and is
   saved; one without is rewritten in place (saved choice → browser language →
   English) before the router reads it. `main.ts` waits up to 1.5 s for the
   first page's strings before mounting.
@@ -566,8 +571,8 @@ failed registration closes it, toasts as before, and drops the cached terms.
   Accept/Reject. **Adding analytics or anything optional means turning it
   into a real consent choice** (nothing set before yes, Reject as easy as
   Accept, the answer kept) and bumping `NOTICE_VERSION`, which re-shows it
-  (`rockguide.cookieNotice` holds the acknowledged version).
-- **Protected by RockGuide** (section 5.1, all 15 languages): what paying
+  (`belikelocal.cookieNotice` holds the acknowledged version).
+- **Protected by BeLikeLocal** (section 5.1, all 15 languages): what paying
   through the platform covers (the refund rules, help with a dispute, real
   reviews) and that arrangements or payments outside it aren't covered.
   Also in the text since 2026-10-16: section 2 says contact details aren't
@@ -602,7 +607,7 @@ longer behind a paywall — what's gated is "Interested":
 
 - **Signed out**: the first suggested card shows; Interested opens a modal
   (`ModalDialog.vue`) with "Create account" / "Log in". Reject moves on and
-  queues the guide id in `localStorage` (`rockguide.pendingRejects`,
+  queues the guide id in `localStorage` (`belikelocal.pendingRejects`,
   `src/utils/pendingRejects.ts`) — no `decide()` yet. `stores/matches.ts`
   seeds `passed` from that queue and unions it into `applyPaymentState()`,
   so neither a reload nor the login re-sync brings those cards back.
@@ -852,7 +857,7 @@ behind it as badges instead.
 ### Levels, fees & bonus packages (`Levels.php`, `LevelPanel.vue`)
 
 - **Level** from *qualifying* trips — confirmed + finished, and either paid
-  through RockGuide or with a person whose identity is verified
+  through BeLikeLocal or with a person whose identity is verified
   (`Levels::QUALIFYING_TRIP`, shared by the level, the trips badge and the
   ranking), each other person counted once — so a ring of fresh accounts
   finishing free trips with each other earns nothing: 0 New · 1 Starter (1) · 2 Explorer (3) · 3 Pathfinder (6) ·
@@ -923,7 +928,7 @@ happened (≤2000), with counters. `api.reportUser()` →
 
 ### No contact details — chat instead
 
-RockGuide **never shares a user's email or phone with another user** — not
+BeLikeLocal **never shares a user's email or phone with another user** — not
 after a match, not after a confirmed or finished booking. Matched people plan
 the trip in Messages (chat, with "Share my location"); `ContactFilter` keeps
 contact details out of everything they write. So: `matchOverview` and
@@ -982,7 +987,7 @@ The channel that replaces swapping phone numbers. `api/classes/Messages.php`,
 
 ### Contact filter (`lib/ContactFilter.php`)
 
-RockGuide never shares contact details (see "No contact details"), so
+BeLikeLocal never shares contact details (see "No contact details"), so
 nothing a person writes for others may carry them. `ContactFilter` finds phone numbers (7+ digits in a
 run — spelled-out digits in en/es/fr/de/it/pt, any Unicode digits, "O" for
 zero, commas/dots/dashes between groups), emails (real, and "at/dot"
@@ -1056,21 +1061,24 @@ connection carries the server's pushes. The client protocol is unchanged
 from when one PHP process did everything; behind it are services (see
 "Services"):
 
-- **Requests**: `{ type: 'request', id, action, sessionHash?, ... }` →
-  `{ type: 'response', id, status, body }`. The gateway sends account
-  actions to auth as they are; for anything else it first asks auth to
-  `resolve` the `sessionHash` (sliding it), answers 401 itself if that
-  fails, and forwards the request to the API with `X-User-Id` — the API
-  never sees a hash. `status` is the service's HTTP status, so `call()`
-  handles 401s exactly as before; an unreachable service is a 503. Requests
-  run concurrently. A dropped connection fails in-flight requests with
-  status 0 (not retried); requests time out after 30 s (services after 25).
-- **Identity for pushes**: `{ type: 'auth', sessionHash }` binds the
-  connection to a user (`''` unbinds). `App.vue` sends it whenever
-  `auth.sessionHash` changes; the socket re-sends it on every reconnect
-  (backoff 1 s → 15 s, only while signed in or with requests waiting). The
-  gateway re-checks bound sessions every 20 s (`peekMany`, no sliding), so
-  an expired session stops getting pushes.
+- **Requests**: `{ type: 'request', id, action, accessToken?, actingRole?,
+  ... }` → `{ type: 'response', id, status, body }`. The gateway verifies
+  the access token itself (`Jwt`, public key — no call), answers 401/403
+  for a bad token or a role it lacks, and forwards the request with
+  `X-User-Id`, `X-Acting-Role` and `Authorization: Bearer <token>`, which the
+  service verifies again (`ServiceHttp`) — to auth for account actions, the
+  API for the rest. A `sessionHash` instead of a token still works (auth
+  `resolve`s it) until sessions are retired. `status` is the service's HTTP
+  status; an unreachable service is a 503. Requests run concurrently. A
+  dropped connection fails in-flight requests with status 0 (not retried);
+  requests time out after 30 s (services after 25).
+- **Identity for pushes**: `{ type: 'auth', accessToken }` binds the
+  connection to a user (`''` unbinds); the binding lasts until the token
+  expires, so `App.vue` re-sends it with every renewed token (re-binding
+  the same user keeps the subscription). The socket re-sends it on every
+  reconnect (backoff 1 s → 15 s, only while signed in or with requests
+  waiting). Session-hash bindings are still re-checked every 20 s
+  (`peekMany`).
 - **Pushes** go through Redis pub/sub, channel `user:<id>`: the API
   publishes `{ type: 'notification', notification }` as each row is written,
   `{ type: 'trip_plan', planId, status }` when a trip's guides are ready,
@@ -1605,81 +1613,92 @@ category a user invented on their profile page five minutes ago.
   re-activate later and the revoking user is immediately free to be matched
   by/with someone else.
 
-### Sessions
+### Sign-in: access tokens and the refresh cookie
 
-The app has real server-side sessions, held in **Redis by the auth
-service** (`auth/classes/Session.php`: key `session:<sha256 of hash>` with a
-300 s TTL re-armed by `GETEX` on each use, plus a `user_sessions:<id>` set
-for signing out everywhere; MySQL's `sessions` table was dropped by 023) — the long-standing "there is no session/token auth yet, so
-anyone can act as any user id" gap noted throughout this file's history is
-closed. A session is a random hash, created by `register`/`login`, that
-expires after **5 minutes of inactivity** — a *sliding* window, not a
-fixed TTL: any valid use of the hash bumps its expiry forward, so an
-active user is never logged out mid-session, but an idle one is.
+Phases 1 and 2 of `docs/auth-cms-plan.md` are in: the client signs in with **signed
+tokens**; the old Redis sessions still work alongside (for any old client)
+until phase 5 retires them.
 
-- `AuthResult` (returned by `register`/`login`/`session`) now includes
-  `sessionHash`. `stores/auth.ts` persists the whole `AuthResult` to
-  `localStorage` (`rockguide.session`) on `setUser()`, and restores it
-  optimistically when the store is first created — this is what makes
-  login **survive a page reload** (it didn't before). `sessionHash` is
-  exposed as a computed off of it for `plugins/api.ts` to read.
-- `plugins/api.ts`'s `call()` is where the hash actually gets used: it
-  reads `useAuthStore().sessionHash` and attaches it as `sessionHash` on
-  every outgoing request — **no page or store passes it explicitly**,
-  unlike the `userId` fields this replaced (which every call site used to
-  thread through by hand; see git history if you need the old shape).
-  Reading a Pinia store from a plain function like this — not a component
-  or another store's setup body — works because `useXStore()` resolves
-  through a module-level "active pinia" set once by `app.use(pinia)` in
-  `main.ts`, unlike `useApi()`'s `inject()`, which is scoped to whatever
-  component is currently rendering (see the `stores/guides.ts` comment on
-  why *that* distinction matters) — so this is safe to call from anywhere,
-  including from inside a debounced `setTimeout`.
-- **A `401` response means the session was missing, unknown, or expired**
-  (`AuthenticationException`, see Backend) — distinct from the generic
-  `400` an ordinary validation `RuntimeException` gets. `call()` treats a
-  `401` as self-describing: it clears `auth`'s local state right there,
-  before the error even reaches the calling page. This is *reactive*
-  expiry handling — there's no polling timer anywhere; a stale session
-  only actually surfaces the moment something tries to use it.
-- **`call()` also pushes the shared "session expired" toast right there,
-  on every `401`** — `useMessagesStore().sessionExpired()` (guarded against
-  re-firing while one is already showing, since several requests can `401`
-  at once, e.g. `ProfilePage.vue`'s parallel `Promise.all` on mount).
-  Closing that toast — by its 5s auto-dismiss or its own "✕" button, both
-  go through the same `dismiss()` — **routes to `/login`**: once signed out
-  involuntarily, whatever the current page was showing is no longer
-  actionable. Individual pages still have their own `catch (err) { ... }`
-  after an `api.*()` call, but route it through
-  `src/utils/reportApiError.ts`'s `reportApiError(err, fallback,
-  placement?)` rather than pushing their own toast directly — it no-ops for
-  a `401` (since `call()` already surfaced it) and only falls back to a
-  page-specific `messages.error(...)` for anything else, so a expired
-  session never shows two overlapping "something went wrong" toasts.
-  `stores/messages.ts` imports the router singleton directly (`import
-  router from '@/router'`) rather than `useRouter()`, since `sessionExpired()`
-  and `call()` are both plain functions, not component setup code —
-  `useRouter()`'s `inject()` needs a "current" component instance the same
-  way `useApi()` does (see the `stores/guides.ts` note above), but the
-  router instance itself is just an importable module singleton with no
-  such restriction on `.push()`.
-- `App.vue` additionally does one **proactive** check on boot
-  (`api.session()`), only when a cached session exists: a page reload can
-  restore a session from `localStorage` that already expired server-side
-  while the tab was closed, and this avoids a misleading logged-in-looking
-  header until the user happens to trigger an authenticated action. Its
-  catch block does nothing on a `401` now — `call()` already cleared
-  `auth.user` and pushed the shared toast above, so there'd be nothing left
-  to add; any other failure (a network hiccup) leaves the optimistic
-  cached session alone rather than logging the user out over it.
-- `AppHeader.vue`'s "Log out" button now calls `api.logout()` (destroys
-  the session row server-side) before `auth.clear()` — best-effort, since
-  clearing local state is what the click actually needs to accomplish;
-  the session would otherwise still self-expire in 5 minutes anyway.
-- Nothing rotates a session's hash on use, including a password change —
-  changing your password doesn't require logging back in (it does send a
-  "your password was changed" email). A password *reset* is different: it
-  deletes every session for the account (`Session::destroyAllFor()`).
+- **Access token**: a 15-minute JWT signed with Ed25519 (`lib/Jwt.php`,
+  libsodium — no Composer). Claims `iss belikelocal-auth`, `aud app`, `sub`
+  (user id), `sid` (the sign-in family), `roles`, `iat`, `exp`, `jti`. The
+  **private key** (`JWT_PRIVATE_KEY`, `JWT_KID`) is only in
+  `docker-lemp/php/localguideapp-auth.env`, which only `rg-auth` gets; every
+  service has `JWT_PUBLIC_KEYS` (`kid:base64,…`, in the shared env file).
+  The gateway and each service verify it themselves — no call per request.
+- **Refresh token**: 32 random bytes in an **HttpOnly** cookie
+  (`__Host-rg_refresh`; `Secure; SameSite=Strict; Path=/`, no Domain), never
+  visible to scripts; `refresh_tokens` (070) stores its SHA-256, one family
+  per sign-in (`sid`). 30 days sliding, 90 absolute. **Single-use**:
+  `Tokens::rotate()` marks it used and issues a child; a used one presented
+  again after a 30 s grace window is a copy — the whole family is revoked
+  (logged `Refresh token reused; family revoked`). Logout revokes the
+  family; a password reset revokes all of the account's.
+- **Device cookie** `__Host-rg_device` (random, 400 days); its SHA-256 is
+  stored with each sign-in (for phases 3–4).
+- **Sign-in is HTTP, everything else stays on the socket**: only an HTTP
+  response can set a cookie, so `register`, `login`, `verifyTwoFactor`,
+  `refresh` and `logout` are `POST /auth/<action>` **on the app's own
+  origin** — `auth/public.php` → `AuthHttp`, which runs the same
+  `AuthProcessor` (with `withSession: false`, so no Redis session) and adds
+  the tokens and cookies. It requires an allowed `Origin` (`lib/Origins.php`,
+  shared with the gateway) and `Content-Type: application/json`. Development:
+  Vite proxies `/auth/` to nginx `:8083` (`client/vite.config.ts`,
+  `AUTH_PROXY_TARGET` overrides). Production: the `belikelocal.club` server
+  must route `/auth/` to `rg-auth`'s `public.php` the same way.
+- **Client** (`plugins/api.ts`): `stores/auth.ts` keeps `user` (a summary —
+  never a credential) in `localStorage` (`belikelocal.session`) so the header
+  renders after a reload, and the access token **in memory only**
+  (`accessToken`, `accessExpiresAt`). `api.login/register/verifyTwoFactor`
+  go through `authPost()` and `adopt()` the token. `call()` sends
+  `accessToken` + `actingRole` on every request, renewing first when under
+  30 s are left (`currentAccessToken()`); on a 401 it forces one renewal and
+  retries once. `refreshAccessToken()` shares one request per tab, takes a
+  **Web Lock** across tabs (the refresh token is single-use) and skips if
+  another tab already renewed; new tokens and sign-outs travel to the other
+  tabs over a **`BroadcastChannel`** (`belikelocal.auth`), memory to memory.
+  A timer renews 60 s before expiry. `App.vue` calls `api.refresh()` at boot
+  (it replaced `api.session()`), and re-binds the socket with every new token.
+- **When the sign-in ends** (refresh → 401): `signedOut()` clears the store,
+  tells the other tabs, and shows the shared "session expired" toast
+  (`useMessagesStore().sessionExpired()`, guarded against repeats; closing it
+  routes to `/login`). Pages route their own errors through
+  `reportApiError()`, which skips 401s so there's never a second toast. A
+  401 on a signed-out request doesn't sign other tabs out. `stores/messages.ts`
+  imports the router singleton, not `useRouter()`, since these are plain
+  functions — same reason `call()` reads Pinia stores directly (the active
+  pinia is module-level) rather than through `inject()` (see
+  `stores/guides.ts`).
+- **Revocation is immediate** (phase 2): an access token would otherwise
+  outlive its sign-in by up to 15 minutes. Whenever refresh tokens are
+  revoked (logout, a reused token, a password reset, sign out everywhere)
+  `Tokens` also writes `revoked:sid:<sid>` to Redis (expiring after 16
+  minutes) and publishes it on `auth:revoked` (`lib/Revocations.php`). Every
+  gateway keeps the list in memory (loaded at start-up and after a Redis
+  outage), refuses those tokens and unbinds their sockets at once. The
+  services don't check it — they're only reachable through the gateway.
+  Revocation goes by **sid**, each live sign-in of the account, so signing
+  straight back in works; `revoked:user:<id>` (every token issued up to
+  then) exists for freezing accounts, unused yet.
+- **Sign out on all devices** (profile page, under the contact form):
+  `api.logoutEverywhere()` → `POST /auth/logoutEverywhere` — the account is
+  taken from the refresh cookie, every sign-in and old session ends, the
+  other devices' sockets are unbound, and this tab goes to `/login`.
+- `addRole` (still on the socket) returns a new access token whose `roles`
+  claim includes the new role (`Tokens::reissueAccess()`, using the caller's
+  `sid` from the verified token); `api.addRole` adopts it.
+- **The old sessions** (`auth/classes/Session.php`, Redis, 5-minute sliding
+  TTL): the WebSocket `login`/`register`/`verifyTwoFactor`/`session`/`logout`
+  actions still create and use them, and the gateway still resolves a
+  `sessionHash`. Nothing in the client uses them any more.
+- Tests: `lib/tests/JwtTest.php` (signing, expiry, audience, forgery, `alg:
+  none`, key rotation) and `lib/tests/auth-e2e.mjs` (end to end against the
+  running stack, ~35 s: cookies and their flags, the gateway and services
+  verifying, a forged token, a role the token lacks, rotation, reuse
+  revoking the family, Origin/Content-Type refusals, logout killing its
+  access token at once, sign out everywhere unbinding another device, the
+  old session path); `api.spec.ts` and `ProfilePage.spec.ts` cover the
+  client side.
 
 ### Acting role (one account, both roles)
 
@@ -1690,7 +1709,7 @@ the plumbing, is in:
 - `AuthResult.roles` lists every role (registration role first; `role` is
   kept and still means the first). `stores/auth.ts` exposes `roles`,
   `activeRole` (the last one chosen via `setActiveRole()` if still held,
-  else the first; persisted in `localStorage` as `rockguide.activeRole`) —
+  else the first; persisted in `localStorage` as `belikelocal.activeRole`) —
   **every page reads `auth.activeRole`, never `auth.user.role`**.
 - `call()` sends it as `actingRole` on every signed-in request. The gateway
   gets the user's roles from auth's `resolve`, answers 403 for a role they
@@ -1785,7 +1804,9 @@ the plumbing, is in:
   `Users::searchByRole()` joins `guide_bases` for the guide deck: rows carry
   `distance_km` (whole km, 0 = under 1), guides with no base go last, and
   `maxKm` keeps guides whose area comes within it (distance − radius ≤
-  maxKm; a flexible guide always passes, one with no base never does).
+  maxKm; a flexible guide counts as a 25 km radius there, as in the ranking —
+  it used to pass every limit, so a 1 km search showed guides an ocean away;
+  one with no base never passes).
   **Proximity in the ranking** (`Ranking::scoreSql()`): +60 inside the
   person's radius (flexible counts as 25 km here), fading to 0 at 100 km
   beyond, plus +15 fading over 1,000 km — it outweighs everything else on
@@ -1798,7 +1819,7 @@ the plumbing, is in:
   `ActiveFilters` shows "Near Lisbon" and "Within 25 km" pills. The card's
   meta line reads "★ 4.8 · 1 review · 3 km away" (`utils/distance.ts`).
 - **The search point per role, per session** (phase A3): `stores/filters.ts`
-  keeps `near` in `sessionStorage` (`rockguide.near.<role>`) and swaps it
+  keeps `near` in `sessionStorage` (`belikelocal.near.<role>`) and swaps it
   when the acting role changes — a traveller searches where they're going, a
   guide near where they work. `useDeckLocation()` (both Discover pages) puts
   it in the URL (`?near=lat,lng&place=…`, which wins on arrival; changes
@@ -1808,7 +1829,7 @@ the plumbing, is in:
   decks, signed in only): an explanation, then "Use my location" (device
   once → `reverseGeocode`, via `utils/currentPlace.ts`, shared with
   `PlaceSearch`), "Choose a place" or "Not now"
-  (`rockguide.locationAsked.<role>`). It doesn't ask when a point is set
+  (`belikelocal.locationAsked.<role>`). It doesn't ask when a point is set
   already, when the browser has already granted location (read silently), or
   for a guide with a base (`api.myGuideBase()`, used silently).
 - **The guide's deck by location**: a traveller's search area is stored in
@@ -1911,8 +1932,8 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
   "Don't ask for a code on this device for 30 days" checkbox
   (`verifyTwoFactor` with `rememberDevice: true` → the `AuthResult` also
   carries `deviceToken` + `trustedUntil`). The browser keeps the token per
-  email in `localStorage` (`rockguide.trustedDevices`,
-  `src/utils/trustedDevice.ts` — kept out of `rockguide.session`), and
+  email in `localStorage` (`belikelocal.trustedDevices`,
+  `src/utils/trustedDevice.ts` — kept out of `belikelocal.session`), and
   `login` sends it as `deviceToken`. The server checks it only *after* the
   password matched, and only for that account
   (`AccountSecurity::isTrustedDevice()`), so it skips the code, never the
@@ -1944,10 +1965,13 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
 - **Internal HTTP contract** (`lib/ServiceHttp.php`): `POST /` with the JSON
   payload, `X-Internal-Token` (shared secret `INTERNAL_TOKEN`; missing or
   wrong → 403, unset on the service → 503), `X-User-Id`, `X-Request-Id`,
-  `X-Client-User-Agent`; `GET /healthz` → 200. The gateway also answers
-  `GET /healthz`. Only `/ws` is public on `api.rockguide.com`; the service
+  `X-Client-User-Agent`, and `Authorization: Bearer <access token>` when
+  the caller used one (re-verified; it must name `X-User-Id`, else 401);
+  `GET /healthz` → 200. The auth service also has its browser-facing
+  `POST /auth/<action>` endpoint (`auth/public.php`, see "Sign-in"). The gateway also answers
+  `GET /healthz`. Only `/ws` is public on `api.belikelocal.club`; the service
   ports aren't published. The gateway accepts browser origins
-  `rockguide.com` (+ www/admin/api) and `localhost:5173`; `WS_EXTRA_ORIGINS`
+  `belikelocal.club` (+ www/admin/api) and `localhost:5173`; `WS_EXTRA_ORIGINS`
   (comma-separated, exact) adds more, e.g. a second dev server.
 - **Gateway-only actions** — `resolve`, `peekMany` (auth) and `pushState`
   (api) — the gateway refuses them from clients (404).
@@ -1978,13 +2002,13 @@ Every service logs one JSON object per line to stderr (`lib/Log.php`:
 `ts, level, service, msg, request_id, action, user_id, …`); PHP warnings
 and uncaught exceptions are captured the same way, and SQL in database
 errors has its quoted values blanked. Grafana **Alloy** reads the
-containers labelled `rockguide.logs=true` through the Docker socket, turns
+containers labelled `belikelocal.logs=true` through the Docker socket, turns
 `level`/`service` into labels and ships them to **Loki** (7-day
 retention). **Grafana** at http://localhost:3000 (anonymous admin, bound to
-localhost — development only) has Loki provisioned and a "RockGuide logs"
+localhost — development only) has Loki provisioned and a "BeLikeLocal logs"
 dashboard: requests by status, p95 time per action, errors/warnings by
 service, email sent/retried/failed, and log streams. Example query:
-`{app="rockguide", service="gateway"} | json | msg="Request" | status >= 500`.
+`{app="belikelocal", service="gateway"} | json | msg="Request" | status >= 500`.
 Never log secrets, codes, links or session hashes; mask emails with
 `Log::maskEmail()`.
 
@@ -1994,19 +2018,22 @@ This app runs inside the `docker-lemp` compose stack (one level up from this
 repo, at `../../docker-compose.yaml` relative to here — i.e.
 `~/Docker/docker-lemp/docker-compose.yaml`). Relevant services/containers:
 
-- The RockGuide services above (`ws`, `rg-api`, `rg-auth`, `rg-scheduler`,
-  `rg-mailer`), all built from `./php`, with `deploy/php/rockguide.ini`
+- The BeLikeLocal services above (`ws`, `rg-api`, `rg-auth`, `rg-scheduler`,
+  `rg-mailer`), all built from `./php`, with `deploy/php/belikelocal.ini`
   (errors logged, never displayed) and `restart: unless-stopped`. Their
   settings — DB_*, PEPPER, SMTP_*, MAIL_*, APP_URL, INTERNAL_TOKEN, REDIS_*,
-  ANTHROPIC_API_KEY —
-  come from `docker-lemp/php/localguideapp.env`, outside this repo. Never
-  commit it. `docker compose up -d ws rg-api rg-auth rg-scheduler rg-planner rg-mailer`.
+  ANTHROPIC_API_KEY, JWT_PUBLIC_KEYS —
+  come from `docker-lemp/php/localguideapp.env`, outside this repo; the
+  token-signing key (`JWT_KID`, `JWT_PRIVATE_KEY`) is in
+  `docker-lemp/php/localguideapp-auth.env`, given to `rg-auth` only. Never
+  commit either. A changed env file needs the container recreated
+  (`docker compose up -d --force-recreate …`), not just restarted. `docker compose up -d ws rg-api rg-auth rg-scheduler rg-planner rg-mailer`.
 - `redis` / `lemp-redis` — Redis 7.4 with AOF and a password
   (`docker-lemp/php/redis.env`); not published to the host.
 - `loki`, `alloy`, `grafana` (`lemp-loki`, `lemp-alloy`, `lemp-grafana`) —
   logs, configured from `deploy/observability/`.
 - `php` / `lemp-php` — the stack's shared PHP 8.3-fpm (custom image:
-  `mysqli`, `pdo_mysql`, `memcache`), used by the other sites; RockGuide no
+  `mysqli`, `pdo_mysql`, `memcache`), used by the other sites; BeLikeLocal no
   longer runs on it, but it's still the handy place to lint (no
   host-installed PHP):
   ```sh
@@ -2016,13 +2043,16 @@ repo, at `../../docker-compose.yaml` relative to here — i.e.
   The host repo root (`~/Docker/docker-lemp/www/`) is bind-mounted to
   `/var/www` in every container, so this repo is at
   `/var/www/localguideapp` inside them.
-- `nginx` / `lemp-nginx` — `../../nginx/conf.d/api.rockguide.com.conf`
+- `nginx` / `lemp-nginx` — `../../nginx/conf.d/api.belikelocal.club.conf`
   (ports 80/443) now only proxies `/ws` to the gateway; everything else is
-  404. `../../nginx/conf.d/rockguide-internal.conf` serves the api (`:8081`)
+  404. It resolves `ws` per request (`resolver` + a variable): with a plain
+  `proxy_pass http://ws:8090` nginx kept the old container's IP after `lemp-ws`
+  was recreated and answered 502 until reloaded. `../../nginx/conf.d/belikelocal-internal.conf` serves the api (`:8081`)
   and auth (`:8082`) services on the docker network only, with an 8 MB
-  body limit (a photo). Reload after editing:
+  body limit (a photo), plus auth's browser endpoint on `:8083`
+  (`/auth/*` → `public.php`), which Vite's dev-server proxy reaches. Reload after editing:
   `docker exec lemp-nginx nginx -s reload`. Requires
-  `127.0.0.1 api.rockguide.com` in `/etc/hosts` on the host.
+  `127.0.0.1 api.belikelocal.club` in `/etc/hosts` on the host.
 - `mysql` / `lemp-mysql` — MySQL 8.4. The `guideapp` database and
   `localguideapp` user already exist on this server, pre-dating this task:
   ```sh
@@ -2040,7 +2070,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=<the sending Gmail address>
 SMTP_PASS=<16-char Google App Password>
-MAIL_FROM_NAME=RockGuide
+MAIL_FROM_NAME=BeLikeLocal
 MAIL_REDIRECT_TO=<your inbox>   # development only
 ```
 
@@ -2062,10 +2092,11 @@ Every action the services dispatch — `AuthProcessor` (auth/) for
 `requestPasswordReset`, `resetPassword`, `forgetTrustedDevices`,
 `changePassword`, `logout`, `session`; `RequestProcessor` (api/) for the
 rest — and the `src/plugins/api.ts` method that calls it: a 1:1 mapping,
-always sent as `{ action, sessionHash?, ...payload }` over the WebSocket
-(see "Realtime"); the gateway routes it. "Auth" means the action calls
+always sent as `{ action, accessToken?, ...payload }` over the WebSocket
+(see "Realtime"; the sign-in actions marked **HTTP** go to `POST /auth/*`
+instead); the gateway routes it. "Auth" means the action calls
 `requireUserId()` and throws a `401` `AuthenticationException` (see
-"Sessions" below) without a valid `sessionHash` — everything else either
+"Sign-in" below) without a valid access token (or session hash) — everything else either
 takes no identity at all or reads one from the payload (`register`/`login`)
 directly. Every response is `200` with a JSON body on success; a thrown
 `RuntimeException` maps to `400` (`ContactDetailsException` adds `code:
@@ -2077,9 +2108,10 @@ is a `503` from the gateway.
 
 | Action | Auth | Frontend call | Request fields (beyond `sessionHash`) | Response | Backend |
 | --- | --- | --- | --- | --- | --- |
-| `register` | no | `api.register(payload)` | `email, password, role, termsVersion, language?, name?, image?` — `termsVersion` must be the terms in force | `AuthResult` (`id, email, role, sessionHash`) | `actionRegister()` → `Users::register()`, `Session::create()` |
-| `login` | no | `api.login(payload)` | `email, password, deviceToken?` | `AuthResult` (`id, email, name, role, sessionHash`), or a `TwoFactorChallenge` for a 2FA account | `actionLogin()` → `Users::verifyCredentials()`, then `AccountSecurity::startLogin()` or `signIn()` |
-| `verifyTwoFactor` | no | `api.verifyTwoFactor(payload)` | `challengeToken, code, rememberDevice?` | `AuthResult` (+ `deviceToken, trustedUntil` when remembering) | `AccountSecurity::verifyLogin()`, `signIn()`, `trustDevice()` |
+| `register` | no | `api.register(payload)` — **HTTP** `POST /auth/register` | `email, password, role, termsVersion, language?, name?, image?` — `termsVersion` must be the terms in force | `AuthResult` (`id, email, role, roles, accessToken, accessExpiresAt`) + the refresh cookie | `AuthHttp` → `actionRegister()` → `Accounts::register()`, `Tokens::issue()` |
+| `login` | no | `api.login(payload)` — **HTTP** `POST /auth/login` | `email, password, deviceToken?` | `AuthResult` (`id, email, name, role, roles, accessToken, accessExpiresAt`) + the refresh cookie, or a `TwoFactorChallenge` for a 2FA account | `AuthHttp` → `actionLogin()` → `Accounts::verifyCredentials()`, then `AccountSecurity::startLogin()` or `signIn()`, `Tokens::issue()` |
+| `verifyTwoFactor` | no | `api.verifyTwoFactor(payload)` — **HTTP** `POST /auth/verifyTwoFactor` | `challengeToken, code, rememberDevice?` | `AuthResult` with tokens (+ `deviceToken, trustedUntil` when remembering) + the refresh cookie | `AccountSecurity::verifyLogin()`, `signIn()`, `trustDevice()`, `Tokens::issue()` |
+| `refresh` | the refresh cookie | `api.refresh()` / `refreshAccessToken()` — **HTTP** `POST /auth/refresh` | — | `{ accessToken, accessExpiresAt, user }` + a rotated cookie; 401 (cookie cleared) when the sign-in is over | `AuthHttp` → `Tokens::rotate()` |
 | `forgetTrustedDevices` | **yes** | `api.forgetTrustedDevices()` | — | `{ ok: true }` | `AccountSecurity::forgetTrustedDevices()` |
 | `resendTwoFactor` | no | `api.resendTwoFactor(payload)` | `challengeToken` | `TwoFactorChallenge` | `AccountSecurity::resendLoginCode()` |
 | `requestPasswordReset` | no | `api.requestPasswordReset(payload)` | `email` | `{ ok: true }` always | `AccountSecurity::requestPasswordReset()` |
@@ -2109,8 +2141,9 @@ is a `503` from the gateway.
 | `myLevel` | **yes** | `api.myLevel()` | — | `LevelState` (`level, name, trips_completed, next_level_trips, sanction, picks_per_pack, commission_rate, free_picks_until, no_fee_until, bonuses`) | `Levels::sync()` + `stateFor()` |
 | `claimBonus` | **yes** | `api.claimBonus(payload)` | `bonusId` | `LevelState` | `Levels::claim()` |
 | `reportUser` | **yes** | `api.reportUser(payload)` | `subjectId, title` (≤120), `description` (≤2000) | `{ id, status: 'open', created_at }` | `Complaints::file()` |
-| `logout` | no (no-ops on a missing/unknown hash) | `api.logout()` | — | `{ ok: true }` | `actionLogout()` → `Session::destroy()` |
-| `session` | **yes** | `api.session()` | — | `AuthResult` (same shape as `register`/`login`, unrotated `sessionHash`) | `actionSession()` |
+| `logout` | the refresh cookie | `api.logout()` — **HTTP** `POST /auth/logout` | — | `{ ok: true }`, cookie cleared, every tab signs out | `AuthHttp` → `Tokens::revokeByToken()` (the WebSocket `logout` still ends a session hash) |
+| `logoutEverywhere` | the refresh cookie | `api.logoutEverywhere()` — **HTTP** `POST /auth/logoutEverywhere` | — | `{ ok: true }`, cookie cleared; 401 without a live cookie | `AuthHttp` → `AuthProcessor::signOutEverywhere()` → `Tokens::revokeAllFor()`, `Session::destroyAllFor()` |
+| `session` | **yes** | `api.session()` (unused since tokens) | — | `AuthResult` with the unrotated `sessionHash` — for a session-hash client | `actionSession()` |
 | `publicProfile` | optional | `api.publicProfile(userId)` | `userId` | `PublicProfile` (a `ProfileAccount` minus `email`, plus `role`; `400` "Profile not found." for an unknown id or a non-guest/guide) | `Users::getPublicProfile()` |
 | `reviews` | optional* | `api.reviews(payload)` | `userId, limit? (default/max 20), offset?` | `ReviewsPage` (`reviews: Review[]` newest first, `total, average, histogram` `{ "5": n, …, "1": n }`, `viewer: { canReview, bookingId, myReview }` — all no/null signed out) | `Reviews::listFor()`/`viewerStateFor()` |
 | `submitReview` | **yes** | `api.submitReview(payload)` | `subjectId, rating, comment?` | `Review` (`id, booking_id, author_id, subject_id, rating, comment, created_at, updated_at, author_name, author_image`) | `Reviews::submit()` (upsert) |
@@ -2133,7 +2166,7 @@ id (`null` with no `sessionHash`), and a hash that's present but invalid
 still 401s rather than silently degrading to the anonymous view.
 
 On the client, every one of these goes through `plugins/api.ts`'s single
-`call()` function (see "Talking to the API" above and "Sessions" below for
+`call()` function (see "Talking to the API" above and "Sign-in" below for
 what it does beyond the plain request/response: attaching `sessionHash`,
 normalizing every failure to a thrown `ApiError`, and reacting to a `401`).
 There is no endpoint without a frontend caller and no `api.*()` method
@@ -2173,6 +2206,9 @@ Shared (`lib/`):
 - `lib/ContactFilter.php` — keeps contact details out of shared text (see
   "Contact filter"); `configure()`d per request by both processors.
 - `lib/AuthenticationException.php` — mapped to `401` by both processors.
+- `lib/Jwt.php` — signs (auth only) and verifies (everyone) access tokens;
+  `lib/Origins.php` — the allowed browser origins (gateway, `AuthHttp`);
+  `lib/Revocations.php` — revoked sign-ins in Redis and on `auth:revoked`.
 - `lib/Roles.php` — SQL for reading a user's role from `user_role`.
 
 Auth service (`auth/classes/`):
@@ -2186,7 +2222,10 @@ Auth service (`auth/classes/`):
   via `hash_hmac()`, then bcrypt. Every hash/verify throws without `PEPPER`.
 - `AccountSecurity.php` — 2FA codes, trusted devices, password resets
   (emails queued through `MailQueue`).
-- `Session.php` — Redis sessions (see "Sessions").
+- `Session.php` — Redis sessions (the old path, see "Sign-in").
+- `Tokens.php` — access tokens and refresh-token rotation; `AuthHttp.php` —
+  the browser-facing `POST /auth/*` endpoint with the cookies
+  (`auth/public.php`).
 
 Gateway (`gateway/classes/`): `WebSocketServer.php` (RFC 6455 + watchers +
 `/healthz`), `Gateway.php` (routing, binding, pushes), `HttpClient.php`
@@ -2385,7 +2424,7 @@ API service (`api/classes/`):
   the country-code split (see "Self-service profile editing" above) is a
   `ProfilePage.vue`-only concern, not a schema one.
 - `api/sql/009_sessions.sql` — the `sessions` table (2026-09-05): backs
-  `Session.php`'s sliding 5-minute-inactivity expiry — see "Sessions" above
+  `Session.php`'s sliding 5-minute-inactivity expiry — see "Sign-in" above
   for the full feature.
 - `api/sql/010_profile_attributes.sql` — finishes what 007 started
   (2026-09-15): `attribute_categories` gains `kind` (`options`/`range`),
@@ -2550,6 +2589,13 @@ API service (`api/classes/`):
 - `api/sql/068_translations_icons_out.sql` — every leading/trailing ✓ ✕ ★
   ← → 🌍 ♥ removed from the UI strings, 15 languages and plural forms (the
   templates draw them). Applied 2026-10-19. Re-runnable.
+- `api/sql/069_brand_belikelocal.sql` — the brand rename in every stored
+  text (translations, legal documents, notifications) and the two dev test
+  accounts' addresses. Applied 2026-10-20. Re-runnable.
+- `api/sql/070_refresh_tokens.sql` — `refresh_tokens` (see "Sign-in").
+  Applied 2026-10-20. Re-runnable.
+- `api/sql/071_translations_sign_out_everywhere.sql` — "Sign out on all
+  devices", its hint and toasts. Applied 2026-10-20. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

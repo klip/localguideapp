@@ -5,7 +5,7 @@
  *
  * **Level** — per role (a guide level and a traveller level for someone who
  * is both), from **paid** trips only (confirmed, finished and paid through
- * RockGuide — `PAID_TRIP`): free trips never progress anyone, and every paid
+ * BeLikeLocal — `PAID_TRIP`): free trips never progress anyone, and every paid
  * trip counts, repeat trips with the same person included. A traveller earns
  * 1 point per paid trip; a guide `1 + 0.5 × min(1, fee / £100)` — slightly
  * more for a better-paid trip, capped (`pointsSql()`). A guide with finished
@@ -110,7 +110,7 @@ class Levels
     /** SQL condition: booking `b` is a finished trip (counted on the trips badge, free or not). */
     public const FINISHED_TRIP = 'b.`status` = "confirmed" AND b.`trip_status` = "finished"';
 
-    /** SQL condition: booking `b` is a finished trip paid through RockGuide — the only kind that earns a level. */
+    /** SQL condition: booking `b` is a finished trip paid through BeLikeLocal — the only kind that earns a level. */
     public const PAID_TRIP = '(b.`status` = "confirmed" AND b.`trip_status` = "finished" AND b.`payment_status` = "paid")';
 
     /** A guide's points per paid trip: 1, plus up to `GUIDE_FEE_BONUS` as the fee nears `GUIDE_FEE_REFERENCE`. */

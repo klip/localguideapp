@@ -8,11 +8,11 @@ SET NAMES utf8mb4;
 INSERT INTO `legal_documents` (`slug`, `version`, `language`, `title`, `body`, `published_at`, `created_at`) VALUES
 ('traveller_agreement', '2026-10-18', 'en', 'Traveller Agreement', 'Version {{effective_date}}
 
-This agreement applies when you look for guides through RockGuide, operated by {{operator_name}}. It adds to the Terms and Conditions, which still apply in full. If the two conflict, the Terms and Conditions prevail.
+This agreement applies when you look for guides through BeLikeLocal, operated by {{operator_name}}. It adds to the Terms and Conditions, which still apply in full. If the two conflict, the Terms and Conditions prevail.
 
 ## 1. What you are agreeing to
 
-Guides are independent. RockGuide helps you find them, but the tour itself is agreed between you and the guide. Check what is included before you book.
+Guides are independent. BeLikeLocal helps you find them, but the tour itself is agreed between you and the guide. Check what is included before you book.
 
 ## 2. Picks and packs
 
@@ -20,7 +20,7 @@ Showing interest in a guide uses a pick from a selection pack you buy. Packs are
 
 ## 3. Booking and paying
 
-Pay a guide''s fee only through RockGuide. A booking becomes a trip when the guide accepts it; until then you can withdraw it for a full refund. If the guide declines or does not answer in time, you are refunded in full.
+Pay a guide''s fee only through BeLikeLocal. A booking becomes a trip when the guide accepts it; until then you can withdraw it for a full refund. If the guide declines or does not answer in time, you are refunded in full.
 
 ## 4. Cancellations
 
@@ -32,7 +32,7 @@ Your headline and description as a traveller are shown to guides only. Keep them
 
 ## 6. Conduct and safety
 
-Treat guides with respect, turn up on time and follow their safety instructions. Meet in public places first, tell someone where you are going, and keep contact and payment on RockGuide.
+Treat guides with respect, turn up on time and follow their safety instructions. Meet in public places first, tell someone where you are going, and keep contact and payment on BeLikeLocal.
 
 ## 7. Reviews and levels
 
@@ -43,11 +43,11 @@ After a trip, you and the guide can review each other honestly. Your rating as a
 You can stop at any time. We may suspend your account if you break this agreement or the Terms and Conditions.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'es', 'Acuerdo para viajeros', 'Versión {{effective_date}}
 
-Este acuerdo se aplica cuando buscas guías a través de RockGuide, operado por {{operator_name}}. Complementa los Términos y condiciones, que siguen aplicándose íntegramente. Si ambos entran en conflicto, prevalecen los Términos y condiciones.
+Este acuerdo se aplica cuando buscas guías a través de BeLikeLocal, operado por {{operator_name}}. Complementa los Términos y condiciones, que siguen aplicándose íntegramente. Si ambos entran en conflicto, prevalecen los Términos y condiciones.
 
 ## 1. Lo que aceptas
 
-Los guías son independientes. RockGuide te ayuda a encontrarlos, pero la visita se acuerda entre tú y el guía. Comprueba qué incluye antes de reservar.
+Los guías son independientes. BeLikeLocal te ayuda a encontrarlos, pero la visita se acuerda entre tú y el guía. Comprueba qué incluye antes de reservar.
 
 ## 2. Selecciones y packs
 
@@ -55,7 +55,7 @@ Mostrar interés por un guía consume una selección de un pack que compras. Los
 
 ## 3. Reservar y pagar
 
-Paga la tarifa de un guía solo a través de RockGuide. Una reserva se convierte en viaje cuando el guía la acepta; hasta entonces puedes retirarla con reembolso completo. Si el guía la rechaza o no responde a tiempo, se te reembolsa todo.
+Paga la tarifa de un guía solo a través de BeLikeLocal. Una reserva se convierte en viaje cuando el guía la acepta; hasta entonces puedes retirarla con reembolso completo. Si el guía la rechaza o no responde a tiempo, se te reembolsa todo.
 
 ## 4. Cancelaciones
 
@@ -67,7 +67,7 @@ Tu titular y tu descripción como viajero solo se muestran a los guías. Que sea
 
 ## 6. Conducta y seguridad
 
-Trata a los guías con respeto, sé puntual y sigue sus instrucciones de seguridad. Queda primero en lugares públicos, avisa a alguien de adónde vas y mantén el contacto y el pago en RockGuide.
+Trata a los guías con respeto, sé puntual y sigue sus instrucciones de seguridad. Queda primero en lugares públicos, avisa a alguien de adónde vas y mantén el contacto y el pago en BeLikeLocal.
 
 ## 7. Reseñas y niveles
 
@@ -78,11 +78,11 @@ Tras un viaje, tú y el guía podéis reseñaros con sinceridad. Tu valoración 
 Puedes dejarlo cuando quieras. Podemos suspender tu cuenta si incumples este acuerdo o los Términos y condiciones.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'fr', 'Accord des voyageurs', 'Version {{effective_date}}
 
-Cet accord s’applique lorsque vous cherchez des guides sur RockGuide, exploité par {{operator_name}}. Il complète les Conditions générales, qui restent pleinement applicables. En cas de contradiction, les Conditions générales prévalent.
+Cet accord s’applique lorsque vous cherchez des guides sur BeLikeLocal, exploité par {{operator_name}}. Il complète les Conditions générales, qui restent pleinement applicables. En cas de contradiction, les Conditions générales prévalent.
 
 ## 1. Ce que vous acceptez
 
-Les guides sont indépendants. RockGuide vous aide à les trouver, mais la visite elle-même est convenue entre vous et le guide. Vérifiez ce qui est inclus avant de réserver.
+Les guides sont indépendants. BeLikeLocal vous aide à les trouver, mais la visite elle-même est convenue entre vous et le guide. Vérifiez ce qui est inclus avant de réserver.
 
 ## 2. Sélections et packs
 
@@ -90,7 +90,7 @@ Montrer de l’intérêt pour un guide utilise une sélection d’un pack que vo
 
 ## 3. Réserver et payer
 
-Ne payez les honoraires d’un guide que via RockGuide. Une réservation devient un voyage lorsque le guide l’accepte ; jusque-là, vous pouvez la retirer et être remboursé intégralement. Si le guide refuse ou ne répond pas à temps, vous êtes remboursé intégralement.
+Ne payez les honoraires d’un guide que via BeLikeLocal. Une réservation devient un voyage lorsque le guide l’accepte ; jusque-là, vous pouvez la retirer et être remboursé intégralement. Si le guide refuse ou ne répond pas à temps, vous êtes remboursé intégralement.
 
 ## 4. Annulations
 
@@ -102,7 +102,7 @@ Votre titre et votre description de voyageur ne sont montrés qu’aux guides. R
 
 ## 6. Conduite et sécurité
 
-Traitez les guides avec respect, soyez à l’heure et suivez leurs consignes de sécurité. Donnez vos premiers rendez-vous dans des lieux publics, dites à quelqu’un où vous allez et gardez le contact et le paiement sur RockGuide.
+Traitez les guides avec respect, soyez à l’heure et suivez leurs consignes de sécurité. Donnez vos premiers rendez-vous dans des lieux publics, dites à quelqu’un où vous allez et gardez le contact et le paiement sur BeLikeLocal.
 
 ## 7. Avis et niveaux
 
@@ -113,11 +113,11 @@ Après un voyage, vous et le guide pouvez vous évaluer honnêtement. Votre note
 Vous pouvez arrêter à tout moment. Nous pouvons suspendre votre compte si vous enfreignez cet accord ou les Conditions générales.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'de', 'Vereinbarung für Reisende', 'Version {{effective_date}}
 
-Diese Vereinbarung gilt, wenn du über RockGuide, betrieben von {{operator_name}}, Guides suchst. Sie ergänzt die Allgemeinen Geschäftsbedingungen, die weiterhin vollständig gelten. Bei Widersprüchen haben die Allgemeinen Geschäftsbedingungen Vorrang.
+Diese Vereinbarung gilt, wenn du über BeLikeLocal, betrieben von {{operator_name}}, Guides suchst. Sie ergänzt die Allgemeinen Geschäftsbedingungen, die weiterhin vollständig gelten. Bei Widersprüchen haben die Allgemeinen Geschäftsbedingungen Vorrang.
 
 ## 1. Worauf du dich einlässt
 
-Guides sind selbstständig. RockGuide hilft dir, sie zu finden, aber die Tour selbst vereinbarst du mit dem Guide. Prüfe vor der Buchung, was enthalten ist.
+Guides sind selbstständig. BeLikeLocal hilft dir, sie zu finden, aber die Tour selbst vereinbarst du mit dem Guide. Prüfe vor der Buchung, was enthalten ist.
 
 ## 2. Auswahlen und Pakete
 
@@ -125,7 +125,7 @@ Interesse an einem Guide zu zeigen verbraucht eine Auswahl aus einem gekauften P
 
 ## 3. Buchen und bezahlen
 
-Zahle das Honorar eines Guides nur über RockGuide. Eine Buchung wird zur Reise, wenn der Guide sie annimmt; bis dahin kannst du sie mit voller Erstattung zurückziehen. Lehnt der Guide ab oder antwortet er nicht rechtzeitig, wird dir alles erstattet.
+Zahle das Honorar eines Guides nur über BeLikeLocal. Eine Buchung wird zur Reise, wenn der Guide sie annimmt; bis dahin kannst du sie mit voller Erstattung zurückziehen. Lehnt der Guide ab oder antwortet er nicht rechtzeitig, wird dir alles erstattet.
 
 ## 4. Stornierungen
 
@@ -137,7 +137,7 @@ Deine Überschrift und Beschreibung als Reisender sehen nur Guides. Bleib ehrlic
 
 ## 6. Verhalten und Sicherheit
 
-Behandle Guides respektvoll, sei pünktlich und folge ihren Sicherheitshinweisen. Triff dich zuerst an öffentlichen Orten, sag jemandem, wohin du gehst, und halte Kontakt und Zahlung auf RockGuide.
+Behandle Guides respektvoll, sei pünktlich und folge ihren Sicherheitshinweisen. Triff dich zuerst an öffentlichen Orten, sag jemandem, wohin du gehst, und halte Kontakt und Zahlung auf BeLikeLocal.
 
 ## 7. Bewertungen und Level
 
@@ -148,11 +148,11 @@ Nach einer Reise könnt du und der Guide einander ehrlich bewerten. Deine Bewert
 Du kannst jederzeit aufhören. Wir können dein Konto sperren, wenn du gegen diese Vereinbarung oder die Allgemeinen Geschäftsbedingungen verstößt.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'zh', '旅行者协议', '版本 {{effective_date}}
 
-当你通过由 {{operator_name}} 运营的 RockGuide 寻找向导时，本协议适用。本协议是对《条款和条件》的补充，后者仍完全适用。如两者冲突，以《条款和条件》为准。
+当你通过由 {{operator_name}} 运营的 BeLikeLocal 寻找向导时，本协议适用。本协议是对《条款和条件》的补充，后者仍完全适用。如两者冲突，以《条款和条件》为准。
 
 ## 1. 你同意的内容
 
-向导是独立的。RockGuide 帮助你找到他们，但游览本身由你和向导约定。预订前请确认包含哪些内容。
+向导是独立的。BeLikeLocal 帮助你找到他们，但游览本身由你和向导约定。预订前请确认包含哪些内容。
 
 ## 2. 选择次数和套餐
 
@@ -160,7 +160,7 @@ Du kannst jederzeit aufhören. Wir können dein Konto sperren, wenn du gegen die
 
 ## 3. 预订与付款
 
-只通过 RockGuide 支付向导费用。向导接受后预订才成为行程；在此之前你可以撤回并获得全额退款。如果向导拒绝或未及时回复，你将获得全额退款。
+只通过 BeLikeLocal 支付向导费用。向导接受后预订才成为行程；在此之前你可以撤回并获得全额退款。如果向导拒绝或未及时回复，你将获得全额退款。
 
 ## 4. 取消
 
@@ -172,7 +172,7 @@ Du kannst jederzeit aufhören. Wir können dein Konto sperren, wenn du gegen die
 
 ## 6. 行为与安全
 
-尊重向导，准时到达并遵守其安全指示。初次见面请选择公共场所，告诉他人你的去向，并将联系和付款保留在 RockGuide 上。
+尊重向导，准时到达并遵守其安全指示。初次见面请选择公共场所，告诉他人你的去向，并将联系和付款保留在 BeLikeLocal 上。
 
 ## 7. 评价与等级
 
@@ -183,11 +183,11 @@ Du kannst jederzeit aufhören. Wir können dein Konto sperren, wenn du gegen die
 你可以随时停止使用。如果你违反本协议或《条款和条件》，我们可以暂停你的账户。', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'it', 'Accordo per i viaggiatori', 'Versione {{effective_date}}
 
-Questo accordo si applica quando cerchi guide tramite RockGuide, gestito da {{operator_name}}. Integra i Termini e condizioni, che restano pienamente applicabili. In caso di conflitto prevalgono i Termini e condizioni.
+Questo accordo si applica quando cerchi guide tramite BeLikeLocal, gestito da {{operator_name}}. Integra i Termini e condizioni, che restano pienamente applicabili. In caso di conflitto prevalgono i Termini e condizioni.
 
 ## 1. Cosa accetti
 
-Le guide sono indipendenti. RockGuide ti aiuta a trovarle, ma il tour vero e proprio si concorda tra te e la guida. Controlla cosa è incluso prima di prenotare.
+Le guide sono indipendenti. BeLikeLocal ti aiuta a trovarle, ma il tour vero e proprio si concorda tra te e la guida. Controlla cosa è incluso prima di prenotare.
 
 ## 2. Scelte e pacchetti
 
@@ -195,7 +195,7 @@ Mostrare interesse per una guida usa una scelta di un pacchetto che acquisti. I 
 
 ## 3. Prenotare e pagare
 
-Paga il compenso di una guida solo tramite RockGuide. Una prenotazione diventa un viaggio quando la guida la accetta; fino ad allora puoi ritirarla con rimborso completo. Se la guida rifiuta o non risponde in tempo, vieni rimborsato per intero.
+Paga il compenso di una guida solo tramite BeLikeLocal. Una prenotazione diventa un viaggio quando la guida la accetta; fino ad allora puoi ritirarla con rimborso completo. Se la guida rifiuta o non risponde in tempo, vieni rimborsato per intero.
 
 ## 4. Cancellazioni
 
@@ -207,7 +207,7 @@ Il tuo titolo e la tua descrizione da viaggiatore sono mostrati solo alle guide.
 
 ## 6. Comportamento e sicurezza
 
-Tratta le guide con rispetto, sii puntuale e segui le loro istruzioni di sicurezza. Incontratevi prima in luoghi pubblici, di’ a qualcuno dove vai e mantieni contatti e pagamenti su RockGuide.
+Tratta le guide con rispetto, sii puntuale e segui le loro istruzioni di sicurezza. Incontratevi prima in luoghi pubblici, di’ a qualcuno dove vai e mantieni contatti e pagamenti su BeLikeLocal.
 
 ## 7. Recensioni e livelli
 
@@ -218,11 +218,11 @@ Dopo un viaggio, tu e la guida potete recensirvi onestamente. La tua valutazione
 Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi questo accordo o i Termini e condizioni.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'ja', '旅行者規約', 'バージョン {{effective_date}}
 
-本規約は、{{operator_name}} が運営する RockGuide を通じてガイドを探す場合に適用されます。本規約は利用規約を補足するもので、利用規約は引き続き全面的に適用されます。両者が矛盾する場合は利用規約が優先します。
+本規約は、{{operator_name}} が運営する BeLikeLocal を通じてガイドを探す場合に適用されます。本規約は利用規約を補足するもので、利用規約は引き続き全面的に適用されます。両者が矛盾する場合は利用規約が優先します。
 
 ## 1. 同意する内容
 
-ガイドは独立した立場です。RockGuide はガイド探しを手伝いますが、ツアー自体はあなたとガイドの間で取り決めます。予約前に内容を確認してください。
+ガイドは独立した立場です。BeLikeLocal はガイド探しを手伝いますが、ツアー自体はあなたとガイドの間で取り決めます。予約前に内容を確認してください。
 
 ## 2. ピックとパック
 
@@ -230,7 +230,7 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 
 ## 3. 予約と支払い
 
-ガイドの料金は RockGuide を通じてのみ支払ってください。予約はガイドが承認したときに旅行になります。それまでは全額返金で取り下げられます。ガイドが辞退した場合や期限内に回答しなかった場合は全額返金されます。
+ガイドの料金は BeLikeLocal を通じてのみ支払ってください。予約はガイドが承認したときに旅行になります。それまでは全額返金で取り下げられます。ガイドが辞退した場合や期限内に回答しなかった場合は全額返金されます。
 
 ## 4. キャンセル
 
@@ -242,7 +242,7 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 
 ## 6. 行動と安全
 
-ガイドに敬意を持って接し、時間を守り、安全上の指示に従ってください。最初は公共の場所で会い、行き先を誰かに伝え、連絡と支払いは RockGuide 上で行ってください。
+ガイドに敬意を持って接し、時間を守り、安全上の指示に従ってください。最初は公共の場所で会い、行き先を誰かに伝え、連絡と支払いは BeLikeLocal 上で行ってください。
 
 ## 7. レビューとレベル
 
@@ -253,11 +253,11 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 いつでも利用をやめることができます。本規約または利用規約に違反した場合、当社はアカウントを停止することがあります。', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'ru', 'Соглашение для путешественников', 'Версия {{effective_date}}
 
-Это соглашение действует, когда вы ищете гидов через RockGuide, которым управляет {{operator_name}}. Оно дополняет Условия использования, которые продолжают действовать в полном объёме. При противоречии преимущество имеют Условия использования.
+Это соглашение действует, когда вы ищете гидов через BeLikeLocal, которым управляет {{operator_name}}. Оно дополняет Условия использования, которые продолжают действовать в полном объёме. При противоречии преимущество имеют Условия использования.
 
 ## 1. С чем вы соглашаетесь
 
-Гиды работают самостоятельно. RockGuide помогает их найти, но саму экскурсию вы согласовываете с гидом. Перед бронированием проверьте, что в неё входит.
+Гиды работают самостоятельно. BeLikeLocal помогает их найти, но саму экскурсию вы согласовываете с гидом. Перед бронированием проверьте, что в неё входит.
 
 ## 2. Выборы и пакеты
 
@@ -265,7 +265,7 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 
 ## 3. Бронирование и оплата
 
-Оплачивайте гонорар гида только через RockGuide. Бронирование становится поездкой, когда гид его принимает; до этого вы можете отозвать его с полным возвратом. Если гид отказывает или не отвечает вовремя, вам возвращается вся сумма.
+Оплачивайте гонорар гида только через BeLikeLocal. Бронирование становится поездкой, когда гид его принимает; до этого вы можете отозвать его с полным возвратом. Если гид отказывает или не отвечает вовремя, вам возвращается вся сумма.
 
 ## 4. Отмены
 
@@ -277,7 +277,7 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 
 ## 6. Поведение и безопасность
 
-Относитесь к гидам с уважением, приходите вовремя и следуйте их указаниям по безопасности. Для первой встречи выбирайте людные места, сообщите кому-нибудь, куда идёте, и держите общение и оплату в RockGuide.
+Относитесь к гидам с уважением, приходите вовремя и следуйте их указаниям по безопасности. Для первой встречи выбирайте людные места, сообщите кому-нибудь, куда идёте, и держите общение и оплату в BeLikeLocal.
 
 ## 7. Отзывы и уровни
 
@@ -288,11 +288,11 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 Вы можете прекратить пользоваться сервисом в любое время. Мы можем приостановить ваш аккаунт, если вы нарушите это соглашение или Условия использования.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'ko', '여행자 약관', '버전 {{effective_date}}
 
-이 약관은 {{operator_name}}이(가) 운영하는 RockGuide를 통해 가이드를 찾을 때 적용됩니다. 이 약관은 이용약관을 보완하며, 이용약관은 계속 전부 적용됩니다. 둘이 충돌하면 이용약관이 우선합니다.
+이 약관은 {{operator_name}}이(가) 운영하는 BeLikeLocal를 통해 가이드를 찾을 때 적용됩니다. 이 약관은 이용약관을 보완하며, 이용약관은 계속 전부 적용됩니다. 둘이 충돌하면 이용약관이 우선합니다.
 
 ## 1. 동의하는 내용
 
-가이드는 독립적으로 활동합니다. RockGuide는 가이드를 찾도록 돕지만 투어 자체는 당신과 가이드가 정합니다. 예약 전에 포함 사항을 확인하세요.
+가이드는 독립적으로 활동합니다. BeLikeLocal는 가이드를 찾도록 돕지만 투어 자체는 당신과 가이드가 정합니다. 예약 전에 포함 사항을 확인하세요.
 
 ## 2. 선택권과 패키지
 
@@ -300,7 +300,7 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 
 ## 3. 예약과 결제
 
-가이드 요금은 RockGuide를 통해서만 결제하세요. 예약은 가이드가 수락하면 여행이 되며, 그 전에는 전액 환불로 철회할 수 있습니다. 가이드가 거절하거나 제때 답하지 않으면 전액 환불됩니다.
+가이드 요금은 BeLikeLocal를 통해서만 결제하세요. 예약은 가이드가 수락하면 여행이 되며, 그 전에는 전액 환불로 철회할 수 있습니다. 가이드가 거절하거나 제때 답하지 않으면 전액 환불됩니다.
 
 ## 4. 취소
 
@@ -312,7 +312,7 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 
 ## 6. 행동과 안전
 
-가이드를 존중하고 시간을 지키며 안전 지시에 따르세요. 처음에는 공공장소에서 만나고, 행선지를 다른 사람에게 알리며, 연락과 결제는 RockGuide에서 하세요.
+가이드를 존중하고 시간을 지키며 안전 지시에 따르세요. 처음에는 공공장소에서 만나고, 행선지를 다른 사람에게 알리며, 연락과 결제는 BeLikeLocal에서 하세요.
 
 ## 7. 리뷰와 레벨
 
@@ -323,11 +323,11 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 언제든지 이용을 중단할 수 있습니다. 이 약관이나 이용약관을 위반하면 당사는 계정을 정지할 수 있습니다.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'ar', 'اتفاقية المسافرين', 'الإصدار {{effective_date}}
 
-تسري هذه الاتفاقية عندما تبحث عن مرشدين عبر RockGuide الذي تديره {{operator_name}}. وهي مكمّلة للشروط والأحكام التي تظل سارية بالكامل. وفي حال التعارض تكون الأولوية للشروط والأحكام.
+تسري هذه الاتفاقية عندما تبحث عن مرشدين عبر BeLikeLocal الذي تديره {{operator_name}}. وهي مكمّلة للشروط والأحكام التي تظل سارية بالكامل. وفي حال التعارض تكون الأولوية للشروط والأحكام.
 
 ## 1. ما توافق عليه
 
-المرشدون مستقلون. يساعدك RockGuide في العثور عليهم، لكن الجولة نفسها يُتفق عليها بينك وبين المرشد. تحقّق مما تتضمنه قبل الحجز.
+المرشدون مستقلون. يساعدك BeLikeLocal في العثور عليهم، لكن الجولة نفسها يُتفق عليها بينك وبين المرشد. تحقّق مما تتضمنه قبل الحجز.
 
 ## 2. الاختيارات والباقات
 
@@ -335,7 +335,7 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 
 ## 3. الحجز والدفع
 
-ادفع أجر المرشد عبر RockGuide فقط. يصبح الحجز رحلةً عندما يقبله المرشد؛ وحتى ذلك الحين يمكنك سحبه مع استرداد كامل. وإذا رفض المرشد أو لم يردّ في الوقت المحدد، يُعاد إليك المبلغ كاملًا.
+ادفع أجر المرشد عبر BeLikeLocal فقط. يصبح الحجز رحلةً عندما يقبله المرشد؛ وحتى ذلك الحين يمكنك سحبه مع استرداد كامل. وإذا رفض المرشد أو لم يردّ في الوقت المحدد، يُعاد إليك المبلغ كاملًا.
 
 ## 4. الإلغاء
 
@@ -347,7 +347,7 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 
 ## 6. السلوك والسلامة
 
-عامل المرشدين باحترام، والتزم بالمواعيد واتبع تعليمات السلامة. التقِ أولًا في أماكن عامة، وأخبر أحدًا بوجهتك، وأبقِ التواصل والدفع على RockGuide.
+عامل المرشدين باحترام، والتزم بالمواعيد واتبع تعليمات السلامة. التقِ أولًا في أماكن عامة، وأخبر أحدًا بوجهتك، وأبقِ التواصل والدفع على BeLikeLocal.
 
 ## 7. التقييمات والمستويات
 
@@ -358,11 +358,11 @@ Puoi smettere in qualsiasi momento. Possiamo sospendere il tuo account se violi 
 يمكنك التوقف في أي وقت. يجوز لنا تعليق حسابك إذا خالفت هذه الاتفاقية أو الشروط والأحكام.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'tr', 'Gezgin Sözleşmesi', 'Sürüm {{effective_date}}
 
-Bu sözleşme, {{operator_name}} tarafından işletilen RockGuide üzerinden rehber aradığınızda geçerlidir. Tamamen geçerli olmaya devam eden Kullanım Koşulları''nı tamamlar. İkisi çelişirse Kullanım Koşulları geçerlidir.
+Bu sözleşme, {{operator_name}} tarafından işletilen BeLikeLocal üzerinden rehber aradığınızda geçerlidir. Tamamen geçerli olmaya devam eden Kullanım Koşulları''nı tamamlar. İkisi çelişirse Kullanım Koşulları geçerlidir.
 
 ## 1. Neyi kabul ediyorsunuz
 
-Rehberler bağımsızdır. RockGuide onları bulmanıza yardım eder, ancak turun kendisi sizinle rehber arasında kararlaştırılır. Rezervasyondan önce nelerin dahil olduğunu kontrol edin.
+Rehberler bağımsızdır. BeLikeLocal onları bulmanıza yardım eder, ancak turun kendisi sizinle rehber arasında kararlaştırılır. Rezervasyondan önce nelerin dahil olduğunu kontrol edin.
 
 ## 2. Seçimler ve paketler
 
@@ -370,7 +370,7 @@ Bir rehbere ilgi göstermek, satın aldığınız bir paketten bir seçim kullan
 
 ## 3. Rezervasyon ve ödeme
 
-Rehber ücretini yalnızca RockGuide üzerinden ödeyin. Rezervasyon, rehber kabul ettiğinde geziye dönüşür; o zamana kadar tam iadeyle geri çekebilirsiniz. Rehber reddederse veya zamanında yanıt vermezse tamamı iade edilir.
+Rehber ücretini yalnızca BeLikeLocal üzerinden ödeyin. Rezervasyon, rehber kabul ettiğinde geziye dönüşür; o zamana kadar tam iadeyle geri çekebilirsiniz. Rehber reddederse veya zamanında yanıt vermezse tamamı iade edilir.
 
 ## 4. İptaller
 
@@ -382,7 +382,7 @@ Gezgin olarak başlığınız ve açıklamanız yalnızca rehberlere gösterilir
 
 ## 6. Davranış ve güvenlik
 
-Rehberlere saygılı davranın, zamanında gelin ve güvenlik talimatlarına uyun. İlk buluşmaları halka açık yerlerde yapın, nereye gittiğinizi birine söyleyin ve iletişimle ödemeyi RockGuide''da tutun.
+Rehberlere saygılı davranın, zamanında gelin ve güvenlik talimatlarına uyun. İlk buluşmaları halka açık yerlerde yapın, nereye gittiğinizi birine söyleyin ve iletişimle ödemeyi BeLikeLocal''da tutun.
 
 ## 7. Değerlendirmeler ve seviyeler
 
@@ -393,11 +393,11 @@ Bir geziden sonra siz ve rehber birbirinizi dürüstçe değerlendirebilirsiniz.
 İstediğiniz zaman bırakabilirsiniz. Bu sözleşmeyi veya Kullanım Koşulları''nı ihlal ederseniz hesabınızı askıya alabiliriz.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'pt', 'Acordo para viajantes', 'Versão {{effective_date}}
 
-Este acordo aplica-se quando procura guias através da RockGuide, operada por {{operator_name}}. Complementa os Termos e condições, que continuam a aplicar-se na íntegra. Em caso de conflito, prevalecem os Termos e condições.
+Este acordo aplica-se quando procura guias através da BeLikeLocal, operada por {{operator_name}}. Complementa os Termos e condições, que continuam a aplicar-se na íntegra. Em caso de conflito, prevalecem os Termos e condições.
 
 ## 1. O que aceita
 
-Os guias são independentes. A RockGuide ajuda-o a encontrá-los, mas o passeio em si é combinado entre si e o guia. Verifique o que está incluído antes de reservar.
+Os guias são independentes. A BeLikeLocal ajuda-o a encontrá-los, mas o passeio em si é combinado entre si e o guia. Verifique o que está incluído antes de reservar.
 
 ## 2. Escolhas e pacotes
 
@@ -405,7 +405,7 @@ Mostrar interesse por um guia usa uma escolha de um pacote que compra. Os pacote
 
 ## 3. Reservar e pagar
 
-Pague os honorários de um guia apenas através da RockGuide. Uma reserva torna-se uma viagem quando o guia a aceita; até lá pode retirá-la com reembolso total. Se o guia recusar ou não responder a tempo, é reembolsado na totalidade.
+Pague os honorários de um guia apenas através da BeLikeLocal. Uma reserva torna-se uma viagem quando o guia a aceita; até lá pode retirá-la com reembolso total. Se o guia recusar ou não responder a tempo, é reembolsado na totalidade.
 
 ## 4. Cancelamentos
 
@@ -417,7 +417,7 @@ O seu título e a sua descrição como viajante só são mostrados aos guias. Ma
 
 ## 6. Conduta e segurança
 
-Trate os guias com respeito, seja pontual e siga as suas instruções de segurança. Encontre-se primeiro em locais públicos, diga a alguém para onde vai e mantenha o contacto e o pagamento na RockGuide.
+Trate os guias com respeito, seja pontual e siga as suas instruções de segurança. Encontre-se primeiro em locais públicos, diga a alguém para onde vai e mantenha o contacto e o pagamento na BeLikeLocal.
 
 ## 7. Avaliações e níveis
 
@@ -428,11 +428,11 @@ Depois de uma viagem, o viajante e o guia podem avaliar-se com honestidade. A su
 Pode parar a qualquer momento. Podemos suspender a sua conta se violar este acordo ou os Termos e condições.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'el', 'Συμφωνία ταξιδιωτών', 'Έκδοση {{effective_date}}
 
-Η παρούσα συμφωνία ισχύει όταν αναζητάτε ξεναγούς μέσω του RockGuide, το οποίο λειτουργεί η {{operator_name}}. Συμπληρώνει τους Όρους και προϋποθέσεις, οι οποίοι εξακολουθούν να ισχύουν πλήρως. Σε περίπτωση σύγκρουσης υπερισχύουν οι Όροι και προϋποθέσεις.
+Η παρούσα συμφωνία ισχύει όταν αναζητάτε ξεναγούς μέσω του BeLikeLocal, το οποίο λειτουργεί η {{operator_name}}. Συμπληρώνει τους Όρους και προϋποθέσεις, οι οποίοι εξακολουθούν να ισχύουν πλήρως. Σε περίπτωση σύγκρουσης υπερισχύουν οι Όροι και προϋποθέσεις.
 
 ## 1. Τι αποδέχεστε
 
-Οι ξεναγοί είναι ανεξάρτητοι. Το RockGuide σάς βοηθά να τους βρείτε, αλλά η ίδια η ξενάγηση συμφωνείται ανάμεσα σε εσάς και τον ξεναγό. Ελέγξτε τι περιλαμβάνεται πριν κάνετε κράτηση.
+Οι ξεναγοί είναι ανεξάρτητοι. Το BeLikeLocal σάς βοηθά να τους βρείτε, αλλά η ίδια η ξενάγηση συμφωνείται ανάμεσα σε εσάς και τον ξεναγό. Ελέγξτε τι περιλαμβάνεται πριν κάνετε κράτηση.
 
 ## 2. Επιλογές και πακέτα
 
@@ -440,7 +440,7 @@ Pode parar a qualquer momento. Podemos suspender a sua conta se violar este acor
 
 ## 3. Κράτηση και πληρωμή
 
-Πληρώνετε την αμοιβή ενός ξεναγού μόνο μέσω του RockGuide. Μια κράτηση γίνεται ταξίδι όταν την αποδεχτεί ο ξεναγός· μέχρι τότε μπορείτε να την αποσύρετε με πλήρη επιστροφή. Αν ο ξεναγός αρνηθεί ή δεν απαντήσει εγκαίρως, σας επιστρέφεται όλο το ποσό.
+Πληρώνετε την αμοιβή ενός ξεναγού μόνο μέσω του BeLikeLocal. Μια κράτηση γίνεται ταξίδι όταν την αποδεχτεί ο ξεναγός· μέχρι τότε μπορείτε να την αποσύρετε με πλήρη επιστροφή. Αν ο ξεναγός αρνηθεί ή δεν απαντήσει εγκαίρως, σας επιστρέφεται όλο το ποσό.
 
 ## 4. Ακυρώσεις
 
@@ -452,7 +452,7 @@ Pode parar a qualquer momento. Podemos suspender a sua conta se violar este acor
 
 ## 6. Συμπεριφορά και ασφάλεια
 
-Να φέρεστε στους ξεναγούς με σεβασμό, να είστε στην ώρα σας και να ακολουθείτε τις οδηγίες ασφαλείας τους. Συναντηθείτε πρώτα σε δημόσιους χώρους, πείτε σε κάποιον πού πηγαίνετε και κρατήστε την επικοινωνία και την πληρωμή στο RockGuide.
+Να φέρεστε στους ξεναγούς με σεβασμό, να είστε στην ώρα σας και να ακολουθείτε τις οδηγίες ασφαλείας τους. Συναντηθείτε πρώτα σε δημόσιους χώρους, πείτε σε κάποιον πού πηγαίνετε και κρατήστε την επικοινωνία και την πληρωμή στο BeLikeLocal.
 
 ## 7. Κριτικές και επίπεδα
 
@@ -463,11 +463,11 @@ Pode parar a qualquer momento. Podemos suspender a sua conta se violar este acor
 Μπορείτε να σταματήσετε οποτεδήποτε. Μπορούμε να αναστείλουμε τον λογαριασμό σας αν παραβιάσετε την παρούσα συμφωνία ή τους Όρους και προϋποθέσεις.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'th', 'ข้อตกลงสำหรับนักเดินทาง', 'เวอร์ชัน {{effective_date}}
 
-ข้อตกลงนี้ใช้เมื่อคุณหาไกด์ผ่าน RockGuide ซึ่งดำเนินการโดย {{operator_name}} ข้อตกลงนี้เป็นส่วนเพิ่มเติมของข้อกำหนดและเงื่อนไข ซึ่งยังคงใช้บังคับเต็มที่ หากขัดแย้งกัน ให้ถือข้อกำหนดและเงื่อนไขเป็นหลัก
+ข้อตกลงนี้ใช้เมื่อคุณหาไกด์ผ่าน BeLikeLocal ซึ่งดำเนินการโดย {{operator_name}} ข้อตกลงนี้เป็นส่วนเพิ่มเติมของข้อกำหนดและเงื่อนไข ซึ่งยังคงใช้บังคับเต็มที่ หากขัดแย้งกัน ให้ถือข้อกำหนดและเงื่อนไขเป็นหลัก
 
 ## 1. สิ่งที่คุณยอมรับ
 
-ไกด์ทำงานอย่างอิสระ RockGuide ช่วยให้คุณพบไกด์ แต่ตัวทัวร์เป็นสิ่งที่คุณกับไกด์ตกลงกันเอง ตรวจสอบสิ่งที่รวมอยู่ก่อนจอง
+ไกด์ทำงานอย่างอิสระ BeLikeLocal ช่วยให้คุณพบไกด์ แต่ตัวทัวร์เป็นสิ่งที่คุณกับไกด์ตกลงกันเอง ตรวจสอบสิ่งที่รวมอยู่ก่อนจอง
 
 ## 2. สิทธิ์เลือกและแพ็กเกจ
 
@@ -475,7 +475,7 @@ Pode parar a qualquer momento. Podemos suspender a sua conta se violar este acor
 
 ## 3. การจองและการชำระเงิน
 
-ชำระค่าบริการไกด์ผ่าน RockGuide เท่านั้น การจองจะเป็นทริปเมื่อไกด์ยอมรับ ก่อนหน้านั้นคุณถอนการจองได้และได้รับเงินคืนเต็มจำนวน หากไกด์ปฏิเสธหรือไม่ตอบทันเวลา คุณจะได้รับเงินคืนเต็มจำนวน
+ชำระค่าบริการไกด์ผ่าน BeLikeLocal เท่านั้น การจองจะเป็นทริปเมื่อไกด์ยอมรับ ก่อนหน้านั้นคุณถอนการจองได้และได้รับเงินคืนเต็มจำนวน หากไกด์ปฏิเสธหรือไม่ตอบทันเวลา คุณจะได้รับเงินคืนเต็มจำนวน
 
 ## 4. การยกเลิก
 
@@ -487,7 +487,7 @@ Pode parar a qualquer momento. Podemos suspender a sua conta se violar este acor
 
 ## 6. ความประพฤติและความปลอดภัย
 
-ปฏิบัติต่อไกด์ด้วยความเคารพ ตรงต่อเวลา และทำตามคำแนะนำด้านความปลอดภัย นัดพบครั้งแรกในที่สาธารณะ บอกใครสักคนว่าคุณจะไปไหน และติดต่อกับชำระเงินผ่าน RockGuide
+ปฏิบัติต่อไกด์ด้วยความเคารพ ตรงต่อเวลา และทำตามคำแนะนำด้านความปลอดภัย นัดพบครั้งแรกในที่สาธารณะ บอกใครสักคนว่าคุณจะไปไหน และติดต่อกับชำระเงินผ่าน BeLikeLocal
 
 ## 7. รีวิวและระดับ
 
@@ -498,11 +498,11 @@ Pode parar a qualquer momento. Podemos suspender a sua conta se violar este acor
 คุณหยุดใช้งานได้ทุกเมื่อ เราอาจระงับบัญชีของคุณหากคุณละเมิดข้อตกลงนี้หรือข้อกำหนดและเงื่อนไข', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('traveller_agreement', '2026-10-18', 'uk', 'Угода для мандрівників', 'Версія {{effective_date}}
 
-Ця угода діє, коли ви шукаєте гідів через RockGuide, яким керує {{operator_name}}. Вона доповнює Умови користування, які й далі діють у повному обсязі. У разі суперечності переважають Умови користування.
+Ця угода діє, коли ви шукаєте гідів через BeLikeLocal, яким керує {{operator_name}}. Вона доповнює Умови користування, які й далі діють у повному обсязі. У разі суперечності переважають Умови користування.
 
 ## 1. На що ви погоджуєтеся
 
-Гіди працюють самостійно. RockGuide допомагає їх знайти, але саму екскурсію ви узгоджуєте з гідом. Перед бронюванням перевірте, що до неї входить.
+Гіди працюють самостійно. BeLikeLocal допомагає їх знайти, але саму екскурсію ви узгоджуєте з гідом. Перед бронюванням перевірте, що до неї входить.
 
 ## 2. Вибори та пакети
 
@@ -510,7 +510,7 @@ Pode parar a qualquer momento. Podemos suspender a sua conta se violar este acor
 
 ## 3. Бронювання та оплата
 
-Сплачуйте гонорар гіда лише через RockGuide. Бронювання стає поїздкою, коли гід його приймає; до того ви можете відкликати його з повним поверненням. Якщо гід відмовляє або не відповідає вчасно, вам повертається вся сума.
+Сплачуйте гонорар гіда лише через BeLikeLocal. Бронювання стає поїздкою, коли гід його приймає; до того ви можете відкликати його з повним поверненням. Якщо гід відмовляє або не відповідає вчасно, вам повертається вся сума.
 
 ## 4. Скасування
 
@@ -522,7 +522,7 @@ Pode parar a qualquer momento. Podemos suspender a sua conta se violar este acor
 
 ## 6. Поведінка та безпека
 
-Ставтеся до гідів з повагою, приходьте вчасно й дотримуйтеся їхніх вказівок щодо безпеки. Для першої зустрічі обирайте людні місця, повідомте комусь, куди йдете, і тримайте спілкування й оплату в RockGuide.
+Ставтеся до гідів з повагою, приходьте вчасно й дотримуйтеся їхніх вказівок щодо безпеки. Для першої зустрічі обирайте людні місця, повідомте комусь, куди йдете, і тримайте спілкування й оплату в BeLikeLocal.
 
 ## 7. Відгуки та рівні
 

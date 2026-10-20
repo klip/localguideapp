@@ -260,7 +260,7 @@ class Reviews
             'comment' => $row['comment'],
             'created_at' => gmdate('Y-m-d\TH:i:s\Z', (int) $row['created_ts']),
             'updated_at' => gmdate('Y-m-d\TH:i:s\Z', (int) $row['updated_ts']),
-            'author_name' => $row['author_name'] !== null && $row['author_name'] !== '' ? $row['author_name'] : 'RockGuide member',
+            'author_name' => $row['author_name'] !== null && $row['author_name'] !== '' ? $row['author_name'] : 'BeLikeLocal member',
             'author_image' => $row['author_image'] ?: null,
         ];
     }

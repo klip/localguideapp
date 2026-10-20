@@ -1,8 +1,8 @@
-// Grafana Alloy: tails the RockGuide containers' stdout/stderr through the
+// Grafana Alloy: tails the BeLikeLocal containers' stdout/stderr through the
 // Docker socket and ships them to Loki. Only containers labelled
-// `rockguide.logs=true` (see docker-lemp's compose file) are collected.
+// `belikelocal.logs=true` (see docker-lemp's compose file) are collected.
 //
-// Every RockGuide service writes one JSON object per line (lib/Log.php), so
+// Every BeLikeLocal service writes one JSON object per line (lib/Log.php), so
 // `level` and `service` become Loki labels; anything else — nginx, PHP-FPM's
 // own messages — is kept as plain text.
 
@@ -10,11 +10,11 @@ discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"
 }
 
-discovery.relabel "rockguide" {
+discovery.relabel "belikelocal" {
   targets = []
 
   rule {
-    source_labels = ["__meta_docker_container_label_rockguide_logs"]
+    source_labels = ["__meta_docker_container_label_belikelocal_logs"]
     regex         = "true"
     action        = "keep"
   }
@@ -31,15 +31,15 @@ discovery.relabel "rockguide" {
   }
 }
 
-loki.source.docker "rockguide" {
+loki.source.docker "belikelocal" {
   host          = "unix:///var/run/docker.sock"
   targets       = discovery.docker.containers.targets
-  relabel_rules = discovery.relabel.rockguide.rules
-  labels        = { app = "rockguide" }
-  forward_to    = [loki.process.rockguide.receiver]
+  relabel_rules = discovery.relabel.belikelocal.rules
+  labels        = { app = "belikelocal" }
+  forward_to    = [loki.process.belikelocal.receiver]
 }
 
-loki.process "rockguide" {
+loki.process "belikelocal" {
   stage.json {
     expressions = { level = "level", service = "service" }
   }

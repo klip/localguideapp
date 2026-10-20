@@ -2,15 +2,15 @@
 
 Version {{effective_date}}
 
-## 1. Über RockGuide und diese Bedingungen
+## 1. Über BeLikeLocal und diese Bedingungen
 
-RockGuide („die Plattform“, „wir“, „uns“) wird betrieben von {{operator_name}}, {{operator_address}}, {{operator_registration}}. Diese Bedingungen gelten für alle, die die Plattform nutzen: Besucher, die einen Guide suchen („Besucher“), und Guides, die ihre Dienste anbieten („Guides“).
+BeLikeLocal („die Plattform“, „wir“, „uns“) wird betrieben von {{operator_name}}, {{operator_address}}, {{operator_registration}}. Diese Bedingungen gelten für alle, die die Plattform nutzen: Besucher, die einen Guide suchen („Besucher“), und Guides, die ihre Dienste anbieten („Guides“).
 
 Mit der Erstellung eines Kontos akzeptierst du diese Bedingungen und bestätigst, dass du mindestens 18 Jahre alt bist oder das in deinem Land geltende höhere Volljährigkeitsalter erreicht hast.
 
 ## 2. Was die Plattform tut
 
-RockGuide ist ein Treffpunkt. Die Plattform hilft Besuchern und Guides, einander zu finden, gegenseitiges Interesse zu zeigen und sich über den Chat der Plattform auszutauschen. Kontaktdaten werden nicht geteilt. Jede Führung, Aktivität oder sonstige Leistung wird direkt zwischen Besucher und Guide vereinbart. Wir sind nicht Partei dieser Vereinbarung. Wir beschäftigen keine Guides, handeln nicht als ihre Vertreter und organisieren, beaufsichtigen oder prüfen die von ihnen erbrachten Leistungen nicht.
+BeLikeLocal ist ein Treffpunkt. Die Plattform hilft Besuchern und Guides, einander zu finden, gegenseitiges Interesse zu zeigen und sich über den Chat der Plattform auszutauschen. Kontaktdaten werden nicht geteilt. Jede Führung, Aktivität oder sonstige Leistung wird direkt zwischen Besucher und Guide vereinbart. Wir sind nicht Partei dieser Vereinbarung. Wir beschäftigen keine Guides, handeln nicht als ihre Vertreter und organisieren, beaufsichtigen oder prüfen die von ihnen erbrachten Leistungen nicht.
 
 ## 3. Keine Verantwortung für Leistungen oder Verhalten
 
@@ -31,7 +31,7 @@ Besucher und Guides verpflichten sich gleichermaßen,
 - andere Nutzer respektvoll zu behandeln und niemanden zu belästigen, zu bedrohen, zu diskriminieren, zu täuschen oder zu gefährden;
 - die Gesetze einzuhalten, einschließlich aller Lizenz-, Genehmigungs-, Steuer- oder Versicherungspflichten, die für die angebotenen oder genutzten Leistungen gelten;
 - die Plattform nur zur Vereinbarung von Guide-Leistungen zu nutzen und keine Inhalte zu veröffentlichen, die falsch oder beleidigend sind oder Rechte Dritter verletzen;
-- Kontakt und Zahlung auf der Plattform halten: keine Telefonnummern, E-Mail-Adressen, Links oder Social-Media-Namen in Profile, Bewertungen oder Nachrichten schreiben und die Zahlung für eine Buchung nicht außerhalb von RockGuide verlangen oder leisten.
+- Kontakt und Zahlung auf der Plattform halten: keine Telefonnummern, E-Mail-Adressen, Links oder Social-Media-Namen in Profile, Bewertungen oder Nachrichten schreiben und die Zahlung für eine Buchung nicht außerhalb von BeLikeLocal verlangen oder leisten.
 
 Guides sind allein verantwortlich für die angebotenen Leistungen, ihre Preise und die Einhaltung der Buchungen, die sie annehmen.
 
@@ -39,9 +39,9 @@ Guides sind allein verantwortlich für die angebotenen Leistungen, ihre Preise u
 
 Die Preise für Auswahlpakete und die Gebühren der Guides werden vor der Zahlung angezeigt. Die Stornierungs- und Erstattungsregeln, die die App bei der Buchung anzeigt, sind Bestandteil dieser Bedingungen.
 
-### 5.1 RockGuide-Schutz
+### 5.1 BeLikeLocal-Schutz
 
-Über RockGuide gebuchte Touren (und hier bezahlte, wenn der Guide eine Gebühr verlangt) sind geschützt:
+Über BeLikeLocal gebuchte Touren (und hier bezahlte, wenn der Guide eine Gebühr verlangt) sind geschützt:
 
 - Erstattungen nach den in der App angezeigten Regeln: Du erhältst den vollen Betrag zurück, wenn du deine Buchung zurückziehst, bevor der Guide annimmt, oder wenn der Guide ablehnt oder vor dem vereinbarten Termin nicht antwortet; storniert der Guide eine bestätigte Buchung, erhältst du den vollen Betrag zurück, bei später Stornierung zuzüglich 5 % (weniger als 24 Stunden vor dem Termin oder weniger als 2 Stunden, wenn euer Match weniger als einen Tag alt ist); bittest du um Stornierung und der Guide stimmt zu, erhältst du die Gebühr abzüglich 5 % zurück.
 - Hilfe, wenn etwas schiefgeht: Bei einer Beschwerde (Abschnitt 6) können wir die Buchung, ihren Treffpunkt und eure Nachrichten auf der Plattform einsehen.

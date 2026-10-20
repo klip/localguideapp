@@ -72,7 +72,7 @@ async function mountDiscover(api: Api, signedIn = false) {
   const pinia = createPinia()
   setActivePinia(pinia)
   if (signedIn)
-    useAuthStore().setUser({ id: 9, email: 'me@example.com', role: 'guest', sessionHash: 'hash' })
+    useAuthStore().setUser({ id: 9, email: 'me@example.com', role: 'guest' })
   const router = testRouter()
   router.push('/discover')
   await router.isReady()

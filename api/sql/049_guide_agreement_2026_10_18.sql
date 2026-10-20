@@ -8,11 +8,11 @@ SET NAMES utf8mb4;
 INSERT INTO `legal_documents` (`slug`, `version`, `language`, `title`, `body`, `published_at`, `created_at`) VALUES
 ('guide_agreement', '2026-10-18', 'en', 'Guide Agreement', 'Version {{effective_date}}
 
-This agreement applies when you guide through RockGuide, operated by {{operator_name}}. It adds to the Terms and Conditions, which still apply in full. If the two conflict, the Terms and Conditions prevail.
+This agreement applies when you guide through BeLikeLocal, operated by {{operator_name}}. It adds to the Terms and Conditions, which still apply in full. If the two conflict, the Terms and Conditions prevail.
 
 ## 1. You are independent
 
-You guide on your own account. You are not an employee, agent or partner of RockGuide. You decide what you offer, when and at what price, and you are responsible for any licence, permit, insurance and tax your guiding requires where you work.
+You guide on your own account. You are not an employee, agent or partner of BeLikeLocal. You decide what you offer, when and at what price, and you are responsible for any licence, permit, insurance and tax your guiding requires where you work.
 
 ## 2. Your profile and prices
 
@@ -24,7 +24,7 @@ A paid booking only becomes a trip when you accept it. Accept only what you can 
 
 ## 4. Fees and payouts
 
-Visitors pay your fee through RockGuide. We keep a platform fee, shown before you accept, which falls as your guide level rises. Your level grows only from paid trips, and slightly faster for higher fees.
+Visitors pay your fee through BeLikeLocal. We keep a platform fee, shown before you accept, which falls as your guide level rises. Your level grows only from paid trips, and slightly faster for higher fees.
 
 ## 5. Cancellations
 
@@ -32,7 +32,7 @@ If you cancel a confirmed booking, the visitor gets their fee back. If you cance
 
 ## 6. Conduct and safety
 
-Treat visitors with respect and keep them safe. Never harass, discriminate against or mislead anyone. Keep contact and payment on RockGuide: do not share phone numbers, emails, links or handles, and never take payment outside the platform.
+Treat visitors with respect and keep them safe. Never harass, discriminate against or mislead anyone. Keep contact and payment on BeLikeLocal: do not share phone numbers, emails, links or handles, and never take payment outside the platform.
 
 ## 7. Reviews
 
@@ -43,11 +43,11 @@ After a trip, visitors can review you and you can review them. Reviews must be h
 You can stop guiding at any time. We may suspend your guide profile, lower your level or end this agreement if you break it or the Terms and Conditions.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'es', 'Acuerdo para guías', 'Versión {{effective_date}}
 
-Este acuerdo se aplica cuando haces de guía a través de RockGuide, operado por {{operator_name}}. Complementa los Términos y condiciones, que siguen aplicándose íntegramente. Si ambos entran en conflicto, prevalecen los Términos y condiciones.
+Este acuerdo se aplica cuando haces de guía a través de BeLikeLocal, operado por {{operator_name}}. Complementa los Términos y condiciones, que siguen aplicándose íntegramente. Si ambos entran en conflicto, prevalecen los Términos y condiciones.
 
 ## 1. Eres independiente
 
-Ejerces como guía por cuenta propia. No eres empleado, agente ni socio de RockGuide. Tú decides qué ofreces, cuándo y a qué precio, y eres responsable de cualquier licencia, permiso, seguro e impuesto que tu actividad requiera donde trabajas.
+Ejerces como guía por cuenta propia. No eres empleado, agente ni socio de BeLikeLocal. Tú decides qué ofreces, cuándo y a qué precio, y eres responsable de cualquier licencia, permiso, seguro e impuesto que tu actividad requiera donde trabajas.
 
 ## 2. Tu perfil y tus precios
 
@@ -59,7 +59,7 @@ Una reserva pagada solo se convierte en viaje cuando la aceptas. Acepta solo lo 
 
 ## 4. Tarifas y pagos
 
-Los visitantes pagan tu tarifa a través de RockGuide. Nos quedamos una comisión de plataforma, indicada antes de que aceptes, que baja a medida que sube tu nivel de guía. Tu nivel solo crece con viajes pagados, y algo más rápido con tarifas más altas.
+Los visitantes pagan tu tarifa a través de BeLikeLocal. Nos quedamos una comisión de plataforma, indicada antes de que aceptes, que baja a medida que sube tu nivel de guía. Tu nivel solo crece con viajes pagados, y algo más rápido con tarifas más altas.
 
 ## 5. Cancelaciones
 
@@ -67,7 +67,7 @@ Si cancelas una reserva confirmada, el visitante recupera su tarifa. Si cancelas
 
 ## 6. Conducta y seguridad
 
-Trata a los visitantes con respeto y mantenlos a salvo. Nunca acoses, discrimines ni engañes a nadie. Mantén el contacto y el pago en RockGuide: no compartas teléfonos, correos, enlaces ni perfiles, y nunca cobres fuera de la plataforma.
+Trata a los visitantes con respeto y mantenlos a salvo. Nunca acoses, discrimines ni engañes a nadie. Mantén el contacto y el pago en BeLikeLocal: no compartas teléfonos, correos, enlaces ni perfiles, y nunca cobres fuera de la plataforma.
 
 ## 7. Reseñas
 
@@ -78,11 +78,11 @@ Tras un viaje, los visitantes pueden reseñarte y tú a ellos. Las reseñas debe
 Puedes dejar de guiar cuando quieras. Podemos suspender tu perfil de guía, bajar tu nivel o poner fin a este acuerdo si lo incumples o incumples los Términos y condiciones.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'fr', 'Accord des guides', 'Version {{effective_date}}
 
-Cet accord s’applique lorsque vous êtes guide sur RockGuide, exploité par {{operator_name}}. Il complète les Conditions générales, qui restent pleinement applicables. En cas de contradiction, les Conditions générales prévalent.
+Cet accord s’applique lorsque vous êtes guide sur BeLikeLocal, exploité par {{operator_name}}. Il complète les Conditions générales, qui restent pleinement applicables. En cas de contradiction, les Conditions générales prévalent.
 
 ## 1. Vous êtes indépendant
 
-Vous guidez pour votre propre compte. Vous n’êtes ni salarié, ni agent, ni associé de RockGuide. Vous décidez de ce que vous proposez, quand et à quel prix, et vous êtes responsable des licences, autorisations, assurances et impôts qu’exige votre activité là où vous exercez.
+Vous guidez pour votre propre compte. Vous n’êtes ni salarié, ni agent, ni associé de BeLikeLocal. Vous décidez de ce que vous proposez, quand et à quel prix, et vous êtes responsable des licences, autorisations, assurances et impôts qu’exige votre activité là où vous exercez.
 
 ## 2. Votre profil et vos prix
 
@@ -94,7 +94,7 @@ Une réservation payée ne devient un voyage que lorsque vous l’acceptez. N’
 
 ## 4. Frais et versements
 
-Les visiteurs paient vos honoraires via RockGuide. Nous retenons des frais de plateforme, indiqués avant que vous acceptiez, qui baissent à mesure que votre niveau de guide augmente. Votre niveau ne progresse qu’avec des voyages payants, et un peu plus vite pour des honoraires plus élevés.
+Les visiteurs paient vos honoraires via BeLikeLocal. Nous retenons des frais de plateforme, indiqués avant que vous acceptiez, qui baissent à mesure que votre niveau de guide augmente. Votre niveau ne progresse qu’avec des voyages payants, et un peu plus vite pour des honoraires plus élevés.
 
 ## 5. Annulations
 
@@ -102,7 +102,7 @@ Si vous annulez une réservation confirmée, le visiteur récupère ses honorair
 
 ## 6. Conduite et sécurité
 
-Traitez les visiteurs avec respect et veillez à leur sécurité. Ne harcelez, ne discriminez et ne trompez jamais personne. Gardez le contact et le paiement sur RockGuide : ne partagez ni numéros, ni e-mails, ni liens, ni pseudonymes, et n’acceptez jamais de paiement hors de la plateforme.
+Traitez les visiteurs avec respect et veillez à leur sécurité. Ne harcelez, ne discriminez et ne trompez jamais personne. Gardez le contact et le paiement sur BeLikeLocal : ne partagez ni numéros, ni e-mails, ni liens, ni pseudonymes, et n’acceptez jamais de paiement hors de la plateforme.
 
 ## 7. Avis
 
@@ -113,11 +113,11 @@ Après un voyage, les visiteurs peuvent vous évaluer et vous pouvez les évalue
 Vous pouvez cesser de guider à tout moment. Nous pouvons suspendre votre profil de guide, abaisser votre niveau ou mettre fin à cet accord si vous enfreignez celui-ci ou les Conditions générales.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'de', 'Vereinbarung für Guides', 'Version {{effective_date}}
 
-Diese Vereinbarung gilt, wenn du über RockGuide, betrieben von {{operator_name}}, als Guide tätig bist. Sie ergänzt die Allgemeinen Geschäftsbedingungen, die weiterhin vollständig gelten. Bei Widersprüchen haben die Allgemeinen Geschäftsbedingungen Vorrang.
+Diese Vereinbarung gilt, wenn du über BeLikeLocal, betrieben von {{operator_name}}, als Guide tätig bist. Sie ergänzt die Allgemeinen Geschäftsbedingungen, die weiterhin vollständig gelten. Bei Widersprüchen haben die Allgemeinen Geschäftsbedingungen Vorrang.
 
 ## 1. Du bist selbstständig
 
-Du führst auf eigene Rechnung. Du bist weder Angestellter noch Vertreter oder Partner von RockGuide. Du entscheidest, was du anbietest, wann und zu welchem Preis, und bist für alle Lizenzen, Genehmigungen, Versicherungen und Steuern verantwortlich, die deine Tätigkeit dort erfordert, wo du arbeitest.
+Du führst auf eigene Rechnung. Du bist weder Angestellter noch Vertreter oder Partner von BeLikeLocal. Du entscheidest, was du anbietest, wann und zu welchem Preis, und bist für alle Lizenzen, Genehmigungen, Versicherungen und Steuern verantwortlich, die deine Tätigkeit dort erfordert, wo du arbeitest.
 
 ## 2. Dein Profil und deine Preise
 
@@ -129,7 +129,7 @@ Eine bezahlte Buchung wird erst zur Reise, wenn du sie annimmst. Nimm nur an, wa
 
 ## 4. Gebühren und Auszahlungen
 
-Besucher zahlen dein Honorar über RockGuide. Wir behalten eine Plattformgebühr ein, die vor der Annahme angezeigt wird und mit steigendem Guide-Level sinkt. Dein Level steigt nur durch bezahlte Reisen, bei höheren Honoraren etwas schneller.
+Besucher zahlen dein Honorar über BeLikeLocal. Wir behalten eine Plattformgebühr ein, die vor der Annahme angezeigt wird und mit steigendem Guide-Level sinkt. Dein Level steigt nur durch bezahlte Reisen, bei höheren Honoraren etwas schneller.
 
 ## 5. Stornierungen
 
@@ -137,7 +137,7 @@ Stornierst du eine bestätigte Buchung, erhält der Besucher sein Honorar zurüc
 
 ## 6. Verhalten und Sicherheit
 
-Behandle Besucher respektvoll und sorge für ihre Sicherheit. Belästige, diskriminiere oder täusche niemals jemanden. Kontakt und Zahlung bleiben auf RockGuide: Teile keine Telefonnummern, E-Mails, Links oder Profilnamen und nimm niemals Zahlungen außerhalb der Plattform an.
+Behandle Besucher respektvoll und sorge für ihre Sicherheit. Belästige, diskriminiere oder täusche niemals jemanden. Kontakt und Zahlung bleiben auf BeLikeLocal: Teile keine Telefonnummern, E-Mails, Links oder Profilnamen und nimm niemals Zahlungen außerhalb der Plattform an.
 
 ## 7. Bewertungen
 
@@ -148,11 +148,11 @@ Nach einer Reise können Besucher dich bewerten und du sie. Bewertungen müssen 
 Du kannst jederzeit aufhören zu führen. Wir können dein Guide-Profil sperren, dein Level senken oder diese Vereinbarung beenden, wenn du gegen sie oder die Allgemeinen Geschäftsbedingungen verstößt.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'zh', '向导协议', '版本 {{effective_date}}
 
-当你通过由 {{operator_name}} 运营的 RockGuide 担任向导时，本协议适用。本协议是对《条款和条件》的补充，后者仍完全适用。如两者冲突，以《条款和条件》为准。
+当你通过由 {{operator_name}} 运营的 BeLikeLocal 担任向导时，本协议适用。本协议是对《条款和条件》的补充，后者仍完全适用。如两者冲突，以《条款和条件》为准。
 
 ## 1. 你是独立的
 
-你以自己的名义提供向导服务，不是 RockGuide 的员工、代理人或合伙人。你自行决定提供什么、何时提供以及价格，并负责你工作地点的向导服务所需的任何执照、许可、保险和税务。
+你以自己的名义提供向导服务，不是 BeLikeLocal 的员工、代理人或合伙人。你自行决定提供什么、何时提供以及价格，并负责你工作地点的向导服务所需的任何执照、许可、保险和税务。
 
 ## 2. 你的资料和价格
 
@@ -164,7 +164,7 @@ Du kannst jederzeit aufhören zu führen. Wir können dein Guide-Profil sperren,
 
 ## 4. 费用和结算
 
-游客通过 RockGuide 支付你的费用。我们收取平台服务费，会在你接受前显示，并随着你的向导等级提高而降低。你的等级只会通过付费行程提升，费用越高提升略快。
+游客通过 BeLikeLocal 支付你的费用。我们收取平台服务费，会在你接受前显示，并随着你的向导等级提高而降低。你的等级只会通过付费行程提升，费用越高提升略快。
 
 ## 5. 取消
 
@@ -172,7 +172,7 @@ Du kannst jederzeit aufhören zu führen. Wir können dein Guide-Profil sperren,
 
 ## 6. 行为与安全
 
-尊重游客并保障其安全。绝不骚扰、歧视或误导任何人。联系和付款都保留在 RockGuide 上：不要分享电话号码、电子邮件、链接或社交账号，也绝不在平台之外收款。
+尊重游客并保障其安全。绝不骚扰、歧视或误导任何人。联系和付款都保留在 BeLikeLocal 上：不要分享电话号码、电子邮件、链接或社交账号，也绝不在平台之外收款。
 
 ## 7. 评价
 
@@ -183,11 +183,11 @@ Du kannst jederzeit aufhören zu führen. Wir können dein Guide-Profil sperren,
 你可以随时停止担任向导。如果你违反本协议或《条款和条件》，我们可以暂停你的向导资料、降低你的等级或终止本协议。', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'it', 'Accordo per le guide', 'Versione {{effective_date}}
 
-Questo accordo si applica quando fai da guida tramite RockGuide, gestito da {{operator_name}}. Integra i Termini e condizioni, che restano pienamente applicabili. In caso di conflitto prevalgono i Termini e condizioni.
+Questo accordo si applica quando fai da guida tramite BeLikeLocal, gestito da {{operator_name}}. Integra i Termini e condizioni, che restano pienamente applicabili. In caso di conflitto prevalgono i Termini e condizioni.
 
 ## 1. Sei indipendente
 
-Fai da guida per conto tuo. Non sei dipendente, agente o socio di RockGuide. Decidi tu cosa offrire, quando e a quale prezzo, e sei responsabile di licenze, permessi, assicurazioni e tasse richiesti dalla tua attività dove lavori.
+Fai da guida per conto tuo. Non sei dipendente, agente o socio di BeLikeLocal. Decidi tu cosa offrire, quando e a quale prezzo, e sei responsabile di licenze, permessi, assicurazioni e tasse richiesti dalla tua attività dove lavori.
 
 ## 2. Il tuo profilo e i tuoi prezzi
 
@@ -199,7 +199,7 @@ Una prenotazione pagata diventa un viaggio solo quando la accetti. Accetta solo 
 
 ## 4. Commissioni e pagamenti
 
-I visitatori pagano il tuo compenso tramite RockGuide. Tratteniamo una commissione di piattaforma, mostrata prima che tu accetti, che diminuisce man mano che sale il tuo livello di guida. Il tuo livello cresce solo con viaggi a pagamento, e un po’ più in fretta con compensi più alti.
+I visitatori pagano il tuo compenso tramite BeLikeLocal. Tratteniamo una commissione di piattaforma, mostrata prima che tu accetti, che diminuisce man mano che sale il tuo livello di guida. Il tuo livello cresce solo con viaggi a pagamento, e un po’ più in fretta con compensi più alti.
 
 ## 5. Cancellazioni
 
@@ -207,7 +207,7 @@ Se cancelli una prenotazione confermata, il visitatore riceve il rimborso del co
 
 ## 6. Comportamento e sicurezza
 
-Tratta i visitatori con rispetto e tienili al sicuro. Non molestare, discriminare o ingannare mai nessuno. Mantieni contatti e pagamenti su RockGuide: non condividere numeri di telefono, email, link o profili social e non accettare mai pagamenti fuori dalla piattaforma.
+Tratta i visitatori con rispetto e tienili al sicuro. Non molestare, discriminare o ingannare mai nessuno. Mantieni contatti e pagamenti su BeLikeLocal: non condividere numeri di telefono, email, link o profili social e non accettare mai pagamenti fuori dalla piattaforma.
 
 ## 7. Recensioni
 
@@ -218,11 +218,11 @@ Dopo un viaggio, i visitatori possono recensirti e tu puoi recensire loro. Le re
 Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo profilo di guida, abbassare il tuo livello o porre fine a questo accordo se violi l’accordo o i Termini e condizioni.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'ja', 'ガイド規約', 'バージョン {{effective_date}}
 
-本規約は、{{operator_name}} が運営する RockGuide を通じてガイドを行う場合に適用されます。本規約は利用規約を補足するもので、利用規約は引き続き全面的に適用されます。両者が矛盾する場合は利用規約が優先します。
+本規約は、{{operator_name}} が運営する BeLikeLocal を通じてガイドを行う場合に適用されます。本規約は利用規約を補足するもので、利用規約は引き続き全面的に適用されます。両者が矛盾する場合は利用規約が優先します。
 
 ## 1. あなたは独立した立場です
 
-あなたは自身の責任でガイドを行います。RockGuide の従業員、代理人、パートナーではありません。何を、いつ、いくらで提供するかはあなたが決め、活動地域でガイド業に必要な免許、許可、保険、税金について責任を負います。
+あなたは自身の責任でガイドを行います。BeLikeLocal の従業員、代理人、パートナーではありません。何を、いつ、いくらで提供するかはあなたが決め、活動地域でガイド業に必要な免許、許可、保険、税金について責任を負います。
 
 ## 2. プロフィールと料金
 
@@ -234,7 +234,7 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 
 ## 4. 手数料と支払い
 
-旅行者は RockGuide を通じてあなたの料金を支払います。当社は承認前に表示されるプラットフォーム手数料を差し引き、この手数料はガイドレベルが上がるほど下がります。レベルは有料旅行によってのみ上がり、料金が高いほどわずかに速く上がります。
+旅行者は BeLikeLocal を通じてあなたの料金を支払います。当社は承認前に表示されるプラットフォーム手数料を差し引き、この手数料はガイドレベルが上がるほど下がります。レベルは有料旅行によってのみ上がり、料金が高いほどわずかに速く上がります。
 
 ## 5. キャンセル
 
@@ -242,7 +242,7 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 
 ## 6. 行動と安全
 
-旅行者に敬意を持って接し、安全を守ってください。誰に対しても嫌がらせ、差別、欺瞞を行ってはいけません。連絡と支払いは RockGuide 上で行ってください。電話番号、メール、リンク、SNSアカウントを共有せず、プラットフォーム外で支払いを受け取らないでください。
+旅行者に敬意を持って接し、安全を守ってください。誰に対しても嫌がらせ、差別、欺瞞を行ってはいけません。連絡と支払いは BeLikeLocal 上で行ってください。電話番号、メール、リンク、SNSアカウントを共有せず、プラットフォーム外で支払いを受け取らないでください。
 
 ## 7. レビュー
 
@@ -253,11 +253,11 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 ガイド活動はいつでもやめることができます。本規約または利用規約に違反した場合、当社はガイドプロフィールの停止、レベルの引き下げ、または本規約の終了を行うことがあります。', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'ru', 'Соглашение для гидов', 'Версия {{effective_date}}
 
-Это соглашение действует, когда вы работаете гидом через RockGuide, которым управляет {{operator_name}}. Оно дополняет Условия использования, которые продолжают действовать в полном объёме. При противоречии преимущество имеют Условия использования.
+Это соглашение действует, когда вы работаете гидом через BeLikeLocal, которым управляет {{operator_name}}. Оно дополняет Условия использования, которые продолжают действовать в полном объёме. При противоречии преимущество имеют Условия использования.
 
 ## 1. Вы работаете самостоятельно
 
-Вы работаете гидом от своего имени. Вы не являетесь сотрудником, агентом или партнёром RockGuide. Вы сами решаете, что предлагать, когда и по какой цене, и отвечаете за лицензии, разрешения, страховку и налоги, которых требует ваша работа там, где вы её ведёте.
+Вы работаете гидом от своего имени. Вы не являетесь сотрудником, агентом или партнёром BeLikeLocal. Вы сами решаете, что предлагать, когда и по какой цене, и отвечаете за лицензии, разрешения, страховку и налоги, которых требует ваша работа там, где вы её ведёте.
 
 ## 2. Ваш профиль и цены
 
@@ -269,7 +269,7 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 
 ## 4. Комиссия и выплаты
 
-Путешественники оплачивают ваш гонорар через RockGuide. Мы удерживаем комиссию платформы, которая показывается до принятия бронирования и снижается по мере роста вашего уровня гида. Уровень растёт только за оплаченные поездки и немного быстрее при более высоком гонораре.
+Путешественники оплачивают ваш гонорар через BeLikeLocal. Мы удерживаем комиссию платформы, которая показывается до принятия бронирования и снижается по мере роста вашего уровня гида. Уровень растёт только за оплаченные поездки и немного быстрее при более высоком гонораре.
 
 ## 5. Отмены
 
@@ -277,7 +277,7 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 
 ## 6. Поведение и безопасность
 
-Относитесь к путешественникам с уважением и заботьтесь об их безопасности. Никогда никого не преследуйте, не дискриминируйте и не вводите в заблуждение. Общение и оплата остаются в RockGuide: не передавайте номера телефонов, почту, ссылки и аккаунты и никогда не принимайте оплату вне платформы.
+Относитесь к путешественникам с уважением и заботьтесь об их безопасности. Никогда никого не преследуйте, не дискриминируйте и не вводите в заблуждение. Общение и оплата остаются в BeLikeLocal: не передавайте номера телефонов, почту, ссылки и аккаунты и никогда не принимайте оплату вне платформы.
 
 ## 7. Отзывы
 
@@ -288,11 +288,11 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 Вы можете перестать работать гидом в любое время. Мы можем приостановить ваш профиль гида, понизить уровень или прекратить действие соглашения, если вы нарушите его или Условия использования.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'ko', '가이드 약관', '버전 {{effective_date}}
 
-이 약관은 {{operator_name}}이(가) 운영하는 RockGuide를 통해 가이드로 활동할 때 적용됩니다. 이 약관은 이용약관을 보완하며, 이용약관은 계속 전부 적용됩니다. 둘이 충돌하면 이용약관이 우선합니다.
+이 약관은 {{operator_name}}이(가) 운영하는 BeLikeLocal를 통해 가이드로 활동할 때 적용됩니다. 이 약관은 이용약관을 보완하며, 이용약관은 계속 전부 적용됩니다. 둘이 충돌하면 이용약관이 우선합니다.
 
 ## 1. 독립적인 활동
 
-당신은 자신의 책임으로 가이드 활동을 합니다. RockGuide의 직원, 대리인 또는 파트너가 아닙니다. 무엇을 언제 얼마에 제공할지는 당신이 정하며, 활동 지역에서 가이드 업무에 필요한 면허, 허가, 보험, 세금에 대한 책임은 당신에게 있습니다.
+당신은 자신의 책임으로 가이드 활동을 합니다. BeLikeLocal의 직원, 대리인 또는 파트너가 아닙니다. 무엇을 언제 얼마에 제공할지는 당신이 정하며, 활동 지역에서 가이드 업무에 필요한 면허, 허가, 보험, 세금에 대한 책임은 당신에게 있습니다.
 
 ## 2. 프로필과 가격
 
@@ -304,7 +304,7 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 
 ## 4. 수수료와 정산
 
-여행자는 RockGuide를 통해 당신의 요금을 지불합니다. 당사는 수락 전에 표시되는 플랫폼 수수료를 공제하며, 이 수수료는 가이드 레벨이 오를수록 낮아집니다. 레벨은 유료 여행으로만 오르며, 요금이 높을수록 조금 더 빨리 오릅니다.
+여행자는 BeLikeLocal를 통해 당신의 요금을 지불합니다. 당사는 수락 전에 표시되는 플랫폼 수수료를 공제하며, 이 수수료는 가이드 레벨이 오를수록 낮아집니다. 레벨은 유료 여행으로만 오르며, 요금이 높을수록 조금 더 빨리 오릅니다.
 
 ## 5. 취소
 
@@ -312,7 +312,7 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 
 ## 6. 행동과 안전
 
-여행자를 존중하고 안전하게 지켜 주세요. 누구에게도 괴롭힘, 차별, 기만을 해서는 안 됩니다. 연락과 결제는 RockGuide에서 하세요. 전화번호, 이메일, 링크, SNS 계정을 공유하지 말고 플랫폼 밖에서 결제를 받지 마세요.
+여행자를 존중하고 안전하게 지켜 주세요. 누구에게도 괴롭힘, 차별, 기만을 해서는 안 됩니다. 연락과 결제는 BeLikeLocal에서 하세요. 전화번호, 이메일, 링크, SNS 계정을 공유하지 말고 플랫폼 밖에서 결제를 받지 마세요.
 
 ## 7. 리뷰
 
@@ -323,11 +323,11 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 언제든지 가이드 활동을 그만둘 수 있습니다. 이 약관이나 이용약관을 위반하면 당사는 가이드 프로필을 정지하거나 레벨을 낮추거나 이 약관을 종료할 수 있습니다.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'ar', 'اتفاقية المرشدين', 'الإصدار {{effective_date}}
 
-تسري هذه الاتفاقية عندما تعمل مرشدًا عبر RockGuide الذي تديره {{operator_name}}. وهي مكمّلة للشروط والأحكام التي تظل سارية بالكامل. وفي حال التعارض تكون الأولوية للشروط والأحكام.
+تسري هذه الاتفاقية عندما تعمل مرشدًا عبر BeLikeLocal الذي تديره {{operator_name}}. وهي مكمّلة للشروط والأحكام التي تظل سارية بالكامل. وفي حال التعارض تكون الأولوية للشروط والأحكام.
 
 ## 1. أنت مستقل
 
-تعمل مرشدًا لحسابك الخاص. لست موظفًا أو وكيلًا أو شريكًا لـ RockGuide. أنت من يقرر ما تقدّمه ومتى وبأي سعر، وأنت مسؤول عن أي ترخيص أو تصريح أو تأمين أو ضريبة يتطلبها عملك في المكان الذي تعمل فيه.
+تعمل مرشدًا لحسابك الخاص. لست موظفًا أو وكيلًا أو شريكًا لـ BeLikeLocal. أنت من يقرر ما تقدّمه ومتى وبأي سعر، وأنت مسؤول عن أي ترخيص أو تصريح أو تأمين أو ضريبة يتطلبها عملك في المكان الذي تعمل فيه.
 
 ## 2. ملفك وأسعارك
 
@@ -339,7 +339,7 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 
 ## 4. الرسوم والمستحقات
 
-يدفع الزوار أجرك عبر RockGuide. نقتطع رسوم المنصة، وتُعرض قبل قبولك، وتنخفض كلما ارتفع مستواك كمرشد. لا يرتفع مستواك إلا بالرحلات المدفوعة، ويرتفع أسرع قليلًا مع الأجور الأعلى.
+يدفع الزوار أجرك عبر BeLikeLocal. نقتطع رسوم المنصة، وتُعرض قبل قبولك، وتنخفض كلما ارتفع مستواك كمرشد. لا يرتفع مستواك إلا بالرحلات المدفوعة، ويرتفع أسرع قليلًا مع الأجور الأعلى.
 
 ## 5. الإلغاء
 
@@ -347,7 +347,7 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 
 ## 6. السلوك والسلامة
 
-عامل الزوار باحترام وحافظ على سلامتهم. لا تضايق أحدًا أو تميّز ضده أو تضلله أبدًا. أبقِ التواصل والدفع على RockGuide: لا تشارك أرقام الهواتف أو البريد الإلكتروني أو الروابط أو الحسابات، ولا تتلقَّ أي دفعة خارج المنصة.
+عامل الزوار باحترام وحافظ على سلامتهم. لا تضايق أحدًا أو تميّز ضده أو تضلله أبدًا. أبقِ التواصل والدفع على BeLikeLocal: لا تشارك أرقام الهواتف أو البريد الإلكتروني أو الروابط أو الحسابات، ولا تتلقَّ أي دفعة خارج المنصة.
 
 ## 7. التقييمات
 
@@ -358,11 +358,11 @@ Puoi smettere di fare da guida in qualsiasi momento. Possiamo sospendere il tuo 
 يمكنك التوقف عن الإرشاد في أي وقت. يجوز لنا تعليق ملفك كمرشد أو خفض مستواك أو إنهاء هذه الاتفاقية إذا خالفتها أو خالفت الشروط والأحكام.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'tr', 'Rehber Sözleşmesi', 'Sürüm {{effective_date}}
 
-Bu sözleşme, {{operator_name}} tarafından işletilen RockGuide üzerinden rehberlik yaptığınızda geçerlidir. Tamamen geçerli olmaya devam eden Kullanım Koşulları''nı tamamlar. İkisi çelişirse Kullanım Koşulları geçerlidir.
+Bu sözleşme, {{operator_name}} tarafından işletilen BeLikeLocal üzerinden rehberlik yaptığınızda geçerlidir. Tamamen geçerli olmaya devam eden Kullanım Koşulları''nı tamamlar. İkisi çelişirse Kullanım Koşulları geçerlidir.
 
 ## 1. Bağımsızsınız
 
-Rehberliği kendi hesabınıza yaparsınız. RockGuide''ın çalışanı, temsilcisi veya ortağı değilsiniz. Ne sunacağınıza, ne zaman ve hangi fiyata sunacağınıza siz karar verirsiniz; çalıştığınız yerde rehberliğin gerektirdiği her türlü lisans, izin, sigorta ve vergiden siz sorumlusunuz.
+Rehberliği kendi hesabınıza yaparsınız. BeLikeLocal''ın çalışanı, temsilcisi veya ortağı değilsiniz. Ne sunacağınıza, ne zaman ve hangi fiyata sunacağınıza siz karar verirsiniz; çalıştığınız yerde rehberliğin gerektirdiği her türlü lisans, izin, sigorta ve vergiden siz sorumlusunuz.
 
 ## 2. Profiliniz ve fiyatlarınız
 
@@ -374,7 +374,7 @@ Kendinizi, turlarınızı, nelerin dahil olduğunu ve fiyatınızı doğru biçi
 
 ## 4. Ücretler ve ödemeler
 
-Ziyaretçiler ücretinizi RockGuide üzerinden öder. Kabul etmeden önce gösterilen ve rehber seviyeniz yükseldikçe düşen bir platform ücreti alırız. Seviyeniz yalnızca ücretli gezilerle yükselir; daha yüksek ücretlerde biraz daha hızlı yükselir.
+Ziyaretçiler ücretinizi BeLikeLocal üzerinden öder. Kabul etmeden önce gösterilen ve rehber seviyeniz yükseldikçe düşen bir platform ücreti alırız. Seviyeniz yalnızca ücretli gezilerle yükselir; daha yüksek ücretlerde biraz daha hızlı yükselir.
 
 ## 5. İptaller
 
@@ -382,7 +382,7 @@ Onaylanmış bir rezervasyonu iptal ederseniz ziyaretçi ücretini geri alır. B
 
 ## 6. Davranış ve güvenlik
 
-Ziyaretçilere saygılı davranın ve güvenliklerini sağlayın. Hiç kimseyi taciz etmeyin, ayrımcılık yapmayın veya yanıltmayın. İletişim ve ödemeyi RockGuide''da tutun: telefon numarası, e-posta, bağlantı veya kullanıcı adı paylaşmayın ve platform dışında asla ödeme almayın.
+Ziyaretçilere saygılı davranın ve güvenliklerini sağlayın. Hiç kimseyi taciz etmeyin, ayrımcılık yapmayın veya yanıltmayın. İletişim ve ödemeyi BeLikeLocal''da tutun: telefon numarası, e-posta, bağlantı veya kullanıcı adı paylaşmayın ve platform dışında asla ödeme almayın.
 
 ## 7. Değerlendirmeler
 
@@ -393,11 +393,11 @@ Bir geziden sonra ziyaretçiler sizi, siz de onları değerlendirebilirsiniz. De
 Rehberliği istediğiniz zaman bırakabilirsiniz. Bu sözleşmeyi veya Kullanım Koşulları''nı ihlal ederseniz rehber profilinizi askıya alabilir, seviyenizi düşürebilir veya bu sözleşmeyi sona erdirebiliriz.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'pt', 'Acordo para guias', 'Versão {{effective_date}}
 
-Este acordo aplica-se quando atua como guia através da RockGuide, operada por {{operator_name}}. Complementa os Termos e condições, que continuam a aplicar-se na íntegra. Em caso de conflito, prevalecem os Termos e condições.
+Este acordo aplica-se quando atua como guia através da BeLikeLocal, operada por {{operator_name}}. Complementa os Termos e condições, que continuam a aplicar-se na íntegra. Em caso de conflito, prevalecem os Termos e condições.
 
 ## 1. É independente
 
-Atua como guia por conta própria. Não é funcionário, agente nem sócio da RockGuide. Decide o que oferece, quando e a que preço, e é responsável por qualquer licença, autorização, seguro e imposto que a sua atividade exija onde trabalha.
+Atua como guia por conta própria. Não é funcionário, agente nem sócio da BeLikeLocal. Decide o que oferece, quando e a que preço, e é responsável por qualquer licença, autorização, seguro e imposto que a sua atividade exija onde trabalha.
 
 ## 2. O seu perfil e os seus preços
 
@@ -409,7 +409,7 @@ Uma reserva paga só se torna uma viagem quando a aceita. Aceite apenas o que pu
 
 ## 4. Taxas e pagamentos
 
-Os visitantes pagam os seus honorários através da RockGuide. Retemos uma taxa de plataforma, indicada antes de aceitar, que diminui à medida que o seu nível de guia sobe. O seu nível só cresce com viagens pagas, e um pouco mais depressa com honorários mais altos.
+Os visitantes pagam os seus honorários através da BeLikeLocal. Retemos uma taxa de plataforma, indicada antes de aceitar, que diminui à medida que o seu nível de guia sobe. O seu nível só cresce com viagens pagas, e um pouco mais depressa com honorários mais altos.
 
 ## 5. Cancelamentos
 
@@ -417,7 +417,7 @@ Se cancelar uma reserva confirmada, o visitante recebe os honorários de volta. 
 
 ## 6. Conduta e segurança
 
-Trate os visitantes com respeito e mantenha-os em segurança. Nunca assedie, discrimine ou engane ninguém. Mantenha o contacto e o pagamento na RockGuide: não partilhe números de telefone, e-mails, links ou perfis e nunca receba pagamentos fora da plataforma.
+Trate os visitantes com respeito e mantenha-os em segurança. Nunca assedie, discrimine ou engane ninguém. Mantenha o contacto e o pagamento na BeLikeLocal: não partilhe números de telefone, e-mails, links ou perfis e nunca receba pagamentos fora da plataforma.
 
 ## 7. Avaliações
 
@@ -428,11 +428,11 @@ Depois de uma viagem, os visitantes podem avaliá-lo e o guia pode avaliá-los. 
 Pode deixar de guiar a qualquer momento. Podemos suspender o seu perfil de guia, baixar o seu nível ou terminar este acordo se o violar ou violar os Termos e condições.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'el', 'Συμφωνία ξεναγών', 'Έκδοση {{effective_date}}
 
-Η παρούσα συμφωνία ισχύει όταν ξεναγείτε μέσω του RockGuide, το οποίο λειτουργεί η {{operator_name}}. Συμπληρώνει τους Όρους και προϋποθέσεις, οι οποίοι εξακολουθούν να ισχύουν πλήρως. Σε περίπτωση σύγκρουσης υπερισχύουν οι Όροι και προϋποθέσεις.
+Η παρούσα συμφωνία ισχύει όταν ξεναγείτε μέσω του BeLikeLocal, το οποίο λειτουργεί η {{operator_name}}. Συμπληρώνει τους Όρους και προϋποθέσεις, οι οποίοι εξακολουθούν να ισχύουν πλήρως. Σε περίπτωση σύγκρουσης υπερισχύουν οι Όροι και προϋποθέσεις.
 
 ## 1. Είστε ανεξάρτητος
 
-Ξεναγείτε για δικό σας λογαριασμό. Δεν είστε υπάλληλος, αντιπρόσωπος ή συνεργάτης του RockGuide. Εσείς αποφασίζετε τι προσφέρετε, πότε και σε ποια τιμή, και είστε υπεύθυνος για κάθε άδεια, έγκριση, ασφάλιση και φόρο που απαιτεί η ξενάγηση εκεί όπου εργάζεστε.
+Ξεναγείτε για δικό σας λογαριασμό. Δεν είστε υπάλληλος, αντιπρόσωπος ή συνεργάτης του BeLikeLocal. Εσείς αποφασίζετε τι προσφέρετε, πότε και σε ποια τιμή, και είστε υπεύθυνος για κάθε άδεια, έγκριση, ασφάλιση και φόρο που απαιτεί η ξενάγηση εκεί όπου εργάζεστε.
 
 ## 2. Το προφίλ και οι τιμές σας
 
@@ -444,7 +444,7 @@ Pode deixar de guiar a qualquer momento. Podemos suspender o seu perfil de guia,
 
 ## 4. Χρεώσεις και πληρωμές
 
-Οι επισκέπτες πληρώνουν την αμοιβή σας μέσω του RockGuide. Κρατάμε μια χρέωση πλατφόρμας, που εμφανίζεται πριν την αποδοχή και μειώνεται όσο ανεβαίνει το επίπεδό σας ως ξεναγός. Το επίπεδό σας ανεβαίνει μόνο με πληρωμένα ταξίδια, λίγο πιο γρήγορα για υψηλότερες αμοιβές.
+Οι επισκέπτες πληρώνουν την αμοιβή σας μέσω του BeLikeLocal. Κρατάμε μια χρέωση πλατφόρμας, που εμφανίζεται πριν την αποδοχή και μειώνεται όσο ανεβαίνει το επίπεδό σας ως ξεναγός. Το επίπεδό σας ανεβαίνει μόνο με πληρωμένα ταξίδια, λίγο πιο γρήγορα για υψηλότερες αμοιβές.
 
 ## 5. Ακυρώσεις
 
@@ -452,7 +452,7 @@ Pode deixar de guiar a qualquer momento. Podemos suspender o seu perfil de guia,
 
 ## 6. Συμπεριφορά και ασφάλεια
 
-Να φέρεστε στους επισκέπτες με σεβασμό και να τους προστατεύετε. Μην παρενοχλείτε, μην κάνετε διακρίσεις και μην παραπλανάτε ποτέ κανέναν. Η επικοινωνία και η πληρωμή μένουν στο RockGuide: μην μοιράζεστε τηλέφωνα, email, συνδέσμους ή λογαριασμούς και μην δέχεστε ποτέ πληρωμή εκτός πλατφόρμας.
+Να φέρεστε στους επισκέπτες με σεβασμό και να τους προστατεύετε. Μην παρενοχλείτε, μην κάνετε διακρίσεις και μην παραπλανάτε ποτέ κανέναν. Η επικοινωνία και η πληρωμή μένουν στο BeLikeLocal: μην μοιράζεστε τηλέφωνα, email, συνδέσμους ή λογαριασμούς και μην δέχεστε ποτέ πληρωμή εκτός πλατφόρμας.
 
 ## 7. Κριτικές
 
@@ -463,11 +463,11 @@ Pode deixar de guiar a qualquer momento. Podemos suspender o seu perfil de guia,
 Μπορείτε να σταματήσετε να ξεναγείτε οποτεδήποτε. Μπορούμε να αναστείλουμε το προφίλ ξεναγού σας, να μειώσουμε το επίπεδό σας ή να τερματίσουμε τη συμφωνία αν παραβιάσετε την παρούσα ή τους Όρους και προϋποθέσεις.', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'th', 'ข้อตกลงสำหรับไกด์', 'เวอร์ชัน {{effective_date}}
 
-ข้อตกลงนี้ใช้เมื่อคุณเป็นไกด์ผ่าน RockGuide ซึ่งดำเนินการโดย {{operator_name}} ข้อตกลงนี้เป็นส่วนเพิ่มเติมของข้อกำหนดและเงื่อนไข ซึ่งยังคงใช้บังคับเต็มที่ หากขัดแย้งกัน ให้ถือข้อกำหนดและเงื่อนไขเป็นหลัก
+ข้อตกลงนี้ใช้เมื่อคุณเป็นไกด์ผ่าน BeLikeLocal ซึ่งดำเนินการโดย {{operator_name}} ข้อตกลงนี้เป็นส่วนเพิ่มเติมของข้อกำหนดและเงื่อนไข ซึ่งยังคงใช้บังคับเต็มที่ หากขัดแย้งกัน ให้ถือข้อกำหนดและเงื่อนไขเป็นหลัก
 
 ## 1. คุณเป็นอิสระ
 
-คุณเป็นไกด์ในนามของตนเอง ไม่ใช่พนักงาน ตัวแทน หรือหุ้นส่วนของ RockGuide คุณเป็นผู้ตัดสินใจว่าจะเสนออะไร เมื่อใด และในราคาเท่าใด และรับผิดชอบใบอนุญาต การอนุญาต ประกันภัย และภาษีที่งานไกด์ของคุณต้องมีในพื้นที่ที่คุณทำงาน
+คุณเป็นไกด์ในนามของตนเอง ไม่ใช่พนักงาน ตัวแทน หรือหุ้นส่วนของ BeLikeLocal คุณเป็นผู้ตัดสินใจว่าจะเสนออะไร เมื่อใด และในราคาเท่าใด และรับผิดชอบใบอนุญาต การอนุญาต ประกันภัย และภาษีที่งานไกด์ของคุณต้องมีในพื้นที่ที่คุณทำงาน
 
 ## 2. โปรไฟล์และราคาของคุณ
 
@@ -479,7 +479,7 @@ Pode deixar de guiar a qualquer momento. Podemos suspender o seu perfil de guia,
 
 ## 4. ค่าธรรมเนียมและการจ่ายเงิน
 
-นักท่องเที่ยวชำระค่าบริการของคุณผ่าน RockGuide เราหักค่าธรรมเนียมแพลตฟอร์มซึ่งแสดงก่อนที่คุณจะยอมรับ และจะลดลงเมื่อระดับไกด์ของคุณสูงขึ้น ระดับของคุณจะเพิ่มขึ้นจากทริปที่ชำระเงินเท่านั้น และเพิ่มเร็วขึ้นเล็กน้อยเมื่อค่าบริการสูงขึ้น
+นักท่องเที่ยวชำระค่าบริการของคุณผ่าน BeLikeLocal เราหักค่าธรรมเนียมแพลตฟอร์มซึ่งแสดงก่อนที่คุณจะยอมรับ และจะลดลงเมื่อระดับไกด์ของคุณสูงขึ้น ระดับของคุณจะเพิ่มขึ้นจากทริปที่ชำระเงินเท่านั้น และเพิ่มเร็วขึ้นเล็กน้อยเมื่อค่าบริการสูงขึ้น
 
 ## 5. การยกเลิก
 
@@ -487,7 +487,7 @@ Pode deixar de guiar a qualquer momento. Podemos suspender o seu perfil de guia,
 
 ## 6. ความประพฤติและความปลอดภัย
 
-ปฏิบัติต่อนักท่องเที่ยวด้วยความเคารพและดูแลความปลอดภัย ห้ามคุกคาม เลือกปฏิบัติ หรือหลอกลวงผู้ใด ติดต่อและชำระเงินผ่าน RockGuide เท่านั้น อย่าแชร์เบอร์โทรศัพท์ อีเมล ลิงก์ หรือบัญชีโซเชียล และห้ามรับเงินนอกแพลตฟอร์ม
+ปฏิบัติต่อนักท่องเที่ยวด้วยความเคารพและดูแลความปลอดภัย ห้ามคุกคาม เลือกปฏิบัติ หรือหลอกลวงผู้ใด ติดต่อและชำระเงินผ่าน BeLikeLocal เท่านั้น อย่าแชร์เบอร์โทรศัพท์ อีเมล ลิงก์ หรือบัญชีโซเชียล และห้ามรับเงินนอกแพลตฟอร์ม
 
 ## 7. รีวิว
 
@@ -498,11 +498,11 @@ Pode deixar de guiar a qualquer momento. Podemos suspender o seu perfil de guia,
 คุณหยุดเป็นไกด์ได้ทุกเมื่อ เราอาจระงับโปรไฟล์ไกด์ ลดระดับ หรือยุติข้อตกลงนี้ หากคุณละเมิดข้อตกลงนี้หรือข้อกำหนดและเงื่อนไข', '2026-10-18 00:00:00', UTC_TIMESTAMP()),
 ('guide_agreement', '2026-10-18', 'uk', 'Угода для гідів', 'Версія {{effective_date}}
 
-Ця угода діє, коли ви працюєте гідом через RockGuide, яким керує {{operator_name}}. Вона доповнює Умови користування, які й далі діють у повному обсязі. У разі суперечності переважають Умови користування.
+Ця угода діє, коли ви працюєте гідом через BeLikeLocal, яким керує {{operator_name}}. Вона доповнює Умови користування, які й далі діють у повному обсязі. У разі суперечності переважають Умови користування.
 
 ## 1. Ви працюєте самостійно
 
-Ви працюєте гідом від власного імені. Ви не є працівником, агентом чи партнером RockGuide. Ви самі вирішуєте, що пропонувати, коли і за якою ціною, і відповідаєте за ліцензії, дозволи, страхування та податки, яких вимагає ваша робота там, де ви її ведете.
+Ви працюєте гідом від власного імені. Ви не є працівником, агентом чи партнером BeLikeLocal. Ви самі вирішуєте, що пропонувати, коли і за якою ціною, і відповідаєте за ліцензії, дозволи, страхування та податки, яких вимагає ваша робота там, де ви її ведете.
 
 ## 2. Ваш профіль і ціни
 
@@ -514,7 +514,7 @@ Pode deixar de guiar a qualquer momento. Podemos suspender o seu perfil de guia,
 
 ## 4. Комісія та виплати
 
-Мандрівники сплачують ваш гонорар через RockGuide. Ми утримуємо комісію платформи, яка показується до прийняття бронювання і знижується зі зростанням вашого рівня гіда. Рівень зростає лише за оплачені поїздки і трохи швидше за вищого гонорару.
+Мандрівники сплачують ваш гонорар через BeLikeLocal. Ми утримуємо комісію платформи, яка показується до прийняття бронювання і знижується зі зростанням вашого рівня гіда. Рівень зростає лише за оплачені поїздки і трохи швидше за вищого гонорару.
 
 ## 5. Скасування
 
@@ -522,7 +522,7 @@ Pode deixar de guiar a qualquer momento. Podemos suspender o seu perfil de guia,
 
 ## 6. Поведінка та безпека
 
-Ставтеся до мандрівників з повагою і дбайте про їхню безпеку. Ніколи нікого не переслідуйте, не дискримінуйте й не вводьте в оману. Спілкування й оплата залишаються в RockGuide: не передавайте номери телефонів, пошту, посилання й акаунти і ніколи не приймайте оплату поза платформою.
+Ставтеся до мандрівників з повагою і дбайте про їхню безпеку. Ніколи нікого не переслідуйте, не дискримінуйте й не вводьте в оману. Спілкування й оплата залишаються в BeLikeLocal: не передавайте номери телефонів, пошту, посилання й акаунти і ніколи не приймайте оплату поза платформою.
 
 ## 7. Відгуки
 

@@ -109,7 +109,7 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
 async function mountPage(api: Api, role: 'guest' | 'guide' = 'guest', path = '/planner') {
   const pinia = createPinia()
   setActivePinia(pinia)
-  useAuthStore().setUser({ id: 1, email: 'me@example.com', role, sessionHash: 'hash' })
+  useAuthStore().setUser({ id: 1, email: 'me@example.com', role })
   const router = createRouter({
     history: createWebHistory(),
     routes: [

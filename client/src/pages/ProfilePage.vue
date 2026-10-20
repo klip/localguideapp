@@ -420,6 +420,24 @@ async function forgetDevices(event: MouseEvent) {
   }
 }
 
+/** Every sign-in of the account ends — this one too — so it's back to the login page. */
+const signingOutEverywhere = ref(false)
+
+async function signOutEverywhere(event: MouseEvent) {
+  if (signingOutEverywhere.value) return
+  const placement = anchorTo('element', event.currentTarget as HTMLElement | null)
+  signingOutEverywhere.value = true
+  try {
+    await api.logoutEverywhere()
+    messages.success(t('profile.toast.signed_out_everywhere'))
+    await router.push('/login')
+  } catch (err) {
+    reportApiError(err, t('profile.toast.sign_out_everywhere_failed'), placement)
+  } finally {
+    signingOutEverywhere.value = false
+  }
+}
+
 onMounted(async () => {
   if (!auth.user) {
     loading.value = false
@@ -493,7 +511,6 @@ async function saveAccount() {
       name: name.value.trim(),
       role: auth.user.role,
       roles: auth.user.roles,
-      sessionHash: auth.user.sessionHash,
     })
     if (image) avatar.set(image)
     messages.success(t('profile.toast.contact_saved'), anchorTo('element', accountPanelRef.value))
@@ -760,6 +777,19 @@ async function changePassword() {
               >
                 {{ t('profile.contact.forget_devices') }}
               </button>
+            </p>
+            <p class="tiny muted sign-out-everywhere">
+              <button
+                type="button"
+                class="link-btn"
+                data-test="sign-out-everywhere"
+                :aria-busy="signingOutEverywhere"
+                :disabled="signingOutEverywhere"
+                @click="signOutEverywhere"
+              >
+                {{ t('profile.contact.sign_out_everywhere') }}
+              </button>
+              {{ t('profile.contact.sign_out_everywhere_hint') }}
             </p>
 
             <div v-if="profile?.image" class="current-photo">

@@ -41,7 +41,6 @@ const guideUser: AuthResult = {
   id: 7,
   email: 'sofia@example.com',
   role: 'guide',
-  sessionHash: 'hash',
 }
 
 function testRouter() {
@@ -214,7 +213,7 @@ describe('LoginPage — remembered device', () => {
       rememberDevice: true,
     })
     // The device token isn't part of the persisted session.
-    expect(localStorage.getItem('rockguide.session')).not.toContain(DEVICE)
+    expect(localStorage.getItem('belikelocal.session')).not.toContain(DEVICE)
 
     login.mockResolvedValue(guideUser)
     const second = await mountAt('/login', LoginPage, fakeApi({ login }))
@@ -236,12 +235,12 @@ describe('LoginPage — remembered device', () => {
     await enterCode(wrapper, false)
 
     expect(verifyTwoFactor).toHaveBeenCalledWith({ challengeToken: TOKEN, code: '123456' })
-    expect(localStorage.getItem('rockguide.trustedDevices')).toBeNull()
+    expect(localStorage.getItem('belikelocal.trustedDevices')).toBeNull()
   })
 
   it('drops a remembered token the server no longer accepts', async () => {
     localStorage.setItem(
-      'rockguide.trustedDevices',
+      'belikelocal.trustedDevices',
       JSON.stringify({ 'sofia@example.com': { token: DEVICE, until: until() } }),
     )
     const login = vi.fn<Api['login']>().mockResolvedValue(challenge)
@@ -250,12 +249,12 @@ describe('LoginPage — remembered device', () => {
 
     expect(login).toHaveBeenCalledWith(expect.objectContaining({ deviceToken: DEVICE }))
     expect(wrapper.text()).toContain('Check your email')
-    expect(localStorage.getItem('rockguide.trustedDevices')).toBeNull()
+    expect(localStorage.getItem('belikelocal.trustedDevices')).toBeNull()
   })
 
   it('does not send a token that has expired locally', async () => {
     localStorage.setItem(
-      'rockguide.trustedDevices',
+      'belikelocal.trustedDevices',
       JSON.stringify({ 'sofia@example.com': { token: DEVICE, until: '2020-01-01T00:00:00Z' } }),
     )
     const login = vi.fn<Api['login']>().mockResolvedValue(guideUser)
@@ -276,7 +275,7 @@ describe('ForgotPasswordPage', () => {
     await flushPromises()
 
     expect(api.requestPasswordReset).toHaveBeenCalledWith({ email: 'nobody@example.com' })
-    expect(wrapper.text()).toContain('If nobody@example.com belongs to a RockGuide account')
+    expect(wrapper.text()).toContain('If nobody@example.com belongs to a BeLikeLocal account')
   })
 })
 

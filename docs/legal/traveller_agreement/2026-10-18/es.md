@@ -2,11 +2,11 @@
 
 Versión {{effective_date}}
 
-Este acuerdo se aplica cuando buscas guías a través de RockGuide, operado por {{operator_name}}. Complementa los Términos y condiciones, que siguen aplicándose íntegramente. Si ambos entran en conflicto, prevalecen los Términos y condiciones.
+Este acuerdo se aplica cuando buscas guías a través de BeLikeLocal, operado por {{operator_name}}. Complementa los Términos y condiciones, que siguen aplicándose íntegramente. Si ambos entran en conflicto, prevalecen los Términos y condiciones.
 
 ## 1. Lo que aceptas
 
-Los guías son independientes. RockGuide te ayuda a encontrarlos, pero la visita se acuerda entre tú y el guía. Comprueba qué incluye antes de reservar.
+Los guías son independientes. BeLikeLocal te ayuda a encontrarlos, pero la visita se acuerda entre tú y el guía. Comprueba qué incluye antes de reservar.
 
 ## 2. Selecciones y packs
 
@@ -14,7 +14,7 @@ Mostrar interés por un guía consume una selección de un pack que compras. Los
 
 ## 3. Reservar y pagar
 
-Paga la tarifa de un guía solo a través de RockGuide. Una reserva se convierte en viaje cuando el guía la acepta; hasta entonces puedes retirarla con reembolso completo. Si el guía la rechaza o no responde a tiempo, se te reembolsa todo.
+Paga la tarifa de un guía solo a través de BeLikeLocal. Una reserva se convierte en viaje cuando el guía la acepta; hasta entonces puedes retirarla con reembolso completo. Si el guía la rechaza o no responde a tiempo, se te reembolsa todo.
 
 ## 4. Cancelaciones
 
@@ -26,7 +26,7 @@ Tu titular y tu descripción como viajero solo se muestran a los guías. Que sea
 
 ## 6. Conducta y seguridad
 
-Trata a los guías con respeto, sé puntual y sigue sus instrucciones de seguridad. Queda primero en lugares públicos, avisa a alguien de adónde vas y mantén el contacto y el pago en RockGuide.
+Trata a los guías con respeto, sé puntual y sigue sus instrucciones de seguridad. Queda primero en lugares públicos, avisa a alguien de adónde vas y mantén el contacto y el pago en BeLikeLocal.
 
 ## 7. Reseñas y niveles
 

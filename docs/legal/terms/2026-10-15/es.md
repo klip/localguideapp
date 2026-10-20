@@ -2,15 +2,15 @@
 
 Versión {{effective_date}}
 
-## 1. Sobre RockGuide y estos términos
+## 1. Sobre BeLikeLocal y estos términos
 
-RockGuide («la plataforma», «nosotros») está operada por {{operator_name}}, {{operator_address}}, {{operator_registration}}. Estos términos se aplican a todas las personas que usan la plataforma: los visitantes que buscan un guía («visitantes») y los guías que ofrecen sus servicios («guías»).
+BeLikeLocal («la plataforma», «nosotros») está operada por {{operator_name}}, {{operator_address}}, {{operator_registration}}. Estos términos se aplican a todas las personas que usan la plataforma: los visitantes que buscan un guía («visitantes») y los guías que ofrecen sus servicios («guías»).
 
 Al crear una cuenta aceptas estos términos y confirmas que tienes al menos 18 años, o la mayoría de edad de tu país si es superior.
 
 ## 2. Qué hace la plataforma
 
-RockGuide es un punto de encuentro. Ayuda a visitantes y guías a encontrarse, mostrar interés mutuo y hablar a través del chat de la plataforma. No se comparten datos de contacto. Cualquier visita, actividad u otro servicio se acuerda directamente entre el visitante y el guía. No somos parte de ese acuerdo. No empleamos a los guías ni actuamos como sus agentes, y no organizamos, supervisamos ni comprobamos los servicios que prestan.
+BeLikeLocal es un punto de encuentro. Ayuda a visitantes y guías a encontrarse, mostrar interés mutuo y hablar a través del chat de la plataforma. No se comparten datos de contacto. Cualquier visita, actividad u otro servicio se acuerda directamente entre el visitante y el guía. No somos parte de ese acuerdo. No empleamos a los guías ni actuamos como sus agentes, y no organizamos, supervisamos ni comprobamos los servicios que prestan.
 
 ## 3. Sin responsabilidad por los servicios ni por el comportamiento
 
@@ -31,7 +31,7 @@ Tanto visitantes como guías se comprometen a:
 - tratar a los demás usuarios con respeto y no acosar, amenazar, discriminar, engañar ni poner en peligro a nadie;
 - cumplir la ley, incluidos los requisitos de licencias, permisos, impuestos o seguros aplicables a los servicios que ofrecen o utilizan;
 - usar la plataforma solo para concertar servicios de guía y no publicar contenido falso, ofensivo o que vulnere derechos de terceros;
-- mantener el contacto y el pago en la plataforma: no incluir números de teléfono, correos electrónicos, enlaces ni usuarios de redes sociales en perfiles, reseñas o mensajes, y no pedir ni hacer el pago de una reserva fuera de RockGuide.
+- mantener el contacto y el pago en la plataforma: no incluir números de teléfono, correos electrónicos, enlaces ni usuarios de redes sociales en perfiles, reseñas o mensajes, y no pedir ni hacer el pago de una reserva fuera de BeLikeLocal.
 
 Los guías son los únicos responsables de los servicios que ofrecen, de sus precios y de cumplir las reservas que aceptan.
 
@@ -39,9 +39,9 @@ Los guías son los únicos responsables de los servicios que ofrecen, de sus pre
 
 Los precios de los paquetes de selecciones y las tarifas de los guías se muestran antes de pagar. Las normas de cancelación y reembolso que muestra la aplicación al reservar forman parte de estos términos.
 
-### 5.1 Protección RockGuide
+### 5.1 Protección BeLikeLocal
 
-Las reservas hechas a través de RockGuide (y pagadas aquí, cuando el guía cobra una tarifa) están protegidas:
+Las reservas hechas a través de BeLikeLocal (y pagadas aquí, cuando el guía cobra una tarifa) están protegidas:
 
 - Reembolsos según las reglas mostradas en la app: se te reembolsa todo si retiras la reserva antes de que el guía la acepte, o si el guía la rechaza o no responde antes de la hora del encuentro; si el guía cancela una reserva confirmada, se te reembolsa todo, más un 5 % si cancela tarde (menos de 24 horas antes del encuentro, o menos de 2 horas si hicisteis match hace menos de un día); si pides cancelar y el guía acepta, se te reembolsa la tarifa menos un 5 %.
 - Ayuda cuando algo sale mal: al tratar una queja (sección 6) podemos revisar la reserva, su punto de encuentro y vuestros mensajes en la plataforma.

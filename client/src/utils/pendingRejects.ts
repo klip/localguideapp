@@ -11,7 +11,7 @@ import { ApiError, type Api } from '@/plugins/api'
  * Storage can be unavailable (private mode, blocked site data); then rejects
  * simply last for the visit, as they did before.
  */
-const STORAGE_KEY = 'rockguide.pendingRejects'
+const STORAGE_KEY = 'belikelocal.pendingRejects'
 
 export function readPendingRejects(): string[] {
   try {

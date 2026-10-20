@@ -2,11 +2,11 @@
 
 Version {{effective_date}}
 
-Diese Vereinbarung gilt, wenn du über RockGuide, betrieben von {{operator_name}}, als Guide tätig bist. Sie ergänzt die Allgemeinen Geschäftsbedingungen, die weiterhin vollständig gelten. Bei Widersprüchen haben die Allgemeinen Geschäftsbedingungen Vorrang.
+Diese Vereinbarung gilt, wenn du über BeLikeLocal, betrieben von {{operator_name}}, als Guide tätig bist. Sie ergänzt die Allgemeinen Geschäftsbedingungen, die weiterhin vollständig gelten. Bei Widersprüchen haben die Allgemeinen Geschäftsbedingungen Vorrang.
 
 ## 1. Du bist selbstständig
 
-Du führst auf eigene Rechnung. Du bist weder Angestellter noch Vertreter oder Partner von RockGuide. Du entscheidest, was du anbietest, wann und zu welchem Preis, und bist für alle Lizenzen, Genehmigungen, Versicherungen und Steuern verantwortlich, die deine Tätigkeit dort erfordert, wo du arbeitest.
+Du führst auf eigene Rechnung. Du bist weder Angestellter noch Vertreter oder Partner von BeLikeLocal. Du entscheidest, was du anbietest, wann und zu welchem Preis, und bist für alle Lizenzen, Genehmigungen, Versicherungen und Steuern verantwortlich, die deine Tätigkeit dort erfordert, wo du arbeitest.
 
 ## 2. Dein Profil und deine Preise
 
@@ -18,7 +18,7 @@ Eine bezahlte Buchung wird erst zur Reise, wenn du sie annimmst. Nimm nur an, wa
 
 ## 4. Gebühren und Auszahlungen
 
-Besucher zahlen dein Honorar über RockGuide. Wir behalten eine Plattformgebühr ein, die vor der Annahme angezeigt wird und mit steigendem Guide-Level sinkt. Dein Level steigt nur durch bezahlte Reisen, bei höheren Honoraren etwas schneller.
+Besucher zahlen dein Honorar über BeLikeLocal. Wir behalten eine Plattformgebühr ein, die vor der Annahme angezeigt wird und mit steigendem Guide-Level sinkt. Dein Level steigt nur durch bezahlte Reisen, bei höheren Honoraren etwas schneller.
 
 ## 5. Stornierungen
 
@@ -26,7 +26,7 @@ Stornierst du eine bestätigte Buchung, erhält der Besucher sein Honorar zurüc
 
 ## 6. Verhalten und Sicherheit
 
-Behandle Besucher respektvoll und sorge für ihre Sicherheit. Belästige, diskriminiere oder täusche niemals jemanden. Kontakt und Zahlung bleiben auf RockGuide: Teile keine Telefonnummern, E-Mails, Links oder Profilnamen und nimm niemals Zahlungen außerhalb der Plattform an.
+Behandle Besucher respektvoll und sorge für ihre Sicherheit. Belästige, diskriminiere oder täusche niemals jemanden. Kontakt und Zahlung bleiben auf BeLikeLocal: Teile keine Telefonnummern, E-Mails, Links oder Profilnamen und nimm niemals Zahlungen außerhalb der Plattform an.
 
 ## 7. Bewertungen
 

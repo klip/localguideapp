@@ -1,8 +1,8 @@
-// Design tokens for the RockGuide UI.
+// Design tokens for the BeLikeLocal UI.
 //
 // Two groups live here:
 //   --pico-*  overrides Pico's own theme variables (font, primary colour, radius)
-//   --rg-*    RockGuide-specific tokens consumed by our own components
+//   --rg-*    BeLikeLocal-specific tokens consumed by our own components
 //
 // They are plain custom properties on :root, so scoped component styles can read
 // them without importing anything.

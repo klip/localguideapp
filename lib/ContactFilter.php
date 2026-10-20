@@ -2,7 +2,7 @@
 
 /**
  * Keeps contact details — phone numbers, emails, links, social handles —
- * out of everything people write for each other. RockGuide never shares
+ * out of everything people write for each other. BeLikeLocal never shares
  * contact details: matched people plan their trip in `Messages` (chat with
  * location sharing), so a bio or message saying "WhatsApp me on 56002731"
  * would take the trip — and its protection — off the platform.
@@ -333,7 +333,7 @@ final class ContactDetailsException extends RuntimeException
 
     public function __construct(string $field)
     {
-        parent::__construct('Contact details (phone numbers, emails, links or social media handles) can’t be shared on RockGuide — matched people plan their trip in Messages.');
+        parent::__construct('Contact details (phone numbers, emails, links or social media handles) can’t be shared on BeLikeLocal — matched people plan their trip in Messages.');
         $this->field = $field;
     }
 

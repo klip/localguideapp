@@ -16,7 +16,7 @@
 final class Geocoder
 {
     private const ENDPOINT = 'https://photon.komoot.io';
-    private const USER_AGENT = 'RockGuide-dev/0.1 (+https://rockguide.com)';
+    private const USER_AGENT = 'BeLikeLocal-dev/0.1 (+https://belikelocal.club)';
     private const TIMEOUT_SECONDS = 6;
     private const CACHE_SECONDS = 7 * 86400;
     /** Towns, cities and areas — not streets or houses: a base or a destination is a place, never an address. */

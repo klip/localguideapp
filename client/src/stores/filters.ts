@@ -5,7 +5,7 @@ import type { DiscoveryFilters, Gender, NumericRange, PlacePoint } from '@/types
 
 /** The search point is kept per role for the browser session (a reload keeps it; a new tab asks again). */
 function nearKey(role: string | null) {
-  return `rockguide.near.${role ?? 'anonymous'}`
+  return `belikelocal.near.${role ?? 'anonymous'}`
 }
 
 function readNear(role: string | null): PlacePoint | null {

@@ -19,12 +19,12 @@ import { useRoute } from 'vue-router'
 
 /**
  * `stores/auth.ts` restores `user` from localStorage optimistically on
- * store creation — but the real, 5-minute-inactivity expiry lives
- * server-side (see `Session.php`), so that cached copy may already be
- * stale (e.g. the tab was closed for a while). Confirming it here, once at
- * boot, avoids a misleading logged-in-looking header in the meantime; a
- * session that goes stale *during* the visit instead surfaces reactively —
- * any action gets a 401 and `plugins/api.ts`'s `call()` clears it.
+ * store creation — but the sign-in itself is the HttpOnly refresh cookie,
+ * which may have expired or been revoked while the tab was closed.
+ * Confirming it here, once at boot (`api.refresh()`, which also brings the
+ * first access token), avoids a misleading logged-in-looking header; a
+ * sign-in that ends *during* the visit surfaces reactively — a refresh or
+ * request comes back 401 and `plugins/api.ts` signs out.
  *
  * `useApi()` is captured here, synchronously in `<script setup>`, not
  * inside `onMounted()` itself — same reason as `stores/guides.ts`: Vue's
@@ -82,11 +82,13 @@ socket.on('message', (payload) => {
   )
 })
 
+// Every renewed access token re-binds the socket (the binding lasts as long
+// as the token). Signed out, it unbinds.
 watch(
-  () => auth.sessionHash,
-  (hash) => {
-    socket.identify(hash ?? null)
-    if (!hash) badges.reset()
+  () => auth.accessToken,
+  (token) => {
+    socket.identify(token)
+    if (!auth.isAuthenticated) badges.reset()
   },
   { immediate: true },
 )
@@ -108,13 +110,13 @@ onMounted(async () => {
   if (!auth.isAuthenticated) return
 
   try {
-    auth.setUser(await api.session())
+    // The sign-in is the HttpOnly refresh cookie: this confirms it and gets
+    // the first access token (the cached user only drew the header).
+    // Signed-out-ness is handled inside (`null`, the shared toast).
+    await api.refresh()
   } catch {
-    // A 401 here already made call() clear auth.user AND push the shared
-    // "session expired" toast (see plugins/api.ts / stores/messages.ts) —
-    // nothing left to do. Any other failure (a network hiccup, say) leaves
-    // the optimistic cached session in place rather than logging the user
-    // out over it.
+    // A network hiccup: keep the optimistic cached user rather than signing
+    // out over it; the next request tries again.
   }
 
   void syncPendingRejects(api, auth.activeRole)

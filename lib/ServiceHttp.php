@@ -8,7 +8,10 @@
  *   POST /                       body: { action, ...payload } as JSON
  *     X-Internal-Token: <INTERNAL_TOKEN>    required, else 403
  *     X-User-Id: <id>                       the caller, when the gateway
- *                                           resolved a session for them
+ *                                           identified them
+ *     Authorization: Bearer <jwt>           their access token, when that's how
+ *                                           they were identified — re-verified
+ *                                           here and must name X-User-Id
  *     X-Acting-Role: guest|guide            the role the request acts as — one
  *                                           the user holds (the gateway checks)
  *     X-Request-Id: <id>                    for correlating log lines
@@ -62,8 +65,28 @@ final class ServiceHttp
 
         $userId = (int) ($_SERVER['HTTP_X_USER_ID'] ?? 0);
         $actingRole = (string) ($_SERVER['HTTP_X_ACTING_ROLE'] ?? '');
+
+        // Defence in depth: when the gateway identified the caller by an
+        // access token it forwards the token too, and this service checks
+        // it again with the public key — a gateway bug (or anyone holding
+        // the internal token) can't make up an X-User-Id the token doesn't
+        // name. Requests identified by a session hash carry no token (until
+        // sessions are retired, docs/auth-cms-plan.md phase 5).
+        $sid = null;
+        $authorization = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+        if ($authorization !== '') {
+            $claims = strncmp($authorization, 'Bearer ', 7) === 0 ? Jwt::verify(substr($authorization, 7), 'app') : null;
+            if ($claims === null || (int) ($claims['sub'] ?? 0) !== $userId) {
+                self::respond(401, ['error' => 'Your session has expired. Please log in again.']);
+                return;
+            }
+            $sid = (string) ($claims['sid'] ?? '');
+        }
+
         $context = [
             'userId' => $userId > 0 ? $userId : null,
+            // The sign-in family of the caller's access token, when they used one.
+            'sid' => $sid,
             // Checked by the gateway against the user's roles before it's sent.
             'actingRole' => $userId > 0 && in_array($actingRole, Roles::APP_ROLES, true) ? $actingRole : null,
             'userAgent' => (string) ($_SERVER['HTTP_X_CLIENT_USER_AGENT'] ?? ''),

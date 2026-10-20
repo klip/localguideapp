@@ -37,7 +37,6 @@ function mountReport(api: Api, signedInAs: number | null = 7) {
       id: signedInAs,
       email: 'v@example.com',
       role: 'guest',
-      sessionHash: 'h',
     })
   }
   return mount(ReportUser, {

@@ -125,7 +125,6 @@ describe('RegisterPage', () => {
       id: 1,
       email: 'visitor@example.com',
       role: 'guest',
-      sessionHash: 'test-session-hash',
     })
     const { wrapper, router } = await mountRegisterPage(
       '/register',
@@ -151,7 +150,6 @@ describe('RegisterPage', () => {
       id: 2,
       email: 'guide@example.com',
       role: 'guide',
-      sessionHash: 'test-session-hash',
     })
     const { wrapper, router } = await mountRegisterPage(
       '/register?role=guide',

@@ -33,7 +33,7 @@ describe('i18n', () => {
 
     expect(currentLanguage.value).toBe('es')
     expect(t('discover.deck.title')).toBe('Guías para ti')
-    expect(localStorage.getItem('rockguide.language')).toBe('es')
+    expect(localStorage.getItem('belikelocal.language')).toBe('es')
     expect(initialLanguage()).toBe('es')
   })
 

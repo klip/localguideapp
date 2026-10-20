@@ -29,7 +29,7 @@ const visible = ref(false)
 const choosing = ref(false)
 const error = ref<string | null>(null)
 const role = computed(() => auth.activeRole ?? 'guest')
-const askedKey = computed(() => `rockguide.locationAsked.${role.value}`)
+const askedKey = computed(() => `belikelocal.locationAsked.${role.value}`)
 
 function asked(): boolean {
   try {

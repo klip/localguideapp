@@ -11,6 +11,11 @@
  * requestPasswordReset, resetPassword, forgetTrustedDevices, changePassword,
  * logout, session.
  *
+ * Browsers sign in through `AuthHttp` (`POST /auth/*`, the refresh cookie),
+ * which runs register/login/verifyTwoFactor here with `withSession: false`
+ * and issues tokens (`Tokens`) instead of a session. A caller the gateway
+ * identified by access token arrives as `context.userId` (+ `sid`).
+ *
  * Gateway-only actions (the gateway never routes them for a client):
  *   resolve   { sessionHash }  → { userId: int|null }   slides the session
  *   peekMany  { hashes: [] }   → { live: { hash: userId } }   doesn't slide
@@ -27,10 +32,17 @@ class AuthProcessor
     private $security;
     /** @var LegalDocuments */
     private $legal;
+    /** @var Tokens */
+    private $tokens;
     /** @var array */
     private $input = [];
-    /** @var array{userId: ?int, userAgent: string, requestId: string} */
-    private $context = ['userId' => null, 'userAgent' => '', 'requestId' => ''];
+    /**
+     * `withSession: false` — called through `AuthHttp`, which issues tokens
+     * instead of a Redis session.
+     *
+     * @var array{userId: ?int, sid: ?string, userAgent: string, requestId: string, withSession: bool}
+     */
+    private $context = ['userId' => null, 'sid' => null, 'userAgent' => '', 'requestId' => '', 'withSession' => true];
 
     public function __construct(db $db, RedisClient $redis)
     {
@@ -39,6 +51,25 @@ class AuthProcessor
         $this->sessions = new Session($redis);
         $this->security = new AccountSecurity($db, $this->accounts, new MailQueue($db, $redis), $this->sessions);
         $this->legal = new LegalDocuments($db);
+        $this->tokens = new Tokens($db, $this->accounts, $redis);
+    }
+
+    public function tokens(): Tokens
+    {
+        return $this->tokens;
+    }
+
+    public function accounts(): Accounts
+    {
+        return $this->accounts;
+    }
+
+    /** Ends every sign-in of the account: refresh tokens, access tokens already out, old sessions. */
+    public function signOutEverywhere(int $userId, string $reason): void
+    {
+        $this->tokens->revokeAllFor($userId, $reason);
+        $this->sessions->destroyAllFor($userId);
+        Log::info('Signed out everywhere', ['user_id' => $userId, 'reason' => $reason]);
     }
 
     /**
@@ -64,7 +95,9 @@ class AuthProcessor
                 case 'requestPasswordReset':
                     return [200, $this->actionRequestPasswordReset()];
                 case 'resetPassword':
-                    $this->security->resetPassword((string) ($input['token'] ?? ''), (string) ($input['newPassword'] ?? ''));
+                    $userId = $this->security->resetPassword((string) ($input['token'] ?? ''), (string) ($input['newPassword'] ?? ''));
+                    // Signed out everywhere: sessions (above) and every refresh token.
+                    $this->tokens->revokeAllFor($userId, 'password_reset');
                     return [200, ['ok' => true]];
                 case 'forgetTrustedDevices':
                     $this->security->forgetTrustedDevices($this->requireUserId());
@@ -149,13 +182,12 @@ class AuthProcessor
         }
         Log::info('Account registered', ['user_id' => $userId, 'role' => $role, 'terms_version' => $currentTerms]);
 
-        return [
-            'id' => $userId,
-            'email' => $email,
-            'role' => $role,
-            'roles' => [$role],
-            'sessionHash' => $this->sessions->create($userId),
-        ];
+        $result = ['id' => $userId, 'email' => $email, 'role' => $role, 'roles' => [$role]];
+        if ($this->context['withSession']) {
+            $result['sessionHash'] = $this->sessions->create($userId);
+        }
+
+        return $result;
     }
 
     private function actionLogin(): array
@@ -183,8 +215,22 @@ class AuthProcessor
         return $this->signIn($user);
     }
 
-    /** Creates a session for `$user` (a `users` row) and returns the `AuthResult` shape. */
+    /**
+     * The `AuthResult` shape for `$user` (a `users` row), with a new session —
+     * unless `AuthHttp` is calling, which signs in with tokens instead.
+     */
     private function signIn(array $user): array
+    {
+        $result = $this->userSummary($user);
+        if ($this->context['withSession']) {
+            $result['sessionHash'] = $this->sessions->create((int) $user['id']);
+        }
+
+        return $result;
+    }
+
+    /** `id, email, name, role, roles` — the `AuthResult` without credentials. */
+    public function userSummary(array $user): array
     {
         return [
             'id' => (int) $user['id'],
@@ -192,7 +238,6 @@ class AuthProcessor
             'name' => $user['name'],
             'role' => $this->accounts->getRoleName((int) $user['id']),
             'roles' => $this->accounts->getRoles((int) $user['id']),
-            'sessionHash' => $this->sessions->create((int) $user['id']),
         ];
     }
 
@@ -266,7 +311,14 @@ class AuthProcessor
         }
         Log::info('Role added', ['user_id' => $userId, 'role' => $role, 'agreement_version' => $agreement]);
 
-        return ['roles' => $this->accounts->getRoles($userId)];
+        $result = ['roles' => $this->accounts->getRoles($userId)];
+        // Signed in with tokens: a new access token, so its `roles` claim
+        // includes the new role straight away.
+        if ($this->context['sid']) {
+            $result += $this->tokens->reissueAccess($userId, (string) $this->context['sid']);
+        }
+
+        return $result;
     }
 
     private function actionChangePassword(): array
@@ -314,10 +366,13 @@ class AuthProcessor
         ];
     }
 
-    /** The caller's id from their `sessionHash` (sliding it); 401 without a live one. */
+    /**
+     * The caller's id: from the gateway (which verified their access token),
+     * else from their `sessionHash` (sliding it); 401 without either.
+     */
     private function requireUserId(): int
     {
-        $userId = $this->sessions->resolve($this->sessionHash());
+        $userId = $this->context['userId'] ?: $this->sessions->resolve($this->sessionHash());
         if (!$userId) {
             throw new AuthenticationException('Your session has expired. Please log in again.');
         }

@@ -495,7 +495,7 @@ final class TripPlanner
 
         $answer = $this->ai->json(
             Ai::MODEL_SMART,
-            'You help a traveller choose local guides on RockGuide, a guide-matching app. For each stop of their trip you get '
+            'You help a traveller choose local guides on BeLikeLocal, a guide-matching app. For each stop of their trip you get '
             . 'candidate guides (already near that stop) and pick up to ' . self::MAX_SUGGESTIONS . ', best match first: shared '
             . 'interests and languages matter most, then reviews, verified identity and experience, then closeness. For each pick '
             . 'write one sentence (under 120 characters) telling the traveller why, addressed to them as "you", in '

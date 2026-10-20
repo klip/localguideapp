@@ -6,7 +6,7 @@
  * unavailable (private mode, blocked site data) — then nothing is
  * remembered and the user just gets a code each time.
  */
-const STORAGE_KEY = 'rockguide.trustedDevices'
+const STORAGE_KEY = 'belikelocal.trustedDevices'
 
 interface Entry {
   token: string

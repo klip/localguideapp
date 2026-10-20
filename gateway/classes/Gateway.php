@@ -7,15 +7,24 @@
  * open connections in memory, so any number of gateways can run behind a
  * load balancer, each with its own share of connections.
  *
- * Client → gateway (unchanged for the client)
- * - `{ type: "request", id, action, sessionHash?, ...payload }`, answered by
- *   `{ type: "response", id, status, body }`. Account actions
- *   (`AUTH_ACTIONS`) go to the auth service as they are; everything else to
- *   the API, after the auth service has turned `sessionHash` into a user id
- *   (`resolve`, which also slides the session). A hash that resolves to no
- *   one is answered 401 here; the API itself never sees a hash.
- * - `{ type: "auth", sessionHash }` — who's on this connection, so pushes
- *   reach them; `""` signs it out. Answered by `{ type: "auth", userId }`.
+ * Client → gateway
+ * - `{ type: "request", id, action, accessToken? | sessionHash?, ...payload }`,
+ *   answered by `{ type: "response", id, status, body }`. The caller is
+ *   identified by an **access token**, verified right here with the public key
+ *   (`Jwt`, no call to anyone) — or, until sessions are retired, a
+ *   `sessionHash` the auth service resolves (`resolve`, which slides it). A
+ *   token or hash that names no one is answered 401 here. Account actions
+ *   (`AUTH_ACTIONS`) go to the auth service, the rest to the API, with the
+ *   caller as `X-User-Id` and their token as `Authorization: Bearer` (each
+ *   service verifies it again — `ServiceHttp`).
+ * - `{ type: "auth", accessToken | sessionHash }` — who's on this connection,
+ *   so pushes reach them; empty signs it out. Answered by `{ type: "auth",
+ *   userId }`. A token binding ends when the token expires, unless the client
+ *   re-binds with a fresh one (it does after every refresh).
+ * - Revoked sign-ins (`Revocations`: logout, password reset, sign out
+ *   everywhere, a reused refresh token) arrive on Redis `auth:revoked`; the
+ *   gateway keeps them in memory, refuses those tokens and unbinds their
+ *   sockets at once, rather than when the tokens expire.
  *
  * Gateway → client
  * - `{ type: "notification", notification }`, `{ type: "badges", matches,
@@ -62,13 +71,17 @@ class Gateway
     private $internalToken;
 
     /**
-     * @var array<int, array{userId: ?int, hash: ?string, userAgent: string, badges: ?string,
-     *   bindSeq: int, notes: array<int, true>}> by connection id
+     * @var array<int, array{userId: ?int, hash: ?string, tokenExpires: ?int, tokenSid: ?string,
+     *   tokenIat: ?int, userAgent: string, badges: ?string, bindSeq: int, notes: array<int, true>}> by connection id
      */
     private $connections = [];
     /** @var array<int, array<int, true>> user id → their connection ids */
     private $users = [];
     private $lastSessionCheck = 0;
+    /** @var array<string, int> revoked sign-in (sid) → when */
+    private $revokedSids = [];
+    /** @var array<int, int> user id → tokens issued at or before this are revoked */
+    private $revokedUsers = [];
 
     public function __construct(string $apiUrl, string $authUrl, string $internalToken)
     {
@@ -82,7 +95,9 @@ class Gateway
             },
             function (): void {
                 // Whatever was published while the subscription was down is
-                // gone; ask for each user's current state instead.
+                // gone; ask for each user's current state instead — and
+                // re-read the revocations that may have been missed.
+                $this->loadRevocations();
                 foreach ($this->users as $userId => $connIds) {
                     $this->fetchState($userId, array_keys($connIds));
                 }
@@ -95,13 +110,18 @@ class Gateway
         $this->server = $server;
         $server->addWatcher($this->http);
         $server->addWatcher($this->redis);
+        $this->redis->subscribe(Revocations::CHANNEL);
         $this->redis->connect();
+        $this->loadRevocations();
 
         $server->run(
             function (int $id, array $headers): void {
                 $this->connections[$id] = [
                     'userId' => null,
                     'hash' => null,
+                    'tokenExpires' => null,
+                    'tokenSid' => null,
+                    'tokenIat' => null,
                     'userAgent' => mb_substr((string) ($headers['user-agent'] ?? ''), 0, 255),
                     'badges' => null,
                     'bindSeq' => 0,
@@ -134,7 +154,11 @@ class Gateway
                     $this->onRequest($id, $message);
                     break;
                 case 'auth':
-                    $this->bind($id, (string) ($message['sessionHash'] ?? ''));
+                    if (isset($message['accessToken'])) {
+                        $this->bindToken($id, (string) $message['accessToken']);
+                    } else {
+                        $this->bind($id, (string) ($message['sessionHash'] ?? ''));
+                    }
                     break;
             }
         } catch (Throwable $e) {
@@ -172,8 +196,38 @@ class Gateway
         }
 
         $userAgent = $this->connections[$id]['userAgent'] ?? '';
+        $token = (string) ($message['accessToken'] ?? '');
+        unset($message['accessToken']);
+        $claims = $token !== '' ? $this->verifyToken($token) : null;
+
         if (in_array($action, self::AUTH_ACTIONS, true)) {
-            $this->call($this->authUrl, $message, null, $requestId, $userAgent, $reply);
+            // Identified by a valid token, the auth service gets the caller
+            // (changePassword, addRole…); otherwise as before (sessionHash).
+            if ($claims !== null) {
+                unset($message['sessionHash'], $message['actingRole']);
+                $this->call($this->authUrl, $message, (int) $claims['sub'], $requestId, $userAgent, $reply, null, $token);
+            } else {
+                $this->call($this->authUrl, $message, null, $requestId, $userAgent, $reply);
+            }
+            return;
+        }
+
+        if ($token !== '') {
+            unset($message['sessionHash']);
+            if ($claims === null) {
+                $reply(401, ['error' => 'Your session has expired. Please log in again.']);
+                return;
+            }
+            $userId = (int) $claims['sub'];
+            $actingRole = $this->actingRole($message, array_values(array_filter((array) ($claims['roles'] ?? []), 'is_string')));
+            if ($actingRole === false) {
+                $reply(403, ['error' => 'Your account doesn’t have that role.']);
+                return;
+            }
+            $this->call($this->apiUrl, $message, $userId, $requestId, $userAgent,
+                function (int $status, array $body) use ($reply, $userId): void {
+                    $reply($status, $body, $userId);
+                }, $actingRole, $token);
             return;
         }
 
@@ -196,16 +250,11 @@ class Gateway
                     $reply(401, ['error' => 'Your session has expired. Please log in again.']);
                     return;
                 }
-                // The role this request acts as (an account can hold both):
-                // one the user holds, else their first (registration) role.
-                $roles = array_values(array_filter((array) ($body['roles'] ?? []), 'is_string'));
-                $actingRole = (string) ($message['actingRole'] ?? '');
-                unset($message['actingRole']);
-                if ($actingRole !== '' && !in_array($actingRole, $roles, true)) {
+                $actingRole = $this->actingRole($message, array_values(array_filter((array) ($body['roles'] ?? []), 'is_string')));
+                if ($actingRole === false) {
                     $reply(403, ['error' => 'Your account doesn’t have that role.']);
                     return;
                 }
-                $actingRole = $actingRole !== '' ? $actingRole : ($roles[0] ?? null);
                 $this->call($this->apiUrl, $message, $userId, $requestId, $userAgent,
                     function (int $status, array $body) use ($reply, $userId): void {
                         $reply($status, $body, $userId);
@@ -214,16 +263,39 @@ class Gateway
     }
 
     /**
-     * One internal HTTP call. `$done(int $status, array $body)` always runs:
-     * an unreachable service comes back as 503.
+     * The role a request acts as (an account can hold both): the one it asks
+     * for if the user holds it, else their first (registration) role; `false`
+     * when it asks for one they don't hold. Takes `actingRole` out of the
+     * payload.
+     *
+     * @return string|null|false
      */
-    private function call(string $url, array $payload, ?int $userId, string $requestId, string $userAgent, callable $done, ?string $actingRole = null): void
+    private function actingRole(array &$message, array $roles)
+    {
+        $asked = (string) ($message['actingRole'] ?? '');
+        unset($message['actingRole']);
+        if ($asked !== '' && !in_array($asked, $roles, true)) {
+            return false;
+        }
+
+        return $asked !== '' ? $asked : ($roles[0] ?? null);
+    }
+
+    /**
+     * One internal HTTP call. `$done(int $status, array $body)` always runs:
+     * an unreachable service comes back as 503. `$bearer` is the caller's
+     * access token, which the service verifies again.
+     */
+    private function call(string $url, array $payload, ?int $userId, string $requestId, string $userAgent, callable $done, ?string $actingRole = null, ?string $bearer = null): void
     {
         $headers = [
             'X-Internal-Token' => $this->internalToken,
             'X-Request-Id' => $requestId,
             'X-Client-User-Agent' => $userAgent,
         ];
+        if ($bearer !== null) {
+            $headers['Authorization'] = 'Bearer ' . $bearer;
+        }
         if ($userId) {
             $headers['X-User-Id'] = (string) $userId;
         }
@@ -282,6 +354,99 @@ class Gateway
             });
     }
 
+    /**
+     * Binds a connection by access token — verified here, no call needed.
+     * The binding lasts until the token expires (`onTick()`); the client
+     * re-binds with each new token.
+     */
+    private function bindToken(int $id, string $token): void
+    {
+        if (!isset($this->connections[$id])) {
+            return;
+        }
+        $claims = $token !== '' ? $this->verifyToken($token) : null;
+        $userId = (int) ($claims['sub'] ?? 0);
+
+        // Re-binding the same user with a fresh token: keep the subscription.
+        if ($userId > 0 && $this->connections[$id]['userId'] === $userId) {
+            $this->rememberToken($id, $claims);
+            $this->connections[$id]['hash'] = null;
+            $this->send($id, ['type' => 'auth', 'userId' => $userId]);
+            return;
+        }
+
+        $this->detach($id);
+        ++$this->connections[$id]['bindSeq'];
+        if ($userId <= 0) {
+            $this->send($id, ['type' => 'auth', 'userId' => null]);
+            return;
+        }
+
+        $this->connections[$id]['userId'] = $userId;
+        $this->rememberToken($id, $claims);
+        $this->users[$userId][$id] = true;
+        $this->redis->subscribe(self::CHANNEL_PREFIX . $userId);
+        $this->send($id, ['type' => 'auth', 'userId' => $userId]);
+        $this->fetchState($userId, [$id]);
+    }
+
+    private function rememberToken(int $id, array $claims): void
+    {
+        $this->connections[$id]['tokenExpires'] = (int) $claims['exp'];
+        $this->connections[$id]['tokenSid'] = (string) ($claims['sid'] ?? '');
+        $this->connections[$id]['tokenIat'] = (int) ($claims['iat'] ?? 0);
+    }
+
+    /** A token's claims if it's genuine, current and not revoked; else `null`. */
+    private function verifyToken(string $token): ?array
+    {
+        $claims = Jwt::verify($token, 'app');
+
+        return $claims !== null && !Revocations::isRevoked($claims, $this->revokedSids, $this->revokedUsers) ? $claims : null;
+    }
+
+    /** Everything revoked lately (`Revocations::load()`), at start-up and after a Redis outage. */
+    private function loadRevocations(): void
+    {
+        try {
+            [$sids, $users] = Revocations::load(new RedisClient());
+        } catch (Throwable $e) {
+            Log::warning('Could not load revocations', ['error' => $e->getMessage()]);
+            return;
+        }
+        $this->revokedSids = $sids + $this->revokedSids;
+        $this->revokedUsers = $users + $this->revokedUsers;
+        $this->dropRevokedBindings();
+    }
+
+    /** `{ sid | userId, at }` from `auth:revoked`. */
+    private function onRevoked(array $message): void
+    {
+        $at = (int) ($message['at'] ?? time());
+        if (isset($message['sid'])) {
+            $this->revokedSids[(string) $message['sid']] = $at;
+        }
+        if (isset($message['userId'])) {
+            $this->revokedUsers[(int) $message['userId']] = $at;
+        }
+        $this->dropRevokedBindings();
+    }
+
+    /** Unbinds every socket whose token is now revoked — no more pushes. */
+    private function dropRevokedBindings(): void
+    {
+        foreach ($this->connections as $id => $connection) {
+            if ($connection['tokenExpires'] === null) {
+                continue;
+            }
+            $claims = ['sid' => $connection['tokenSid'], 'sub' => $connection['userId'], 'iat' => $connection['tokenIat']];
+            if (Revocations::isRevoked($claims, $this->revokedSids, $this->revokedUsers)) {
+                $this->detach($id);
+                $this->send($id, ['type' => 'auth', 'userId' => null]);
+            }
+        }
+    }
+
     /** Takes a connection off its user (unsubscribing when it was their last one here). */
     private function detach(int $id): void
     {
@@ -289,6 +454,9 @@ class Gateway
         if (isset($this->connections[$id])) {
             $this->connections[$id]['userId'] = null;
             $this->connections[$id]['hash'] = null;
+            $this->connections[$id]['tokenExpires'] = null;
+            $this->connections[$id]['tokenSid'] = null;
+            $this->connections[$id]['tokenIat'] = null;
             $this->connections[$id]['badges'] = null;
         }
         if (!$userId) {
@@ -323,6 +491,14 @@ class Gateway
 
     private function onPublished(string $channel, string $payload): void
     {
+        if ($channel === Revocations::CHANNEL) {
+            $message = json_decode($payload, true);
+            if (is_array($message)) {
+                $this->onRevoked($message);
+            }
+            return;
+        }
+
         $userId = (int) substr($channel, strlen(self::CHANNEL_PREFIX));
         $message = json_decode($payload, true);
         if ($userId <= 0 || !is_array($message)) {
@@ -393,6 +569,19 @@ class Gateway
             return;
         }
         $this->lastSessionCheck = time();
+
+        // Revocations outlive every token they could match only so long.
+        $cutoff = time() - Revocations::TTL_SECONDS;
+        $this->revokedSids = array_filter($this->revokedSids, static fn(int $at): bool => $at > $cutoff);
+        $this->revokedUsers = array_filter($this->revokedUsers, static fn(int $at): bool => $at > $cutoff);
+
+        // Token bindings end with their token (a minute's leeway, as in `Jwt`).
+        foreach ($this->connections as $id => $connection) {
+            if ($connection['tokenExpires'] !== null && $connection['tokenExpires'] + 60 < time()) {
+                $this->detach($id);
+                $this->send($id, ['type' => 'auth', 'userId' => null]);
+            }
+        }
 
         $hashes = [];
         foreach ($this->connections as $connection) {

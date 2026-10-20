@@ -10,7 +10,7 @@
  *
  * Environment: API_URL, AUTH_URL (the services' internal base URLs),
  * INTERNAL_TOKEN (shared with them), REDIS_*, WS_LISTEN (default
- * tcp://0.0.0.0:8090). nginx proxies `ws(s)://api.rockguide.com/ws` to it.
+ * tcp://0.0.0.0:8090). nginx proxies `ws(s)://api.belikelocal.club/ws` to it.
  * Long-running: restart it after changing its PHP.
  */
 
@@ -21,6 +21,10 @@ if (PHP_SAPI !== 'cli') {
 
 require_once __DIR__.'/../../lib/Log.php';
 require_once __DIR__.'/../../lib/Resp.php';
+require_once __DIR__.'/../../lib/Origins.php';
+require_once __DIR__.'/../../lib/Jwt.php';
+require_once __DIR__.'/../../lib/RedisClient.php';
+require_once __DIR__.'/../../lib/Revocations.php';
 require_once __DIR__.'/../classes/StreamWatcher.php';
 require_once __DIR__.'/../classes/WebSocketServer.php';
 require_once __DIR__.'/../classes/HttpClient.php';
@@ -37,15 +41,11 @@ if ($internalToken === '') {
     exit(1);
 }
 
-// The origins the web app is served from. No Origin at all is a non-browser
-// client (a script, a test) — allowed, since nothing here rides on cookies:
-// every request carries its own sessionHash. WS_EXTRA_ORIGINS (comma-separated,
-// exact match) adds more, e.g. a second dev server on another port.
-$extraOrigins = array_filter(array_map('trim', explode(',', (string) (getenv('WS_EXTRA_ORIGINS') ?: ''))));
-$allowOrigin = static function (string $origin) use ($extraOrigins): bool {
-    return $origin === ''
-        || in_array(strtolower($origin), array_map('strtolower', $extraOrigins), true)
-        || (bool) preg_match('#^https?://((www|admin|api)\.)?(rockguide\.com|localhost:5173)$#i', $origin);
+// The origins the web app is served from (see Origins). No Origin at all is a
+// non-browser client (a script, a test) — allowed, since nothing here rides on
+// cookies: every request carries its own access token (or session hash).
+$allowOrigin = static function (string $origin): bool {
+    return $origin === '' || Origins::isAllowed($origin);
 };
 
 $gateway = new Gateway(

@@ -1,4 +1,4 @@
-/** Shared domain types for the RockGuide matching flow. */
+/** Shared domain types for the BeLikeLocal matching flow. */
 
 /**
  * A human constant, not a category: it's a fact about a person rather than

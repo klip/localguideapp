@@ -70,7 +70,7 @@ describe('CookieNotice', () => {
   })
 
   it('shows again when the notice changes (an older acknowledgement)', () => {
-    localStorage.setItem('rockguide.cookieNotice', '0')
+    localStorage.setItem('belikelocal.cookieNotice', '0')
     expect(mount(CookieNotice).find('section').exists()).toBe(true)
   })
 

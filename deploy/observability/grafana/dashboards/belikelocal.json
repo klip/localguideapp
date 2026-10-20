@@ -1,8 +1,8 @@
 {
-  "uid": "rockguide-logs",
-  "title": "RockGuide logs",
+  "uid": "belikelocal-logs",
+  "title": "BeLikeLocal logs",
   "tags": [
-    "rockguide"
+    "belikelocal"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -34,7 +34,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (status) (count_over_time({app=\"rockguide\", service=\"gateway\"} | json | msg=\"Request\" [$__auto]))",
+          "expr": "sum by (status) (count_over_time({app=\"belikelocal\", service=\"gateway\"} | json | msg=\"Request\" [$__auto]))",
           "legendFormat": "{{status}}",
           "queryType": "range"
         }
@@ -82,7 +82,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (service, level) (count_over_time({app=\"rockguide\", level=~\"error|warning\"} [$__auto]))",
+          "expr": "sum by (service, level) (count_over_time({app=\"belikelocal\", level=~\"error|warning\"} [$__auto]))",
           "legendFormat": "{{service}} {{level}}",
           "queryType": "range"
         }
@@ -130,7 +130,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "quantile_over_time(0.95, {app=\"rockguide\", service=\"gateway\"} | json | msg=\"Request\" | unwrap ms [$__auto]) by (action)",
+          "expr": "quantile_over_time(0.95, {app=\"belikelocal\", service=\"gateway\"} | json | msg=\"Request\" | unwrap ms [$__auto]) by (action)",
           "legendFormat": "{{action}}",
           "queryType": "range"
         }
@@ -179,7 +179,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (msg) (count_over_time({app=\"rockguide\", service=\"mailer\"} | json | msg=~\"Email.*\" [$__auto]))",
+          "expr": "sum by (msg) (count_over_time({app=\"belikelocal\", service=\"mailer\"} | json | msg=~\"Email.*\" [$__auto]))",
           "legendFormat": "{{msg}}",
           "queryType": "range"
         }
@@ -227,7 +227,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{app=\"rockguide\", level=~\"error|warning\"}",
+          "expr": "{app=\"belikelocal\", level=~\"error|warning\"}",
           "queryType": "range"
         }
       ],
@@ -242,7 +242,7 @@
     {
       "id": 6,
       "type": "logs",
-      "title": "All RockGuide logs",
+      "title": "All BeLikeLocal logs",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -260,7 +260,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{app=\"rockguide\"}",
+          "expr": "{app=\"belikelocal\"}",
           "queryType": "range"
         }
       ],

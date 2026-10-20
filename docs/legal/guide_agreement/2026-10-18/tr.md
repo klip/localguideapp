@@ -2,11 +2,11 @@
 
 Sürüm {{effective_date}}
 
-Bu sözleşme, {{operator_name}} tarafından işletilen RockGuide üzerinden rehberlik yaptığınızda geçerlidir. Tamamen geçerli olmaya devam eden Kullanım Koşulları'nı tamamlar. İkisi çelişirse Kullanım Koşulları geçerlidir.
+Bu sözleşme, {{operator_name}} tarafından işletilen BeLikeLocal üzerinden rehberlik yaptığınızda geçerlidir. Tamamen geçerli olmaya devam eden Kullanım Koşulları'nı tamamlar. İkisi çelişirse Kullanım Koşulları geçerlidir.
 
 ## 1. Bağımsızsınız
 
-Rehberliği kendi hesabınıza yaparsınız. RockGuide'ın çalışanı, temsilcisi veya ortağı değilsiniz. Ne sunacağınıza, ne zaman ve hangi fiyata sunacağınıza siz karar verirsiniz; çalıştığınız yerde rehberliğin gerektirdiği her türlü lisans, izin, sigorta ve vergiden siz sorumlusunuz.
+Rehberliği kendi hesabınıza yaparsınız. BeLikeLocal'ın çalışanı, temsilcisi veya ortağı değilsiniz. Ne sunacağınıza, ne zaman ve hangi fiyata sunacağınıza siz karar verirsiniz; çalıştığınız yerde rehberliğin gerektirdiği her türlü lisans, izin, sigorta ve vergiden siz sorumlusunuz.
 
 ## 2. Profiliniz ve fiyatlarınız
 
@@ -18,7 +18,7 @@ Kendinizi, turlarınızı, nelerin dahil olduğunu ve fiyatınızı doğru biçi
 
 ## 4. Ücretler ve ödemeler
 
-Ziyaretçiler ücretinizi RockGuide üzerinden öder. Kabul etmeden önce gösterilen ve rehber seviyeniz yükseldikçe düşen bir platform ücreti alırız. Seviyeniz yalnızca ücretli gezilerle yükselir; daha yüksek ücretlerde biraz daha hızlı yükselir.
+Ziyaretçiler ücretinizi BeLikeLocal üzerinden öder. Kabul etmeden önce gösterilen ve rehber seviyeniz yükseldikçe düşen bir platform ücreti alırız. Seviyeniz yalnızca ücretli gezilerle yükselir; daha yüksek ücretlerde biraz daha hızlı yükselir.
 
 ## 5. İptaller
 
@@ -26,7 +26,7 @@ Onaylanmış bir rezervasyonu iptal ederseniz ziyaretçi ücretini geri alır. B
 
 ## 6. Davranış ve güvenlik
 
-Ziyaretçilere saygılı davranın ve güvenliklerini sağlayın. Hiç kimseyi taciz etmeyin, ayrımcılık yapmayın veya yanıltmayın. İletişim ve ödemeyi RockGuide'da tutun: telefon numarası, e-posta, bağlantı veya kullanıcı adı paylaşmayın ve platform dışında asla ödeme almayın.
+Ziyaretçilere saygılı davranın ve güvenliklerini sağlayın. Hiç kimseyi taciz etmeyin, ayrımcılık yapmayın veya yanıltmayın. İletişim ve ödemeyi BeLikeLocal'da tutun: telefon numarası, e-posta, bağlantı veya kullanıcı adı paylaşmayın ve platform dışında asla ödeme almayın.
 
 ## 7. Değerlendirmeler
 

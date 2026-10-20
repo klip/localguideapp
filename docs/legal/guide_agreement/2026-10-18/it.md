@@ -2,11 +2,11 @@
 
 Versione {{effective_date}}
 
-Questo accordo si applica quando fai da guida tramite RockGuide, gestito da {{operator_name}}. Integra i Termini e condizioni, che restano pienamente applicabili. In caso di conflitto prevalgono i Termini e condizioni.
+Questo accordo si applica quando fai da guida tramite BeLikeLocal, gestito da {{operator_name}}. Integra i Termini e condizioni, che restano pienamente applicabili. In caso di conflitto prevalgono i Termini e condizioni.
 
 ## 1. Sei indipendente
 
-Fai da guida per conto tuo. Non sei dipendente, agente o socio di RockGuide. Decidi tu cosa offrire, quando e a quale prezzo, e sei responsabile di licenze, permessi, assicurazioni e tasse richiesti dalla tua attività dove lavori.
+Fai da guida per conto tuo. Non sei dipendente, agente o socio di BeLikeLocal. Decidi tu cosa offrire, quando e a quale prezzo, e sei responsabile di licenze, permessi, assicurazioni e tasse richiesti dalla tua attività dove lavori.
 
 ## 2. Il tuo profilo e i tuoi prezzi
 
@@ -18,7 +18,7 @@ Una prenotazione pagata diventa un viaggio solo quando la accetti. Accetta solo 
 
 ## 4. Commissioni e pagamenti
 
-I visitatori pagano il tuo compenso tramite RockGuide. Tratteniamo una commissione di piattaforma, mostrata prima che tu accetti, che diminuisce man mano che sale il tuo livello di guida. Il tuo livello cresce solo con viaggi a pagamento, e un po’ più in fretta con compensi più alti.
+I visitatori pagano il tuo compenso tramite BeLikeLocal. Tratteniamo una commissione di piattaforma, mostrata prima che tu accetti, che diminuisce man mano che sale il tuo livello di guida. Il tuo livello cresce solo con viaggi a pagamento, e un po’ più in fretta con compensi più alti.
 
 ## 5. Cancellazioni
 
@@ -26,7 +26,7 @@ Se cancelli una prenotazione confermata, il visitatore riceve il rimborso del co
 
 ## 6. Comportamento e sicurezza
 
-Tratta i visitatori con rispetto e tienili al sicuro. Non molestare, discriminare o ingannare mai nessuno. Mantieni contatti e pagamenti su RockGuide: non condividere numeri di telefono, email, link o profili social e non accettare mai pagamenti fuori dalla piattaforma.
+Tratta i visitatori con rispetto e tienili al sicuro. Non molestare, discriminare o ingannare mai nessuno. Mantieni contatti e pagamenti su BeLikeLocal: non condividere numeri di telefono, email, link o profili social e non accettare mai pagamenti fuori dalla piattaforma.
 
 ## 7. Recensioni
 

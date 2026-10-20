@@ -2,15 +2,15 @@
 
 Sürüm {{effective_date}}
 
-## 1. RockGuide ve bu koşullar hakkında
+## 1. BeLikeLocal ve bu koşullar hakkında
 
-RockGuide ("platform", "biz") {{operator_name}}, {{operator_address}}, {{operator_registration}} tarafından işletilmektedir. Bu koşullar platformu kullanan herkes için geçerlidir: rehber arayan ziyaretçiler ("ziyaretçiler") ve hizmet sunan rehberler ("rehberler").
+BeLikeLocal ("platform", "biz") {{operator_name}}, {{operator_address}}, {{operator_registration}} tarafından işletilmektedir. Bu koşullar platformu kullanan herkes için geçerlidir: rehber arayan ziyaretçiler ("ziyaretçiler") ve hizmet sunan rehberler ("rehberler").
 
 Hesap oluşturarak bu koşulları kabul etmiş ve en az 18 yaşında olduğunuzu ya da yaşadığınız yerde reşit olma yaşı daha yüksekse o yaşa ulaştığınızı onaylamış olursunuz.
 
 ## 2. Platform ne yapar
 
-RockGuide bir buluşma noktasıdır. Ziyaretçilerin ve rehberlerin birbirini bulmasına, karşılıklı ilgi göstermesine ve platformun sohbeti üzerinden konuşmasına yardımcı olur. Her tur, etkinlik veya diğer hizmet doğrudan ziyaretçi ile rehber arasında kararlaştırılır. Bu anlaşmanın tarafı değiliz. Rehberleri istihdam etmeyiz, onların temsilcisi olarak hareket etmeyiz ve sundukları hizmetleri düzenlemez, denetlemez veya kontrol etmeyiz.
+BeLikeLocal bir buluşma noktasıdır. Ziyaretçilerin ve rehberlerin birbirini bulmasına, karşılıklı ilgi göstermesine ve platformun sohbeti üzerinden konuşmasına yardımcı olur. Her tur, etkinlik veya diğer hizmet doğrudan ziyaretçi ile rehber arasında kararlaştırılır. Bu anlaşmanın tarafı değiliz. Rehberleri istihdam etmeyiz, onların temsilcisi olarak hareket etmeyiz ve sundukları hizmetleri düzenlemez, denetlemez veya kontrol etmeyiz.
 
 ## 3. Hizmetler veya davranışlar için sorumluluk kabul edilmez
 
@@ -31,7 +31,7 @@ Ziyaretçiler ve rehberler eşit şekilde şunları kabul eder:
 - diğer kullanıcılara saygılı davranmak; kimseyi taciz etmemek, tehdit etmemek, ayrımcılığa uğratmamak, aldatmamak veya tehlikeye atmamak;
 - sundukları veya kullandıkları hizmetler için geçerli lisans, izin, vergi ve sigorta gereklilikleri dahil olmak üzere yasalara uymak;
 - platformu yalnızca rehberlik hizmetleri ayarlamak için kullanmak ve yanlış, saldırgan veya başkalarının haklarını ihlal eden içerik paylaşmamak;
-- iletişimi ve ödemeyi platformda tutmak: profillere, değerlendirmelere veya mesajlara telefon numarası, e-posta adresi, bağlantı ya da sosyal medya kullanıcı adı yazmamak ve bir rezervasyonun ödemesini RockGuide dışında istememek veya yapmamak.
+- iletişimi ve ödemeyi platformda tutmak: profillere, değerlendirmelere veya mesajlara telefon numarası, e-posta adresi, bağlantı ya da sosyal medya kullanıcı adı yazmamak ve bir rezervasyonun ödemesini BeLikeLocal dışında istememek veya yapmamak.
 
 Rehberler sundukları hizmetlerden, fiyatlarından ve kabul ettikleri rezervasyonları yerine getirmekten tek başına sorumludur.
 
@@ -39,9 +39,9 @@ Rehberler sundukları hizmetlerden, fiyatlarından ve kabul ettikleri rezervasyo
 
 Seçim paketlerinin fiyatları ve rehber ücretleri ödeme öncesinde gösterilir. Rezervasyon sırasında uygulamada gösterilen iptal ve iade kuralları bu koşulların bir parçasıdır.
 
-### 5.1 RockGuide Koruması
+### 5.1 BeLikeLocal Koruması
 
-RockGuide üzerinden yapılan (ve rehber ücret alıyorsa burada ödenen) rezervasyonlar korunur:
+BeLikeLocal üzerinden yapılan (ve rehber ücret alıyorsa burada ödenen) rezervasyonlar korunur:
 
 - Uygulamada gösterilen kurallara göre iade: Rehber kabul etmeden önce rezervasyonu geri çekerseniz veya rehber reddeder ya da buluşma saatinden önce yanıt vermezse tam iade alırsınız; rehber onaylanmış bir rezervasyonu iptal ederse tam iade, geç iptalde (buluşmaya 24 saatten az kala; eşleşmeniz bir günden yeniyse 2 saatten az kala) ek olarak %5 alırsınız; iptal talep ettiğinizde rehber kabul ederse ücretin %5 eksiği iade edilir.
 - Bir sorun olduğunda yardım: Bir şikâyeti (bölüm 6) incelerken rezervasyona, buluşma noktasına ve platformdaki mesajlarınıza bakabiliriz.

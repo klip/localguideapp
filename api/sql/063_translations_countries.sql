@@ -1,4 +1,4 @@
--- 063: RockGuide as a global service — every country and territory in the
+-- 063: BeLikeLocal as a global service — every country and territory in the
 -- phone country-code picker (src/data/countryCodes.ts); these are the names
 -- the list didn't have yet, from CLDR (Intl.DisplayNames). Re-runnable (upserts).
 

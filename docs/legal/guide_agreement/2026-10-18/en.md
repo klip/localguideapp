@@ -2,11 +2,11 @@
 
 Version {{effective_date}}
 
-This agreement applies when you guide through RockGuide, operated by {{operator_name}}. It adds to the Terms and Conditions, which still apply in full. If the two conflict, the Terms and Conditions prevail.
+This agreement applies when you guide through BeLikeLocal, operated by {{operator_name}}. It adds to the Terms and Conditions, which still apply in full. If the two conflict, the Terms and Conditions prevail.
 
 ## 1. You are independent
 
-You guide on your own account. You are not an employee, agent or partner of RockGuide. You decide what you offer, when and at what price, and you are responsible for any licence, permit, insurance and tax your guiding requires where you work.
+You guide on your own account. You are not an employee, agent or partner of BeLikeLocal. You decide what you offer, when and at what price, and you are responsible for any licence, permit, insurance and tax your guiding requires where you work.
 
 ## 2. Your profile and prices
 
@@ -18,7 +18,7 @@ A paid booking only becomes a trip when you accept it. Accept only what you can 
 
 ## 4. Fees and payouts
 
-Visitors pay your fee through RockGuide. We keep a platform fee, shown before you accept, which falls as your guide level rises. Your level grows only from paid trips, and slightly faster for higher fees.
+Visitors pay your fee through BeLikeLocal. We keep a platform fee, shown before you accept, which falls as your guide level rises. Your level grows only from paid trips, and slightly faster for higher fees.
 
 ## 5. Cancellations
 
@@ -26,7 +26,7 @@ If you cancel a confirmed booking, the visitor gets their fee back. If you cance
 
 ## 6. Conduct and safety
 
-Treat visitors with respect and keep them safe. Never harass, discriminate against or mislead anyone. Keep contact and payment on RockGuide: do not share phone numbers, emails, links or handles, and never take payment outside the platform.
+Treat visitors with respect and keep them safe. Never harass, discriminate against or mislead anyone. Keep contact and payment on BeLikeLocal: do not share phone numbers, emails, links or handles, and never take payment outside the platform.
 
 ## 7. Reviews
 

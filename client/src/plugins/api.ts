@@ -84,15 +84,20 @@ export interface AuthResult {
    */
   roles?: Role[]
   /**
-   * Identifies this login server-side (see `Session.php`) — persisted
-   * alongside the rest of `AuthResult` in `stores/auth.ts` so a page reload
-   * doesn't sign the user out, and sent back on every subsequent
-   * authenticated request by `call()` below. Expires server-side after 5
-   * minutes of inactivity (a sliding window — any valid use renews it, see
-   * `RequestProcessor::requireUserId()`), not because the client tracks
-   * time itself.
+   * The 15-minute access token (sign-in and refresh only), sent by `call()`
+   * with every request. Kept in memory by `stores/auth.ts`, never stored —
+   * the sign-in itself is an HttpOnly cookie, see `refreshAccessToken()`.
    */
-  sessionHash: string
+  accessToken?: string
+  /** When `accessToken` expires, Unix seconds. */
+  accessExpiresAt?: number
+}
+
+/** What `POST /auth/refresh` returns. */
+export interface RefreshResult {
+  accessToken: string
+  accessExpiresAt: number
+  user: AuthResult
 }
 
 /**
@@ -823,31 +828,35 @@ function isErrorBody(body: unknown): body is { error: string; code?: string; fie
 
 /**
  * Every request goes over the one WebSocket (`plugins/socket.ts`) — not
- * `fetch` — as `{ action, sessionHash?, ...payload }`, exactly the body the
- * HTTP endpoint takes, and comes back with the status HTTP would have sent.
+ * `fetch` — as `{ action, accessToken?, actingRole?, ...payload }`, and comes
+ * back with the status HTTP would have sent.
  *
- * Attaches the current session hash (if any) to every request — the one
- * place that needs to, rather than every call site remembering to. Reading
- * `useAuthStore()` here, from a plain function rather than a component/store
- * setup body, works specifically *because* Pinia stores are looked up
- * through a module-level "active pinia" set once by `app.use(pinia)` in
- * main.ts, not through Vue's component-instance-scoped `inject()` — unlike
- * `useApi()` itself (see the long comment in `stores/guides.ts` about why
- * *that* breaks when called outside a component's synchronous setup). So
- * this is safe to call from anywhere `call()` runs, including from inside a
- * debounced `setTimeout` callback.
+ * Signed in, it attaches a current access token (renewing it first when it's
+ * about to expire — `currentAccessToken()`) and the acting role; the gateway
+ * verifies both. A `401` gets one renewal and one retry; if that fails too
+ * the sign-in is over: `signedOut()` clears it and shows the shared "session
+ * expired" toast here, centrally, so pages' own catch blocks
+ * (`reportApiError()`) skip theirs. Reading `useAuthStore()` from a plain
+ * function works because Pinia resolves stores through the module-level
+ * active pinia, unlike `useApi()`'s `inject()` (see `stores/guides.ts`) — so
+ * this is safe from anywhere, a debounced `setTimeout` included.
  */
-async function call<T>(action: string, payload: object = {}): Promise<T> {
+async function call<T>(action: string, payload: object = {}, retried = false): Promise<T> {
   const auth = useAuthStore()
-  const sessionHash = auth.sessionHash
-  // The role this request acts as — the gateway checks the account holds it.
-  const actingRole = sessionHash ? auth.activeRole : null
+  const signedIn = auth.isAuthenticated
+  const accessToken = signedIn ? await currentAccessToken() : null
+  if (signedIn && !accessToken) {
+    // The renewal found the sign-in over and has already said so.
+    throw new ApiError(t('common.messages.session_expired'), 401)
+  }
+  // The role this request acts as — the gateway checks the token holds it.
+  const actingRole = accessToken ? auth.activeRole : null
 
   let response: SocketResponse
   try {
     response = await socket.request({
       action,
-      ...(sessionHash ? { sessionHash } : {}),
+      ...(accessToken ? { accessToken } : {}),
       ...(actingRole ? { actingRole } : {}),
       ...payload,
     })
@@ -860,28 +869,170 @@ async function call<T>(action: string, payload: object = {}): Promise<T> {
     throw new ApiError(t('common.api.unexpected_response'), status)
   }
 
+  if (status === 401 && accessToken && !retried) {
+    // Expired in flight, or revoked: renew (even though it looked fresh) and try once more.
+    if (await refreshAccessToken(true)) return call<T>(action, payload, true)
+    throw new ApiError(t('common.messages.session_expired'), 401)
+  }
   if (status < 200 || status >= 300) {
-    // A 401 means the session RequestProcessor::requireUserId() looked for
-    // is missing, unknown, or expired (see AuthenticationException.php) —
-    // the client's own idea of "logged in" is now wrong, so correct it here
-    // rather than leaving every page's catch block to remember to. Also
-    // push the shared "session expired" toast here, centrally, so every
-    // caller gets it — see `useMessagesStore().sessionExpired()` for the
-    // redirect-to-/login-on-close behavior. Individual pages' own catch
-    // blocks route through `reportApiError()` (src/utils/reportApiError.ts),
-    // which skips its own toast for a 401 so this doesn't double up.
-    if (status === 401) {
-      useAuthStore().clear()
-      useMessagesStore().sessionExpired()
-    }
-    if (!isErrorBody(body)) throw new ApiError(t('common.api.something_went_wrong'), status)
-    // Server text is English; the one error a user is meant to act on gets
-    // the viewer's language (see `ContactFilter`).
-    const message = body.code === 'contact_details' ? t('common.api.contact_details') : body.error
-    throw new ApiError(message, status, body.code, body.field)
+    // Signed out by the server; a signed-out tab mustn't sign the others out.
+    if (status === 401) signedOut(true, signedIn)
+    throw errorFrom(status, body)
   }
 
   return body as T
+}
+
+/** An error response as an `ApiError` — the one error a user is meant to act on in their language. */
+function errorFrom(status: number, body: unknown): ApiError {
+  if (!isErrorBody(body)) return new ApiError(t('common.api.something_went_wrong'), status)
+  // Server text is English; contact details are refused in the viewer's
+  // language (see `ContactFilter`).
+  const message = body.code === 'contact_details' ? t('common.api.contact_details') : body.error
+  return new ApiError(message, status, body.code, body.field)
+}
+
+// ---------------------------------------------------------------- sign-in
+
+/**
+ * Sign-in actions go over plain HTTPS to `/auth/<action>` on the app's own
+ * origin (the auth service's `AuthHttp`; Vite proxies it in development),
+ * because only an HTTP response can set the HttpOnly refresh cookie. The
+ * cookie travels by itself (`credentials: 'same-origin'`); no script ever
+ * sees it.
+ */
+async function authPost<T>(action: string, payload: object = {}): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(`/auth/${action}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    throw new ApiError(t('common.api.unreachable'), 0)
+  }
+
+  let body: unknown
+  try {
+    body = await response.json()
+  } catch {
+    throw new ApiError(t('common.api.unexpected_response'), response.status)
+  }
+  if (!response.ok) throw errorFrom(response.status, body)
+
+  return body as T
+}
+
+/** Renew this many seconds before the access token expires. */
+const REFRESH_EARLY_S = 60
+/** Below this many seconds left, `call()` renews before sending. */
+const MIN_TOKEN_LIFE_S = 30
+/** Only one tab renews at a time: the refresh token is single-use. */
+const REFRESH_LOCK = 'belikelocal.refresh'
+
+type AuthMessage = { type: 'signedIn'; user: AuthResult } | { type: 'signedOut' }
+
+/**
+ * Tabs share the sign-in: a new access token (or a sign-out) in one is handed
+ * to the others memory to memory — never through storage.
+ */
+const channel: BroadcastChannel | null =
+  typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('belikelocal.auth')
+channel?.addEventListener('message', (event: MessageEvent<AuthMessage>) => {
+  if (event.data?.type === 'signedIn') adopt(event.data.user, false)
+  else if (event.data?.type === 'signedOut') signedOut(false, false)
+})
+
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
+let inflight: Promise<string | null> | null = null
+
+function secondsLeft(): number {
+  const expires = useAuthStore().accessExpiresAt
+  return expires ? expires - Date.now() / 1000 : -1
+}
+
+/** A signed-in result with tokens: keep it, tell the other tabs, renew before it expires. */
+function adopt(result: AuthResult, broadcast = true): void {
+  if (!result.accessToken || !result.accessExpiresAt) return
+  useAuthStore().setUser(result)
+  if (broadcast) channel?.postMessage({ type: 'signedIn', user: result } satisfies AuthMessage)
+
+  if (refreshTimer) clearTimeout(refreshTimer)
+  const delay = Math.max(0, secondsLeft() - REFRESH_EARLY_S) * 1000
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null
+    if (useAuthStore().isAuthenticated) void refreshAccessToken().catch(() => {})
+  }, delay)
+}
+
+/** The sign-in is over: forget it here (and in the other tabs), with the shared toast when it expired. */
+function signedOut(expired: boolean, broadcast = true): void {
+  if (refreshTimer) clearTimeout(refreshTimer)
+  refreshTimer = null
+  useAuthStore().clear()
+  if (broadcast) channel?.postMessage({ type: 'signedOut' } satisfies AuthMessage)
+  if (expired) useMessagesStore().sessionExpired()
+}
+
+/** A token good for at least `MIN_TOKEN_LIFE_S` more seconds, renewing if needed; `null` when signed out. */
+async function currentAccessToken(): Promise<string | null> {
+  const auth = useAuthStore()
+  if (!auth.isAuthenticated) return null
+  if (auth.accessToken && secondsLeft() > MIN_TOKEN_LIFE_S) return auth.accessToken
+  return refreshAccessToken()
+}
+
+/**
+ * A new access token from the refresh cookie (rotating it); `null` — and
+ * signed out, with the toast — when the sign-in is over. Concurrent calls in
+ * a tab share one request; across tabs a Web Lock lets one go first, and the
+ * others find its token (broadcast meanwhile) and skip theirs — unless
+ * `force`d, after the server refused the current one. A network failure
+ * throws (`ApiError`, status 0) and leaves the sign-in alone.
+ */
+export function refreshAccessToken(force = false): Promise<string | null> {
+  inflight ??= renew(force).finally(() => {
+    inflight = null
+  })
+  return inflight
+}
+
+async function renew(force: boolean): Promise<string | null> {
+  const rejected = force ? useAuthStore().accessToken : null
+  const run = async (): Promise<string | null> => {
+    const auth = useAuthStore()
+    // Another tab may have renewed while this one waited for the lock.
+    if (auth.accessToken && auth.accessToken !== rejected && secondsLeft() > REFRESH_EARLY_S) {
+      return auth.accessToken
+    }
+    try {
+      const result = await authPost<RefreshResult>('refresh')
+      adopt({
+        ...result.user,
+        accessToken: result.accessToken,
+        accessExpiresAt: result.accessExpiresAt,
+      })
+      return result.accessToken
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        signedOut(true)
+        return null
+      }
+      throw error
+    }
+  }
+
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
+  return locks ? locks.request(REFRESH_LOCK, run) : run()
+}
+
+/** register / login / verifyTwoFactor over HTTP, adopting the tokens a sign-in brings. */
+async function signIn<T extends object>(action: string, payload: object): Promise<T> {
+  const result = await authPost<T>(action, payload)
+  if ('accessToken' in result) adopt(result as unknown as AuthResult)
+  return result
 }
 
 /**
@@ -913,12 +1064,13 @@ function deckRequest(filters?: DiscoveryFilters): Record<string, unknown> {
 
 /** The api "module": one client, backed by RequestProcessor's `action` dispatch. */
 export const api = {
-  register: (payload: RegisterPayload) => call<AuthResult>('register', payload),
+  /** Signs in (HTTP, sets the refresh cookie) — see `signIn()`. */
+  register: (payload: RegisterPayload) => signIn<AuthResult>('register', payload),
   /** An `AuthResult`, or a `TwoFactorChallenge` when the account needs an emailed code first. */
-  login: (payload: LoginPayload) => call<LoginResult>('login', payload),
+  login: (payload: LoginPayload) => signIn<LoginResult>('login', payload),
   /** `rememberDevice` makes this browser skip the code for 30 days — the result then carries a `TrustedDeviceGrant`. */
   verifyTwoFactor: (payload: { challengeToken: string; code: string; rememberDevice?: boolean }) =>
-    call<AuthResult & Partial<TrustedDeviceGrant>>('verifyTwoFactor', payload),
+    signIn<AuthResult & Partial<TrustedDeviceGrant>>('verifyTwoFactor', payload),
   /** Emails a fresh code for the same challenge; the previous code stops working. */
   resendTwoFactor: (payload: { challengeToken: string }) =>
     call<TwoFactorChallenge>('resendTwoFactor', payload),
@@ -956,15 +1108,46 @@ export const api = {
    * the acceptance of its agreement (`agreementVersion`, the one shown).
    * Returns every role the account now holds.
    */
-  addRole: (payload: {
+  addRole: async (payload: {
     role: Role
     agreementSlug: LegalSlug
     agreementVersion: string
     language?: string
-  }) => call<{ roles: Role[] }>('addRole', payload),
-  /** Destroys the current session server-side — best-effort from the caller's point of view, see `AppHeader.vue`. */
-  logout: () => call<{ ok: true }>('logout'),
-  /** Validates the locally-cached session (see `stores/auth.ts`) against the server and slides its inactivity window forward — what `App.vue` calls on boot. */
+  }) => {
+    const result = await call<{ roles: Role[]; accessToken?: string; accessExpiresAt?: number }>(
+      'addRole',
+      payload,
+    )
+    // A new access token whose `roles` include the new one.
+    const user = useAuthStore().user
+    if (user && result.accessToken) adopt({ ...user, ...result })
+    return result
+  },
+  /** Ends this sign-in server-side and clears the refresh cookie (HTTP); every tab signs out. Best-effort for the caller, see `AppHeader.vue`. */
+  logout: async () => {
+    try {
+      return await authPost<{ ok: true }>('logout')
+    } finally {
+      signedOut(false)
+    }
+  },
+  /**
+   * Ends every sign-in of the account — other devices' too, at once (their
+   * access tokens are revoked at the gateway) — and this one (HTTP). Every
+   * tab signs out.
+   */
+  logoutEverywhere: async () => {
+    const result = await authPost<{ ok: true }>('logoutEverywhere')
+    signedOut(false)
+    return result
+  },
+  /**
+   * Confirms the sign-in from the refresh cookie and gets an access token —
+   * what `App.vue` calls at boot. `null` (signed out, toast shown) when it's
+   * over; throws on a network failure, leaving it alone.
+   */
+  refresh: () => refreshAccessToken(),
+  /** The old session check (`AuthProcessor::actionSession()`), for a session-hash client; unused since tokens. */
   session: () => call<AuthResult>('session'),
 
   unlockPack: () => call<PaymentState>('unlockPack'),

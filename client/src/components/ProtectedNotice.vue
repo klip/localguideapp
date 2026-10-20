@@ -4,7 +4,7 @@ import { t } from '@/i18n'
 import { useLegalStore } from '@/stores/legal'
 
 /**
- * "Protected by RockGuide" — shown right before every payment (a selection
+ * "Protected by BeLikeLocal" — shown right before every payment (a selection
  * pack on /unlock and in Discover's payment modal, a guide's fee in
  * `BookingPanel`): what paying through the platform covers, and that paying
  * outside it doesn't. "How it works" opens the terms at section 5.1.

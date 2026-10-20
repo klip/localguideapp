@@ -111,8 +111,8 @@ class Bookings
                     "You matched with {$guestName}. Say hello in Messages — once they pay your " . self::money($fee) . ' fee you can confirm a date on Matches.',
                     "New match: {$guestName}",
                     self::greeting($guide)
-                    . "{$guestName} is interested too, so you're a match. You can chat in Messages on RockGuide straight away. "
-                    . 'They can pay your ' . self::money($fee) . " fee to request a date; you'll hear from us when they do.\n\nRockGuide",
+                    . "{$guestName} is interested too, so you're a match. You can chat in Messages on BeLikeLocal straight away. "
+                    . 'They can pay your ' . self::money($fee) . " fee to request a date; you'll hear from us when they do.\n\nBeLikeLocal",
                     (int) $guest['id'],
                     role: 'guide'
                 );
@@ -123,8 +123,8 @@ class Bookings
                     "{$guideName} liked you back — it's a match! Say hello in Messages, or pay their " . self::money($fee) . ' fee on Matches to request a date.',
                     "It's a match: {$guideName}",
                     self::greeting($guest)
-                    . "{$guideName} is interested too, so you're a match. You can chat in Messages on RockGuide straight away, "
-                    . 'and pay their ' . self::money($fee) . " fee on the Matches page to request a date.\n\nRockGuide",
+                    . "{$guideName} is interested too, so you're a match. You can chat in Messages on BeLikeLocal straight away, "
+                    . 'and pay their ' . self::money($fee) . " fee on the Matches page to request a date.\n\nBeLikeLocal",
                     (int) $guide['id'],
                     role: 'guest'
                 );
@@ -143,7 +143,7 @@ class Bookings
             "New match: {$guestName}",
             self::greeting($guide)
             . "You and {$guestName} are a match. You don't charge a fee, so the trip is already on your My trips page.\n\n"
-            . "Plan it together in Messages on RockGuide — you can share your location there too. When it's over, mark the trip finished on My trips.\n\nRockGuide",
+            . "Plan it together in Messages on BeLikeLocal — you can share your location there too. When it's over, mark the trip finished on My trips.\n\nBeLikeLocal",
             role: 'guide'
         );
 
@@ -155,7 +155,7 @@ class Bookings
                 "It's a match: {$guideName}",
                 self::greeting($guest)
                 . "You and {$guideName} are a match. They don't charge a fee, so the trip is already on your My trips page.\n\n"
-                . "Plan it together in Messages on RockGuide — you can share your location there too. When it's over, mark the trip finished on My trips.\n\nRockGuide",
+                . "Plan it together in Messages on BeLikeLocal — you can share your location there too. When it's over, mark the trip finished on My trips.\n\nBeLikeLocal",
                 role: 'guest'
             );
         }
@@ -282,11 +282,11 @@ class Bookings
             self::greeting($this->user($guideId))
             . "{$guestName} has paid your fee of {$amount} for a tour on {$when}"
             . ($duration !== null ? " ({$duration} hours)" : '') . ".\n"
-            . (isset($fields['guide_payout']) ? 'You receive ' . self::money((float) $fields['guide_payout']) . ' after the RockGuide fee of '
+            . (isset($fields['guide_payout']) ? 'You receive ' . self::money((float) $fields['guide_payout']) . ' after the BeLikeLocal fee of '
                 . self::percent((float) $fields['commission_rate']) . ".\n" : '')
             . self::placeLines($location, $pin) . "\n"
             . "Accept it on your Matches page to confirm the date, and plan the details together in Messages. "
-            . "If you can't make it, decline and they're refunded in full. If you don't answer before the meeting time, it's declined automatically.\n\nRockGuide",
+            . "If you can't make it, decline and they're refunded in full. If you don't answer before the meeting time, it's declined automatically.\n\nBeLikeLocal",
             role: 'guide'
         );
 
@@ -314,7 +314,7 @@ class Bookings
             "{$guideName} confirmed your booking",
             self::greeting($this->user($guestId))
             . "{$guideName} has confirmed your tour on {$when}. It's on your My trips page.\n\n"
-            . "Plan the details together in Messages on RockGuide — you can share your location there too.\n\nRockGuide",
+            . "Plan the details together in Messages on BeLikeLocal — you can share your location there too.\n\nBeLikeLocal",
             role: 'guest'
         );
 
@@ -339,7 +339,7 @@ class Bookings
             self::greeting($this->user($guestId))
             . "{$guideName} can't do your tour on " . self::formatMeeting($booking['meeting_at']) . ".\n"
             . ($reason !== '' ? "Their reason: {$reason}\n" : '')
-            . "\nYour payment of {$refund} has been refunded in full. You're still matched, so you can book another time from your Matches page.\n\nRockGuide",
+            . "\nYour payment of {$refund} has been refunded in full. You're still matched, so you can book another time from your Matches page.\n\nBeLikeLocal",
             role: 'guest'
         );
 
@@ -360,7 +360,7 @@ class Bookings
             "{$guestName} withdrew their booking request for " . self::formatMeeting($booking['meeting_at']) . '.',
             "{$guestName} withdrew their booking request",
             self::greeting($this->user($guideId))
-            . "{$guestName} withdrew their booking request for " . self::formatMeeting($booking['meeting_at']) . ". Nothing more to do.\n\nRockGuide",
+            . "{$guestName} withdrew their booking request for " . self::formatMeeting($booking['meeting_at']) . ". Nothing more to do.\n\nBeLikeLocal",
             role: 'guide'
         );
 
@@ -407,7 +407,7 @@ class Bookings
             $message,
             "{$actorName} updated your trip's meeting place",
             self::greeting($this->user($otherId)) . $message . "\n"
-            . ($pin !== null ? 'Map: ' . self::pinUrl($pin) . "\n" : '') . "\nRockGuide",
+            . ($pin !== null ? 'Map: ' . self::pinUrl($pin) . "\n" : '') . "\nBeLikeLocal",
             $actingUserId,
             role: ($otherId === $guestId ? 'guest' : 'guide')
         );
@@ -461,7 +461,7 @@ class Bookings
             . ($booking['meeting_at'] ? ' for ' . self::formatMeeting($booking['meeting_at']) : '') . ".\n"
             . ($reason !== '' ? "Their reason: {$reason}\n" : '')
             . "\n" . $refundLine
-            . "The selection you used on them is back in your pack, so you can pick another guide.\n\nRockGuide",
+            . "The selection you used on them is back in your pack, so you can pick another guide.\n\nBeLikeLocal",
             role: 'guest'
         );
 
@@ -505,7 +505,7 @@ class Bookings
             . "{$guestName} has asked to cancel their tour on " . self::formatMeeting($booking['meeting_at']) . ".\n"
             . "Their reason: {$reason}\n\n"
             . "If you approve, they're refunded {$refund} (the fee minus " . self::percent(self::GUEST_CANCEL_FEE_RATE) . "). "
-            . "If you refuse, the booking stands. Answer on your My trips page.\n\nRockGuide",
+            . "If you refuse, the booking stands. Answer on your My trips page.\n\nBeLikeLocal",
             role: 'guide'
         );
 
@@ -525,7 +525,7 @@ class Bookings
             "{$guestName} no longer wants to cancel — the booking for " . self::formatMeeting($booking['meeting_at']) . ' stands.',
             "{$guestName} is keeping their booking",
             self::greeting($this->user($guideId))
-            . "{$guestName} withdrew their cancellation request. Your tour on " . self::formatMeeting($booking['meeting_at']) . " goes ahead.\n\nRockGuide",
+            . "{$guestName} withdrew their cancellation request. Your tour on " . self::formatMeeting($booking['meeting_at']) . " goes ahead.\n\nBeLikeLocal",
             role: 'guide'
         );
 
@@ -555,7 +555,7 @@ class Bookings
             . "{$guideName} has approved your request to cancel the tour on " . self::formatMeeting($booking['meeting_at']) . ".\n\n"
             . 'You have been refunded ' . self::money($refund) . ' — your ' . self::money($booking['amount'])
             . ' fee minus ' . self::percent(self::GUEST_CANCEL_FEE_RATE) . ".\n"
-            . "The selection you used on them is back in your pack.\n\nRockGuide",
+            . "The selection you used on them is back in your pack.\n\nBeLikeLocal",
             role: 'guest'
         );
 
@@ -578,7 +578,7 @@ class Bookings
             self::greeting($this->user($guestId))
             . "{$guideName} didn't agree to cancel your tour on " . self::formatMeeting($booking['meeting_at']) . ", so the booking stands.\n"
             . ($reason !== '' ? "Their note: {$reason}\n" : '')
-            . "\nRockGuide",
+            . "\nBeLikeLocal",
             role: 'guest'
         );
 
@@ -607,7 +607,7 @@ class Bookings
             "{$guestName} unmatched and cancelled your booking.",
             "{$guestName} cancelled",
             self::greeting($this->user($guideId))
-            . "{$guestName} has unmatched, so your booking with them is cancelled.\n\nRockGuide",
+            . "{$guestName} has unmatched, so your booking with them is cancelled.\n\nBeLikeLocal",
             role: 'guide'
         );
     }
@@ -647,7 +647,7 @@ class Bookings
             "{$actorName} marked your trip as finished. Confirm it on your My trips page.",
             "{$actorName} marked your trip as finished",
             self::greeting($this->user($otherId))
-            . "{$actorName} says your trip together is over. Confirm it on your My trips page — then you can both leave a review.\n\nRockGuide",
+            . "{$actorName} says your trip together is over. Confirm it on your My trips page — then you can both leave a review.\n\nBeLikeLocal",
             role: ($otherId === $guestId ? 'guest' : 'guide')
         );
 
@@ -692,7 +692,7 @@ class Bookings
                 "{$actorName} says your trip isn’t over yet.",
                 "{$actorName} says your trip isn't over yet",
                 self::greeting($this->user($requester))
-                . "{$actorName} didn't confirm that your trip is finished. Ask again from your My trips page once it is.\n\nRockGuide",
+                . "{$actorName} didn't confirm that your trip is finished. Ask again from your My trips page once it is.\n\nBeLikeLocal",
                 role: ((int) $requester === $guestId ? 'guest' : 'guide')
             );
         }
@@ -730,7 +730,7 @@ class Bookings
                 "{$guideName} didn't confirm in time",
                 self::greeting($this->user($booking['guest_id']))
                 . "{$guideName} didn't confirm your tour for " . self::formatMeeting($booking['meeting_at'])
-                . " before it was due, so it's been called off and your {$refund} refunded in full.\n\nRockGuide",
+                . " before it was due, so it's been called off and your {$refund} refunded in full.\n\nBeLikeLocal",
                 role: 'guest'
             );
             $this->notifications->notify(
@@ -740,7 +740,7 @@ class Bookings
                 'A booking request expired',
                 self::greeting($this->user($booking['guide_id']))
                 . 'You didn\'t answer a booking request for ' . self::formatMeeting($booking['meeting_at'])
-                . " in time, so it was declined and the visitor refunded.\n\nRockGuide",
+                . " in time, so it was declined and the visitor refunded.\n\nBeLikeLocal",
                 role: 'guide'
             );
         }
@@ -969,7 +969,7 @@ class Bookings
                 "Your trip with {$otherName} is finished — you can leave them a review now.",
                 "How was your trip with {$otherName}?",
                 self::greeting($this->user($to))
-                . "Your trip with {$otherName} is marked as finished. Leave them a review from their profile page — it helps everyone choose.\n\nRockGuide",
+                . "Your trip with {$otherName} is marked as finished. Leave them a review from their profile page — it helps everyone choose.\n\nBeLikeLocal",
                 role: ($to == $booking['guest_id'] ? 'guest' : 'guide')
             );
         }

@@ -44,7 +44,8 @@ final class Ranking
     /** Proximity: points within the radius, how far beyond it they fade out, and the radius assumed for a flexible one. */
     private const NEAR_BOOST = 60;
     private const NEAR_FADE_KM = 100;
-    private const FLEXIBLE_RADIUS_KM = 25;
+    /** Also the radius `Users::searchByRole()`'s distance limit assumes for a flexible guide. */
+    public const FLEXIBLE_RADIUS_KM = 25;
     private const FAR_BOOST = 15;
     private const FAR_FADE_KM = 1000;
 

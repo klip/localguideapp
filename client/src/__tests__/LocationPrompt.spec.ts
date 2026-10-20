@@ -15,7 +15,7 @@ async function mountPrompt(api: Api, role: Role | null = 'guest') {
   const pinia = createPinia()
   setActivePinia(pinia)
   if (role) {
-    useAuthStore().setUser({ id: 7, email: 'a@example.com', role, roles: [role], sessionHash: 'h' })
+    useAuthStore().setUser({ id: 7, email: 'a@example.com', role, roles: [role] })
   }
   const wrapper = mount(LocationPrompt, {
     global: { plugins: [pinia], provide: { [API_KEY]: api } },
@@ -37,7 +37,7 @@ describe('LocationPrompt', () => {
 
     await wrapper.find('[data-test="prompt-not-now"]').trigger('click')
     expect(wrapper.find('[data-test="location-prompt"]').exists()).toBe(false)
-    expect(sessionStorage.getItem('rockguide.locationAsked.guest')).toBe('1')
+    expect(sessionStorage.getItem('belikelocal.locationAsked.guest')).toBe('1')
 
     const again = mount(LocationPrompt, {
       global: { plugins: [createPinia()], provide: { [API_KEY]: fakeApi() } },
@@ -51,7 +51,7 @@ describe('LocationPrompt', () => {
       (await mountPrompt(fakeApi(), null)).find('[data-test="location-prompt"]').exists(),
     ).toBe(false)
 
-    sessionStorage.setItem('rockguide.near.guest', JSON.stringify(lisbon))
+    sessionStorage.setItem('belikelocal.near.guest', JSON.stringify(lisbon))
     const wrapper = await mountPrompt(fakeApi())
     expect(useFiltersStore().filters.near?.label).toBe('Lisbon, Portugal')
     expect(wrapper.find('[data-test="location-prompt"]').exists()).toBe(false)
@@ -102,13 +102,12 @@ describe('the search point per role', () => {
       email: 'a@example.com',
       role: 'guest',
       roles: ['guest', 'guide'],
-      sessionHash: 'h',
     })
     const filters = useFiltersStore()
 
     filters.setNear(lisbon)
     await flushPromises()
-    expect(JSON.parse(sessionStorage.getItem('rockguide.near.guest')!)).toEqual(lisbon)
+    expect(JSON.parse(sessionStorage.getItem('belikelocal.near.guest')!)).toEqual(lisbon)
 
     auth.setActiveRole('guide')
     await flushPromises()

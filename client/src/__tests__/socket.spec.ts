@@ -37,21 +37,21 @@ describe('plugins/socket ApiSocket', () => {
 
   it('identifies the session before anything else, and again on change', async () => {
     const socket = makeSocket()
-    socket.identify('hash-1')
+    socket.identify('token-1')
     await tick()
 
     const ws = FakeWebSocket.instances[0]!
-    expect(ws.sent[0]).toEqual({ type: 'auth', sessionHash: 'hash-1' })
+    expect(ws.sent[0]).toEqual({ type: 'auth', accessToken: 'token-1' })
 
     socket.identify(null)
-    expect(ws.sent[1]).toEqual({ type: 'auth', sessionHash: '' })
+    expect(ws.sent[1]).toEqual({ type: 'auth', accessToken: '' })
   })
 
   it('delivers pushes to subscribers', async () => {
     const socket = makeSocket()
     const seen: unknown[] = []
     const off = socket.on('badges', (message) => seen.push(message.matches))
-    socket.identify('hash')
+    socket.identify('token')
     await tick()
 
     FakeWebSocket.instances[0]!.receive({ type: 'badges', matches: 3, trips: 0 })
@@ -64,7 +64,7 @@ describe('plugins/socket ApiSocket', () => {
   it('rejects in-flight requests on a drop, then reconnects and re-identifies', async () => {
     vi.useFakeTimers()
     const socket = makeSocket()
-    socket.identify('hash')
+    socket.identify('token')
     await vi.advanceTimersByTimeAsync(0)
     FakeWebSocket.respond = () => null
 
@@ -76,7 +76,7 @@ describe('plugins/socket ApiSocket', () => {
     await vi.advanceTimersByTimeAsync(1_000)
     await vi.advanceTimersByTimeAsync(1)
     expect(FakeWebSocket.instances).toHaveLength(2)
-    expect(FakeWebSocket.instances[1]!.sent[0]).toEqual({ type: 'auth', sessionHash: 'hash' })
+    expect(FakeWebSocket.instances[1]!.sent[0]).toEqual({ type: 'auth', accessToken: 'token' })
   })
 
   it('times a request out after 30 seconds', async () => {

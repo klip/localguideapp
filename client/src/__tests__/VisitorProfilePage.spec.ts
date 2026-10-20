@@ -152,7 +152,6 @@ describe('GuideDiscoverPage', () => {
       id: 1,
       email: 'guide@example.com',
       role: 'guide',
-      sessionHash: 'hash',
     })
     const router = testRouter()
     router.push('/guide/discover')

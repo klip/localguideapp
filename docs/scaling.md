@@ -1,4 +1,4 @@
-# Scaling RockGuide: services, database, and the road to GKE
+# Scaling BeLikeLocal: services, database, and the road to GKE
 
 Where the backend stands after the split into services (2026-10-14), what
 limits it, and the proposed path to microservices on Kubernetes in Google

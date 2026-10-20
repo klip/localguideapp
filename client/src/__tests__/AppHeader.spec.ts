@@ -19,7 +19,7 @@ async function mountHeader(signedIn: boolean, api: Api = fakeApi()) {
   const pinia = createPinia()
   setActivePinia(pinia)
   if (signedIn)
-    useAuthStore().setUser({ id: 1, email: 'me@example.com', role: 'guide', sessionHash: 'hash' })
+    useAuthStore().setUser({ id: 1, email: 'me@example.com', role: 'guide' })
 
   const router = testRouter()
   router.push('/')

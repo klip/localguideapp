@@ -64,7 +64,7 @@ export interface Scope {
 /** Fetches strings for a language — the API call, passed in so this module doesn't depend on the request layer. */
 export type Fetcher = (code: Language, scope?: Scope) => Promise<Messages>
 
-const STORAGE_KEY = 'rockguide.language'
+const STORAGE_KEY = 'belikelocal.language'
 /** How long a navigation waits for the rest of the language before rendering with what it has. */
 const NAVIGATION_WAIT_MS = 1500
 

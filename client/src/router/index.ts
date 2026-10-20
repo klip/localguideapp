@@ -180,7 +180,7 @@ const router = createRouter({
  * instead — at most once every 10 s, so a server that's really down can't
  * put the tab in a reload loop.
  */
-const CHUNK_RELOAD_KEY = 'rockguide.chunkReloadAt'
+const CHUNK_RELOAD_KEY = 'belikelocal.chunkReloadAt'
 const CHUNK_RELOAD_EVERY_MS = 10_000
 
 router.onError((error, to) => {

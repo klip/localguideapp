@@ -138,7 +138,7 @@ describe('BookingPanel — paying', () => {
     await button(wrapper, 'Pay £50.00').trigger('click')
     // What paying here covers, right before the payment is confirmed.
     expect(wrapper.find('form [data-test="protected-notice"]').text()).toContain(
-      'Protected by RockGuide',
+      'Protected by BeLikeLocal',
     )
     await wrapper.find('input[type="datetime-local"]').setValue('2030-01-02T10:00')
     await wrapper.find('input[type="number"]').setValue('3')
@@ -212,7 +212,7 @@ describe('BookingPanel — guide acceptance', () => {
     const withFee = { ...pendingBooking, commission_rate: 0.12, guide_payout: 44 }
     const guide = mountPanel(fakeApi(), withFee, false)
     expect(guide.find('[data-test="guide-payout"]').text()).toBe(
-      'You receive £44.00 after the RockGuide fee of 12%.',
+      'You receive £44.00 after the BeLikeLocal fee of 12%.',
     )
 
     const guest = mountPanel(fakeApi(), withFee, true)

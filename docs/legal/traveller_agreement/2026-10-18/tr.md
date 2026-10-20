@@ -2,11 +2,11 @@
 
 Sürüm {{effective_date}}
 
-Bu sözleşme, {{operator_name}} tarafından işletilen RockGuide üzerinden rehber aradığınızda geçerlidir. Tamamen geçerli olmaya devam eden Kullanım Koşulları'nı tamamlar. İkisi çelişirse Kullanım Koşulları geçerlidir.
+Bu sözleşme, {{operator_name}} tarafından işletilen BeLikeLocal üzerinden rehber aradığınızda geçerlidir. Tamamen geçerli olmaya devam eden Kullanım Koşulları'nı tamamlar. İkisi çelişirse Kullanım Koşulları geçerlidir.
 
 ## 1. Neyi kabul ediyorsunuz
 
-Rehberler bağımsızdır. RockGuide onları bulmanıza yardım eder, ancak turun kendisi sizinle rehber arasında kararlaştırılır. Rezervasyondan önce nelerin dahil olduğunu kontrol edin.
+Rehberler bağımsızdır. BeLikeLocal onları bulmanıza yardım eder, ancak turun kendisi sizinle rehber arasında kararlaştırılır. Rezervasyondan önce nelerin dahil olduğunu kontrol edin.
 
 ## 2. Seçimler ve paketler
 
@@ -14,7 +14,7 @@ Bir rehbere ilgi göstermek, satın aldığınız bir paketten bir seçim kullan
 
 ## 3. Rezervasyon ve ödeme
 
-Rehber ücretini yalnızca RockGuide üzerinden ödeyin. Rezervasyon, rehber kabul ettiğinde geziye dönüşür; o zamana kadar tam iadeyle geri çekebilirsiniz. Rehber reddederse veya zamanında yanıt vermezse tamamı iade edilir.
+Rehber ücretini yalnızca BeLikeLocal üzerinden ödeyin. Rezervasyon, rehber kabul ettiğinde geziye dönüşür; o zamana kadar tam iadeyle geri çekebilirsiniz. Rehber reddederse veya zamanında yanıt vermezse tamamı iade edilir.
 
 ## 4. İptaller
 
@@ -26,7 +26,7 @@ Gezgin olarak başlığınız ve açıklamanız yalnızca rehberlere gösterilir
 
 ## 6. Davranış ve güvenlik
 
-Rehberlere saygılı davranın, zamanında gelin ve güvenlik talimatlarına uyun. İlk buluşmaları halka açık yerlerde yapın, nereye gittiğinizi birine söyleyin ve iletişimle ödemeyi RockGuide'da tutun.
+Rehberlere saygılı davranın, zamanında gelin ve güvenlik talimatlarına uyun. İlk buluşmaları halka açık yerlerde yapın, nereye gittiğinizi birine söyleyin ve iletişimle ödemeyi BeLikeLocal'da tutun.
 
 ## 7. Değerlendirmeler ve seviyeler
 

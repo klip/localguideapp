@@ -1,6 +1,6 @@
 -- 062: location, phase A3 — the once-per-session location prompt, the decks'
 -- "Near {place}" subtitles and "Looking in {place}" on traveller cards; and
--- RockGuide as a global service: the copy that named Gibraltar or cruise days
+-- BeLikeLocal as a global service: the copy that named Gibraltar or cruise days
 -- is reworded. Re-runnable (upserts).
 
 SET NAMES utf8mb4;

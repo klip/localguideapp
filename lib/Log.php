@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Structured logging for every RockGuide service: one JSON object per line on
+ * Structured logging for every BeLikeLocal service: one JSON object per line on
  * stderr, which Docker (and later Kubernetes) collects; Grafana Alloy ships it
  * to Loki (see deploy/observability/). Nothing is written to files.
  *
@@ -20,7 +20,7 @@ final class Log
     private const LEVELS = ['debug' => 10, 'info' => 20, 'warning' => 30, 'error' => 40];
 
     /** @var string */
-    private static $service = 'rockguide';
+    private static $service = 'belikelocal';
     /** @var array<string, mixed> */
     private static $context = [];
     /** @var int|null */

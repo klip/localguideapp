@@ -17,7 +17,7 @@ import { useLegalStore } from '@/stores/legal'
  * "Accept", and the answer kept as proof — and `NOTICE_VERSION` bumped so
  * everyone is asked again.
  */
-const STORAGE_KEY = 'rockguide.cookieNotice'
+const STORAGE_KEY = 'belikelocal.cookieNotice'
 const NOTICE_VERSION = '1'
 
 function acknowledged(): boolean {

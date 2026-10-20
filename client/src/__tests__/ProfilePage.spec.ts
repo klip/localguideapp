@@ -85,7 +85,6 @@ async function mountProfilePage(api: Api, authenticated = true, path = '/profile
       email: 'sofia@example.com',
       name: 'Sofia',
       role: 'guide',
-      sessionHash: 'test-session-hash',
     })
   }
 
@@ -223,7 +222,7 @@ describe('ProfilePage', () => {
       .fn<Api['forgetTrustedDevices']>()
       .mockResolvedValue({ ok: true })
     localStorage.setItem(
-      'rockguide.trustedDevices',
+      'belikelocal.trustedDevices',
       JSON.stringify({
         [sampleProfile.email]: { token: 'd'.repeat(64), until: '2099-01-01T00:00:00Z' },
       }),
@@ -247,12 +246,36 @@ describe('ProfilePage', () => {
 
     expect(forgetTrustedDevices).toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('remembered device')
-    expect(localStorage.getItem('rockguide.trustedDevices')).toBeNull()
+    expect(localStorage.getItem('belikelocal.trustedDevices')).toBeNull()
     expect(
       useMessagesStore()
         .items.map((item) => item.text)
         .join(),
     ).toContain('every device will ask for a code')
+  })
+
+  it('signs out on all devices and goes to the login page', async () => {
+    const logoutEverywhere = vi.fn<Api['logoutEverywhere']>().mockResolvedValue({ ok: true })
+    const wrapper = await mountProfilePage(
+      fakeApi({
+        myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
+        attributeCategories: vi
+          .fn<Api['attributeCategories']>()
+          .mockResolvedValue({ categories: sampleCategories }),
+        logoutEverywhere,
+      }),
+    )
+
+    await wrapper.find('[data-test="sign-out-everywhere"]').trigger('click')
+    await flushPromises()
+
+    expect(logoutEverywhere).toHaveBeenCalled()
+    expect(wrapper.vm.$router.currentRoute.value.path).toBe('/login')
+    expect(
+      useMessagesStore()
+        .items.map((item) => item.text)
+        .join(),
+    ).toContain('signed out on every device')
   })
 
   it('offers only email for two-factor codes, and leaves a legacy SMS choice unselected', async () => {

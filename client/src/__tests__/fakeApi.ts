@@ -25,6 +25,8 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     changePassword: vi.fn<Api['changePassword']>(),
     addRole: vi.fn<Api['addRole']>(),
     logout: vi.fn<Api['logout']>(),
+    logoutEverywhere: vi.fn<Api['logoutEverywhere']>(),
+    refresh: vi.fn<Api['refresh']>(),
     session: vi.fn<Api['session']>(),
     unlockPack: vi.fn<Api['unlockPack']>(),
     paymentState: vi.fn<Api['paymentState']>(),

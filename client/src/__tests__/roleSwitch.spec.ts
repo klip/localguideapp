@@ -17,7 +17,6 @@ function dualRoleAccount() {
     email: 'a@example.com',
     role: 'guest',
     roles: ['guest', 'guide'],
-    sessionHash: 'h',
   })
   return auth
 }
@@ -51,7 +50,7 @@ describe('badges per role', () => {
 
   it('falls back to the totals without a per-role breakdown, and never flags a one-role account', () => {
     setActivePinia(createPinia())
-    useAuthStore().setUser({ id: 1, email: 'a@example.com', role: 'guide', sessionHash: 'h' })
+    useAuthStore().setUser({ id: 1, email: 'a@example.com', role: 'guide' })
     const badges = useBadgesStore()
     badges.set({ matches: 4, trips: 0, messages: 1 })
 

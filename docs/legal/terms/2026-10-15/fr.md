@@ -2,15 +2,15 @@
 
 Version {{effective_date}}
 
-## 1. À propos de RockGuide et de ces conditions
+## 1. À propos de BeLikeLocal et de ces conditions
 
-RockGuide (« la plateforme », « nous ») est exploitée par {{operator_name}}, {{operator_address}}, {{operator_registration}}. Ces conditions s'appliquent à toute personne qui utilise la plateforme : les visiteurs qui cherchent un guide (« visiteurs ») et les guides qui proposent leurs services (« guides »).
+BeLikeLocal (« la plateforme », « nous ») est exploitée par {{operator_name}}, {{operator_address}}, {{operator_registration}}. Ces conditions s'appliquent à toute personne qui utilise la plateforme : les visiteurs qui cherchent un guide (« visiteurs ») et les guides qui proposent leurs services (« guides »).
 
 En créant un compte, vous acceptez ces conditions et confirmez avoir au moins 18 ans, ou l'âge de la majorité dans votre pays s'il est plus élevé.
 
 ## 2. Ce que fait la plateforme
 
-RockGuide est un lieu de rencontre. Elle aide visiteurs et guides à se trouver, à manifester un intérêt mutuel et à échanger via la messagerie de la plateforme. Les coordonnées ne sont pas partagées. Toute visite, activité ou autre prestation est convenue directement entre le visiteur et le guide. Nous ne sommes pas partie à cet accord. Nous n'employons pas les guides et n'agissons pas en tant que leur agent, et nous n'organisons, ne supervisons ni ne vérifions les prestations qu'ils fournissent.
+BeLikeLocal est un lieu de rencontre. Elle aide visiteurs et guides à se trouver, à manifester un intérêt mutuel et à échanger via la messagerie de la plateforme. Les coordonnées ne sont pas partagées. Toute visite, activité ou autre prestation est convenue directement entre le visiteur et le guide. Nous ne sommes pas partie à cet accord. Nous n'employons pas les guides et n'agissons pas en tant que leur agent, et nous n'organisons, ne supervisons ni ne vérifions les prestations qu'ils fournissent.
 
 ## 3. Aucune responsabilité quant aux prestations ou aux comportements
 
@@ -31,7 +31,7 @@ Les visiteurs comme les guides s'engagent à :
 - traiter les autres utilisateurs avec respect, sans jamais harceler, menacer, discriminer, tromper ou mettre quiconque en danger ;
 - respecter la loi, y compris les obligations de licence, d'autorisation, de fiscalité ou d'assurance applicables aux prestations qu'ils proposent ou utilisent ;
 - n'utiliser la plateforme que pour organiser des prestations de guide, et ne pas publier de contenu faux, offensant ou portant atteinte aux droits d'autrui ;
-- garder les échanges de coordonnées et les paiements sur la plateforme : ne pas mettre de numéros de téléphone, d’adresses e-mail, de liens ni de pseudos de réseaux sociaux dans les profils, avis ou messages, et ne pas demander ni effectuer le paiement d’une réservation en dehors de RockGuide.
+- garder les échanges de coordonnées et les paiements sur la plateforme : ne pas mettre de numéros de téléphone, d’adresses e-mail, de liens ni de pseudos de réseaux sociaux dans les profils, avis ou messages, et ne pas demander ni effectuer le paiement d’une réservation en dehors de BeLikeLocal.
 
 Les guides sont seuls responsables des prestations qu'ils proposent, de leurs prix et du respect des réservations qu'ils acceptent.
 
@@ -39,9 +39,9 @@ Les guides sont seuls responsables des prestations qu'ils proposent, de leurs pr
 
 Le prix des packs de sélections et les tarifs des guides sont affichés avant le paiement. Les règles d'annulation et de remboursement affichées dans l'application au moment de la réservation font partie de ces conditions.
 
-### 5.1 Protection RockGuide
+### 5.1 Protection BeLikeLocal
 
-Les réservations effectuées via RockGuide (et payées ici lorsque le guide demande un tarif) sont protégées :
+Les réservations effectuées via BeLikeLocal (et payées ici lorsque le guide demande un tarif) sont protégées :
 
 - Remboursements selon les règles affichées dans l’appli : vous êtes remboursé intégralement si vous retirez votre réservation avant que le guide l’accepte, ou si le guide refuse ou ne répond pas avant l’heure du rendez-vous ; si le guide annule une réservation confirmée, vous êtes remboursé intégralement, plus 5 % s’il annule tardivement (moins de 24 heures avant le rendez-vous, ou moins de 2 heures si votre match date de moins d’un jour) ; si vous demandez l’annulation et que le guide accepte, vous êtes remboursé du tarif moins 5 %.
 - De l’aide en cas de problème : lors du traitement d’une réclamation (section 6), nous pouvons consulter la réservation, son lieu de rendez-vous et vos messages sur la plateforme.

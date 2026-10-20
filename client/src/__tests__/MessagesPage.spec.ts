@@ -78,7 +78,6 @@ async function mountPage(api: Api, path = '/messages/101') {
     email: 'v@example.com',
     name: 'Victor',
     role: 'guest',
-    sessionHash: 'h',
   })
 
   const router = createRouter({
@@ -470,7 +469,7 @@ describe('MessagesPage', () => {
 
     expect(api.messages).toHaveBeenCalledWith({ targetId: 101 })
     expect(wrapper.find('.bubble').text()).toContain('Happy to show you the Rock.')
-    expect(wrapper.find('.stay-banner').text()).toMatch(/Keep the conversation on RockGuide/)
+    expect(wrapper.find('.stay-banner').text()).toMatch(/Keep the conversation on BeLikeLocal/)
     expect(wrapper.find('[data-test="unread"]').exists()).toBe(false)
   })
 

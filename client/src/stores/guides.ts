@@ -70,6 +70,8 @@ export const useGuidesStore = defineStore('guides', () => {
     currentIds.value.map((id) => byId.value.get(id)).filter((guide): guide is Guide => !!guide),
   )
 
+  let latestRequest = 0
+
   /**
    * `options.includeDecided` keeps guides this visitor has already picked
    * or passed in the result. The deck wants them gone (that's the default,
@@ -77,14 +79,18 @@ export const useGuidesStore = defineStore('guides', () => {
    * matches rail can name guides picked before a reload.
    */
   async function load(filters?: DiscoveryFilters, options?: { includeDecided?: boolean }) {
+    // Fetches can overlap (a slider drag, the location arriving); only the
+    // newest one may set the deck, or a slow wider answer overwrites it.
+    const request = ++latestRequest
     loading.value = true
     try {
       const result = await api.guides(filters, options?.includeDecided)
+      if (request !== latestRequest) return
       const mapped = result.guides.map(toGuideCard)
       for (const guide of mapped) byId.value.set(guide.id, guide)
       currentIds.value = mapped.map((guide) => guide.id)
     } finally {
-      loading.value = false
+      if (request === latestRequest) loading.value = false
     }
   }
 

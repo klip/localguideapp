@@ -1,6 +1,6 @@
 /**
- * The one connection to the API: a WebSocket to `bin/ws-server.php` (see
- * `api/classes/Realtime.php` for the protocol). It carries every request
+ * The one connection to the API: a WebSocket to the gateway (see
+ * `gateway/classes/Gateway.php` for the protocol). It carries every request
  * `plugins/api.ts`'s `call()` makes — `{ type: 'request', id, action, ... }`
  * answered by `{ type: 'response', id, status, body }`, `status` being what
  * HTTP would have returned — and the server's pushes (`notification`,
@@ -49,7 +49,7 @@ export class ApiSocket {
   private nextId = 1
   private pending = new Map<number, Pending>()
   private handlers = new Map<string, Set<Handler>>()
-  private sessionHash: string | null = null
+  private accessToken: string | null = null
   private reconnectDelay = RECONNECT_MIN_MS
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -75,15 +75,17 @@ export class ApiSocket {
   }
 
   /**
-   * Who is signed in on this connection, so the server can push to them —
-   * `null` signs the connection out. Re-sent after every reconnect.
+   * Who is signed in on this connection, so the server can push to them: the
+   * current access token (the gateway verifies it and keeps the binding until
+   * it expires — so it's sent again with every renewed token). `null` signs
+   * the connection out. Re-sent after every reconnect.
    */
-  identify(sessionHash: string | null) {
-    if (sessionHash === this.sessionHash) return
-    this.sessionHash = sessionHash
+  identify(accessToken: string | null) {
+    if (accessToken === this.accessToken) return
+    this.accessToken = accessToken
     if (this.isOpen()) {
       this.sendAuth()
-    } else if (sessionHash) {
+    } else if (accessToken) {
       this.ensureConnected()
     }
   }
@@ -114,7 +116,7 @@ export class ApiSocket {
 
     ws.onopen = () => {
       this.reconnectDelay = RECONNECT_MIN_MS
-      if (this.sessionHash) this.sendAuth()
+      if (this.accessToken) this.sendAuth()
       this.flush()
     }
     ws.onmessage = (event: MessageEvent) => this.onMessage(event.data)
@@ -137,7 +139,7 @@ export class ApiSocket {
   }
 
   private sendAuth() {
-    this.ws!.send(JSON.stringify({ type: 'auth', sessionHash: this.sessionHash ?? '' }))
+    this.ws!.send(JSON.stringify({ type: 'auth', accessToken: this.accessToken ?? '' }))
   }
 
   private onMessage(raw: unknown) {
@@ -169,7 +171,7 @@ export class ApiSocket {
       entry.reject(new SocketError('disconnected'))
     }
 
-    if (!this.sessionHash && this.pending.size === 0) return
+    if (!this.accessToken && this.pending.size === 0) return
     const delay = this.reconnectDelay
     this.reconnectDelay = Math.min(this.reconnectDelay * 2, RECONNECT_MAX_MS)
     this.reconnectTimer = setTimeout(() => {
@@ -182,7 +184,7 @@ export class ApiSocket {
 /** `ws(s)://<api host>/ws`, from `VITE_API_BASE_URL` unless `VITE_WS_URL` says otherwise. */
 function socketUrl(): string {
   if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL
-  const base = (import.meta.env.VITE_API_BASE_URL ?? 'https://api.rockguide.com').replace(/\/+$/, '')
+  const base = (import.meta.env.VITE_API_BASE_URL ?? 'https://api.belikelocal.club').replace(/\/+$/, '')
   return base.replace(/^http/, 'ws') + '/ws'
 }
 

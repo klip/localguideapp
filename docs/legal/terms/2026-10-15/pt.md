@@ -2,15 +2,15 @@
 
 Versão {{effective_date}}
 
-## 1. Sobre a RockGuide e estes termos
+## 1. Sobre a BeLikeLocal e estes termos
 
-A RockGuide («a plataforma», «nós») é operada por {{operator_name}}, {{operator_address}}, {{operator_registration}}. Estes termos aplicam-se a todas as pessoas que usam a plataforma: os visitantes que procuram um guia («visitantes») e os guias que oferecem os seus serviços («guias»).
+A BeLikeLocal («a plataforma», «nós») é operada por {{operator_name}}, {{operator_address}}, {{operator_registration}}. Estes termos aplicam-se a todas as pessoas que usam a plataforma: os visitantes que procuram um guia («visitantes») e os guias que oferecem os seus serviços («guias»).
 
 Ao criar uma conta, aceita estes termos e confirma que tem pelo menos 18 anos, ou a maioridade do seu país, se for superior.
 
 ## 2. O que a plataforma faz
 
-A RockGuide é um ponto de encontro. Ajuda visitantes e guias a encontrarem-se, a mostrar interesse mútuo e a falar através do chat da plataforma. Os contactos não são partilhados. Qualquer visita, atividade ou outro serviço é combinado diretamente entre o visitante e o guia. Não somos parte desse acordo. Não empregamos os guias nem agimos como seus agentes, e não organizamos, supervisionamos nem verificamos os serviços que prestam.
+A BeLikeLocal é um ponto de encontro. Ajuda visitantes e guias a encontrarem-se, a mostrar interesse mútuo e a falar através do chat da plataforma. Os contactos não são partilhados. Qualquer visita, atividade ou outro serviço é combinado diretamente entre o visitante e o guia. Não somos parte desse acordo. Não empregamos os guias nem agimos como seus agentes, e não organizamos, supervisionamos nem verificamos os serviços que prestam.
 
 ## 3. Sem responsabilidade pelos serviços ou pelo comportamento
 
@@ -31,7 +31,7 @@ Visitantes e guias comprometem-se igualmente a:
 - tratar os outros utilizadores com respeito e nunca assediar, ameaçar, discriminar, enganar ou pôr em perigo ninguém;
 - cumprir a lei, incluindo os requisitos de licenças, autorizações, impostos ou seguros aplicáveis aos serviços que oferecem ou utilizam;
 - usar a plataforma apenas para combinar serviços de guia e não publicar conteúdos falsos, ofensivos ou que violem os direitos de terceiros;
-- manter o contacto e o pagamento na plataforma: não colocar números de telefone, endereços de e-mail, links ou perfis de redes sociais em perfis, avaliações ou mensagens, e não pedir nem fazer o pagamento de uma reserva fora do RockGuide.
+- manter o contacto e o pagamento na plataforma: não colocar números de telefone, endereços de e-mail, links ou perfis de redes sociais em perfis, avaliações ou mensagens, e não pedir nem fazer o pagamento de uma reserva fora do BeLikeLocal.
 
 Os guias são os únicos responsáveis pelos serviços que oferecem, pelos seus preços e pelo cumprimento das reservas que aceitam.
 
@@ -39,9 +39,9 @@ Os guias são os únicos responsáveis pelos serviços que oferecem, pelos seus 
 
 Os preços dos pacotes de seleções e as tarifas dos guias são apresentados antes do pagamento. As regras de cancelamento e reembolso apresentadas na aplicação no momento da reserva fazem parte destes termos.
 
-### 5.1 Proteção RockGuide
+### 5.1 Proteção BeLikeLocal
 
-As reservas feitas através do RockGuide (e pagas aqui, quando o guia cobra um valor) estão protegidas:
+As reservas feitas através do BeLikeLocal (e pagas aqui, quando o guia cobra um valor) estão protegidas:
 
 - Reembolsos segundo as regras mostradas na app: é reembolsado na totalidade se retirar a reserva antes de o guia a aceitar, ou se o guia recusar ou não responder antes da hora do encontro; se o guia cancelar uma reserva confirmada, é reembolsado na totalidade, mais 5% se cancelar tarde (menos de 24 horas antes do encontro, ou menos de 2 horas se fizeram match há menos de um dia); se pedir para cancelar e o guia aceitar, é reembolsado do valor menos 5%.
 - Ajuda quando algo corre mal: ao tratar uma reclamação (secção 6), podemos consultar a reserva, o ponto de encontro e as vossas mensagens na plataforma.

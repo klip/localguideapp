@@ -16,7 +16,7 @@ import { fakeApi } from './fakeApi'
 const fakeSocket = vi.hoisted(() => {
   const handlers = new Map<string, (message: Record<string, unknown>) => void>()
   return {
-    identify: vi.fn<(hash: string | null) => void>(),
+    identify: vi.fn<(accessToken: string | null) => void>(),
     on: (type: string, handler: (message: Record<string, unknown>) => void) => {
       handlers.set(type, handler)
       return () => handlers.delete(type)
@@ -51,7 +51,7 @@ describe('App', () => {
     })
 
     expect(wrapper.find('.app-shell').exists()).toBe(true)
-    expect(wrapper.text()).toContain('LocalGuideFinder')
+    expect(wrapper.text()).toContain('BeLikeLocal')
     expect(wrapper.text()).toContain('Find your local. Skip the tourist shuffle.')
   })
 
@@ -68,7 +68,6 @@ describe('App', () => {
       id: 7,
       email: 'guest@example.com',
       role: 'guest',
-      sessionHash: 'hash',
     }
     useAuthStore().setUser(session)
 
@@ -81,7 +80,7 @@ describe('App', () => {
       passedIds: [7],
     }
     const api = fakeApi({
-      session: vi.fn<Api['session']>().mockResolvedValue(session),
+      refresh: vi.fn<Api['refresh']>().mockResolvedValue('token'),
       paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(state),
     })
 
@@ -114,11 +113,10 @@ describe('App', () => {
       id: 18,
       email: 'guide@example.com',
       role: 'guide',
-      sessionHash: 'hash',
     }
     useAuthStore().setUser(session)
 
-    const api = fakeApi({ session: vi.fn<Api['session']>().mockResolvedValue(session) })
+    const api = fakeApi({ refresh: vi.fn<Api['refresh']>().mockResolvedValue('token') })
 
     const router = testRouter()
     router.push('/')
@@ -139,10 +137,15 @@ describe('App', () => {
       id: 18,
       email: 'guide@example.com',
       role: 'guide',
-      sessionHash: 'hash',
     }
     useAuthStore().setUser(session)
-    const api = fakeApi({ session: vi.fn<Api['session']>().mockResolvedValue(session) })
+    // Boot confirms the sign-in from the refresh cookie, which brings the access token.
+    const api = fakeApi({
+      refresh: vi.fn<Api['refresh']>().mockImplementation(async () => {
+        useAuthStore().setTokens('token', Math.floor(Date.now() / 1000) + 900)
+        return 'token'
+      }),
+    })
 
     const router = testRouter()
     router.push('/')
@@ -151,7 +154,8 @@ describe('App', () => {
     mount(App, { global: { plugins: [pinia, router], provide: { [API_KEY]: api } } })
     await flushPromises()
 
-    expect(fakeSocket.identify).toHaveBeenLastCalledWith('hash')
+    expect(api.refresh).toHaveBeenCalled()
+    expect(fakeSocket.identify).toHaveBeenLastCalledWith('token')
 
     fakeSocket.push('notification', {
       notification: {
@@ -187,11 +191,10 @@ describe('App', () => {
       id: 7,
       email: 'v@example.com',
       role: 'guest',
-      sessionHash: 'hash',
     }
     useAuthStore().setUser(session)
     const api = fakeApi({
-      session: vi.fn<Api['session']>().mockResolvedValue(session),
+      refresh: vi.fn<Api['refresh']>().mockResolvedValue('token'),
       paymentState: vi.fn<Api['paymentState']>().mockRejectedValue(new Error('not needed')),
     })
 

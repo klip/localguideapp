@@ -2,15 +2,15 @@
 
 Versione {{effective_date}}
 
-## 1. RockGuide e questi termini
+## 1. BeLikeLocal e questi termini
 
-RockGuide («la piattaforma», «noi») è gestita da {{operator_name}}, {{operator_address}}, {{operator_registration}}. Questi termini si applicano a chiunque utilizzi la piattaforma: i visitatori che cercano una guida («visitatori») e le guide che offrono i propri servizi («guide»).
+BeLikeLocal («la piattaforma», «noi») è gestita da {{operator_name}}, {{operator_address}}, {{operator_registration}}. Questi termini si applicano a chiunque utilizzi la piattaforma: i visitatori che cercano una guida («visitatori») e le guide che offrono i propri servizi («guide»).
 
 Creando un account accetti questi termini e confermi di avere almeno 18 anni, o la maggiore età prevista nel tuo paese se superiore.
 
 ## 2. Cosa fa la piattaforma
 
-RockGuide è un luogo d'incontro. Aiuta visitatori e guide a trovarsi, a manifestare un interesse reciproco e a parlarsi tramite la chat della piattaforma. I contatti non vengono condivisi. Qualsiasi visita, attività o altro servizio viene concordato direttamente tra il visitatore e la guida. Non siamo parte di tale accordo. Non impieghiamo le guide né agiamo come loro agenti, e non organizziamo, supervisioniamo o verifichiamo i servizi che forniscono.
+BeLikeLocal è un luogo d'incontro. Aiuta visitatori e guide a trovarsi, a manifestare un interesse reciproco e a parlarsi tramite la chat della piattaforma. I contatti non vengono condivisi. Qualsiasi visita, attività o altro servizio viene concordato direttamente tra il visitatore e la guida. Non siamo parte di tale accordo. Non impieghiamo le guide né agiamo come loro agenti, e non organizziamo, supervisioniamo o verifichiamo i servizi che forniscono.
 
 ## 3. Nessuna responsabilità per i servizi o i comportamenti
 
@@ -31,7 +31,7 @@ Visitatori e guide si impegnano allo stesso modo a:
 - trattare gli altri utenti con rispetto e non molestare, minacciare, discriminare, ingannare o mettere in pericolo nessuno;
 - rispettare la legge, compresi eventuali obblighi di licenza, autorizzazione, fiscali o assicurativi applicabili ai servizi che offrono o utilizzano;
 - usare la piattaforma solo per organizzare servizi di guida e non pubblicare contenuti falsi, offensivi o lesivi dei diritti altrui;
-- mantenere contatti e pagamenti sulla piattaforma: non inserire numeri di telefono, indirizzi email, link o nomi utente social in profili, recensioni o messaggi, e non chiedere né effettuare il pagamento di una prenotazione al di fuori di RockGuide.
+- mantenere contatti e pagamenti sulla piattaforma: non inserire numeri di telefono, indirizzi email, link o nomi utente social in profili, recensioni o messaggi, e non chiedere né effettuare il pagamento di una prenotazione al di fuori di BeLikeLocal.
 
 Le guide sono le sole responsabili dei servizi che offrono, dei loro prezzi e del rispetto delle prenotazioni che accettano.
 
@@ -39,9 +39,9 @@ Le guide sono le sole responsabili dei servizi che offrono, dei loro prezzi e de
 
 I prezzi dei pacchetti di selezioni e le tariffe delle guide sono indicati prima del pagamento. Le regole di cancellazione e rimborso mostrate nell'app al momento della prenotazione fanno parte di questi termini.
 
-### 5.1 Protezione RockGuide
+### 5.1 Protezione BeLikeLocal
 
-Le prenotazioni effettuate tramite RockGuide (e pagate qui, quando la guida chiede una tariffa) sono protette:
+Le prenotazioni effettuate tramite BeLikeLocal (e pagate qui, quando la guida chiede una tariffa) sono protette:
 
 - Rimborsi secondo le regole mostrate nell’app: vieni rimborsato per intero se ritiri la prenotazione prima che la guida la accetti, oppure se la guida rifiuta o non risponde prima dell’orario dell’incontro; se la guida annulla una prenotazione confermata vieni rimborsato per intero, più il 5% se annulla in ritardo (meno di 24 ore prima dell’incontro, o meno di 2 ore se il vostro match ha meno di un giorno); se chiedi di annullare e la guida accetta, vieni rimborsato della tariffa meno il 5%.
 - Aiuto quando qualcosa va storto: quando gestiamo un reclamo (sezione 6) possiamo esaminare la prenotazione, il punto d’incontro e i vostri messaggi sulla piattaforma.

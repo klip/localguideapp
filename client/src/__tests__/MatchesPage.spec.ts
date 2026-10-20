@@ -129,7 +129,7 @@ function paymentState(selectionsLeft: number): PaymentState {
 async function mountPage(api: Api, role: 'guest' | 'guide' | null) {
   const pinia = createPinia()
   setActivePinia(pinia)
-  if (role) useAuthStore().setUser({ id: 1, email: 'me@example.com', role, sessionHash: 'hash' })
+  if (role) useAuthStore().setUser({ id: 1, email: 'me@example.com', role })
 
   const router = testRouter()
   router.push('/matches')

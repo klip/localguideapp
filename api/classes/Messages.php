@@ -3,7 +3,7 @@
 /**
  * Direct chat between a matched guest and guide (`messages`, 030) — the
  * channel that replaces swapping phone numbers, so a trip can be arranged
- * without leaving RockGuide.
+ * without leaving BeLikeLocal.
  *
  *   - A pair can write to each other while their match is active
  *     (`selections.active = 1`). Once it dissolves (unmatch, a cancelled
@@ -352,7 +352,7 @@ class Messages
             'message',
             "New message from {$senderName}",
             ($recipientName !== '' ? "Hi {$recipientName},\n\n" : "Hi,\n\n")
-            . "{$senderName} sent you a message on RockGuide. Open Messages in the app to read it and reply.\n\nRockGuide"
+            . "{$senderName} sent you a message on BeLikeLocal. Open Messages in the app to read it and reply.\n\nBeLikeLocal"
         );
     }
 

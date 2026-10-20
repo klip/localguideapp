@@ -2,11 +2,11 @@
 
 Version {{effective_date}}
 
-Diese Vereinbarung gilt, wenn du über RockGuide, betrieben von {{operator_name}}, Guides suchst. Sie ergänzt die Allgemeinen Geschäftsbedingungen, die weiterhin vollständig gelten. Bei Widersprüchen haben die Allgemeinen Geschäftsbedingungen Vorrang.
+Diese Vereinbarung gilt, wenn du über BeLikeLocal, betrieben von {{operator_name}}, Guides suchst. Sie ergänzt die Allgemeinen Geschäftsbedingungen, die weiterhin vollständig gelten. Bei Widersprüchen haben die Allgemeinen Geschäftsbedingungen Vorrang.
 
 ## 1. Worauf du dich einlässt
 
-Guides sind selbstständig. RockGuide hilft dir, sie zu finden, aber die Tour selbst vereinbarst du mit dem Guide. Prüfe vor der Buchung, was enthalten ist.
+Guides sind selbstständig. BeLikeLocal hilft dir, sie zu finden, aber die Tour selbst vereinbarst du mit dem Guide. Prüfe vor der Buchung, was enthalten ist.
 
 ## 2. Auswahlen und Pakete
 
@@ -14,7 +14,7 @@ Interesse an einem Guide zu zeigen verbraucht eine Auswahl aus einem gekauften P
 
 ## 3. Buchen und bezahlen
 
-Zahle das Honorar eines Guides nur über RockGuide. Eine Buchung wird zur Reise, wenn der Guide sie annimmt; bis dahin kannst du sie mit voller Erstattung zurückziehen. Lehnt der Guide ab oder antwortet er nicht rechtzeitig, wird dir alles erstattet.
+Zahle das Honorar eines Guides nur über BeLikeLocal. Eine Buchung wird zur Reise, wenn der Guide sie annimmt; bis dahin kannst du sie mit voller Erstattung zurückziehen. Lehnt der Guide ab oder antwortet er nicht rechtzeitig, wird dir alles erstattet.
 
 ## 4. Stornierungen
 
@@ -26,7 +26,7 @@ Deine Überschrift und Beschreibung als Reisender sehen nur Guides. Bleib ehrlic
 
 ## 6. Verhalten und Sicherheit
 
-Behandle Guides respektvoll, sei pünktlich und folge ihren Sicherheitshinweisen. Triff dich zuerst an öffentlichen Orten, sag jemandem, wohin du gehst, und halte Kontakt und Zahlung auf RockGuide.
+Behandle Guides respektvoll, sei pünktlich und folge ihren Sicherheitshinweisen. Triff dich zuerst an öffentlichen Orten, sag jemandem, wohin du gehst, und halte Kontakt und Zahlung auf BeLikeLocal.
 
 ## 7. Bewertungen und Level
 
