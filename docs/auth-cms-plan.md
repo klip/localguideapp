@@ -1,7 +1,7 @@
 # Plan: signed tokens, device security, and the CMS
 
-Status (2026-10-21): **phases 1–5 built** — sign-in is done (see CLAUDE.md
-"Sign-in"); the CMS (phases 6–9) is the proposal that remains. Three pieces that depend on
+Status (2026-10-21): **phases 1–6 built** — sign-in (CLAUDE.md "Sign-in")
+and the CMS foundation (CLAUDE.md "CMS"); phases 7–9 remain a proposal. Three pieces that depend on
 each other, in build order:
 
 1. **Auth v2**: signed short-lived access tokens + rotating refresh tokens,
@@ -46,11 +46,10 @@ actions that **issue, renew or end** tokens move to plain HTTPS on the app's
 - **Same origin is what makes the cookie first-party.** Production serves the
   app and `/auth/*` from `belikelocal.club` (nginx routes `/auth/` to the auth
   service, the rest to the static build), so the cookie never crosses sites
-  and `SameSite=Strict` holds. Development: Vite's dev-server proxy forwards
-  `localhost:5173/auth/*` to the auth service, so the browser sees the same
-  origin there too (Chrome and Firefox accept `Secure` cookies on
-  `http://localhost`; Safari needs the dev server on HTTPS — Vite's
-  `basicSsl` plugin). The CMS does the same on its own origin
+  and `SameSite=Strict` holds. Development does the same over HTTPS
+  (`https://www.belikelocal.club`, a local development certificate — see
+  CLAUDE.md "Development over HTTPS"), so every browser, Safari included,
+  keeps the `Secure` cookies. The CMS does the same on its own origin
   (`admin.belikelocal.club/auth/*`, cookie `__Host-rg_cms_refresh`), so app and
   staff sessions can't touch each other.
 - **Cookie attributes**: `HttpOnly; Secure; SameSite=Strict; Path=/`, with
@@ -461,7 +460,7 @@ reason, staff_id, lifted_at, lifted_by)`):
 | 3 ✓ | **Client IP + devices** — built 2026-10-20 (geo lookup optional, off by default; `trusted_devices` not merged yet) | nginx → gateway → services IP header, `devices`, `login_events`, device info from the client, GeoLite2, "Your devices" on the profile page; `trusted_devices` merged into `devices` | 1 |
 | 4 ✓ | **Risk scoring & alerts** — built 2026-10-21 (without the geolocation signals and the ban-evasion check, which wait for GeoLite2 and freezing; the privacy notice still needs the lawyer) | scores, step-up 2FA, "new sign-in" email with "not me", `account_links`, ban-evasion check at registration; privacy notice + cookie notice update | 3, lawyer |
 | 5 ✓ | **Retire sessions** — done 2026-10-21 | remove the session hash path, `resolve`/`peekMany`, `Session.php`'s request role; Redis keeps pub/sub, counters, caches | 2 |
-| 6 | **CMS foundation** | `cms/` service + container, `admin/` Vue app, staff accounts with mandatory 2FA, `aud: cms` tokens, permissions, `staff_audit`, create-admin script | 1–2 |
+| 6 ✓ | **CMS foundation** — built 2026-10-21 (email codes; TOTP later) | `cms/` service + container, `admin/` Vue app, staff accounts with mandatory 2FA, `aud: cms` tokens, permissions, `staff_audit`, create-admin script | 1–2 |
 | 7 | **Content editor** | `layout.json` generator, page wireframe, block form with language switcher, add key, validation, history/revert, `i18n:pull` | 6 |
 | 8 | **Users** | search/list, user page, sanctions/adjustments, badges, bonuses, verification, freeze (+ booking handling), security tab | 3, 6 |
 | 9 | **Moderation** | complaints/disputes queue and resolution, linked-accounts review, audit log viewer | 4, 8 |

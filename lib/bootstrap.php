@@ -13,6 +13,8 @@ require_once __DIR__.'/Jwt.php';
 require_once __DIR__.'/Origins.php';
 require_once __DIR__.'/ClientIp.php';
 require_once __DIR__.'/Revocations.php';
+require_once __DIR__.'/Staff.php';
+require_once __DIR__.'/StaffTokens.php';
 require_once __DIR__.'/ImageData.php';
 require_once __DIR__.'/MailQueue.php';
 require_once __DIR__.'/LegalDocuments.php';

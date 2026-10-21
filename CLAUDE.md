@@ -42,9 +42,9 @@ gateway; the guide's fee (`Bookings::pay()`) and its refund
 see "Guide fees & bookings" below; SMS/WhatsApp two-factor (the options
 exist but are disabled — codes only go by email, see "Two-factor login &
 password reset");
-`admin/` and the `cms_users` table are placeholders for a CMS that doesn't
-exist yet (no `cms_creds` table either, so nothing could log into it if it
-did). **Email, on the other hand, is real** (`Mailer.php`, Gmail SMTP) once
+The CMS (`admin/` + `cms/`, see "CMS") has its foundation — staff accounts,
+sign-in, roles, staff management and the audit log — but not yet its
+content editor, user tools or moderation (phases 7–9). **Email, on the other hand, is real** (`Mailer.php`, Gmail SMTP) once
 the `SMTP_*` server params are set — see "Email" under Docker environment.
 
 **Known gaps / inconsistencies** (worth knowing about, not urgent):
@@ -91,7 +91,8 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
 - `docs/production-memo.md` — every development stand-in (simulated
   payments, Gmail, free geocoder, Claude ID checks, …) and what replaces it
   in production. Add to it whenever a shortcut is taken.
-- `admin/` — empty placeholder, presumably a future admin panel.
+- `admin/` — the CMS's Vue app (its own build, port 5174 in development);
+  `cms/` — the CMS's PHP API service. See "CMS".
 - Root `node_modules/` has no corresponding root `package.json`; ignore it,
   the real dependency tree lives in `client/`.
 
@@ -1647,10 +1648,11 @@ tokens** only; the old Redis sessions are retired.
   origin** — `auth/public.php` → `AuthHttp`, which runs the same
   `AuthProcessor` (with `withSession: false`, so no Redis session) and adds
   the tokens and cookies. It requires an allowed `Origin` (`lib/Origins.php`,
-  shared with the gateway) and `Content-Type: application/json`. Development:
-  Vite proxies `/auth/` to nginx `:8083` (`client/vite.config.ts`,
-  `AUTH_PROXY_TARGET` overrides). Production: the `belikelocal.club` server
-  must route `/auth/` to `rg-auth`'s `public.php` the same way.
+  shared with the gateway) and `Content-Type: application/json`. Development
+  works like production: `https://www.belikelocal.club/auth/*` is routed by
+  nginx straight to `public.php` (see "Development over HTTPS"); opened on
+  `localhost:5173`, Vite proxies `/auth/` to nginx `:8083` instead
+  (`AUTH_PROXY_TARGET` overrides).
 - **Client** (`plugins/api.ts`): `stores/auth.ts` keeps `user` (a summary —
   never a credential) in `localStorage` (`belikelocal.session`) so the header
   renders after a reload, and the access token **in memory only**
@@ -2008,13 +2010,71 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
   locally. `myProfile` returns `trusted_device_count`; the profile page shows
   it with a "Forget all devices" button (`forgetTrustedDevices`). A
   password *change* leaves devices trusted; a *reset* forgets them.
-- **`APP_URL`** (env, defaults to `http://localhost:5173`) is
+- **`APP_URL`** (env — `https://www.belikelocal.club` in development; the
+  code's fallback is `http://localhost:5173`) is
   where email links point. It's read from the server environment, never
   from the request's Origin/Host — those are attacker-controlled and would
   let someone point a victim's reset link at their own site. Set it for
   production.
 - Codes and links are never logged. In development, `MAIL_REDIRECT_TO`
   sends them to one inbox (see "Email").
+
+## CMS (`admin/`, `cms/`)
+
+The staff back office (`docs/auth-cms-plan.md`, phases 6–9). **Phase 6 is
+in**: staff accounts, sign-in, roles, staff management, the audit log. The
+Content (7), Users (8) and Moderation (9) sections are placeholders.
+
+- **Its own origin and build**: `admin/` is a separate Vite + Vue 3 app
+  (Pico, English only, no i18n) on `https://admin.belikelocal.club` — in
+  development too: nginx routes `/auth/*` there to staff sign-in
+  (`auth/cms.php` → `CmsAuthHttp`), `/api` to `cms/index.php` (`CmsApi`,
+  container `lemp-rg-cms`) and the rest to the admin Vite server (:5174).
+  Opened on `localhost:5174`, Vite proxies those two paths to nginx `:8085`
+  and `:8084` instead. Production: that host serves the build and routes the
+  two paths the same way. `CMS_URL` (env) is where its emails link.
+  `Origins::isAllowedCms()` (+ `CMS_EXTRA_ORIGINS`) is its origin check;
+  the app's origins can't reach staff endpoints, nor the other way round.
+- **Staff accounts are separate from app accounts** (`cms_users` +
+  `cms_creds`, 076; `lib/Staff.php`). Roles `admin` / `manager` / `editor`.
+  No passwords are ever chosen for someone: an invite (or "forgot password")
+  emails a one-time **set-password link** (72 h / 30 min; `/set-password`),
+  passwords ≥ 12 characters, hashed like app users' (salt + pepper +
+  bcrypt). **The first admin**: `docker exec lemp-rg-cms php
+  /var/www/localguideapp/cms/bin/create-admin.php you@example.com "Name"`
+  (emails the link; `--print-link` prints it too — development only).
+- **Sign-in**: password → **always** an emailed 6-digit code
+  (`cms_challenges`, 10 min, 5 tries) → tokens (`lib/StaffTokens.php`): a
+  15-minute access token (`aud: cms`, `sub: "staff:<id>"`, `sid`, `role` —
+  an app token is refused and vice versa) in memory, and a refresh token in
+  the CMS's own HttpOnly cookie `__Host-rg_cms_refresh` (`cms_refresh_tokens`,
+  single-use rotation, reuse revokes the sign-in). A staff sign-in lasts
+  **12 hours**, however active — no remember-me. The admin app renews under a
+  Web Lock and shares tokens over a `BroadcastChannel`, like the app.
+- **Every API request** (`POST /api {action, …}`, `CmsApi`) verifies the
+  token, checks Redis for a revoked `sid` (php-fpm keeps no list — staff
+  traffic is light), re-reads the member (a role change or a disabled
+  account takes effect at once), and checks the action's capability
+  (`cms/classes/Permissions.php`): admin — everything incl. staff; manager —
+  app users, disputes, sanctions, bonuses, refunds, UI text, legal; editor —
+  UI text. The admin app hides what a role can't use (`can()`), the server
+  refuses it (403).
+- **Staff management** (admins, `/staff`): invite (email, name, role), change
+  a role, disable/enable (two-step confirm), resend an invite. A change ends
+  that member's sign-ins at once (`StaffTokens::revokeAllFor()`). Nobody
+  changes their own role or disables themselves, and there's always ≥ 1
+  active admin.
+- **Audit log** (`staff_audit`, `cms/classes/Audit.php`, `/audit`): every
+  change — who, action (`staff.invite`, `staff.role`, `staff.disable`, …),
+  target, before/after JSON, IP. Admins see all, managers all but `staff.*`,
+  editors their own; filter by action prefix (`filter`, not `action` — that's
+  the request's own name), 50 at a time.
+- **Tests**: `lib/tests/cms-e2e.php` (29 checks against the running stack —
+  run with the mailer stopped, it reads codes and links from the queued
+  outbox: `docker exec lemp-rg-auth php /var/www/localguideapp/lib/tests/cms-e2e.php`);
+  `admin/src/__tests__/cms.spec.ts` (menu by role, the two-step sign-in,
+  staff invite/disable). In `admin/`: `yarn vitest run`, `yarn type-check`,
+  `yarn lint` (oxlint; the `vi.fn<…>()` type-parameter rule applies here too).
 
 ## Services
 
@@ -2026,6 +2086,7 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
 | scheduler | `api/bin/scheduler.php` | `lemp-rg-scheduler` | MySQL, Redis |
 | planner | `api/bin/planner.php` | `lemp-rg-planner` | MySQL, Redis (wake-ups, publish), Claude API, Photon |
 | mailer | `mailer/bin/mail-worker.php` | `lemp-rg-mailer` | MySQL (outbox), Redis (wake-ups), SMTP |
+| cms | `cms/index.php` (php-fpm) | `lemp-rg-cms`, via nginx `:8084` | MySQL, Redis (revocations), outbox |
 
 - **Internal HTTP contract** (`lib/ServiceHttp.php`): `POST /` with the JSON
   payload, `X-Internal-Token` (shared secret `INTERNAL_TOKEN`; missing or
@@ -2117,16 +2178,60 @@ repo, at `../../docker-compose.yaml` relative to here — i.e.
   was recreated and answered 502 until reloaded. `../../nginx/conf.d/belikelocal-internal.conf` serves the api (`:8081`)
   and auth (`:8082`) services on the docker network only, with an 8 MB
   body limit (a photo), plus auth's browser endpoint on `:8083`
-  (`/auth/*` → `public.php`), which Vite's dev-server proxy reaches. Reload after editing:
+  (`/auth/*` → `public.php`), which Vite's dev-server proxy reaches, the CMS
+  API on `:8084` (`cms/index.php`) and staff sign-in on `:8085`
+  (`auth/cms.php`), both reached by the admin app's Vite proxy. Reload after editing:
   `docker exec lemp-nginx nginx -s reload`. Requires
-  `127.0.0.1 api.belikelocal.club` in `/etc/hosts` on the host.
+  `127.0.0.1 www.belikelocal.club api.belikelocal.club admin.belikelocal.club`
+  in `/etc/hosts` on the host. See "Development over HTTPS".
 - `mysql` / `lemp-mysql` — MySQL 8.4. The `guideapp` database and
   `localguideapp` user already exist on this server, pre-dating this task:
   ```sh
   docker exec lemp-mysql mysql -u localguideapp -p'…' guideapp
   ```
-- `node` / `lemp-node` — where `client/` commands (`yarn dev`, etc.) actually
-  run; same `/var/www` mount.
+- `node` / `lemp-node` — where `client/` and `admin/` commands (`yarn dev`,
+  etc.) actually run; same `/var/www` mount; ports 5173 (app) and 5174 (CMS)
+  published. Its `command` is idle, so dev servers are started by hand, and
+  a recreated container needs `corepack enable` first (Yarn 4):
+  `docker exec lemp-node corepack enable`, then
+  `docker exec -d -w /var/www/localguideapp/client lemp-node sh -c 'yarn dev --host 0.0.0.0 > /tmp/vite.log 2>&1'`
+  and the same in `admin/` (`yarn dev > /tmp/vite-admin.log 2>&1`).
+- `rg-cms` / `lemp-rg-cms` — the CMS API service (php-fpm, `cms/`), same
+  image and env file as `rg-api`.
+
+### Development over HTTPS
+
+The app and the CMS run on their real names in development, over HTTPS, the
+way they will in production — so the `Secure` cookies work in every browser
+(Safari included), email links are real, and nothing behaves differently on
+`localhost`:
+
+| URL | Served by |
+| --- | --- |
+| `https://www.belikelocal.club` | nginx → the app's Vite (`node:5173`, hot reload over `wss://…:443`); `/auth/*` → `auth/public.php` |
+| `https://admin.belikelocal.club` | nginx → the CMS's Vite (`node:5174`); `/auth/*` → `auth/cms.php`, `/api` → `cms/index.php` |
+| `wss://api.belikelocal.club/ws` | nginx → the gateway (`lemp-ws`) |
+| `https://belikelocal.club`, any `http://` | redirect to `https://www.…` / the same URL over HTTPS |
+
+- **nginx**: `docker-lemp/nginx/conf.d/belikelocal.club.conf` (www, admin,
+  the bare domain) and `api.belikelocal.club.conf`.
+- **Certificate**: a local development CA,
+  `~/Docker/crt/belikelocal-dev-ca.crt` (+ `.key`, private, 10 years), signed
+  `~/Docker/crt/belikelocal.club.crt` / `.key` (SAN: `belikelocal.club`,
+  `www.`, `api.`, `admin.`; 825 days). **Trust the CA once** on the Mac
+  (Chrome and Safari use the system keychain):
+  `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/Docker/crt/belikelocal-dev-ca.crt`
+  (Firefox: import it under Settings → Certificates). To renew, sign a new
+  leaf with the same CA — nothing to re-trust. Never use either outside
+  development.
+- **Hosts**: `127.0.0.1 www.belikelocal.club api.belikelocal.club admin.belikelocal.club`.
+- **Env**: `client/.env.development` → `VITE_API_BASE_URL=https://api.belikelocal.club`;
+  the server env file has `APP_URL=https://www.belikelocal.club` and
+  `CMS_URL=https://admin.belikelocal.club` (recreate the containers after
+  changing it).
+- `localhost:5173` / `:5174` still work (their Vite proxies cover `/auth` and
+  `/api`; the e2e tests use them), but without hot reload, which points at
+  port 443.
 
 ### Email
 
@@ -2679,6 +2784,9 @@ API service (`api/classes/`):
   Applied 2026-10-21. Not re-runnable.
 - `api/sql/075_translations_secure_account.sql` — the secure-account page
   and the "unfamiliar browser" note. Applied 2026-10-21. Re-runnable.
+- `api/sql/076_cms_staff.sql` — `roles` 'viewer' → 'editor', `cms_users`
+  status columns, `cms_creds`, `cms_challenges`, `cms_refresh_tokens`,
+  `staff_audit` (see "CMS"). Applied 2026-10-21. Not re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,
@@ -2694,7 +2802,8 @@ against throwaway `@example.test` accounts with the mail worker stopped.
 `guideapp` currently has:
 
 - `roles` — lookup table, seeded with `guest`, `guide` (app-side, `users`)
-  and `admin`, `manager`, `viewer` (CMS-side, `cms_users`).
+  and `admin`, `manager`, `editor` (CMS-side, `cms_users`; `editor` was
+  `viewer` until 076).
 - `users` / `creds` — live app accounts (visitors/guides) + their password
   hashes, wired up end to end (`RequestProcessor` → `Users` → `Auth`).
   `users.image` (added 2026-09-03) holds an optional profile photo as a
@@ -2713,10 +2822,10 @@ against throwaway `@example.test` accounts with the mail worker stopped.
   a 2FA choice) and can still appear on an account that hasn't visited the
   profile page yet, but is no longer an acceptable value going forward —
   `ProfilePage.vue`'s select requires a real channel.
-- `cms_users` — like `users` but with its own `role_id` column (`role_id`/`email`/`name`/
-  `created_at`), for the future CMS/admin layer (`admin/`, currently empty).
-  **No `cms_creds` table yet** — nothing can log into it until one is added
-  alongside whatever builds `admin/`.
+- `cms_users` — CMS staff (`role_id` → admin/manager/editor, `email`,
+  `name`, `disabled_at`, `last_sign_in_at`, `invited_by`), with
+  `cms_creds`, `cms_challenges`, `cms_refresh_tokens` and `staff_audit`
+  (076) — see "CMS".
 - `user_role` — **the** user→role mapping (`user_id`, `role_id`, unique per
   pair); `users` has no `role_id` any more (046). `Accounts::register()`
   writes the one app role (guest or guide) in the registration transaction.

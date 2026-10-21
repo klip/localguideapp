@@ -31,9 +31,13 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    // Lets the dev server answer requests addressed to this hostname
-    // (Vite refuses unknown Host headers by default).
+    // The app is served at https://www.belikelocal.club in development too:
+    // nginx (docker-lemp nginx/conf.d/belikelocal.club.conf) terminates TLS
+    // and proxies here. Vite refuses unknown Host headers, so allow it, and
+    // point hot reload's socket at nginx's port (wss://…:443) — open
+    // localhost:5173 directly and the page still works, without hot reload.
     allowedHosts: ['www.belikelocal.club'],
+    hmr: { clientPort: 443, protocol: 'wss' },
     // Sign-in (`POST /auth/*`, HttpOnly cookies) must be on the app's own
     // origin: forward it to the auth service's browser endpoint
     // (auth/public.php, nginx :8083 on the docker network).

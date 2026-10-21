@@ -1,0 +1,30 @@
+:root {
+  --cms-accent: #e8742f;
+}
+
+body {
+  background: var(--pico-background-color);
+}
+
+.narrow {
+  max-width: 26rem;
+  margin-inline: auto;
+}
+
+.muted {
+  color: var(--pico-muted-color);
+}
+
+.tiny {
+  font-size: 0.85rem;
+}
+
+.notice {
+  padding: 0.75rem 1rem;
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-card-sectioning-background-color);
+}
+
+.notice.error {
+  color: var(--pico-del-color);
+}

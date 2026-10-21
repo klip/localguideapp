@@ -59,7 +59,7 @@ real users and real money. Add to this list whenever a shortcut is taken.
 
 | Now | For production |
 | --- | --- |
-| **No admin panel** (`admin/` is empty, `cms_users` has no credentials table). Complaints, sanctions and verification are handled in SQL. | A CMS/admin with its own login and 2FA: complaints queue, sanctions, verification review, translations editing (the `translations` table was built for it). |
+| **The CMS foundation exists** (staff sign-in with email codes, roles, staff management, audit log), but complaints, sanctions and verification are still handled in SQL (CMS phases 7–9). Staff codes go by email, through the same Gmail stand-in. | The rest of the CMS; an authenticator-app (TOTP) or security-key second factor for staff instead of email codes; `admin.belikelocal.club` serving `admin/`'s build and routing `/auth/` to `auth/cms.php` and `/api` to `cms/index.php`, ideally behind an IP allowlist or VPN. |
 
 ## Infrastructure
 
@@ -69,14 +69,14 @@ real users and real money. Add to this list whenever a shortcut is taken.
 | `TRUSTED_PROXIES` defaults to loopback + private ranges (the docker network). | Set it to the load balancer's ranges (on GCP: 35.191.0.0/16, 130.211.0.0/22), or every IP reads as the balancer's. |
 | `FINGERPRINT_KEY` is in `localguideapp-auth.env`. | Secret Manager, auth only. Never rotate casually: a new key makes every device look new. |
 | The token-signing key pair (`JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEYS`, kid `2026-10`) is in the docker-lemp env files (the private one in `localguideapp-auth.env`, rg-auth only). | Secret Manager, the private key mounted into the auth service only; a key rotation every few months (new kid, old public key kept 90 days). |
-| Sign-in (`POST /auth/*`) reaches the auth service through Vite's dev-server proxy (nginx `:8083`). Safari refuses the `Secure` cookies on plain `http://localhost` (Chrome and Firefox accept them). | The `belikelocal.club` server routes `/auth/` to rg-auth's `public.php`, over HTTPS, on the same origin as the app. |
+| Development runs over HTTPS on the real names (www/admin/api.belikelocal.club) with a **self-made development certificate** (a local CA in `~/Docker/crt`, trusted on the developer's Mac) and Vite dev servers behind nginx. | A real certificate (Let's Encrypt / the load balancer's managed certificate) and the production builds; never ship or trust the development CA anywhere else. |
 | The allowed origins (`lib/Origins.php`) are hard-coded: belikelocal.club (+ www, admin, api) and `localhost:5173`. | Drop `localhost:5173` from the production build of the list (or move it into `WS_EXTRA_ORIGINS` for development only). |
 | **Grafana is open as an anonymous admin** on localhost. | Real logins, not exposed publicly; alerting on errors and failed emails. |
 | Photos are base64 strings in MySQL (`users.image`). | Object storage (S3/GCS) with a CDN; store a URL. |
 | One shared database for all services; one gateway holds about 1,000 sockets. | See `docs/scaling.md` (database split, several gateway replicas, GKE). |
 | `INTERNAL_TOKEN` is one shared secret between services. | Private networking plus per-service credentials or mTLS. |
-| `APP_URL` defaults to `http://localhost:5173`. | Set it to the production URL (email links depend on it). |
-| `127.0.0.1 api.belikelocal.club` in `/etc/hosts`; Vite dev server. | Real DNS and TLS; a production build served by nginx/CDN that serves `index.html` for every `/<lang>/…` path. |
+| `APP_URL` / `CMS_URL` are `https://www.belikelocal.club` / `https://admin.belikelocal.club` in the development env file (the code's fallbacks are `localhost`). | Set them in the production environment (email links depend on them). |
+| `127.0.0.1 www. / api. / admin.belikelocal.club` in `/etc/hosts`; Vite dev servers. | Real DNS and TLS; a production build served by nginx/CDN that serves `index.html` for every `/<lang>/…` path. |
 | No automated PHP tests or CI. | CI running the client tests, type-check, lint and the `lib/tests` scripts on every push. |
 | Development seed accounts (`test_*@test.com`) and throwaway `@example.test` accounts in the database. | A clean production database; never copy the development one. |
 | **100 demo accounts** (2026-10-20): `seed.guide.01–50@example.test` and `seed.guest.01–50@example.test`, password `aA123456`, no 2FA, with made-up profiles, finished trips, reviews, levels and bonuses. Their photos come from randomuser.me (UI Faces portraits, licence unclear). | Never ship them or their photos. Remove with `DELETE FROM users WHERE email LIKE 'seed.%@example.test'`, which cascades to everything they own (trips, reviews, matches, payments, picks). |
