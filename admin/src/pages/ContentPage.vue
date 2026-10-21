@@ -255,7 +255,7 @@ watch([prefix, language], () => void loadBlock())
             @change="go({ page: ($event.target as HTMLSelectElement).value })"
           >
             <option v-for="p in layout.pages" :key="p.route" :value="p.route">
-              {{ p.title }} — {{ p.path }}
+              {{ p.title }} — {{ p.path }}{{ p.enabled ? '' : ' (off)' }}
             </option>
           </select>
         </label>

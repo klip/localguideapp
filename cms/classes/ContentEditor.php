@@ -5,9 +5,9 @@
  * text in the `translations` table, block by block (`page.widget`, e.g.
  * `discover.deck`), in any of the 15 languages.
  *
- * - The map of pages and blocks is generated from the app's code
- *   (`client/src/i18n/layout.json`, by `yarn i18n:scopes`) — a page added to
- *   the app shows up here after that runs.
+ * - The map of pages and blocks is the CMS's own page map (`AppMap`,
+ *   `app_routes`/`app_route_blocks`) — the same one the app builds its router
+ *   from. Text on no page is listed as "Other".
  * - A block's keys are its English rows (English is the reference: every key
  *   exists in English first); each language shows its value, the English one
  *   beside it, and whether it's missing (the app then shows English).
@@ -37,22 +37,47 @@ final class ContentEditor
 
     /** @var db */
     private $db;
+    /** @var AppMap */
+    private $appMap;
 
-    public function __construct(db $db)
+    public function __construct(db $db, AppMap $appMap)
     {
         $this->db = $db;
+        $this->appMap = $appMap;
     }
 
-    /** The map: `layout.json` plus the languages. */
+    /**
+     * The page map as the editor draws it: `{ shell: { header, footer,
+     * always }, pages: [{ route, path, title, enabled, main, shared }],
+     * unplaced, languages }` — pages in the map's order, redirects left out.
+     */
     public function layout(): array
     {
-        $file = dirname(__DIR__, 2) . '/client/src/i18n/layout.json';
-        $layout = is_readable($file) ? json_decode((string) file_get_contents($file), true) : null;
-        if (!is_array($layout)) {
-            throw new RuntimeException('The page map is missing — run `yarn i18n:scopes` in client/.');
+        $shell = ['header' => [], 'footer' => [], 'always' => []];
+        $pages = [];
+        $placed = [];
+        foreach ($this->appMap->full() as $route) {
+            $areas = [];
+            foreach ($route['blocks'] as $block) {
+                $areas[$block['area']][] = $block['prefix'];
+                $placed[$block['prefix']] = true;
+            }
+            if ($route['kind'] === 'shell') {
+                $shell = array_merge($shell, array_intersect_key($areas, $shell));
+            } elseif ($route['kind'] === 'page') {
+                $pages[] = [
+                    'route' => $route['name'],
+                    'path' => (string) $route['path'],
+                    'title' => $route['title'],
+                    'enabled' => $route['enabled'],
+                    'main' => $areas['main'] ?? [],
+                    'shared' => $areas['shared'] ?? [],
+                ];
+            }
         }
+        $unplaced = array_values(array_filter($this->appMap->textPrefixes(), static fn(string $p): bool => !isset($placed[$p])));
 
-        return $layout + ['languages' => Translations::LANGUAGES];
+        return ['shell' => $shell, 'pages' => $pages, 'unplaced' => $unplaced, 'languages' => Translations::LANGUAGES];
     }
 
     /**

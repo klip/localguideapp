@@ -44,10 +44,17 @@ export interface AuditEntry {
   createdAt: string
 }
 
-/** The app's map for the content editor (`client/src/i18n/layout.json`). */
+/** The page map as the content editor draws it (from `app_routes`, see `AppMap`). */
 export interface ContentLayout {
   shell: { header: string[]; footer: string[]; always: string[] }
-  pages: { route: string; path: string; title: string; main: string[]; shared: string[] }[]
+  pages: {
+    route: string
+    path: string
+    title: string
+    enabled: boolean
+    main: string[]
+    shared: string[]
+  }[]
   unplaced: string[]
   languages: string[]
 }
@@ -77,6 +84,51 @@ export interface ContentChange {
   staffEmail: string
   createdAt: string
 }
+
+export type RouteAccess = 'public' | 'signed_in' | 'signed_out'
+
+/** One route of the app (`app_routes`). What the page shows is the code's, not managed here. */
+export interface AppRoute {
+  id: number
+  name: string
+  kind: 'page' | 'redirect'
+  path: string | null
+  component: string | null
+  redirect: string | null
+  title: string
+  passParams: boolean
+  access: RouteAccess
+  role: 'guest' | 'guide' | null
+  enabled: boolean
+  system: boolean
+  position: number
+  updatedAt: string
+  updatedBy: string
+}
+
+export interface PageMap {
+  routes: AppRoute[]
+  /** Page components routes already use (the app's code may have more). */
+  components: string[]
+}
+
+export type RouteInput = Partial<
+  Pick<
+    AppRoute,
+    | 'id'
+    | 'name'
+    | 'kind'
+    | 'path'
+    | 'component'
+    | 'redirect'
+    | 'title'
+    | 'passParams'
+    | 'access'
+    | 'role'
+    | 'enabled'
+    | 'position'
+  >
+>
 
 export interface CodeChallenge {
   codeRequired: true
@@ -295,6 +347,9 @@ export const api = {
     call<{ history: ContentChange[] }>('contentHistory', { prefix }),
   contentRevert: (historyId: number) =>
     call<{ language: string; key: string; value: string | null }>('contentRevert', { historyId }),
+  pageMap: () => call<PageMap>('pageMap'),
+  routeSave: (route: RouteInput) => call<PageMap & { route: AppRoute }>('routeSave', route),
+  routeDelete: (id: number) => call<PageMap>('routeDelete', { id }),
   auditLog: (options: { beforeId?: number; filter?: string } = {}) =>
     call<{ entries: AuditEntry[]; hasMore: boolean; scope: 'all' | 'operations' | 'own' }>(
       'auditLog',

@@ -1,27 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { initialLanguage, isLanguage, type Language } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
+import { BUNDLED_MAP, toRouteRecords } from './appMap'
 
 /**
- * One route per interface in the prototype.
- *
- * The prototype presents everything as sections of a single scrolling page; the
- * `Screen NN` eyebrows mark the boundaries, and each becomes a route here:
- *
- *   hero + how it works + pricing  →  /about
- *   Screen 01 (registration)       →  /register  (+ /login for returning users)
- *   Screen 01 (unlock panel)       →  /unlock
- *   Screen 02 (visitor config)     →  /profile   (/onboarding redirects there)
- *   Screen 03 (visitor discovery)  →  /discover
- *   Screen 04 (guide-side deck)    →  /guide/discover
- *
- * One more comes from a link the prototype draws but never resolves:
- * "Full profile →". (Its "View matches" leads to /matches.)
- *
- * The landing page is the discovery deck itself (`/` redirects to
- * /discover): signed-out visitors browse straight away and are asked to sign
- * up on their first "Interested" (see DiscoverPage.vue). The marketing page
- * lives on at /about.
+ * The routes come from the CMS's page map (`app_routes`, see ./appMap.ts):
+ * which path shows which page (./pages.ts), and the access rules below.
+ * The router starts with the bundled copy (`appMap.json`); main.ts swaps in
+ * the live map before the first navigation. `/` redirects to /discover — the
+ * deck is the landing page; the marketing page lives at /about.
  */
 /**
  * The UI language is the first segment of every URL (`/es/discover`). It's
@@ -55,118 +42,7 @@ export const urlLanguage = resolveUrlLanguage()
 
 const router = createRouter({
   history: createWebHistory(`${import.meta.env.BASE_URL}${urlLanguage}/`),
-  routes: [
-    {
-      path: '/',
-      redirect: '/discover',
-    },
-    {
-      path: '/about',
-      name: 'home',
-      component: () => import('@/pages/HomePage.vue'),
-    },
-    {
-      path: '/register',
-      name: 'register',
-      component: () => import('@/pages/RegisterPage.vue'),
-    },
-    {
-      path: '/login',
-      name: 'login',
-      component: () => import('@/pages/LoginPage.vue'),
-    },
-    {
-      // Not from the prototype: password reset by email (see AccountSecurity.php).
-      path: '/forgot-password',
-      name: 'forgot-password',
-      component: () => import('@/pages/ForgotPasswordPage.vue'),
-    },
-    {
-      // The page the reset email links to, with `?token=`.
-      path: '/reset-password',
-      name: 'reset-password',
-      component: () => import('@/pages/ResetPasswordPage.vue'),
-    },
-    {
-      // "Not you? Secure your account", from a new-sign-in email, with `?token=`.
-      path: '/secure-account',
-      name: 'secure-account',
-      component: () => import('@/pages/SecureAccountPage.vue'),
-    },
-    {
-      path: '/unlock',
-      name: 'unlock',
-      component: () => import('@/pages/UnlockPage.vue'),
-    },
-    {
-      // The prototype's contact form never saved anything; ProfilePage.vue's
-      // "Personal & contact info" is the real version. Kept as a redirect so
-      // old links still land somewhere useful.
-      path: '/onboarding',
-      redirect: '/profile',
-    },
-    {
-      path: '/discover',
-      name: 'discover',
-      component: () => import('@/pages/DiscoverPage.vue'),
-    },
-    {
-      path: '/guides/:id',
-      name: 'guide-profile',
-      component: () => import('@/pages/GuideProfilePage.vue'),
-      // `props: true` keeps the page a plain component with an `id` prop.
-      props: true,
-    },
-    {
-      // Not from the prototype: the guest-side counterpart of /guides/:id,
-      // linked from the guide deck's "Full profile →" (VisitorProfilePage.vue).
-      path: '/visitors/:id',
-      name: 'visitor-profile',
-      component: () => import('@/pages/VisitorProfilePage.vue'),
-      props: true,
-    },
-    {
-      path: '/guide/discover',
-      name: 'guide-discover',
-      component: () => import('@/pages/GuideDiscoverPage.vue'),
-    },
-    {
-      // Not from the prototype: match management for both roles (see MatchesPage.vue).
-      path: '/matches',
-      name: 'matches',
-      component: () => import('@/pages/MatchesPage.vue'),
-    },
-    {
-      // Confirmed trips, both roles — where a match goes once it's booked (see TripsPage.vue).
-      path: '/trips',
-      name: 'trips',
-      component: () => import('@/pages/TripsPage.vue'),
-    },
-    {
-      // Chat with the people you're matched with (see MessagesPage.vue);
-      // `:id` opens the conversation with that user.
-      path: '/messages/:id?',
-      name: 'messages',
-      component: () => import('@/pages/MessagesPage.vue'),
-      props: true,
-    },
-    {
-      // A traveller's trips and the guides suggested for each stop (see PlannerPage.vue).
-      path: '/planner',
-      name: 'planner',
-      component: () => import('@/pages/PlannerPage.vue'),
-    },
-    {
-      path: '/profile',
-      name: 'profile',
-      component: () => import('@/pages/ProfilePage.vue'),
-    },
-    {
-      path: '/:pathMatch(.*)*',
-      name: 'not-found',
-      component: () => import('@/pages/NotFoundPage.vue'),
-    },
-  ],
+  routes: toRouteRecords(BUNDLED_MAP),
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) return savedPosition
     // The header links to /about#how, so in-page anchors have to keep working.
@@ -214,6 +90,31 @@ router.beforeEach((to) => {
   const query = { ...to.query }
   delete query.as
   return { path: to.path, query, hash: to.hash, replace: true }
+})
+
+/**
+ * The page map's rules (`app_routes.access` / `role`, set in the CMS):
+ * a `signed_in` page sends a signed-out visitor to /login, a `signed_out`
+ * one (log in, register…) sends a signed-in user to the start. A page for one
+ * role switches an account holding both to that role; anyone else gets "not
+ * found" — not a redirect, which could loop between two rules.
+ */
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  if (to.meta.access === 'signed_in' && !auth.isAuthenticated)
+    return { path: '/login', replace: true }
+  if (to.meta.access === 'signed_out' && auth.isAuthenticated) return { path: '/', replace: true }
+  const role = to.meta.role
+  if (role && auth.isAuthenticated && auth.activeRole !== role) {
+    if (auth.roles.includes(role)) auth.setActiveRole(role)
+    else
+      return {
+        name: 'not-found',
+        params: { pathMatch: to.path.slice(1).split('/') },
+        query: to.query,
+        hash: to.hash,
+      }
+  }
 })
 
 /**

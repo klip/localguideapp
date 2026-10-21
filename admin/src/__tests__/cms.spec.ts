@@ -5,6 +5,7 @@ import App from '../App.vue'
 import LoginPage from '../pages/LoginPage.vue'
 import StaffPage from '../pages/StaffPage.vue'
 import { session, type Me, type StaffMember } from '@/api'
+import { createCmsRouter } from '@/router'
 
 // The server is out of the picture: every `api.*` call is a stub.
 vi.mock('@/api', async (importOriginal) => {
@@ -48,8 +49,8 @@ function testRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', component: { template: '<div />' } },
-      { path: '/login', component: LoginPage },
+      { path: '/', name: 'home', component: { template: '<div />' } },
+      { path: '/login', name: 'login', component: LoginPage },
       { path: '/staff', component: StaffPage },
       { path: '/:rest(.*)*', component: { template: '<div />' } },
     ],
@@ -73,15 +74,21 @@ describe('the CMS shell', () => {
 
     signIn({
       role: 'admin',
-      capabilities: ['staff.manage', 'users.view', 'disputes.resolve', 'content.edit'],
+      capabilities: [
+        'staff.manage',
+        'pages.manage',
+        'users.view',
+        'disputes.resolve',
+        'content.edit',
+      ],
     })
     await flushPromises()
-    expect(sections()).toEqual(['Content', 'Users', 'Moderation', 'Staff', 'Audit log'])
+    expect(sections()).toEqual(['Content', 'Pages', 'Users', 'Moderation', 'Staff', 'Audit log'])
   })
 })
 
 describe('LoginPage', () => {
-  it('asks for the emailed code after the password, then signs in', async () => {
+  it('asks for the emailed code after the password, then signs in and goes home', async () => {
     vi.mocked(api.login).mockResolvedValue({
       codeRequired: true,
       challengeToken: 't'.repeat(64),
@@ -105,7 +112,23 @@ describe('LoginPage', () => {
     await flushPromises()
 
     expect(api.verifyCode).toHaveBeenCalledWith('t'.repeat(64), '123456')
-    expect(router.currentRoute.value.path).toBe('/staff')
+    // Always the CMS's home, whatever the URL asked for.
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
+  it('isn’t shown to a member who is signed in already — they go home', async () => {
+    signIn({ role: 'editor', capabilities: ['content.edit'] })
+    const router = createCmsRouter()
+    await router.push('/login?passwordSet=1')
+    expect(router.currentRoute.value.name).toBe('home')
+    await router.push('/forgot-password')
+    expect(router.currentRoute.value.name).toBe('home')
+
+    session.me = null
+    await router.push('/login')
+    expect(router.currentRoute.value.name).toBe('login')
+    await router.push('/staff')
+    expect(router.currentRoute.value.fullPath).toBe('/login')
   })
 })
 

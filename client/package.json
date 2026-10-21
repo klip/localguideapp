@@ -19,7 +19,7 @@
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
     "format": "oxfmt src/",
-    "i18n:scopes": "node scripts/i18n-scopes.mjs"
+    "i18n:check": "node scripts/i18n-check.mjs"
   },
   "dependencies": {
     "@picocss/pico": "^2.1.1",

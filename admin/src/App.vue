@@ -6,6 +6,7 @@ import { api, can, session } from '@/api'
 const sections = computed(() =>
   [
     { to: '/content', label: 'Content', capability: 'content.edit' },
+    { to: '/pages', label: 'Pages', capability: 'pages.manage' },
     { to: '/users', label: 'Users', capability: 'users.view' },
     { to: '/moderation', label: 'Moderation', capability: 'disputes.resolve' },
     { to: '/staff', label: 'Staff', capability: 'staff.manage' },

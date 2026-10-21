@@ -3,7 +3,8 @@
 /**
  * Who may do what in the CMS (docs/auth-cms-plan.md, "Permissions"):
  *
- *   admin    everything, including staff accounts and their roles
+ *   admin    everything, including staff accounts and their roles, and the
+ *            app's page map (routes and their rules — `pages.manage`)
  *   manager  everything about app users, disputes, sanctions, bonuses,
  *            refunds, UI text and legal documents — not staff
  *   editor   UI text only
@@ -14,7 +15,7 @@
 final class Permissions
 {
     private const CAPABILITIES = [
-        'admin' => ['staff.manage', 'audit.all', 'users.view', 'users.edit', 'users.freeze', 'disputes.resolve', 'refunds', 'content.edit', 'legal.edit'],
+        'admin' => ['staff.manage', 'pages.manage', 'audit.all', 'users.view', 'users.edit', 'users.freeze', 'disputes.resolve', 'refunds', 'content.edit', 'legal.edit'],
         'manager' => ['audit.operations', 'users.view', 'users.edit', 'users.freeze', 'disputes.resolve', 'refunds', 'content.edit', 'legal.edit'],
         'editor' => ['content.edit'],
     ];

@@ -34,6 +34,9 @@ final class CmsApi
         'contentAddKey' => 'content.edit',
         'contentHistory' => 'content.edit',
         'contentRevert' => 'content.edit',
+        'pageMap' => 'pages.manage',
+        'routeSave' => 'pages.manage',
+        'routeDelete' => 'pages.manage',
     ];
 
     /** @var db */
@@ -48,6 +51,8 @@ final class CmsApi
     private $audit;
     /** @var ContentEditor */
     private $content;
+    /** @var AppMap */
+    private $appMap;
     /** @var array the signed-in member */
     private $me = [];
     /** @var string */
@@ -60,7 +65,8 @@ final class CmsApi
         $this->staff = new Staff($db, new MailQueue($db, $redis));
         $this->tokens = new StaffTokens($db, $redis);
         $this->audit = new Audit($db);
-        $this->content = new ContentEditor($db);
+        $this->appMap = new AppMap($db, $redis);
+        $this->content = new ContentEditor($db, $this->appMap);
     }
 
     public function serve(): void
@@ -152,6 +158,12 @@ final class CmsApi
                 return [200, ['history' => $this->content->history((string) ($input['prefix'] ?? ''), isset($input['key']) ? (string) $input['key'] : null)]];
             case 'contentRevert':
                 return [200, $this->contentRevert($input)];
+            case 'pageMap':
+                return [200, $this->pageMap()];
+            case 'routeSave':
+                return [200, $this->routeSave($input)];
+            case 'routeDelete':
+                return [200, $this->routeDelete($input)];
         }
 
         return [404, ['error' => 'Unknown action.']];
@@ -246,6 +258,51 @@ final class CmsApi
         $this->audit->record($this->me, 'content.revert', 'translations', $key . ' · ' . $language, [$key => $old], [$key => $new], $this->ip);
 
         return ['language' => $language, 'key' => $key, 'value' => $new];
+    }
+
+    /**
+     * The Pages screen: every route (not the frame around every page, which
+     * has no address) without its text blocks — those are the code's — and
+     * the page components in use.
+     */
+    private function pageMap(): array
+    {
+        $routes = array_values(array_filter($this->appMap->full(), static fn(array $r): bool => $r['kind'] !== 'shell'));
+        $components = array_values(array_unique(array_filter(array_column($routes, 'component'))));
+        sort($components);
+        $routes = array_map(static fn(array $r): array => array_diff_key($r, ['blocks' => true]), $routes);
+
+        return ['routes' => $routes, 'components' => $components];
+    }
+
+    private function routeSave(array $input): array
+    {
+        $id = isset($input['id']) ? (int) $input['id'] : 0;
+        $before = null;
+        foreach ($id ? $this->appMap->full() : [] as $route) {
+            if ($route['id'] === $id) {
+                $before = self::routeAuditView($route);
+            }
+        }
+        $route = $this->appMap->saveRoute($input, (string) $this->me['email']);
+        $this->audit->record($this->me, $id ? 'pages.route_update' : 'pages.route_create', 'route', $route['name'],
+            $before, self::routeAuditView($route), $this->ip);
+
+        return ['route' => $route] + $this->pageMap();
+    }
+
+    private function routeDelete(array $input): array
+    {
+        $route = $this->appMap->deleteRoute((int) ($input['id'] ?? 0));
+        $this->audit->record($this->me, 'pages.route_delete', 'route', $route['name'], self::routeAuditView($route), null, $this->ip);
+
+        return $this->pageMap();
+    }
+
+    /** A route's settings without its blocks or timestamps, for the audit log. */
+    private static function routeAuditView(array $route): array
+    {
+        return array_diff_key($route, array_flip(['blocks', 'updatedAt', 'updatedBy', 'id']));
     }
 
     private function auditLog(array $input): array

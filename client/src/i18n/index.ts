@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import scopeMap from './scopes.json'
+import appMap from '@/router/appMap.json'
 
 /**
  * UI text. Every string lives in the `translations` table (see
@@ -7,9 +7,9 @@ import scopeMap from './scopes.json'
  * fetched one language at a time through `api.translations()`.
  *
  * **Loaded in two steps.** At boot only the text the first page needs is
- * fetched — the shell's widgets plus that route's (`scopes.json`, generated
- * by `scripts/i18n-scopes.mjs` from the imports of App.vue and each page) —
- * and the rest of the language follows in the background. A navigation
+ * fetched — the shell's blocks plus that route's, from the page map's
+ * developer-owned block list (`app_route_blocks`; the bundled copy until
+ * main.ts hands over the live one, `setScopeMap()`) — and the rest of the language follows in the background. A navigation
  * before that arrives waits for it briefly (`ensureScopes()`, from the
  * router). The legal text isn't UI text: it's fetched only when shown.
  *
@@ -82,10 +82,19 @@ let loaded: Set<string> | 'all' = new Set()
 /** The background fetch of the rest of the language, while it runs. */
 let rest: Promise<void> = Promise.resolve()
 
+/** Route name → its text blocks; `_shell` is the frame around every page. */
+let scopeMap: Record<string, string[]> = appMap.blocks
+
+/** Uses the live page map's blocks (main.ts, once it has fetched them). */
+export function setScopeMap(blocks: Record<string, string[]>) {
+  scopeMap = blocks
+}
+
 /** The shell's prefixes plus `routeName`'s — what that page needs to render. */
 export function scopesForRoute(routeName: unknown): string[] {
-  const routes = scopeMap.routes as Record<string, string[]>
-  return [...scopeMap.shell, ...(typeof routeName === 'string' ? (routes[routeName] ?? []) : [])]
+  const own =
+    typeof routeName === 'string' && routeName !== '_shell' ? scopeMap[routeName] : undefined
+  return [...(scopeMap._shell ?? []), ...(own ?? [])]
 }
 
 /**

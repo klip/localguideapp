@@ -40,6 +40,8 @@ class RequestProcessor
     private $reviews;
     /** @var Translations */
     private $translations;
+    /** @var AppMap */
+    private $appMap;
     /** @var Badges */
     private $badges;
     /** @var Messages */
@@ -59,6 +61,7 @@ class RequestProcessor
 
     public function __construct(db $db, RedisClient $redis)
     {
+        $this->appMap = new AppMap($db, $redis);
         $this->db = $db;
         $this->users = new Users($db);
         $this->payments = new Payments($db);
@@ -239,6 +242,11 @@ class RequestProcessor
                     $input['title'] ?? null,
                     $input['description'] ?? null
                 )];
+
+            // The app's routes and each page's text blocks, owned by the CMS
+            // (`AppMap`, 079) — the client builds its router from it at start-up.
+            case 'appMap':
+                return [200, $this->appMap->forApp()];
 
             // UI text for one language (see `Translations`, 018_translations.sql).
             case 'translations':

@@ -2,8 +2,10 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { can, refresh, session, whenSignedOut } from '@/api'
 
 /**
- * `meta.public` pages work signed out; every other page needs a signed-in
- * member, and `meta.capability` (see `cms/classes/Permissions.php`) one their
+ * `meta.public` pages work signed out; `meta.signedOutOnly` ones (log in,
+ * forgot password) send a signed-in member home instead of showing a sign-in
+ * form under the menu. Every other page needs a signed-in member, and
+ * `meta.capability` (see `cms/classes/Permissions.php`) one their
  * role has — the server checks the same capability on every action.
  */
 export const routes: RouteRecordRaw[] = [
@@ -11,7 +13,7 @@ export const routes: RouteRecordRaw[] = [
     path: '/login',
     name: 'login',
     component: () => import('@/pages/LoginPage.vue'),
-    meta: { public: true },
+    meta: { public: true, signedOutOnly: true },
   },
   {
     path: '/set-password',
@@ -23,7 +25,7 @@ export const routes: RouteRecordRaw[] = [
     path: '/forgot-password',
     name: 'forgot-password',
     component: () => import('@/pages/ForgotPasswordPage.vue'),
-    meta: { public: true },
+    meta: { public: true, signedOutOnly: true },
   },
   { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue') },
   {
@@ -31,6 +33,12 @@ export const routes: RouteRecordRaw[] = [
     name: 'content',
     component: () => import('@/pages/ContentPage.vue'),
     meta: { capability: 'content.edit' },
+  },
+  {
+    path: '/pages',
+    name: 'pages',
+    component: () => import('@/pages/PagesPage.vue'),
+    meta: { capability: 'pages.manage' },
   },
   {
     path: '/users',
@@ -60,9 +68,9 @@ export function createCmsRouter() {
   router.beforeEach(async (to) => {
     // The first navigation waits for the cookie to say whether someone's signed in.
     if (!session.ready) await refresh().catch(() => false)
+    if (to.meta.signedOutOnly && session.me) return { name: 'home' }
     if (to.meta.public) return true
-    if (!session.me)
-      return { name: 'login', query: to.fullPath !== '/' ? { next: to.fullPath } : {} }
+    if (!session.me) return { name: 'login' }
     if (typeof to.meta.capability === 'string' && !can(to.meta.capability)) return { name: 'home' }
     return true
   })

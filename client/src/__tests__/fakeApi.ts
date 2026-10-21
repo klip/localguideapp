@@ -44,6 +44,7 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     reviews: vi.fn<Api['reviews']>(),
     submitReview: vi.fn<Api['submitReview']>(),
     deleteReview: vi.fn<Api['deleteReview']>(),
+    appMap: vi.fn<Api['appMap']>(),
     translations: vi.fn<Api['translations']>(),
     legalDocument: vi.fn<Api['legalDocument']>(),
     geocode: vi.fn<Api['geocode']>().mockResolvedValue({ places: [] }),

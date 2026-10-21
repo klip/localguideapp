@@ -335,30 +335,15 @@ before JSON, after JSON, ip, created_at)`.
 
 ### Content editor (translations)
 
-**Pages and blocks come from the code**, so the CMS never drifts from the
-app: extend `scripts/i18n-scopes.mjs` to also write `client/src/i18n/layout.json`:
-
-```json
-{
-  "discover": {
-    "route": "/discover",
-    "regions": {
-      "header":  ["common.app_header"],
-      "aside":   ["common.filter_panel", "common.location_filter"],
-      "main":    ["discover.deck", "common.profile_card", "common.decision_row"],
-      "side":    ["discover.matches_rail"],
-      "footer":  ["common.app_footer", "common.cookie_notice"]
-    }
-  }
-}
-```
-
-The region comes from a one-line comment per page (`<!-- cms-layout: aside -->`
-before a component/section) with "main" as the default; block order is the
-order of first use in the template. The CMS reads `layout.json` from the
-deployed client (or the API serves it) — a page added to the app shows up in
-the CMS after the next build. A **"Shared"** pseudo-page lists `common.*`
-blocks not placed on any page (API messages, country names, …).
+**As built (2026-10-21): the routes are the CMS's, the pages' contents the
+code's.** The app's routes live in `app_routes` (079) and are managed on the
+CMS's Pages screen (admins): address, page component or redirect, access
+rules, on/off. The app builds its router from them at start-up (`appMap`).
+What a page shows is not managed in the CMS: each page's list of text blocks
+(`app_route_blocks`) is developer-owned — written by migrations, checked
+against the code by `yarn i18n:check` — and used only to preload a page's
+text and to draw the content editor's wireframe (header, the page's own
+blocks, shared pieces, footer, "Everywhere", "Other").
 
 **UI:**
 
@@ -461,7 +446,7 @@ reason, staff_id, lifted_at, lifted_by)`):
 | 4 ✓ | **Risk scoring & alerts** — built 2026-10-21 (without the geolocation signals and the ban-evasion check, which wait for GeoLite2 and freezing; the privacy notice still needs the lawyer) | scores, step-up 2FA, "new sign-in" email with "not me", `account_links`, ban-evasion check at registration; privacy notice + cookie notice update | 3, lawyer |
 | 5 ✓ | **Retire sessions** — done 2026-10-21 | remove the session hash path, `resolve`/`peekMany`, `Session.php`'s request role; Redis keeps pub/sub, counters, caches | 2 |
 | 6 ✓ | **CMS foundation** — built 2026-10-21 (email codes; TOTP later) | `cms/` service + container, `admin/` Vue app, staff accounts with mandatory 2FA, `aud: cms` tokens, permissions, `staff_audit`, create-admin script | 1–2 |
-| 7 ✓ | **Content editor** — built 2026-10-21 (regions are header / page / shared / footer from the imports, not per-component comments; `i18n:pull` is `api/bin/pull-english.php`) | `layout.json` generator, page wireframe, block form with language switcher, add key, validation, history/revert, `i18n:pull` | 6 |
+| 7 ✓ | **Content editor + routes** — built 2026-10-21 (the page map is in the database — routes managed in the CMS, each page's blocks developer-owned; `i18n:pull` is `api/bin/pull-english.php`, plus `pull-app-map.php`) | page map in the database (`app_routes`), Pages screen for routes, page wireframe, block form with language switcher, add key, validation, history/revert, `i18n:pull` | 6 |
 | 8 | **Users** | search/list, user page, sanctions/adjustments, badges, bonuses, verification, freeze (+ booking handling), security tab | 3, 6 |
 | 9 | **Moderation** | complaints/disputes queue and resolution, linked-accounts review, audit log viewer | 4, 8 |
 

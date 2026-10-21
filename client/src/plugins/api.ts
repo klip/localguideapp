@@ -1,3 +1,4 @@
+import type { AppMap } from '@/router/appMap'
 import { inject, type App, type InjectionKey } from 'vue'
 import { t } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -1265,6 +1266,8 @@ export const api = {
   markMessagesRead: (payload: { targetId: number; upToId: number }) =>
     call<{ ok: true }>('markMessagesRead', payload),
 
+  /** The CMS's page map — routes and each page's text blocks (src/router/appMap.ts). No session needed. */
+  appMap: () => call<AppMap>('appMap'),
   /** UI strings for one language, `{ key: value }` — all, or a `TranslationScope` of them (see `src/i18n`). No session needed. */
   translations: (language: string, scope: TranslationScope = {}) =>
     call<{ language: string; strings: Record<string, string> }>('translations', {

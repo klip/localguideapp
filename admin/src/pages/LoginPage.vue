@@ -37,11 +37,7 @@ async function submitCode() {
   error.value = ''
   try {
     await api.verifyCode(challenge.value.challengeToken, code.value)
-    const next =
-      typeof route.query.next === 'string' && route.query.next.startsWith('/')
-        ? route.query.next
-        : '/'
-    await router.replace(next)
+    await router.replace({ name: 'home' })
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : 'Could not sign in.'
     if (/expired|sign in again/i.test(error.value)) {
