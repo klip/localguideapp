@@ -563,6 +563,8 @@ export interface MatchOverviewRow {
   matched_at: string | null
   /** The guide's current fee — 0 means a free guide, no payment step. */
   fee_amount: number
+  /** The town the pair's guide works from (`guide_bases`), null if they haven't set one. */
+  guide_place: string | null
   /** The pair's latest booking, flattened; all `null` when there's never been one. */
   booking_id: number | null
   booking_status: BookingStatus | null
@@ -649,6 +651,8 @@ export interface TripRow extends BookingView {
   cancelled_at: string | null
   finished_at: string | null
   matched_at: string | null
+  /** The town the guide works from (`guide_bases`) — the trip's "where" until a meeting place is set. */
+  guide_place: string | null
 }
 
 /** A legal document in force (`LegalDocuments::current()`), placeholders already filled. */

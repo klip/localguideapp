@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import ActiveFilters from '@/components/ActiveFilters.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
+import MatchesRail from '@/components/MatchesRail.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
@@ -32,6 +33,7 @@ import type { DiscoveryFilters } from '@/types'
 
 const router = useRouter()
 const api = useApi()
+const matchesRail = ref<InstanceType<typeof MatchesRail> | null>(null)
 const auth = useAuthStore()
 // The search point in the URL, and (travellers) on the server for guides to see.
 useDeckLocation()
@@ -56,7 +58,6 @@ function onFiltersToggle(event: Event) {
 }
 const {
   hasAccess,
-  picks,
   picksUsed,
   capacity,
   selectionsLeft,
@@ -117,25 +118,6 @@ const currentMeta = computed(() => {
   return parts.length ? parts.join(' · ') : undefined
 })
 
-const pickedGuides = computed(() => picks.value.map(guidesStore.find).filter((guide) => !!guide))
-
-/**
- * A pick restored after a reload (see `App.vue`'s boot fetch) names a guide
- * the deck fetch deliberately leaves out, since the server hides cards this
- * visitor has already decided on — so the rail could show "1 / 5 selected"
- * directly above "Nothing picked yet". Pull those guides into the store's id
- * cache when, and only when, one fails to resolve: during normal swiping the
- * guide is already cached, so this costs one request after a reload rather
- * than on every mount.
- */
-watch(
-  picks,
-  (ids) => {
-    if (ids.some((id) => !guidesStore.find(id))) void guidesStore.hydrateDecided()
-  },
-  { immediate: true },
-)
-
 const freePicksUntilLabel = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
   month: 'short',
@@ -164,7 +146,9 @@ const counterHeadline = computed(() => {
  */
 async function persistDecision(guideId: string, decision: 'interested' | 'pass') {
   try {
-    await api.decide({ targetId: Number(guideId), decision })
+    const row = await api.decide({ targetId: Number(guideId), decision })
+    // This pick completed a match — it belongs on the rail's Matched tab now.
+    if (row?.active === 1) void matchesRail.value?.reload()
   } catch (err) {
     reportApiError(err, t('discover.toast.decision_failed'))
   }
@@ -422,14 +406,9 @@ function reject(id: string) {
             :caption="t('discover.rail.selected')"
           />
 
-          <ul v-if="pickedGuides.length" class="picked">
-            <li v-for="guide in pickedGuides" :key="guide.id">{{ guide.name }}</li>
-          </ul>
-          <p v-else class="tiny muted">{{ t('discover.rail.nothing_picked') }}</p>
+          <!-- Active matches and upcoming trips, each tab linking to its page. -->
+          <MatchesRail ref="matchesRail" />
 
-          <RouterLink to="/matches" role="button" class="soft-btn full">{{
-            t('discover.rail.view_matches')
-          }}</RouterLink>
           <RouterLink to="/unlock" role="button" class="full">
             {{ t('discover.rail.unlock_more', { count: packSize }) }}
           </RouterLink>
@@ -537,15 +516,6 @@ function reject(id: string) {
   button {
     width: auto;
     margin-bottom: 0;
-  }
-}
-
-.picked {
-  padding-left: 1.1rem;
-  margin-bottom: 0.85rem;
-
-  li {
-    margin-bottom: 0.2rem;
   }
 }
 

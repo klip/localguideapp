@@ -43,6 +43,7 @@ function row(overrides: Partial<MatchOverviewRow>): MatchOverviewRow {
     duration_hours: null,
     matched_at: null,
     fee_amount: 0,
+    guide_place: null,
     booking_id: null,
     booking_status: null,
     payment_status: null,

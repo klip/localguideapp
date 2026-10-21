@@ -39,8 +39,13 @@ const props = withDefaults(
     allowBooking?: boolean
     /** The "where things stand" line — off on a trip card, which shows the date and price itself. */
     summary?: boolean
+    /**
+     * Render the Pay / Book again button here. Off on a trip card, which puts
+     * "Book again" in its always-visible header and calls `startBooking()`.
+     */
+    bookButton?: boolean
   }>(),
-  { allowBooking: true, summary: true },
+  { allowBooking: true, summary: true, bookButton: true },
 )
 
 const emit = defineEmits<{ changed: [] }>()
@@ -192,6 +197,12 @@ function saveLocation() {
     t('common.booking_panel.location_failed'),
   )
 }
+
+/** Opens the pay form — for a page that shows its own "Book again" button (`bookButton: false`). */
+function startBooking() {
+  if (needsBooking.value && props.isGuest) show('pay')
+}
+defineExpose({ startBooking })
 
 /** A free trip has nothing to refund, so the guest simply unmatches — `Selections::revoke()` cancels it. */
 function freeCancel() {
@@ -359,7 +370,7 @@ function guideCancel() {
     <!-- Actions -->
     <div class="booking-actions">
       <button
-        v-if="needsBooking && isGuest && openForm !== 'pay'"
+        v-if="bookButton && needsBooking && isGuest && openForm !== 'pay'"
         type="button"
         class="accept"
         :disabled="busy"

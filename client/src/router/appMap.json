@@ -1,5 +1,5 @@
 {
-  "version": "e0304302db1a",
+  "version": "ce34b19197b4",
   "routes": [
     {
       "name": "root",
@@ -247,7 +247,8 @@
       "common.range_picker",
       "common.rating",
       "common.standing",
-      "common.time_ago"
+      "common.time_ago",
+      "common.booking_time"
     ],
     "guide-profile": [
       "guide_profile.page",

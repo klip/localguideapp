@@ -247,6 +247,16 @@ path/name table) and the shared `src/components/` each is built from:
   `SelectionCounter` is `DiscoverPage.vue`-only (the pack-remaining strip
   — see "Domain model" for why the guide side has no equivalent). Both
   pages pull their deck from `stores/guides.ts`/`stores/visitors.ts`.
+  `DiscoverPage.vue`'s right rail ("Your matches", signed in) is the picks
+  counter, **`MatchesRail.vue`** and "Unlock more". `MatchesRail` calls the
+  API itself (`matchOverview` + `trips`) and has two tabs with the menu's
+  icons: **Matched** (active pairs not yet confirmed — `/matches`' Matched
+  tab) and **Upcoming** (trips not finished — soonest first), each name
+  linking to the guide's profile with "where · when" under it (meeting place
+  or the guide's base town `guide_place`; a pending booking's time, else "No
+  date yet"), and a link under the tab to `/matches` or `/trips`. It never
+  calls `markSeen`; it reloads on pushes (`badges.revision`, counters up) and
+  when the page's own Interested completes a match (`reload()`, exposed).
 - **`GuideProfilePage.vue`** (`/guides/:id`) — the "Full profile →"
   destination linked from a `ProfileCard`; reuses `PanelCard`, `TagList`,
   `PillBadge`, `DecisionRow` at full width instead of a swipe card. Its
@@ -741,16 +751,25 @@ server-computed `phase`:
 | Past | `past` | finished, or cancelled |
 
 - Opens on In progress, else Scheduled, else Past; a clicked tab sticks.
-- Each card: the counterpart's name linking to `/guides/:id` or
-  `/visitors/:id`, date, duration, location, price ("£X paid"/"£X fee",
-  "Free", "· £Y refunded"), a **Message {name}** button while still
-  matched, the cancel reason on a cancelled trip, a review link on a
-  finished one. Missing values read "Date to be arranged" / "Length not set"
-  / "Meeting place not set yet".
+- **Each card is a collapsed `<details>`**. The `<summary>` row holds the
+  photo and name (both link to `/guides/:id` or `/visitors/:id`), a one-line
+  caption with where and when ("Lisbon · Sat 3 May, 10:00" — the meeting
+  place, else the guide's base town `guide_place`), and on the right either
+  **Book again** or a "Cancelled" pill. There are no Scheduled / In progress /
+  Finished labels: the tab already says that. Opened, it shows the date,
+  duration, location, price ("£X paid"/"£X fee", "Free", "· £Y refunded"), a
+  **Message {name}** button while still matched, the cancel reason on a
+  cancelled trip, a review link on a finished one, and the `BookingPanel`.
+  Missing values read "Date to be arranged" / "Length not set" / "Meeting
+  place not set yet". Which cards are open survives the refetch after an
+  action.
 - Actions are the same `BookingPanel` as on Matches, with `:summary="false"`
-  (the card shows the date/price itself) and `:allow-booking="is_latest"`
-  (only the pair's most recent trip offers "Book again"). Cancelled trips
-  get no panel.
+  (the card shows the date/price itself), `:allow-booking="is_latest"`
+  (only the pair's most recent trip offers "Book again") and
+  `:book-button="false"`: the page draws "Book again" in the summary itself
+  (`canBookAgain()` — guest, latest trip, finished, still matched, a paid
+  guide) and calls the panel's exposed `startBooking()`, which opens the card
+  and the pay form. Cancelled trips get no panel.
 - **Cancelling a trip dissolves the match on both sides** (both decisions
   back to `NULL`) — guide cancel, an approved guest request, *and* a guest
   cancelling a free trip (`Bookings::cancelFreeByGuest()`, which used to
@@ -1260,8 +1279,9 @@ which doesn't survive one.
 - **Anonymous callers see everyone**, exactly as before — the exclusion
   needs a session, and `guides`/`visitors` still work without one.
 - **`includeDecided: true` opts out**, for `stores/guides.ts`'s
-  `hydrateDecided()`, which pulls already-picked guides into the id cache so
-  the Discover matches rail can name them after a reload. A page that needs one specific person by id should use
+  `hydrateDecided()`, which pulls already-picked guides into the id cache.
+  Nothing calls it since the Discover rail became `MatchesRail.vue` (which
+  reads `matchOverview`/`trips` instead) — remove it if it stays unused. A page that needs one specific person by id should use
   `api.publicProfile()` instead, as both profile pages now do.
 - Filters still apply in both modes; `includeDecided` only governs the
   already-decided exclusion.
@@ -2877,6 +2897,10 @@ API service (`api/classes/`):
   the CMS) and `app_route_blocks` (each page's text blocks — developer-owned,
   for preloading text and the content editor's wireframe), seeded from the
   router and the code as of 2026-10-21. Applied 2026-10-21. Re-runnable.
+- `api/sql/082_translations_matches_rail.sql` — the Discover rail's Matched /
+  Upcoming tabs and captions; drops `discover.rail.nothing_picked` and
+  `trips.status.scheduled/in_progress/finished`; adds `common.booking_time`
+  to the discover page's blocks. Applied 2026-10-21. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

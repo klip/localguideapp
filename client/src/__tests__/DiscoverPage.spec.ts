@@ -3,7 +3,14 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import DiscoverPage from '../pages/DiscoverPage.vue'
-import { API_KEY, type Api, type PaymentState, type ProfileAccount } from '@/plugins/api'
+import {
+  API_KEY,
+  type Api,
+  type MatchOverviewRow,
+  type PaymentState,
+  type ProfileAccount,
+  type TripRow,
+} from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useMatchesStore } from '@/stores/matches'
 import { readPendingRejects } from '@/utils/pendingRejects'
@@ -27,6 +34,8 @@ function fakeApi(overrides: Partial<Api> = {}): Api {
       .fn<Api['guides']>()
       .mockResolvedValue({ guides: [guide(1, 'Ana'), guide(2, 'Ben')] }),
     attributeCategories: vi.fn<Api['attributeCategories']>().mockResolvedValue({ categories: [] }),
+    matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({ selections: [] }),
+    trips: vi.fn<Api['trips']>().mockResolvedValue({ trips: [] }),
     ...overrides,
   })
 }
@@ -236,6 +245,73 @@ describe('DiscoverPage', () => {
 
     expect(useMatchesStore().picks).toEqual(['1'])
     expect(api.decide).toHaveBeenCalledWith({ targetId: 1, decision: 'interested' })
+    wrapper.unmount()
+  })
+
+  it('lists active matches and upcoming trips in the rail, each name linking to the guide', async () => {
+    // Only the fields the rail reads; the rest don't matter here.
+    const match = (fields: Partial<MatchOverviewRow>) =>
+      ({
+        active: 1,
+        booking_status: null,
+        location: null,
+        meeting_at: null,
+        guide_place: null,
+        ...fields,
+      }) as MatchOverviewRow
+    const tripRow = (fields: Partial<TripRow>) =>
+      ({ location: null, guide_place: null, meeting_at: null, ...fields }) as TripRow
+    const api = fakeApi({
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(payment(1)),
+      matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({
+        selections: [
+          match({ id: 1, counterpart_id: 7, name: 'Igor', guide_place: 'Lisbon, Portugal' }),
+          match({
+            id: 2,
+            counterpart_id: 8,
+            name: 'Zoe',
+            booking_status: 'pending',
+            location: 'Café Nicola',
+            meeting_at: '2030-01-02 10:00:00',
+          }),
+          // Waiting on their answer — not a match yet.
+          match({ id: 3, counterpart_id: 9, name: 'Max', active: 0 }),
+          // Confirmed: it's a trip now, listed under Upcoming instead.
+          match({ id: 4, counterpart_id: 10, name: 'Ana', booking_status: 'confirmed' }),
+        ],
+      }),
+      trips: vi.fn<Api['trips']>().mockResolvedValue({
+        trips: [
+          tripRow({
+            id: 21,
+            counterpart_id: 10,
+            name: 'Ana',
+            phase: 'scheduled',
+            guide_place: 'Porto',
+          }),
+          tripRow({ id: 20, counterpart_id: 11, name: 'Old', phase: 'past' }),
+        ],
+      }),
+    })
+    const { wrapper } = await mountDiscover(api, true)
+    const rail = wrapper.find('.matches-rail')
+
+    expect(rail.find('[data-test="rail-tab-matched"]').attributes('aria-selected')).toBe('true')
+    expect(rail.find('[data-test="rail-tab-matched"]').text()).toContain('2')
+    expect(rail.find('[data-test="rail-tab-upcoming"]').text()).toContain('1')
+    let items = rail.findAll('.rail-list li')
+    expect(items.map((li) => li.find('a').text())).toEqual(['Igor', 'Zoe'])
+    expect(items[0]!.find('a').attributes('href')).toBe('/guides/7')
+    expect(items[0]!.text()).toContain('Lisbon, Portugal · No date yet')
+    expect(items[1]!.text()).toContain('Café Nicola · ')
+    expect(rail.find('[data-test="rail-link-matched"]').attributes('href')).toBe('/matches')
+
+    await rail.find('[data-test="rail-tab-upcoming"]').trigger('click')
+    items = rail.findAll('.rail-list li')
+    expect(items.map((li) => li.find('a').text())).toEqual(['Ana'])
+    expect(items[0]!.find('a').attributes('href')).toBe('/guides/10')
+    expect(items[0]!.text()).toContain('Porto · No date yet')
+    expect(rail.find('[data-test="rail-link-upcoming"]').attributes('href')).toBe('/trips')
     wrapper.unmount()
   })
 })

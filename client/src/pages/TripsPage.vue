@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, reactive, ref, type ComponentPublicInstance } from 'vue'
 import BookingPanel from '@/components/BookingPanel.vue'
 import MapPinLinks from '@/components/MapPinLinks.vue'
 import PanelCard from '@/components/PanelCard.vue'
@@ -135,12 +135,50 @@ function priceLabel(trip: TripRow) {
     : paid
 }
 
-function status(trip: TripRow): { label: string; tone?: 'neutral' } {
-  if (trip.booking_status === 'cancelled')
-    return { label: t('trips.status.cancelled'), tone: 'neutral' }
-  if (trip.phase === 'past') return { label: t('trips.status.finished'), tone: 'neutral' }
-  if (trip.phase === 'current') return { label: t('trips.status.in_progress') }
-  return { label: t('trips.status.scheduled') }
+/** Where and when, for the card's one-line caption: "Lisbon · Sat 3 May, 10:00". */
+function caption(trip: TripRow) {
+  const place =
+    trip.location ||
+    trip.guide_place ||
+    (trip.location_pin ? t('trips.card.location_pinned') : null)
+  return [place, dateLabel(trip)].filter(Boolean).join(' · ')
+}
+
+/**
+ * "Book again" sits in the card's header (the Past tab's only action), so it's
+ * computed here rather than inside BookingPanel — the same conditions as its
+ * `needsBooking`: the guest, the pair's latest trip, finished, still matched,
+ * and a guide who charges.
+ */
+function canBookAgain(trip: TripRow) {
+  return (
+    isGuest.value &&
+    trip.is_latest &&
+    trip.active === 1 &&
+    trip.booking_status === 'confirmed' &&
+    trip.trip_status === 'finished' &&
+    trip.fee_amount > 0
+  )
+}
+
+/** Which cards are expanded — kept across reloads of the list (an action refetches it). */
+const openIds = reactive(new Set<number>())
+function onToggle(trip: TripRow, event: Event) {
+  if ((event.target as HTMLDetailsElement).open) openIds.add(trip.id)
+  else openIds.delete(trip.id)
+}
+
+const panels = new Map<number, InstanceType<typeof BookingPanel>>()
+function setPanel(id: number, el: Element | ComponentPublicInstance | null) {
+  if (el) panels.set(id, el as InstanceType<typeof BookingPanel>)
+  else panels.delete(id)
+}
+
+/** Opens the card and its pay form. */
+async function bookAgain(trip: TripRow) {
+  openIds.add(trip.id)
+  await nextTick()
+  panels.get(trip.id)?.startBooking()
 }
 
 /** Cancelled trips have nothing left to do; finished ones keep the review link and "Book again". */
@@ -207,84 +245,111 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
 
       <ul v-else class="trip-list" :aria-busy="loading">
         <li v-for="trip in visibleTrips" :key="trip.id">
-          <PanelCard class="trip-card">
-            <div class="trip-head">
-              <div class="avatar" :style="{ backgroundImage: photo(trip) }" aria-hidden="true">
+          <details
+            class="trip-card"
+            :open="openIds.has(trip.id)"
+            :data-test="`trip-${trip.id}`"
+            @toggle="onToggle(trip, $event)"
+          >
+            <summary>
+              <RouterLink
+                :to="profileLink(trip)"
+                class="avatar"
+                :style="{ backgroundImage: photo(trip) }"
+                tabindex="-1"
+                aria-hidden="true"
+              >
                 <span v-if="!trip.image">{{ initial(trip) }}</span>
-              </div>
-              <div class="who">
+              </RouterLink>
+              <span class="who">
                 <RouterLink :to="profileLink(trip)" class="who-name">
                   <strong>{{ displayName(trip) }}</strong>
                 </RouterLink>
-                <PillBadge :tone="status(trip).tone">{{ status(trip).label }}</PillBadge>
-              </div>
+                <span class="tiny muted caption">{{ caption(trip) }}</span>
+              </span>
+              <button
+                v-if="canBookAgain(trip)"
+                type="button"
+                class="accept book-again"
+                data-test="book-again"
+                @click.prevent="bookAgain(trip)"
+              >
+                {{ t('common.booking_panel.book_again', { amount: formatMoney(trip.fee_amount) }) }}
+              </button>
+              <PillBadge v-else-if="trip.booking_status === 'cancelled'" tone="neutral">{{
+                t('trips.status.cancelled')
+              }}</PillBadge>
+            </summary>
+
+            <div class="trip-body">
+              <dl class="facts">
+                <div>
+                  <dt>{{ t('trips.card.date') }}</dt>
+                  <dd>{{ dateLabel(trip) }}</dd>
+                </div>
+                <div>
+                  <dt>{{ t('trips.card.duration') }}</dt>
+                  <dd>{{ durationLabel(trip) }}</dd>
+                </div>
+                <div class="wide">
+                  <dt>{{ t('trips.card.location') }}</dt>
+                  <dd :class="{ muted: !trip.location && !trip.location_pin }">
+                    {{
+                      trip.location ||
+                      (trip.location_pin
+                        ? t('trips.card.location_pinned')
+                        : t('trips.card.location_not_set'))
+                    }}
+                    <MapPinLinks
+                      v-if="trip.location_pin"
+                      class="trip-pin"
+                      :latitude="trip.location_pin.latitude"
+                      :longitude="trip.location_pin.longitude"
+                      :label="t('trips.card.location')"
+                    />
+                  </dd>
+                </div>
+                <div class="wide">
+                  <dt>{{ t('trips.card.price') }}</dt>
+                  <dd>{{ priceLabel(trip) }}</dd>
+                </div>
+              </dl>
+
+              <p
+                v-if="trip.booking_status === 'cancelled' && trip.cancel_reason"
+                class="tiny muted note"
+              >
+                {{ trip.cancel_reason }}
+              </p>
+              <p v-if="trip.active && trip.booking_status !== 'cancelled'" class="note">
+                <RouterLink
+                  :to="`/messages/${trip.counterpart_id}`"
+                  class="soft-btn message-btn"
+                  role="button"
+                  data-test="message-link"
+                  >{{ t('trips.card.message', { name: displayName(trip) }) }}</RouterLink
+                >
+              </p>
+              <p v-if="reviewLink(trip)" class="note">
+                <RouterLink :to="reviewLink(trip)!" class="tiny"
+                  >{{ t('trips.card.leave_review', { name: displayName(trip) }) }}
+                  <span class="rtl-flip" aria-hidden="true">→</span></RouterLink
+                >
+              </p>
+
+              <BookingPanel
+                v-if="hasPanel(trip)"
+                :ref="(el) => setPanel(trip.id, el)"
+                :row="trip"
+                :is-guest="isGuest"
+                :name="displayName(trip)"
+                :allow-booking="trip.is_latest"
+                :summary="false"
+                :book-button="false"
+                @changed="load"
+              />
             </div>
-
-            <dl class="facts">
-              <div>
-                <dt>{{ t('trips.card.date') }}</dt>
-                <dd>{{ dateLabel(trip) }}</dd>
-              </div>
-              <div>
-                <dt>{{ t('trips.card.duration') }}</dt>
-                <dd>{{ durationLabel(trip) }}</dd>
-              </div>
-              <div class="wide">
-                <dt>{{ t('trips.card.location') }}</dt>
-                <dd :class="{ muted: !trip.location && !trip.location_pin }">
-                  {{
-                    trip.location ||
-                    (trip.location_pin
-                      ? t('trips.card.location_pinned')
-                      : t('trips.card.location_not_set'))
-                  }}
-                  <MapPinLinks
-                    v-if="trip.location_pin"
-                    class="trip-pin"
-                    :latitude="trip.location_pin.latitude"
-                    :longitude="trip.location_pin.longitude"
-                    :label="t('trips.card.location')"
-                  />
-                </dd>
-              </div>
-              <div class="wide">
-                <dt>{{ t('trips.card.price') }}</dt>
-                <dd>{{ priceLabel(trip) }}</dd>
-              </div>
-            </dl>
-
-            <p
-              v-if="trip.booking_status === 'cancelled' && trip.cancel_reason"
-              class="tiny muted note"
-            >
-              {{ trip.cancel_reason }}
-            </p>
-            <p v-if="trip.active && trip.booking_status !== 'cancelled'" class="note">
-              <RouterLink
-                :to="`/messages/${trip.counterpart_id}`"
-                class="soft-btn message-btn"
-                role="button"
-                data-test="message-link"
-                >{{ t('trips.card.message', { name: displayName(trip) }) }}</RouterLink
-              >
-            </p>
-            <p v-if="reviewLink(trip)" class="note">
-              <RouterLink :to="reviewLink(trip)!" class="tiny"
-                >{{ t('trips.card.leave_review', { name: displayName(trip) }) }}
-                <span class="rtl-flip" aria-hidden="true">→</span></RouterLink
-              >
-            </p>
-
-            <BookingPanel
-              v-if="hasPanel(trip)"
-              :row="trip"
-              :is-guest="isGuest"
-              :name="displayName(trip)"
-              :allow-booking="trip.is_latest"
-              :summary="false"
-              @changed="load"
-            />
-          </PanelCard>
+          </details>
         </li>
       </ul>
     </template>
@@ -381,16 +446,39 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
   }
 }
 
-.trip-head {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
+// A compact panel: the summary row (photo, name, where and when, Book again)
+// is all that shows until it's opened.
+.trip-card {
+  margin: 0;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--rg-line);
+  border-radius: var(--rg-radius-card);
+  box-shadow: var(--rg-shadow);
+
+  > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.9rem;
+    margin: 0;
+    line-height: 1.3;
+
+    // Pico draws its chevron as a floated ::after; keep it at the row's end.
+    &::after {
+      flex-shrink: 0;
+      margin-inline-start: 0;
+    }
+  }
+}
+
+.trip-body {
+  padding: 0 0.9rem 0.9rem;
 }
 
 .avatar {
   flex-shrink: 0;
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
   background-size: cover;
   background-position: center;
@@ -398,19 +486,33 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
   place-items: center;
   color: #fff;
   font-weight: 800;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  text-decoration: none;
 }
 
 .who {
+  flex: 1;
   min-width: 0;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.3rem 0.6rem;
+  flex-direction: column;
 
   strong {
     overflow-wrap: anywhere;
   }
+}
+
+.caption {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-again {
+  flex-shrink: 0;
+  width: auto;
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
 }
 
 .who-name {
@@ -424,7 +526,7 @@ const EMPTY_COPY = computed<Record<TripPhase, string>>(() => ({
 }
 
 .facts {
-  margin: 0.9rem 0 0;
+  margin: 0.2rem 0 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.6rem 1rem;

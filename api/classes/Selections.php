@@ -158,6 +158,7 @@ class Selections
                     TIMESTAMPDIFF(YEAR, p.`date_of_birth`, CURDATE()) AS `age`,
                     cr.`headline`, p.`price_label`, p.`party`, p.`duration_hours`,
                     COALESCE(gp.`price_amount`, 0) AS `fee_amount`,
+                    gb.`label` AS `guide_place`,
                     b.`id` AS `booking_id`, b.`status` AS `booking_status`, b.`payment_status`,
                     b.`amount` AS `booking_amount`, b.`meeting_at`, b.`refund_amount`, b.`trip_status`,
                     b.`duration_hours` AS `booking_duration_hours`, b.`location`, b.`accepted_at`,
@@ -172,6 +173,7 @@ class Selections
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              LEFT JOIN `role_profiles` cr ON cr.`user_id` = u.`id` AND cr.`role` = "' . $their . '"
              LEFT JOIN `user_profiles` gp ON gp.`user_id` = s.`guide_id`
+             LEFT JOIN `guide_bases` gb ON gb.`user_id` = s.`guide_id`
              LEFT JOIN `bookings` b ON ' . self::LATEST_BOOKING . '
              WHERE s.`' . $own . '_id` = ' . (int) $userId . '
                AND (s.`' . $own . '_decision` IS NOT NULL OR s.`' . $their . '_decision` = "interested")

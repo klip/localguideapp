@@ -807,6 +807,7 @@ class Bookings
                     s.`active`, s.`matched_at`,
                     u.`name`, u.`image`,
                     COALESCE(gp.`price_amount`, 0) AS `fee_amount`,
+                    gb.`label` AS `guide_place`,
                     b.`id` = (SELECT MAX(bb.`id`) FROM `bookings` bb WHERE bb.`selection_id` = b.`selection_id`) AS `is_latest`,
                     ' . ($own === 'guide'
                         ? 'b.`commission_rate`, b.`guide_payout`'
@@ -815,6 +816,7 @@ class Bookings
              JOIN `selections` s ON s.`id` = b.`selection_id`
              JOIN `users` u ON u.`id` = b.`' . $their . '_id`
              LEFT JOIN `user_profiles` gp ON gp.`user_id` = b.`guide_id`
+             LEFT JOIN `guide_bases` gb ON gb.`user_id` = b.`guide_id`
              WHERE b.`' . $own . '_id` = ' . $userId . '
                AND b.`accepted_at` IS NOT NULL AND b.`status` IN ("confirmed", "cancelled")
              ORDER BY COALESCE(b.`meeting_at`, b.`accepted_at`) DESC, b.`id` DESC'

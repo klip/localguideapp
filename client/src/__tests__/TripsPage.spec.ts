@@ -57,6 +57,7 @@ function trip(overrides: Partial<TripRow> = {}): TripRow {
     finish_requested_by: null,
     finished_at: null,
     matched_at: '2026-09-01 12:00:00',
+    guide_place: 'Gibraltar',
     auto_finish: true,
     ...overrides,
   }
@@ -143,8 +144,9 @@ describe('TripsPage', () => {
 
     await tab(wrapper, 'Past').trigger('click')
     expect(wrapper.text()).toContain('Ben')
-    expect(wrapper.text()).toContain('Finished')
     expect(wrapper.text()).toContain('Cy')
+    // The tab says where a trip stands; only a cancellation keeps a label.
+    expect(wrapper.text()).not.toContain('Finished')
     expect(wrapper.text()).toContain('Cancelled')
   })
 
@@ -156,10 +158,18 @@ describe('TripsPage', () => {
     const wrapper = await mountPage(api, 'guest')
     const card = wrapper.find('.trip-card')
 
-    expect(card.find('a.who-name').attributes('href')).toBe('/guides/7')
-    expect(card.find('a.who-name').text()).toBe('Igor')
-    expect(card.text()).toContain('Scheduled')
-    expect(card.text()).toContain('3 h')
+    // Collapsed to one line: photo and name (both to the profile), where and when.
+    expect(card.element.tagName).toBe('DETAILS')
+    expect(card.attributes('open')).toBeUndefined()
+    const summary = card.find('summary')
+    expect(summary.find('a.who-name').attributes('href')).toBe('/guides/7')
+    expect(summary.find('a.who-name').text()).toBe('Igor')
+    expect(summary.find('a.avatar').attributes('href')).toBe('/guides/7')
+    expect(summary.find('.caption').text()).toMatch(/^Casemates Square · /)
+    expect(summary.text()).not.toContain('Scheduled')
+    expect(summary.text()).not.toContain('£50.00')
+    // The rest is inside, until opened.
+    expect(card.find('.trip-body').text()).toContain('3 h')
     expect(card.text()).toContain('Casemates Square')
     expect(card.text()).toContain('£50.00 paid')
     // Never contact details — the pair talks in Messages.
@@ -210,6 +220,8 @@ describe('TripsPage', () => {
     const wrapper = await mountPage(api, 'guest')
 
     expect(wrapper.text()).toContain('Date to be arranged')
+    // No meeting place yet: the caption falls back to where the guide works.
+    expect(wrapper.find('summary .caption').text()).toBe('Gibraltar · Date to be arranged')
     expect(wrapper.text()).toContain('Length not set')
     expect(wrapper.text()).toContain('Meeting place not set yet')
     expect(wrapper.text()).toContain('Free')
@@ -240,8 +252,33 @@ describe('TripsPage', () => {
 
     expect(cards).toHaveLength(2)
     expect(cards[0]!.text()).toContain('Leave Ben a review')
-    expect(cards[0]!.text()).toContain('Book again')
+    // "Book again" sits in the summary, in place of the old "Finished" label.
+    expect(cards[0]!.find('summary [data-test="book-again"]').exists()).toBe(true)
+    expect(cards[0]!.find('.booking').text()).not.toContain('Book again')
     expect(cards[1]!.text()).not.toContain('Book again')
+  })
+
+  it('opens the card and its pay form from the summary’s "Book again"', async () => {
+    const api = fakeApi({
+      trips: vi.fn<Api['trips']>().mockResolvedValue({ trips: [finished] }),
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState()),
+    })
+    const wrapper = await mountPage(api, 'guest')
+    const card = wrapper.find('.trip-card')
+
+    expect(card.find('.booking form').exists()).toBe(false)
+    await card.find('[data-test="book-again"]').trigger('click')
+    await flushPromises()
+
+    expect(card.attributes('open')).toBeDefined()
+    expect(card.find('.booking input[type="datetime-local"]').exists()).toBe(true)
+  })
+
+  it('offers a guide no "Book again"', async () => {
+    const api = fakeApi({ trips: vi.fn<Api['trips']>().mockResolvedValue({ trips: [finished] }) })
+    const wrapper = await mountPage(api, 'guide')
+
+    expect(wrapper.find('[data-test="book-again"]').exists()).toBe(false)
   })
 
   it('reloads after a booking step, and re-syncs a guest’s picks', async () => {
