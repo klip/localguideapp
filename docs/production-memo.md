@@ -60,7 +60,7 @@ real users and real money. Add to this list whenever a shortcut is taken.
 
 | Now | For production |
 | --- | --- |
-| **The CMS foundation exists** (staff sign-in with email codes, roles, staff management, audit log), but complaints, sanctions and verification are still handled in SQL (CMS phases 7–9). Staff codes go by email, through the same Gmail stand-in. | The rest of the CMS; an authenticator-app (TOTP) or security-key second factor for staff instead of email codes; `admin.belikelocal.club` serving `admin/`'s build and routing `/auth/` to `auth/cms.php` and `/api` to `cms/index.php`, ideally behind an IP allowlist or VPN. |
+| **The CMS foundation and content editor exist** (staff sign-in with email codes, roles, staff management, audit log, UI texts), but complaints, sanctions and verification are still handled in SQL (CMS phases 8–9). Staff codes go by email, through the same Gmail stand-in. | The rest of the CMS; an authenticator-app (TOTP) or security-key second factor for staff instead of email codes; `admin.belikelocal.club` serving `admin/`'s build and routing `/auth/` to `auth/cms.php` and `/api` to `cms/index.php`, ideally behind an IP allowlist or VPN. |
 
 ## Infrastructure
 
@@ -75,6 +75,7 @@ real users and real money. Add to this list whenever a shortcut is taken.
 | **Grafana is open as an anonymous admin** on localhost. | Real logins, not exposed publicly; alerting on errors and failed emails. |
 | Photos are base64 strings in MySQL (`users.image`). | Object storage (S3/GCS) with a CDN; store a URL. |
 | One shared database for all services; one gateway holds about 1,000 sockets. | See `docs/scaling.md` (database split, several gateway replicas, GKE). |
+| The CMS's content editor reads the app's page map from the shared checkout (`client/src/i18n/layout.json`, on the same disk as `cms/`). | Ship `layout.json` with the CMS image (copy it in at build time, from the same commit as the app), or have the app's build publish it where the CMS fetches it. Run `api/bin/pull-english.php` before each app release so the bundled English matches the CMS. |
 | `INTERNAL_TOKEN` is one shared secret between services. | Private networking plus per-service credentials or mTLS. |
 | `APP_URL` / `CMS_URL` are `https://www.belikelocal.club` / `https://admin.belikelocal.club` in the development env file (the code's fallbacks are `localhost`). | Set them in the production environment (email links depend on them). |
 | `127.0.0.1 www. / api. / admin.belikelocal.club` in `/etc/hosts`; Vite dev servers. | Real DNS and TLS; a production build served by nginx/CDN that serves `index.html` for every `/<lang>/…` path. |

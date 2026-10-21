@@ -17,6 +17,8 @@ require_once __DIR__ . '/../../auth/bootstrap.php';
 const ORIGIN = 'http://localhost:5174';
 const ADMIN = 'cms.e2e.admin@example.test';
 const EDITOR = 'cms.e2e.editor@example.test';
+const CONTENT_EDITOR = 'cms.e2e.content@example.test';
+const TEST_KEY = 'discover.deck.e2e_probe';
 const PASSWORD = 'correct horse battery';
 
 $failures = 0;
@@ -93,7 +95,10 @@ function signIn(db $db, string $email): array
 
 function cleanup(db $db): void
 {
-    foreach ([ADMIN, EDITOR] as $email) {
+    // Content: the probe key, and the history of the test's edits.
+    $db->db_Execute('DELETE FROM `translations` WHERE `key` = "' . TEST_KEY . '"');
+    $db->db_Execute('DELETE FROM `translations_history` WHERE `staff_email` LIKE "cms.e2e.%@example.test"');
+    foreach ([ADMIN, EDITOR, CONTENT_EDITOR] as $email) {
         $row = $db->db_GetRow('SELECT `id` FROM `cms_users` WHERE `email` = "' . $email . '"');
         if ($row) {
             $db->db_Execute('DELETE FROM `staff_audit` WHERE `staff_id` = ' . (int) $row['id'] . ' OR (`target_type` = "staff" AND `target_id` = "' . (int) $row['id'] . '")');
@@ -169,7 +174,44 @@ try {
         in_array('staff.invite', $actions, true) && in_array('staff.role', $actions, true) && in_array('staff.disable', $actions, true),
         implode(',', array_slice($actions, 0, 5)));
 
-    // 7. Refresh and logout.
+    // 7. The content editor (phase 7), as an editor.
+    $contentId = $staff->create(CONTENT_EDITOR, 'E2E Content', 'editor', $adminId);
+    $link = $staff->createSetupLink($contentId, Staff::INVITE_TTL_SECONDS, 'invite');
+    auth('setPassword', ['token' => substr($link, strpos($link, 'token=') + 6), 'password' => PASSWORD]);
+    [$s, $b] = signIn($db, CONTENT_EDITOR);
+    $editorToken = (string) ($b['accessToken'] ?? '');
+    [$s, $b] = api('contentLayout', [], $editorToken);
+    $routes = array_column($b['pages'] ?? [], 'route');
+    check('the map lists the app\'s pages and 15 languages', $s === 200 && in_array('discover', $routes, true) && count($b['languages'] ?? []) === 15, (string) $s);
+    [$s, $b] = api('contentBlock', ['prefix' => 'discover.deck', 'language' => 'es'], $editorToken);
+    $picked = array_values(array_filter($b['entries'] ?? [], static fn($e) => $e['key'] === 'discover.deck.picked'))[0] ?? [];
+    check('a block shows each key\'s last part, the Spanish and the English', $s === 200 && ($picked['name'] ?? '') === 'picked' && str_contains((string) ($picked['english'] ?? ''), '{capacity}'));
+    $original = (string) ($picked['value'] ?? '');
+    [$s, $b] = api('contentSave', ['prefix' => 'discover.deck', 'language' => 'es', 'values' => ['discover.deck.picked' => '{picked} elegidos']], $editorToken);
+    check('dropping a {placeholder} is refused, pinned to the field', $s === 400 && ($b['field'] ?? '') === 'discover.deck.picked' && str_contains((string) ($b['error'] ?? ''), '{capacity}'), (string) $s);
+    [$s, $b] = api('contentSave', ['prefix' => 'discover.deck', 'language' => 'es', 'values' => ['discover.deck.picked' => '<b>{picked}</b> / {capacity}']], $editorToken);
+    check('HTML is refused', $s === 400, (string) $s);
+    [$s, $b] = api('contentSave', ['prefix' => 'discover.deck', 'language' => 'es', 'values' => ['discover.deck.picked' => '{picked} de {capacity} elegidos']], $editorToken);
+    check('a valid edit saves', $s === 200 && ($b['changed'] ?? 0) === 1, (string) $s);
+    $live = $db->db_GetRow('SELECT `value` FROM `translations` WHERE `language` = "es" AND `key` = "discover.deck.picked"')['value'] ?? '';
+    check('…straight into the app\'s translations', $live === '{picked} de {capacity} elegidos');
+    [$s, $b] = api('contentHistory', ['prefix' => 'discover.deck'], $editorToken);
+    $entry = $b['history'][0] ?? [];
+    check('the history has the old and new value', ($entry['oldValue'] ?? '') === $original && ($entry['newValue'] ?? '') === '{picked} de {capacity} elegidos');
+    [$s, $b] = api('contentRevert', ['historyId' => (int) ($entry['id'] ?? 0)], $editorToken);
+    $live = $db->db_GetRow('SELECT `value` FROM `translations` WHERE `language` = "es" AND `key` = "discover.deck.picked"')['value'] ?? '';
+    check('revert puts the old value back', $s === 200 && $live === $original, (string) $s);
+    [$s, $b] = api('contentSave', ['prefix' => 'discover.deck', 'language' => 'en', 'values' => ['discover.deck.picked' => '']], $editorToken);
+    check('English can\'t be emptied', $s === 400, (string) $s);
+    [$s, $b] = api('contentAddKey', ['prefix' => 'discover.deck', 'name' => 'Bad Name', 'english' => 'x'], $editorToken);
+    check('a key name must be lowercase_with_underscores', $s === 400 && ($b['field'] ?? '') === 'name', (string) $s);
+    [$s, $b] = api('contentAddKey', ['prefix' => 'discover.deck', 'name' => 'e2e_probe', 'english' => 'Probe for {count}', 'language' => 'es'], $editorToken);
+    $probe = array_values(array_filter($b['entries'] ?? [], static fn($e) => $e['key'] === TEST_KEY))[0] ?? [];
+    check('a new key is added in English, missing in Spanish', $s === 200 && !empty($probe['missing']), (string) $s);
+    [$s, $b] = api('auditLog', ['filter' => 'content.'], $adminToken);
+    check('content changes are in the audit log', in_array('content.save', array_column($b['entries'] ?? [], 'action'), true) && in_array('content.add_key', array_column($b['entries'] ?? [], 'action'), true));
+
+    // 8. Refresh and logout.
     [$s, $b, $cookies] = auth('refresh', [], $adminCookie);
     $rotated = $cookies['__Host-rg_cms_refresh'] ?? '';
     check('refresh → a new token, a rotated cookie', $s === 200 && !empty($b['accessToken']) && $rotated !== '' && $rotated !== $adminCookie, (string) $s);

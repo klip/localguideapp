@@ -29,8 +29,8 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/content',
     name: 'content',
-    component: () => import('@/pages/ComingSoonPage.vue'),
-    meta: { capability: 'content.edit', title: 'Content', phase: 7 },
+    component: () => import('@/pages/ContentPage.vue'),
+    meta: { capability: 'content.edit' },
   },
   {
     path: '/users',

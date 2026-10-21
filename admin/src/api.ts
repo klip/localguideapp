@@ -44,6 +44,40 @@ export interface AuditEntry {
   createdAt: string
 }
 
+/** The app's map for the content editor (`client/src/i18n/layout.json`). */
+export interface ContentLayout {
+  shell: { header: string[]; footer: string[]; always: string[] }
+  pages: { route: string; path: string; title: string; main: string[]; shared: string[] }[]
+  unplaced: string[]
+  languages: string[]
+}
+
+export interface ContentEntry {
+  key: string
+  /** The key's last part — what the editor shows. */
+  name: string
+  value: string | null
+  english: string
+  missing: boolean
+}
+
+export interface ContentBlock {
+  prefix: string
+  language: string
+  entries: ContentEntry[]
+  missingPluralForms: { base: string; missing: string[] }[]
+}
+
+export interface ContentChange {
+  id: number
+  language: string
+  key: string
+  oldValue: string | null
+  newValue: string | null
+  staffEmail: string
+  createdAt: string
+}
+
 export interface CodeChallenge {
   codeRequired: true
   challengeToken: string
@@ -60,6 +94,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** The field a validation error is about (the content editor pins it there). */
+    readonly field?: string,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -108,11 +144,15 @@ async function post<T>(
     throw new ApiError('The server sent an unexpected answer.', response.status)
   }
   if (!response.ok) {
-    const message =
-      data && typeof data === 'object' && typeof (data as { error?: unknown }).error === 'string'
-        ? (data as { error: string }).error
-        : 'Something went wrong.'
-    throw new ApiError(message, response.status)
+    const error = (data && typeof data === 'object' ? data : {}) as {
+      error?: unknown
+      field?: unknown
+    }
+    throw new ApiError(
+      typeof error.error === 'string' ? error.error : 'Something went wrong.',
+      response.status,
+      typeof error.field === 'string' ? error.field : undefined,
+    )
   }
   return data as T
 }
@@ -243,6 +283,18 @@ export const api = {
   staffUpdate: (id: number, change: { role?: StaffRole; disabled?: boolean }) =>
     call<{ staff: StaffMember }>('staffUpdate', { id, ...change }),
   staffResendInvite: (id: number) => call<{ ok: true }>('staffResendInvite', { id }),
+  contentLayout: () => call<ContentLayout>('contentLayout'),
+  contentBlock: (prefix: string, language: string) =>
+    call<ContentBlock>('contentBlock', { prefix, language }),
+  /** `values`: key → text; `''` removes a translation (the app falls back to English). */
+  contentSave: (prefix: string, language: string, values: Record<string, string>) =>
+    call<ContentBlock & { changed: number }>('contentSave', { prefix, language, values }),
+  contentAddKey: (prefix: string, name: string, english: string, language: string) =>
+    call<ContentBlock & { key: string }>('contentAddKey', { prefix, name, english, language }),
+  contentHistory: (prefix: string) =>
+    call<{ history: ContentChange[] }>('contentHistory', { prefix }),
+  contentRevert: (historyId: number) =>
+    call<{ language: string; key: string; value: string | null }>('contentRevert', { historyId }),
   auditLog: (options: { beforeId?: number; filter?: string } = {}) =>
     call<{ entries: AuditEntry[]; hasMore: boolean; scope: 'all' | 'operations' | 'own' }>(
       'auditLog',

@@ -13,8 +13,10 @@
  * account takes effect at once. Each action names the capability it needs
  * (`Permissions`); every change is written to the audit log (`Audit`).
  *
- * Phase 6 actions: me, staffList, staffInvite, staffUpdate, staffResendInvite,
- * auditLog. The content editor (phase 7), users (8) and moderation (9) add theirs.
+ * Actions: me, staffList, staffInvite, staffUpdate, staffResendInvite,
+ * auditLog (phase 6); contentLayout, contentBlock, contentSave,
+ * contentAddKey, contentHistory, contentRevert (phase 7, `ContentEditor`).
+ * Users (8) and moderation (9) add theirs.
  */
 final class CmsApi
 {
@@ -26,6 +28,12 @@ final class CmsApi
         'staffUpdate' => 'staff.manage',
         'staffResendInvite' => 'staff.manage',
         'auditLog' => null,
+        'contentLayout' => 'content.edit',
+        'contentBlock' => 'content.edit',
+        'contentSave' => 'content.edit',
+        'contentAddKey' => 'content.edit',
+        'contentHistory' => 'content.edit',
+        'contentRevert' => 'content.edit',
     ];
 
     /** @var db */
@@ -38,6 +46,8 @@ final class CmsApi
     private $tokens;
     /** @var Audit */
     private $audit;
+    /** @var ContentEditor */
+    private $content;
     /** @var array the signed-in member */
     private $me = [];
     /** @var string */
@@ -50,6 +60,7 @@ final class CmsApi
         $this->staff = new Staff($db, new MailQueue($db, $redis));
         $this->tokens = new StaffTokens($db, $redis);
         $this->audit = new Audit($db);
+        $this->content = new ContentEditor($db);
     }
 
     public function serve(): void
@@ -83,7 +94,11 @@ final class CmsApi
         try {
             [$status, $body] = $this->handle($action, $input);
         } catch (RuntimeException $e) {
-            [$status, $body] = [400, ['error' => $e->getMessage()]];
+            // `ContentEditor` pins a message to one field as `{field, error}`.
+            $pinned = json_decode($e->getMessage(), true);
+            [$status, $body] = [400, is_array($pinned) && isset($pinned['error'], $pinned['field'])
+                ? ['error' => (string) $pinned['error'], 'field' => (string) $pinned['field']]
+                : ['error' => $e->getMessage()]];
         } catch (Throwable $e) {
             Log::exception('Request failed', $e);
             [$status, $body] = [500, ['error' => 'Unexpected server error.']];
@@ -125,6 +140,18 @@ final class CmsApi
                 return [200, $this->staffResendInvite($input)];
             case 'auditLog':
                 return [200, $this->auditLog($input)];
+            case 'contentLayout':
+                return [200, $this->content->layout()];
+            case 'contentBlock':
+                return [200, $this->content->block((string) ($input['prefix'] ?? ''), (string) ($input['language'] ?? 'en'))];
+            case 'contentSave':
+                return [200, $this->contentSave($input)];
+            case 'contentAddKey':
+                return [200, $this->contentAddKey($input)];
+            case 'contentHistory':
+                return [200, ['history' => $this->content->history((string) ($input['prefix'] ?? ''), isset($input['key']) ? (string) $input['key'] : null)]];
+            case 'contentRevert':
+                return [200, $this->contentRevert($input)];
         }
 
         return [404, ['error' => 'Unknown action.']];
@@ -189,6 +216,36 @@ final class CmsApi
         $this->audit->record($this->me, 'staff.invite_resent', 'staff', (string) $id, null, null, $this->ip);
 
         return ['ok' => true];
+    }
+
+    private function contentSave(array $input): array
+    {
+        $prefix = (string) ($input['prefix'] ?? '');
+        $language = (string) ($input['language'] ?? '');
+        $changes = $this->content->save($prefix, $language, (array) ($input['values'] ?? []), $this->me);
+        if ($changes) {
+            $this->audit->record($this->me, 'content.save', 'translations', $prefix . ' · ' . $language,
+                array_map(static fn(array $c) => $c[0], $changes), array_map(static fn(array $c) => $c[1], $changes), $this->ip);
+        }
+
+        return ['changed' => count($changes)] + $this->content->block($prefix, $language);
+    }
+
+    private function contentAddKey(array $input): array
+    {
+        $prefix = (string) ($input['prefix'] ?? '');
+        $key = $this->content->addKey($prefix, (string) ($input['name'] ?? ''), (string) ($input['english'] ?? ''), $this->me);
+        $this->audit->record($this->me, 'content.add_key', 'translations', $key, null, ['en' => (string) ($input['english'] ?? '')], $this->ip);
+
+        return ['key' => $key] + $this->content->block($prefix, (string) ($input['language'] ?? 'en'));
+    }
+
+    private function contentRevert(array $input): array
+    {
+        [$language, $key, $old, $new] = $this->content->revert((int) ($input['historyId'] ?? 0), $this->me);
+        $this->audit->record($this->me, 'content.revert', 'translations', $key . ' · ' . $language, [$key => $old], [$key => $new], $this->ip);
+
+        return ['language' => $language, 'key' => $key, 'value' => $new];
     }
 
     private function auditLog(array $input): array

@@ -461,7 +461,7 @@ reason, staff_id, lifted_at, lifted_by)`):
 | 4 ✓ | **Risk scoring & alerts** — built 2026-10-21 (without the geolocation signals and the ban-evasion check, which wait for GeoLite2 and freezing; the privacy notice still needs the lawyer) | scores, step-up 2FA, "new sign-in" email with "not me", `account_links`, ban-evasion check at registration; privacy notice + cookie notice update | 3, lawyer |
 | 5 ✓ | **Retire sessions** — done 2026-10-21 | remove the session hash path, `resolve`/`peekMany`, `Session.php`'s request role; Redis keeps pub/sub, counters, caches | 2 |
 | 6 ✓ | **CMS foundation** — built 2026-10-21 (email codes; TOTP later) | `cms/` service + container, `admin/` Vue app, staff accounts with mandatory 2FA, `aud: cms` tokens, permissions, `staff_audit`, create-admin script | 1–2 |
-| 7 | **Content editor** | `layout.json` generator, page wireframe, block form with language switcher, add key, validation, history/revert, `i18n:pull` | 6 |
+| 7 ✓ | **Content editor** — built 2026-10-21 (regions are header / page / shared / footer from the imports, not per-component comments; `i18n:pull` is `api/bin/pull-english.php`) | `layout.json` generator, page wireframe, block form with language switcher, add key, validation, history/revert, `i18n:pull` | 6 |
 | 8 | **Users** | search/list, user page, sanctions/adjustments, badges, bonuses, verification, freeze (+ booking handling), security tab | 3, 6 |
 | 9 | **Moderation** | complaints/disputes queue and resolution, linked-accounts review, audit log viewer | 4, 8 |
 
