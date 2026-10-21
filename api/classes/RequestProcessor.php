@@ -255,6 +255,32 @@ class RequestProcessor
                     (string) ($this->input['note'] ?? '')
                 )];
 
+            // A complaint was closed in the CMS (`Moderation`): tell the
+            // reporter it was reviewed — never the outcome — once. Internal
+            // only, like `staffCancelBooking`.
+            case 'staffComplaintReviewed':
+                $complaint = $this->db->db_GetRowById((int) ($this->input['complaintId'] ?? 0), 'complaints');
+                if (!$complaint || $complaint['reporter_id'] === null || $complaint['reporter_told_at'] !== null) {
+                    return [200, ['told' => false]];
+                }
+                $subject = $complaint['subject_id'] !== null ? $this->db->db_GetRowById((int) $complaint['subject_id'], 'users', '`name`') : null;
+                $about = trim((string) ($subject['name'] ?? '')) ?: 'another user';
+                $reporter = $this->db->db_GetRowById((int) $complaint['reporter_id'], 'users', '`name`');
+                $this->notifications->notify(
+                    (int) $complaint['reporter_id'],
+                    'complaint_reviewed',
+                    "Thanks for your report about {$about} — our team has reviewed it.",
+                    'We’ve reviewed your report',
+                    'Hi' . (trim((string) ($reporter['name'] ?? '')) !== '' ? ' ' . trim((string) $reporter['name']) : '') . ",\n\n"
+                    . "Thank you for reporting {$about} (\"{$complaint['title']}\"). Our team has reviewed it and taken the action we think is right.\n"
+                    . "For everyone's privacy we don't share the details of what happens to another account.\n\n"
+                    . "If something else happens, you can report it from their profile again.\n\nBeLikeLocal",
+                    $complaint['subject_id'] !== null ? (int) $complaint['subject_id'] : null
+                );
+                $this->db->db_Execute('UPDATE `complaints` SET `reporter_told_at` = UTC_TIMESTAMP() WHERE `id` = ' . (int) $complaint['id']);
+
+                return [200, ['told' => true]];
+
             // The app's routes and each page's text blocks, owned by the CMS
             // (`AppMap`, 079) — the client builds its router from it at start-up.
             case 'appMap':

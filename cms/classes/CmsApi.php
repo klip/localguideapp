@@ -37,6 +37,12 @@ final class CmsApi
         'searchUsers' => 'users.view',
         'userDetail' => 'users.view',
         'userEdit' => 'users.edit',
+        'moderationComplaints' => 'disputes.resolve',
+        'moderationComplaint' => 'disputes.resolve',
+        'complaintMessages' => 'disputes.resolve',
+        'complaintAction' => 'disputes.resolve',
+        'moderationLinks' => 'disputes.resolve',
+        'linkVerdict' => 'disputes.resolve',
         'userFreeze' => 'users.freeze',
         'userUnfreeze' => 'users.freeze',
         'bookingDecision' => 'refunds',
@@ -66,6 +72,8 @@ final class CmsApi
     private $userEditor;
     /** @var UserFreezes */
     private $freezes;
+    /** @var Moderation */
+    private $moderation;
     /** @var array the signed-in member */
     private $me = [];
     /** @var string */
@@ -82,6 +90,7 @@ final class CmsApi
         $this->users = new UserAdmin($db);
         $this->userEditor = new UserEditor($db, $redis);
         $this->freezes = new UserFreezes($db, $redis);
+        $this->moderation = new Moderation($db, $this->userEditor);
         $this->content = new ContentEditor($db, $this->appMap);
     }
 
@@ -176,6 +185,26 @@ final class CmsApi
                 return [200, $this->contentRevert($input)];
             case 'userLocations':
                 return [200, $this->users->locations()];
+            case 'moderationComplaints':
+                return [200, $this->moderation->complaints($input)];
+            case 'moderationComplaint':
+                return [200, $this->moderation->complaint((int) ($input['id'] ?? 0))];
+            case 'complaintMessages':
+                // A private conversation: every look is on the record.
+                $messages = $this->moderation->messages((int) ($input['id'] ?? 0));
+                $this->audit->record($this->me, 'moderation.read_messages', 'complaint', (string) (int) ($input['id'] ?? 0),
+                    null, ['messages' => count($messages['messages'])], $this->ip);
+
+                return [200, $messages];
+            case 'complaintAction':
+                return [200, $this->complaintAction($input)];
+            case 'moderationLinks':
+                return [200, $this->moderation->links($input)];
+            case 'linkVerdict':
+                [$before, $after] = $this->moderation->verdict((int) ($input['id'] ?? 0), (string) ($input['verdict'] ?? ''), (string) ($input['note'] ?? ''), $this->me);
+                $this->audit->record($this->me, 'moderation.link_verdict', 'link', (string) (int) ($input['id'] ?? 0), $before, $after, $this->ip);
+
+                return [200, ['ok' => true]];
             case 'userFreeze':
             case 'userUnfreeze':
             case 'bookingDecision':
@@ -363,6 +392,39 @@ final class CmsApi
         return $this->users->detail($id, Permissions::allows((string) $this->me['role'], 'users.security'));
     }
 
+    /**
+     * take | note | resolve | dismiss | reopen on one complaint (`op`),
+     * audited as `moderation.<op>`; answers with the complaint's fresh page.
+     */
+    private function complaintAction(array $input): array
+    {
+        $id = (int) ($input['id'] ?? 0);
+        $op = (string) ($input['op'] ?? '');
+        $m = $this->moderation;
+        switch ($op) {
+            case 'take':
+                [$before, $after] = $m->take($id, $this->me);
+                break;
+            case 'note':
+                [$before, $after] = $m->note($id, (string) ($input['note'] ?? ''), $this->me);
+                break;
+            case 'resolve':
+                [$before, $after] = $m->resolve($id, $input, $this->me);
+                break;
+            case 'dismiss':
+                [$before, $after] = $m->dismiss($id, (string) ($input['resolution'] ?? ''), $this->me);
+                break;
+            case 'reopen':
+                [$before, $after] = $m->reopen($id, $this->me);
+                break;
+            default:
+                throw new RuntimeException('Unknown action.');
+        }
+        $this->audit->record($this->me, 'moderation.' . $op, 'complaint', (string) $id, $before, $after, $this->ip);
+
+        return $m->complaint($id);
+    }
+
     /** Freezing, lifting a freeze, and deciding a booking left open (`UserFreezes`), audited. */
     private function userFreeze(string $action, array $input): array
     {
@@ -399,7 +461,8 @@ final class CmsApi
         $beforeId = isset($input['beforeId']) ? (int) $input['beforeId'] : null;
 
         // `filter`, not `action` — that's the request's own action name.
-        return $this->audit->page($scope, (int) $this->me['id'], $beforeId, isset($input['filter']) ? (string) $input['filter'] : null)
+        return $this->audit->page($scope, (int) $this->me['id'], $beforeId, isset($input['filter']) ? (string) $input['filter'] : null,
+            isset($input['target']) ? (string) $input['target'] : null)
             + ['scope' => $scope];
     }
 

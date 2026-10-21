@@ -56,8 +56,15 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/moderation',
     name: 'moderation',
-    component: () => import('@/pages/ComingSoonPage.vue'),
-    meta: { capability: 'disputes.resolve', title: 'Moderation', phase: 9 },
+    component: () => import('@/pages/ModerationPage.vue'),
+    meta: { capability: 'disputes.resolve' },
+  },
+  {
+    path: '/moderation/complaints/:id(\\d+)',
+    name: 'complaint',
+    component: () => import('@/pages/ComplaintPage.vue'),
+    props: true,
+    meta: { capability: 'disputes.resolve' },
   },
   {
     path: '/staff',

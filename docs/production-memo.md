@@ -60,7 +60,7 @@ real users and real money. Add to this list whenever a shortcut is taken.
 
 | Now | For production |
 | --- | --- |
-| **The CMS covers staff, UI texts, routes and users** (search, the user page, sanctions, level adjustments, badges, bonuses, verification by hand, freezing with booking decisions), but complaints are still resolved in SQL (CMS phase 9), and refunds a freeze decides are recorded, not paid (like every refund here). Staff codes go by email, through the same Gmail stand-in. | The rest of the CMS; an authenticator-app (TOTP) or security-key second factor for staff instead of email codes; `admin.belikelocal.club` serving `admin/`'s build and routing `/auth/` to `auth/cms.php` and `/api` to `cms/index.php`, ideally behind an IP allowlist or VPN. |
+| **The CMS covers staff, UI texts, routes and users** (search, the user page, sanctions, level adjustments, badges, bonuses, verification by hand, freezing with booking decisions), and moderation (complaints, linked accounts); refunds a freeze decides are recorded, not paid (like every refund here). Staff codes go by email, through the same Gmail stand-in. | The rest of the CMS; an authenticator-app (TOTP) or security-key second factor for staff instead of email codes; `admin.belikelocal.club` serving `admin/`'s build and routing `/auth/` to `auth/cms.php` and `/api` to `cms/index.php`, ideally behind an IP allowlist or VPN. |
 
 ## Infrastructure
 

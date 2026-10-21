@@ -399,6 +399,110 @@ export interface UserLocations {
   countries: { code: string; users: number }[]
 }
 
+export type ComplaintStatus = 'open' | 'reviewing' | 'resolved' | 'dismissed'
+
+export interface ComplaintRow {
+  id: number
+  title: string
+  status: ComplaintStatus
+  createdAt: string
+  reporter: PersonRef | null
+  subject: (PersonRef & { frozen: boolean }) | null
+  /** Complaints about this person in all. */
+  aboutSubject: number
+  notes: number
+  assignedTo: string | null
+}
+
+/** A person in a complaint or a linked-accounts pair. */
+export interface ModerationPerson {
+  id: number
+  name: string
+  email: string
+  image: string | null
+  roles: AppRole[]
+  createdAt: string
+  verified: boolean
+  freeze: Freeze | null
+  complaintsAbout: number
+  complaintsBy: number
+  /** Levels taken off by sanctions in force. */
+  activeSanctions: number
+}
+
+export interface Complaint {
+  id: number
+  title: string
+  description: string
+  status: ComplaintStatus
+  resolution: string | null
+  createdAt: string
+  assignedTo: string | null
+  assignedAt: string | null
+  resolvedAt: string | null
+  resolvedBy: string | null
+  reporterToldAt: string | null
+  reporter: ModerationPerson | null
+  subject: ModerationPerson | null
+  between: {
+    matches: {
+      guestId: number
+      guideId: number
+      active: boolean
+      guestDecision: string | null
+      guideDecision: string | null
+      matchedAt: string | null
+    }[]
+    bookings: {
+      id: number
+      guestId: number
+      status: string
+      tripStatus: string
+      paymentStatus: string
+      amount: number | null
+      refund: number | null
+      meetingAt: string | null
+      cancelReason: string | null
+    }[]
+    messageCount: number
+  } | null
+  notes: { id: number; body: string; by: string; createdAt: string }[]
+  sanctions: {
+    id: number
+    levels: number
+    reason: string
+    expiresAt: string | null
+    liftedAt: string | null
+    by: string
+  }[]
+}
+
+export interface ComplaintMessage {
+  id: number
+  from: 'reporter' | 'subject'
+  kind: 'text' | 'location'
+  body: string | null
+  location: { latitude: number; longitude: number } | null
+  createdAt: string
+}
+
+export interface AccountLink {
+  id: number
+  a: ModerationPerson | null
+  b: ModerationPerson | null
+  signal: 'device' | 'ip_fingerprint' | 'fingerprint'
+  strength: number
+  hits: number
+  firstSeenAt: string
+  lastSeenAt: string
+  verdict: 'same_person' | 'different_people' | 'unsure' | null
+  reviewedAt: string | null
+  reviewedBy: string | null
+  note: string | null
+}
+
+export type ComplaintOp = 'take' | 'note' | 'resolve' | 'dismiss' | 'reopen'
+
 export interface CodeChallenge {
   codeRequired: true
   challengeToken: string
@@ -634,7 +738,31 @@ export const api = {
   pageMap: () => call<PageMap>('pageMap'),
   routeSave: (route: RouteInput) => call<PageMap & { route: AppRoute }>('routeSave', route),
   routeDelete: (id: number) => call<PageMap>('routeDelete', { id }),
-  auditLog: (options: { beforeId?: number; filter?: string } = {}) =>
+  moderationComplaints: (options: { status?: string; subjectId?: number; page?: number } = {}) =>
+    call<{
+      complaints: ComplaintRow[]
+      total: number
+      page: number
+      pageSize: number
+      counts: Record<ComplaintStatus, number>
+    }>('moderationComplaints', options),
+  moderationComplaint: (id: number) => call<Complaint>('moderationComplaint', { id }),
+  /** The pair's chat — every call is recorded in the audit log. */
+  complaintMessages: (id: number) =>
+    call<{ messages: ComplaintMessage[] }>('complaintMessages', { id }),
+  complaintAction: (id: number, op: ComplaintOp, payload: Record<string, unknown> = {}) =>
+    call<Complaint>('complaintAction', { id, op, ...payload }),
+  moderationLinks: (options: { status?: 'unreviewed' | 'reviewed' | 'all'; page?: number } = {}) =>
+    call<{
+      links: AccountLink[]
+      total: number
+      unreviewed: number
+      page: number
+      pageSize: number
+    }>('moderationLinks', options),
+  linkVerdict: (id: number, verdict: NonNullable<AccountLink['verdict']>, note: string) =>
+    call<{ ok: true }>('linkVerdict', { id, verdict, note }),
+  auditLog: (options: { beforeId?: number; filter?: string; target?: string } = {}) =>
     call<{ entries: AuditEntry[]; hasMore: boolean; scope: 'all' | 'operations' | 'own' }>(
       'auditLog',
       options,

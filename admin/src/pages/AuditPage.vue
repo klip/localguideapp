@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ApiError, api, type AuditEntry } from '@/api'
 
 /**
  * Every change made in the CMS, newest first, 50 at a time. What you see
  * depends on your role (the server decides): admins everything, managers
  * everything but staff management, editors their own changes.
+ *
+ * `?target=user:156` (from a user or complaint page) narrows to what was
+ * done to one thing; users and complaints link to their pages.
  */
+const route = useRoute()
+const target = computed(() => (typeof route.query.target === 'string' ? route.query.target : ''))
 const entries = ref<AuditEntry[]>([])
 const hasMore = ref(false)
 const scope = ref('')
@@ -29,6 +35,7 @@ async function load(more = false) {
     const page = await api.auditLog({
       ...(more && last ? { beforeId: last.id } : {}),
       ...(filter.value.trim() ? { filter: filter.value.trim() } : {}),
+      ...(target.value ? { target: target.value } : {}),
     })
     entries.value = more ? [...entries.value, ...page.entries] : page.entries
     hasMore.value = page.hasMore
@@ -54,13 +61,33 @@ function changes(entry: AuditEntry): string {
     .join('; ')
 }
 
-onMounted(() => load())
+/** Where a target lives in the CMS, if it has a page. */
+function targetLink(entry: AuditEntry): string | null {
+  if (entry.targetType === 'user' && /^\d+$/.test(entry.targetId)) return `/users/${entry.targetId}`
+  if (entry.targetType === 'complaint') return `/moderation/complaints/${entry.targetId}`
+  if (entry.targetType === 'route') return '/pages'
+  return null
+}
+
+watch(
+  target,
+  () => {
+    entries.value = []
+    void load()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <section>
     <h1>Audit log</h1>
     <p class="muted" data-test="scope">{{ SCOPES[scope] }}</p>
+    <p v-if="target" class="notice" data-test="target">
+      Only changes to <strong>{{ target.replace(':', ' #') }}</strong
+      >.
+      <RouterLink to="/audit">Show all</RouterLink>
+    </p>
     <form role="search" @submit.prevent="load()">
       <input
         v-model="filter"
@@ -90,7 +117,12 @@ onMounted(() => load())
             <td>
               <code>{{ entry.action }}</code>
             </td>
-            <td>{{ entry.targetType }} #{{ entry.targetId }}</td>
+            <td>
+              <RouterLink v-if="targetLink(entry)" :to="targetLink(entry)!"
+                >{{ entry.targetType }} #{{ entry.targetId }}</RouterLink
+              >
+              <template v-else>{{ entry.targetType }} #{{ entry.targetId }}</template>
+            </td>
             <td class="tiny">{{ changes(entry) }}</td>
           </tr>
           <tr v-if="!loading && entries.length === 0">

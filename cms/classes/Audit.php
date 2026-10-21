@@ -35,9 +35,26 @@ final class Audit
      *
      * @return array{entries: array, hasMore: bool}
      */
-    public function page(string $scope, int $staffId, ?int $beforeId, ?string $action): array
+    /**
+     * `$target` narrows to one thing changed — `user:156`, `complaint:3`,
+     * `route:discover` — and, for a user, also the link verdicts and
+     * complaints that named them.
+     */
+    public function page(string $scope, int $staffId, ?int $beforeId, ?string $action, ?string $target = null): array
     {
         $where = [];
+        if ($target !== null && $target !== '') {
+            [$type, $id] = array_pad(explode(':', $target, 2), 2, '');
+            if (!preg_match('/^[a-z_]+$/', $type) || $id === '') {
+                throw new RuntimeException('A target is type:id, like user:156.');
+            }
+            $match = '(`target_type` = ' . $this->quote($type) . ' AND `target_id` = ' . $this->quote($id) . ')';
+            if ($type === 'user' && ctype_digit($id)) {
+                // A link verdict names both users in `after.users`.
+                $match = '(' . $match . ' OR (`target_type` = "link" AND JSON_CONTAINS(`after`, ' . $this->quote($id) . ', "$.users")))';
+            }
+            $where[] = $match;
+        }
         if ($scope === 'operations') {
             $where[] = '`action` NOT LIKE "staff.%"';
         } elseif ($scope === 'own') {

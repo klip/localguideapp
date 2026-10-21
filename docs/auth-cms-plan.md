@@ -448,7 +448,7 @@ reason, staff_id, lifted_at, lifted_by)`):
 | 6 ✓ | **CMS foundation** — built 2026-10-21 (email codes; TOTP later) | `cms/` service + container, `admin/` Vue app, staff accounts with mandatory 2FA, `aud: cms` tokens, permissions, `staff_audit`, create-admin script | 1–2 |
 | 7 ✓ | **Content editor + routes** — built 2026-10-21 (the page map is in the database — routes managed in the CMS, each page's blocks developer-owned; `i18n:pull` is `api/bin/pull-english.php`, plus `pull-app-map.php`) | page map in the database (`app_routes`), Pages screen for routes, page wireframe, block form with language switcher, add key, validation, history/revert, `i18n:pull` | 6 |
 | 8 ✓ | **Users** — built 2026-10-21 (staff-granted bonuses wait for the user to claim them unless started now; badge labels aren't translated) | search/list, user page, sanctions/adjustments, badges, bonuses, verification, freeze (+ booking handling), security tab | 3, 6 |
-| 9 | **Moderation** | complaints/disputes queue and resolution, linked-accounts review, audit log viewer | 4, 8 |
+| 9 ✓ | **Moderation** — built 2026-10-21 (the audit log viewer was phase 6; this adds its target filter and links) | complaints/disputes queue and resolution, linked-accounts review, audit log viewer | 4, 8 |
 
 Phases 1–2 are about a week of work each including tests; 6–8 are the bulk
 of the CMS. 3–4 can run alongside 6–7.

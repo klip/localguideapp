@@ -13,6 +13,7 @@ require_once __DIR__.'/classes/ContentEditor.php';
 require_once __DIR__.'/classes/UserAdmin.php';
 require_once __DIR__.'/classes/UserEditor.php';
 require_once __DIR__.'/classes/UserFreezes.php';
+require_once __DIR__.'/classes/Moderation.php';
 require_once __DIR__.'/classes/CmsApi.php';
 
 Log::install('cms');

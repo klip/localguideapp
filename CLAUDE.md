@@ -45,7 +45,8 @@ password reset");
 The CMS (`admin/` + `cms/`, see "CMS") has staff accounts, sign-in, roles,
 staff management, the audit log, the UI-text editor, the app's routes and
 the Users section (search, the user page, sanctions, level adjustments,
-badges, bonuses, verification, freezing) — but not yet moderation (phase 9). **Email, on the other hand, is real** (`Mailer.php`, Gmail SMTP) once
+badges, bonuses, verification, freezing) and Moderation (the complaints
+queue and linked-accounts review) — phases 6–9 of `docs/auth-cms-plan.md`. **Email, on the other hand, is real** (`Mailer.php`, Gmail SMTP) once
 the `SMTP_*` server params are set — see "Email" under Docker environment.
 
 **Known gaps / inconsistencies** (worth knowing about, not urgent):
@@ -966,8 +967,8 @@ happened (≤2000), with counters. `api.reportUser()` →
 - Stored in `complaints` (037: reporter, subject, title, description,
   `status` open → reviewing → resolved | dismissed, `resolution`,
   `resolved_at`); deleting either account sets its id to NULL, so a reported
-  user can't erase a complaint. No admin screen yet — moderators resolve in
-  SQL (the migration has the statement).
+  user can't erase a complaint. Moderators handle it in the CMS (see "CMS →
+  Moderation"); the reporter is told it was reviewed, never the outcome.
 - `COMPLAINTS_EMAIL` (env, optional) gets an email per complaint, at most one
   per reported person every 6 hours — counted from `notified_at` (when an
   email actually went), claimed under a per-subject lock. The person reported
@@ -2068,8 +2069,8 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
 
 The staff back office (`docs/auth-cms-plan.md`, phases 6–9). **Phases 6–8
 are in**: staff accounts, sign-in, roles, staff management, the audit log,
-the content editor, the app's routes and the Users section. Moderation (9)
-is a placeholder.
+the content editor, the app's routes and the Users section. **Phase 9 is in
+too**: Moderation.
 
 - **Its own origin and build**: `admin/` is a separate Vite + Vue 3 app
   (Pico, English only, no i18n) on `https://admin.belikelocal.club` — in
@@ -2116,7 +2117,10 @@ is a placeholder.
   change — who, action (`staff.invite`, `staff.role`, `staff.disable`, …),
   target, before/after JSON, IP. Admins see all, managers all but `staff.*`,
   editors their own; filter by action prefix (`filter`, not `action` — that's
-  the request's own name), 50 at a time.
+  the request's own name) and by target (`target=user:156`, which also
+  finds link verdicts naming that user — the user and complaint pages link
+  there as "Staff actions on them"); users and complaints link to their
+  pages; 50 at a time.
 - **Content editor** (`/content`, `content.edit` — editors, managers,
   admins; `admin/src/pages/ContentPage.vue`, `cms/classes/ContentEditor.php`):
   edits the `translations` table, i.e. every UI string in 15 languages.
@@ -2225,6 +2229,34 @@ is a placeholder.
     found", chats with them are read-only (`can_send: false`), and nobody can
     pick or pay them. Bookings left open show as "Needs a decision"
     (`bookingDecision`, `refunds`). Lifting early needs a reason.
+- **Moderation** (`/moderation`, `disputes.resolve` — managers and admins;
+  `admin/src/pages/ModerationPage.vue`, `ComplaintPage.vue`;
+  `cms/classes/Moderation.php`; 085 adds `complaints.assigned_*`,
+  `resolved_by`, `reporter_told_at`, `complaint_notes`,
+  `account_links.reviewed_by/review_note`):
+  - **Complaints** (from the app's Report button): the "To do" tab is open +
+    under review, oldest first; other tabs per status, with counts. A
+    complaint's page shows the report, both people (complaints about/by them,
+    sanctions in force, frozen, verified — linked to their user pages), what's
+    between them (their match, every booking with amounts and refunds, how
+    many chat messages) and staff-only **notes**. **Their chat is shown only on
+    request** (`complaintMessages`, the last 100 both ways), and every look is
+    audited as `moderation.read_messages`.
+  - **Decisions** (`complaintAction` + `op`, audited `moderation.<op>`): take
+    it (open → reviewing, assigned to you; "take it over" from a colleague),
+    note, **resolve** (resolution required; optionally a sanction on the
+    person reported — −N levels, days — tied to the complaint, reason
+    "Complaint #N: title"), **dismiss** (reason required), reopen. Closing
+    asks the API (internal `staffComplaintReviewed`, refused from browsers)
+    to tell the reporter "we've reviewed your report" — in-app + email, once
+    per complaint (`reporter_told_at`), never the outcome. Freezing stays on
+    the user page.
+  - **Linked accounts** (`account_links`, from sign-in, 074): to review first,
+    strongest (same browser) and most seen first; each pair side by side with
+    complaints and sanctions, a verdict — same person / different people /
+    unsure — and an optional note (`linkVerdict`, audited
+    `moderation.link_verdict` with both users, so it shows under either
+    user's audit filter).
 - **Tests**: `lib/tests/cms-e2e.php` (29 checks against the running stack —
   run with the mailer stopped, it reads codes and links from the queued
   outbox: `docker exec lemp-rg-auth php /var/www/localguideapp/lib/tests/cms-e2e.php`);
@@ -2232,8 +2264,13 @@ is a placeholder.
   over internal HTTP: the booking decision, sign-in/refresh/registration
   refused, gone from decks and profiles, read-only chat, lifting; mailer
   stopped too: `docker exec lemp-rg-cms php /var/www/localguideapp/lib/tests/freeze-e2e.php`);
+  `lib/tests/moderation-e2e.php` (23 checks — the queue, take/note/resolve
+  with a sanction/reopen/dismiss, the reporter told once through the API, a
+  link verdict; mailer stopped: `docker exec lemp-rg-cms php /var/www/localguideapp/lib/tests/moderation-e2e.php`);
   `admin/src/__tests__/cms.spec.ts` (menu by role, the two-step sign-in,
-  staff invite/disable), `content.spec.ts` (wireframe, block form, language
+  staff invite/disable), `moderation.spec.ts` (the queue and its status
+  tabs, link verdicts, a complaint's people and chat-on-request, take/note/
+  resolve with a sanction/dismiss/reopen, the audit target filter and links), `content.spec.ts` (wireframe, block form, language
   switch and its unsaved-edits guard, save, pinned field errors, add key,
   history/revert), `users.spec.ts` (search and filters in the URL,
   sorting, paging; read-only without `users.edit`, pinned field errors, the
@@ -2267,8 +2304,8 @@ is a placeholder.
   `belikelocal.club` (+ www/admin/api) and `localhost:5173`; `WS_EXTRA_ORIGINS`
   (comma-separated, exact) adds more, e.g. a second dev server.
 - **Refused from clients** (404): `pushState` (api, gateway-only),
-  `staffCancelBooking` (api, called by the CMS over internal HTTP —
-  `ServiceHttp::call()`) and the sign-in actions, which are HTTP (`AuthHttp`).
+  `staffCancelBooking` and `staffComplaintReviewed` (api, called by the CMS
+  over internal HTTP — `ServiceHttp::call()`) and the sign-in actions, which are HTTP (`AuthHttp`).
 - **Stateless**: nothing but the gateway's open sockets (and its copy of the
   revocation list) lives in a process. Revocations and caches are in Redis,
   everything else in MySQL, so every service
@@ -2990,6 +3027,10 @@ API service (`api/classes/`):
   strip's captions. Applied 2026-10-21. Re-runnable.
 - `api/sql/084_translations_rail_in_progress.sql` — `discover.rail.in_progress`
   (a trip under way in the Discover rail). Applied 2026-10-21. Re-runnable.
+- `api/sql/085_moderation.sql` — `complaints.assigned_staff_id/assigned_email/
+  assigned_at/resolved_by/reporter_told_at`, `complaint_notes`,
+  `account_links.reviewed_by/review_note` (see "CMS → Moderation"). Applied
+  2026-10-21. Not re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

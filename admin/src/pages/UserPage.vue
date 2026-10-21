@@ -23,6 +23,7 @@ const fieldError = reactive({ form: '', field: '', message: '' })
 const canEdit = computed(() => can('users.edit'))
 const canFreeze = computed(() => can('users.freeze'))
 const canRefund = computed(() => can('refunds'))
+const canModerate = computed(() => can('disputes.resolve'))
 
 const ROLE_LABEL: Record<AppRole, string> = { guest: 'Traveller', guide: 'Guide' }
 const LEVEL_NAMES = [
@@ -334,6 +335,11 @@ watch(() => props.id, load, { immediate: true })
             {{ user.account.email }} ·
             {{ user.account.roles.map((r) => ROLE_LABEL[r]).join(' & ') || 'no role' }} · joined
             {{ date(user.account.createdAt) }}
+          </p>
+          <p class="tiny">
+            <RouterLink :to="`/audit?target=user:${user.account.id}`" data-test="audit-link"
+              >Staff actions on them</RouterLink
+            >
           </p>
           <p>
             <span v-if="user.freeze" class="pill frozen" data-test="frozen-pill">
@@ -1135,7 +1141,11 @@ watch(() => props.id, load, { immediate: true })
           <summary>Complaints ({{ user.activity.complaints.length }})</summary>
           <ul class="records">
             <li v-for="c in user.activity.complaints" :key="c.id">
-              #{{ c.id }} {{ c.direction === 'by' ? 'they reported' : 'reported by' }}
+              <RouterLink v-if="canModerate" :to="`/moderation/complaints/${c.id}`"
+                >#{{ c.id }}</RouterLink
+              >
+              <template v-else>#{{ c.id }}</template>
+              {{ c.direction === 'by' ? 'they reported' : 'reported by' }}
               <RouterLink v-if="c.other" :to="`/users/${c.other.id}`">{{
                 c.other.name || `#${c.other.id}`
               }}</RouterLink>
