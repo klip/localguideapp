@@ -9,6 +9,10 @@
  *
  *   SMTP_HOST, SMTP_PORT (default 587), SMTP_USER, SMTP_PASS
  *   MAIL_FROM (default SMTP_USER), MAIL_FROM_NAME (default "BeLikeLocal")
+ *   MAIL_FORWARDS    — temporary: `address=forward-to` pairs, comma-separated,
+ *                      for our own addresses with no mailbox behind them yet
+ *                      (belikelocal.club has no mail service). Remove each
+ *                      pair once the address can receive mail itself.
  *   MAIL_REDIRECT_TO — development only: every message goes to this address
  *                      instead, with the real recipient noted in the body.
  *
@@ -32,6 +36,12 @@ class Mailer
             throw new MailerException('SMTP is not configured', true);
         }
 
+        $forward = self::forwardFor($to);
+        if ($forward !== null) {
+            $body = "[Forwarded: addressed to {$to}]\n\n" . $body;
+            $to = $forward;
+        }
+
         $redirect = self::env('MAIL_REDIRECT_TO');
         if ($redirect !== '') {
             $body = "[Development: originally addressed to {$to}]\n\n" . $body;
@@ -50,6 +60,19 @@ class Mailer
         } catch (Throwable $e) {
             throw new MailerException($e->getMessage(), false);
         }
+    }
+
+    /** Where `MAIL_FORWARDS` sends mail for `$to`, if anywhere. */
+    private static function forwardFor(string $to): ?string
+    {
+        foreach (explode(',', self::env('MAIL_FORWARDS')) as $pair) {
+            [$from, $target] = array_map('trim', array_pad(explode('=', $pair, 2), 2, ''));
+            if ($from !== '' && strcasecmp($from, trim($to)) === 0 && filter_var($target, FILTER_VALIDATE_EMAIL)) {
+                return $target;
+            }
+        }
+
+        return null;
     }
 
     private function deliver(string $host, int $port, string $user, string $pass, string $to, string $subject, string $body): void

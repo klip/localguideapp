@@ -34,7 +34,7 @@ class Profiles
     // No `rating`/`tours`: those columns still exist but are dead — a
     // profile's rating comes from `reviews` now (see `Reviews`), and nobody
     // gets to set their own.
-    // Headline and description are per role — `user_role`, see `setRoleText()`.
+    // Headline and description are per role — `role_profiles`, see `setRoleText()`.
     private const SCALAR_COLUMNS = [
         'date_of_birth', 'gender', 'price_amount', 'price_label',
         'price_note', 'includes', 'party', 'duration_hours',
@@ -76,12 +76,15 @@ class Profiles
     }
 
     /**
-     * The headline and description `$userId` shows as `$role` (their row of
-     * `user_role` — they differ per role). Only keys present in `$fields`
-     * change; an empty string clears.
+     * The headline and description `$userId` shows as `$role` (their
+     * `role_profiles` row — they differ per role; created on first write).
+     * Only keys present in `$fields` change; an empty string clears.
      */
     public function setRoleText(int $userId, string $role, array $fields): void
     {
+        if (!in_array($role, Roles::APP_ROLES, true)) {
+            return;
+        }
         $set = [];
         foreach (['headline', 'bio'] as $column) {
             if (array_key_exists($column, $fields) && $fields[$column] !== null) {
@@ -94,9 +97,8 @@ class Profiles
         }
 
         $this->db->db_Execute(
-            'UPDATE `user_role` ur JOIN `roles` r ON r.`id` = ur.`role_id`
-             SET ' . implode(', ', $set) . '
-             WHERE ur.`user_id` = ' . $userId . ' AND r.`name` = "' . $this->db->db_Escape($role) . '"'
+            'INSERT INTO `role_profiles` SET `user_id` = ' . $userId . ', `role` = "' . $role . '", ' . implode(', ', $set) . '
+             ON DUPLICATE KEY UPDATE ' . implode(', ', $set)
         );
     }
 

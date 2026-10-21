@@ -1806,10 +1806,13 @@ the plumbing, is in:
   (`App.vue` keys `<RouterView>` by `auth.activeRole`); `App.vue` re-syncs a
   guest's packs on the switch. The profile page says which
   role's profile is being edited.
-- **Per role** (phase 3, 052): **headline and description** live on the
-  `user_role` row (`Profiles::setRoleText()`; `user_profiles.headline/bio`
-  are gone) — `myProfile`/`updateProfile` use the acting role, the decks
-  join the candidate's row as `urx`, `publicProfile` takes `role`.
+- **Per role** (phase 3): **headline and description** live in
+  `role_profiles` (077; one row per user and role, created on first write —
+  `Profiles::setRoleText()`; `user_profiles.headline/bio` are gone) —
+  `myProfile`/`updateProfile` use the acting role, the decks join the
+  candidate's `user_role` row as `urx` (holding the role) and their
+  `role_profiles` row as `rp` (what they show in it), `publicProfile` takes
+  `role`. `user_role` is only the grant (`id`, `user_id`, `role_id`).
   **Attribute picks**: `attribute_categories.scope` is `shared` (languages —
   one set), `per_role` (interests/specialities, distance, anything users
   create — a set per role) or `guest`/`guide` (food allergies / hours — that
@@ -1829,8 +1832,8 @@ the plumbing, is in:
   $role)` gives `trips_completed` (every finished trip in that role — free
   ones too, the badge), `paid_trips` and `level_points`; a guide with trips
   but no paid one is `volunteer` — "♡ Volunteer" instead of a level
-  (`StandingBadges`, `LevelPanel`). `user_role.level` is the level last
-  announced per role (`users.level` is gone); `sync()` runs every role held;
+  (`StandingBadges`, `LevelPanel`). `role_profiles.level` is the level last
+  announced per role (only ever raised; the row appears with the first level) (`users.level` is gone); `sync()` runs every role held;
   level bonus reasons are `guest_level_N`/`guide_level_N`. Sanctions stay per
   person. `myLevel` reports the acting role's `points`/`next_level_points`.
 - **Polish** (phase 5): **menu counters per role** — `Badges::countsFor()`
@@ -2251,6 +2254,10 @@ MAIL_REDIRECT_TO=<your inbox>   # development only
   at myaccount.google.com/apppasswords. Gmail allows roughly 500 emails a
   day, and `From` must be that Gmail address (`MAIL_FROM` defaults to
   `SMTP_USER`).
+- `MAIL_FORWARDS` (temporary — production memo) forwards our own addresses
+  that have no mailbox yet: `address=target` pairs, comma-separated (now
+  `igor@belikelocal.club`, the CMS admin). The message notes the original
+  address; `MAIL_REDIRECT_TO`, if set, still applies after it.
 - `MAIL_REDIRECT_TO` sends every email to that one address instead, noting
   the real recipient at the top of the body — set it in development, where
   test accounts have made-up addresses; remove it in production.
@@ -2787,6 +2794,10 @@ API service (`api/classes/`):
 - `api/sql/076_cms_staff.sql` — `roles` 'viewer' → 'editor', `cms_users`
   status columns, `cms_creds`, `cms_challenges`, `cms_refresh_tokens`,
   `staff_audit` (see "CMS"). Applied 2026-10-21. Not re-runnable.
+- `api/sql/077_role_profiles.sql` — `role_profiles` (headline, bio, level per
+  user and role), copied from `user_role`, whose three columns are dropped.
+  Applied 2026-10-21 (every value checked; `_user_role_backup_077` kept as a
+  copy of the old table — drop it once you're happy). Not re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,
@@ -2827,7 +2838,9 @@ against throwaway `@example.test` accounts with the mail worker stopped.
   `cms_creds`, `cms_challenges`, `cms_refresh_tokens` and `staff_audit`
   (076) — see "CMS".
 - `user_role` — **the** user→role mapping (`user_id`, `role_id`, unique per
-  pair); `users` has no `role_id` any more (046). `Accounts::register()`
+  pair) and nothing else; `users` has no `role_id` any more (046). What a
+  user shows *in* a role — headline, bio, the level last announced — is
+  `role_profiles` (`user_id`, `role`, 077). `Accounts::register()`
   writes the one app role (guest or guide) in the registration transaction.
   Read it only through `lib/Roles.php` — `Roles::nameSql()` (a single-row
   subquery, so an extra mapped role can't duplicate a user in a listing)

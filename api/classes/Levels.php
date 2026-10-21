@@ -224,24 +224,22 @@ class Levels
         }
     }
 
-    /** `sync()` for one role: `user_role.level` is the level last announced in it. */
+    /** `sync()` for one role (one they hold): `role_profiles.level` is the level last announced in it. */
     private function syncRole(int $userId, string $role): void
     {
-        $roleRow = $this->db->db_GetRow(
-            'SELECT ur.`id`, ur.`level` FROM `user_role` ur JOIN `roles` r ON r.`id` = ur.`role_id`
-             WHERE ur.`user_id` = ' . $userId . ' AND r.`name` = "' . $this->db->db_Escape($role) . '"'
-        );
-        if (!$roleRow) {
-            return;
-        }
+        $previous = (int) ($this->db->db_GetRow(
+            'SELECT `level` FROM `role_profiles` WHERE `user_id` = ' . $userId . ' AND `role` = "' . $this->db->db_Escape($role) . '"'
+        )['level'] ?? 0);
 
         // The highest level announced, so a level comes with one
         // announcement — not another each time a sanction expires.
         $level = $this->effectiveLevel($userId, $role);
-        $previous = (int) $roleRow['level'];
         if ($level > $previous) {
+            // Only ever raised; the row appears with the first level.
             $this->db->db_Execute(
-                'UPDATE `user_role` SET `level` = ' . $level . ' WHERE `id` = ' . (int) $roleRow['id'] . ' AND `level` < ' . $level
+                'INSERT INTO `role_profiles` (`user_id`, `role`, `level`)
+                 VALUES (' . $userId . ', "' . $this->db->db_Escape($role) . '", ' . $level . ')
+                 ON DUPLICATE KEY UPDATE `level` = IF(`level` < VALUES(`level`), VALUES(`level`), `level`)'
             );
         }
         if ($level > $previous && $this->db->db_GetAffectedRows() > 0) {

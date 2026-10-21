@@ -125,8 +125,8 @@ class Users
             return [];
         }
 
-        // Holding the role is the `urx` join below (their row for this role,
-        // which also carries the headline and description they show in it).
+        // Holding the role is the `urx` join below (`user_role`); the headline
+        // and description they show in it come from `rp` (`role_profiles`).
         $where = ['1 = 1'];
 
         if ($roleName === 'guide') {
@@ -277,6 +277,7 @@ class Users
                 . ($distanceSql ? ', ROUND(' . $distanceSql . ') AS `distance_km`' : '') . $locationColumns . '
              FROM `users` u
              JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . (int) $roleId . '
+             LEFT JOIN `role_profiles` rp ON rp.`user_id` = u.`id` AND rp.`role` = "' . $this->db->db_Escape($roleName) . '"
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . $locationJoin . '
              ' . self::reviewSummaryJoin($roleName) . '
@@ -354,6 +355,7 @@ class Users
             'SELECT ' . self::PROFILE_COLUMNS . ', ' . Ranking::columns($role) . '
              FROM `users` u
              JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . $roleId . '
+             LEFT JOIN `role_profiles` rp ON rp.`user_id` = u.`id` AND rp.`role` = "' . $this->db->db_Escape($role) . '"
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . self::reviewSummaryJoin($role, $userId) . '
              ' . Ranking::tripsJoin($userId, $role) . ' ' . Ranking::reviewsJoin($userId, $role) . ' ' . Levels::sanctionsJoin($userId) . '
@@ -387,7 +389,7 @@ class Users
 
     private const PROFILE_COLUMNS = 'u.`id`, u.`name`, u.`image`, u.`created_at`,
                     TIMESTAMPDIFF(YEAR, p.`date_of_birth`, CURDATE()) AS `age`,
-                    p.`gender`, urx.`headline`, urx.`bio`, p.`price_label`, p.`price_note`,
+                    p.`gender`, rp.`headline`, rp.`bio`, p.`price_label`, p.`price_note`,
                     p.`includes`, p.`party`, p.`duration_hours`,
                     rs.`rating_average`, COALESCE(rs.`review_count`, 0) AS `review_count`';
 
@@ -454,11 +456,11 @@ class Users
         $row = $this->db->db_GetRow(
             'SELECT u.`id`, u.`name`, u.`email`, u.`phone`, u.`two_factor_method`, u.`image`, u.`created_at`,
                     u.`verified_at` IS NOT NULL AS `verified`, u.`verification_method`,
-                    p.`date_of_birth`, p.`gender`, urx.`headline`, urx.`bio`, p.`price_amount`, p.`price_label`, p.`price_note`,
+                    p.`date_of_birth`, p.`gender`, rp.`headline`, rp.`bio`, p.`price_amount`, p.`price_label`, p.`price_note`,
                     p.`includes`, p.`party`, p.`duration_hours`
              FROM `users` u
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
-             LEFT JOIN `user_role` urx ON urx.`user_id` = u.`id` AND urx.`role_id` = ' . (int) $this->findRoleIdByName($role) . '
+             LEFT JOIN `role_profiles` rp ON rp.`user_id` = u.`id` AND rp.`role` = "' . $this->db->db_Escape($role) . '"
              WHERE u.`id` = ' . $userId
         );
         if (!$row) {

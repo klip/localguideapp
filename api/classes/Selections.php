@@ -170,8 +170,7 @@ class Selections
              FROM `selections` s
              JOIN `users` u ON u.`id` = s.`' . $their . '_id`
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
-             LEFT JOIN `user_role` cr ON cr.`user_id` = u.`id`
-               AND cr.`role_id` = (SELECT `id` FROM `roles` WHERE `name` = "' . $their . '")
+             LEFT JOIN `role_profiles` cr ON cr.`user_id` = u.`id` AND cr.`role` = "' . $their . '"
              LEFT JOIN `user_profiles` gp ON gp.`user_id` = s.`guide_id`
              LEFT JOIN `bookings` b ON ' . self::LATEST_BOOKING . '
              WHERE s.`' . $own . '_id` = ' . (int) $userId . '

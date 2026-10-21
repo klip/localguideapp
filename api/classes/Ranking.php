@@ -98,7 +98,7 @@ final class Ranking
     /**
      * Columns for the query's SELECT: the badges, and `rank_score` for
      * ORDER BY (dropped before the row is returned — see `castRow()`).
-     * Needs `u` (users), `p` (user_profiles), `urx` (their `user_role` row
+     * Needs `u` (users), `p` (user_profiles), `rp` (their `role_profiles` row
      * for the role listed — headline/bio), `rr` (`reviewsJoin()`), `ts`
      * (`tripsJoin()`) and `sx` (`Levels::sanctionsJoin()`).
      */
@@ -135,7 +135,7 @@ final class Ranking
             + ((' . $prior . ' + COALESCE(rr.`author_sum`, 0)) / (' . self::PRIOR_REVIEWS . ' + COALESCE(rr.`authors`, 0)) - 3) * 15
             + 5 * ' . Levels::effectiveLevelSql() . '
             + IF(u.`image` IS NULL OR u.`image` = "", 0, 5)
-            + IF(urx.`bio` IS NULL OR urx.`bio` = "", 0, 5)
+            + IF(rp.`bio` IS NULL OR rp.`bio` = "", 0, 5)
             + GREATEST(0, ' . self::NEW_BOOST . ' * (1 - TIMESTAMPDIFF(HOUR, u.`created_at`, UTC_TIMESTAMP()) / (' . self::NEW_BOOST_DAYS . ' * 24)))' . $proximity . '
         )';
     }
