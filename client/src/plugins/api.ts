@@ -163,6 +163,12 @@ export interface BasicAccount {
  * Any scalar field can be `null` — plenty of accounts have a partial profile.
  */
 /** No `email`/`phone`: contact details are never shared with other users — matched people chat (`Messages`). */
+/** A badge the BeLikeLocal team awarded (`user_badges`): its label and one symbol. */
+export interface AwardedBadge {
+  label: string
+  icon: string
+}
+
 export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   age: number | null
   gender: Gender | null
@@ -185,8 +191,10 @@ export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   top_rated: boolean
   /** Finished trips in the role shown — free ones too. */
   trips_completed: number
-  /** Effective level 0–7 in the role shown (`Levels.php`): from paid trips' points, minus any active sanction. */
+  /** Effective level 0–7 in the role shown (`Levels.php`): from paid trips' points, minus any active sanction, plus or minus staff adjustments. */
   level: number
+  /** Badges staff awarded by hand ("Founding guide") — free text from the team, not translated. */
+  badges?: AwardedBadge[]
   /** A guide who has only guided for free so far: "Volunteer" instead of a level. */
   volunteer?: boolean
   /** Km to them from the deck's `near` point (0 = under 1 km); `null`/absent without a point or a location. */

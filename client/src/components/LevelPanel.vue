@@ -121,6 +121,8 @@ function bonusReason(bonus: BonusGrant) {
   const [kind, n] = bonus.reason.replace(/^(guest|guide)_/, '').split('_')
   if (kind === 'level') return t('profile.level.reason_level', { level: levelLabel(Number(n)) })
   if (kind === 'reviews') return t('profile.level.reason_reviews', { count: Number(n) })
+  // Granted by the team in the CMS (`staff_<id>`).
+  if (kind === 'staff') return t('profile.level.reason_staff')
   return ''
 }
 

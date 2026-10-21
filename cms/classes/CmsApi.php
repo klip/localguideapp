@@ -34,6 +34,13 @@ final class CmsApi
         'contentAddKey' => 'content.edit',
         'contentHistory' => 'content.edit',
         'contentRevert' => 'content.edit',
+        'searchUsers' => 'users.view',
+        'userDetail' => 'users.view',
+        'userEdit' => 'users.edit',
+        'userFreeze' => 'users.freeze',
+        'userUnfreeze' => 'users.freeze',
+        'bookingDecision' => 'refunds',
+        'placeSearch' => 'users.view',
         'pageMap' => 'pages.manage',
         'routeSave' => 'pages.manage',
         'routeDelete' => 'pages.manage',
@@ -53,6 +60,12 @@ final class CmsApi
     private $content;
     /** @var AppMap */
     private $appMap;
+    /** @var UserAdmin */
+    private $users;
+    /** @var UserEditor */
+    private $userEditor;
+    /** @var UserFreezes */
+    private $freezes;
     /** @var array the signed-in member */
     private $me = [];
     /** @var string */
@@ -66,6 +79,9 @@ final class CmsApi
         $this->tokens = new StaffTokens($db, $redis);
         $this->audit = new Audit($db);
         $this->appMap = new AppMap($db, $redis);
+        $this->users = new UserAdmin($db);
+        $this->userEditor = new UserEditor($db, $redis);
+        $this->freezes = new UserFreezes($db, $redis);
         $this->content = new ContentEditor($db, $this->appMap);
     }
 
@@ -158,6 +174,18 @@ final class CmsApi
                 return [200, ['history' => $this->content->history((string) ($input['prefix'] ?? ''), isset($input['key']) ? (string) $input['key'] : null)]];
             case 'contentRevert':
                 return [200, $this->contentRevert($input)];
+            case 'placeSearch':
+                return [200, ['places' => (new Geocoder($this->redis))->search((string) ($input['query'] ?? ''), 'en', null)]];
+            case 'userFreeze':
+            case 'userUnfreeze':
+            case 'bookingDecision':
+                return [200, $this->userFreeze($action, $input)];
+            case 'userEdit':
+                return [200, $this->userEdit($input)];
+            case 'userDetail':
+                return [200, $this->users->detail((int) ($input['id'] ?? 0), Permissions::allows((string) $this->me['role'], 'users.security'))];
+            case 'searchUsers':
+                return [200, $this->users->search($input)];
             case 'pageMap':
                 return [200, $this->pageMap()];
             case 'routeSave':
@@ -297,6 +325,64 @@ final class CmsApi
         $this->audit->record($this->me, 'pages.route_delete', 'route', $route['name'], self::routeAuditView($route), null, $this->ip);
 
         return $this->pageMap();
+    }
+
+    /**
+     * One change to an app user (`op`, see `UserEditor`), audited as
+     * `users.<op>`; answers with the user page's fresh data.
+     */
+    private function userEdit(array $input): array
+    {
+        $id = (int) ($input['id'] ?? 0);
+        $op = (string) ($input['op'] ?? '');
+        $e = $this->userEditor;
+        $me = $this->me;
+        $ops = [
+            'account' => fn() => $e->updateAccount($id, (array) ($input['account'] ?? [])),
+            'roleText' => fn() => $e->setRoleText($id, (string) ($input['role'] ?? ''), $input),
+            'profile' => fn() => $e->updateProfile($id, (array) ($input['profile'] ?? [])),
+            'addRole' => fn() => $e->addRole($id, (string) ($input['role'] ?? '')),
+            'removeRole' => fn() => $e->removeRole($id, (string) ($input['role'] ?? '')),
+            'verification' => fn() => $e->setVerification($id, isset($input['method']) && $input['method'] !== '' ? (string) $input['method'] : null),
+            'addSanction' => fn() => $e->addSanction($id, $input, $me),
+            'liftSanction' => fn() => $e->liftSanction($id, (int) ($input['sanctionId'] ?? 0), $me),
+            'addAdjustment' => fn() => $e->addAdjustment($id, $input, $me),
+            'liftAdjustment' => fn() => $e->liftAdjustment($id, (int) ($input['adjustmentId'] ?? 0), $me),
+            'addBadge' => fn() => $e->addBadge($id, $input, $me),
+            'revokeBadge' => fn() => $e->revokeBadge($id, (int) ($input['badgeId'] ?? 0), $me),
+            'addBonus' => fn() => $e->addBonus($id, $input, $me),
+            'extendBonus' => fn() => $e->extendBonus($id, (int) ($input['bonusId'] ?? 0), (int) ($input['days'] ?? 0)),
+            'revokeBonus' => fn() => $e->revokeBonus($id, (int) ($input['bonusId'] ?? 0)),
+        ];
+        if (!isset($ops[$op])) {
+            throw new RuntimeException('Unknown change.');
+        }
+        [$before, $after] = $ops[$op]();
+        $this->audit->record($this->me, 'users.' . $op, 'user', (string) $id, $before, $after, $this->ip);
+
+        return $this->users->detail($id, Permissions::allows((string) $this->me['role'], 'users.security'));
+    }
+
+    /** Freezing, lifting a freeze, and deciding a booking left open (`UserFreezes`), audited. */
+    private function userFreeze(string $action, array $input): array
+    {
+        $id = (int) ($input['id'] ?? 0);
+        switch ($action) {
+            case 'userFreeze':
+                [$before, $after] = $this->freezes->freeze($id, $input, $this->me);
+                $audit = 'users.freeze';
+                break;
+            case 'userUnfreeze':
+                [$before, $after] = $this->freezes->lift($id, (int) ($input['freezeId'] ?? 0), (string) ($input['reason'] ?? ''), $this->me);
+                $audit = 'users.unfreeze';
+                break;
+            default:
+                [$before, $after] = $this->freezes->decideBooking($id, (int) ($input['bookingId'] ?? 0), $input['refund'] ?? null, (string) ($input['note'] ?? ''));
+                $audit = 'users.booking_cancel';
+        }
+        $this->audit->record($this->me, $audit, 'user', (string) $id, $before, $after, $this->ip);
+
+        return ['result' => $after] + $this->users->detail($id, Permissions::allows((string) $this->me['role'], 'users.security'));
     }
 
     /** A route's settings without its blocks or timestamps, for the audit log. */

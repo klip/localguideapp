@@ -150,7 +150,7 @@ final class AuthHttp
         [$status, $body] = $this->processor->process(
             ['action' => $action] + $input,
             ['userId' => null, 'sid' => null, 'did' => null, 'userAgent' => $client['userAgent'],
-             'clientIp' => $client['ip'], 'requestId' => $client['requestId'], 'signIn' => true, 'stepUp' => $stepUp]
+             'clientIp' => $client['ip'], 'requestId' => $client['requestId'], 'signIn' => true, 'stepUp' => $stepUp, 'deviceHash' => $client['deviceHash']]
         );
 
         if ($action === 'login' && !isset($body['id'])) {

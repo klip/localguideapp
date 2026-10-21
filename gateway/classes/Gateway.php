@@ -47,7 +47,7 @@ class Gateway
         'changePassword', 'addRole', 'myDevices', 'signOutDevice', 'secureAccount',
     ];
     /** Refused here: sign-in actions (HTTP only now) and service actions only the gateway may call. */
-    private const NOT_FOR_CLIENTS = ['register', 'login', 'verifyTwoFactor', 'logout', 'session', 'pushState'];
+    private const NOT_FOR_CLIENTS = ['register', 'login', 'verifyTwoFactor', 'logout', 'session', 'pushState', 'staffCancelBooking'];
     /** How often expired token bindings and old revocations are cleared. */
     private const HOUSEKEEPING_EVERY_SECONDS = 20;
     private const SERVICE_TIMEOUT_SECONDS = 25.0;

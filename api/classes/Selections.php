@@ -48,6 +48,10 @@ class Selections
         }
 
         [$guestId, $guideId, $actingIsGuest] = $this->resolvePair($actingUserId, $actingRole, $targetUserId);
+        // Not with a frozen account (the CMS's `user_freezes`); unmatching one stays possible.
+        if (Freezes::activeFor($this->db, $targetUserId) !== null) {
+            throw new RuntimeException('This person isn’t available right now.');
+        }
 
         // A new pick uses the guest's paid pack — unless they're in a free
         // picks bonus (`Levels`), when it's marked free and costs nothing.

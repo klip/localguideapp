@@ -43,8 +43,9 @@ see "Guide fees & bookings" below; SMS/WhatsApp two-factor (the options
 exist but are disabled — codes only go by email, see "Two-factor login &
 password reset");
 The CMS (`admin/` + `cms/`, see "CMS") has staff accounts, sign-in, roles,
-staff management, the audit log and the UI-text editor — but not yet its
-user tools or moderation (phases 8–9). **Email, on the other hand, is real** (`Mailer.php`, Gmail SMTP) once
+staff management, the audit log, the UI-text editor, the app's routes and
+the Users section (search, the user page, sanctions, level adjustments,
+badges, bonuses, verification, freezing) — but not yet moderation (phase 9). **Email, on the other hand, is real** (`Mailer.php`, Gmail SMTP) once
 the `SMTP_*` server params are set — see "Email" under Docker environment.
 
 **Known gaps / inconsistencies** (worth knowing about, not urgent):
@@ -886,9 +887,8 @@ behind it as badges instead.
   both profile heroes, mapped through `utils/standing.ts`. Each badge's
   explanation is screen-reader text as well as a tooltip.
 - **Verification** (034): `users.verified_at` + `verification_method`
-  (`id_card | passport | driving_licence`). Set by hand for now
-  (`UPDATE users SET verified_at = UTC_TIMESTAMP(), verification_method =
-  'passport' WHERE id = …`); the automated document + selfie check is the next
+  (`id_card | passport | driving_licence`). Set by staff on the CMS user
+  page (Verification); the automated document + selfie check is the next
   big change. `ProfilePage.vue` shows the status (`myProfile.verified`).
 - Indexes for the two derived tables are in 036; `getPublicProfile()` narrows
   them to the one user. A `user_stats` table is the next step if decks grow.
@@ -906,8 +906,8 @@ behind it as badges instead.
   when a trip finishes (`Bookings::markFinished()`) and when a review is
   written, and sends `level_up` / `bonus_granted` notifications (the grant's
   reason is in the text, so two same-size grants aren't deduplicated).
-- **Sanctions** (`user_sanctions`, by moderators in SQL, optionally tied to a
-  complaint, with an expiry) subtract levels — the *effective* level, used for
+- **Sanctions** (`user_sanctions`, by staff on the CMS user page, optionally
+  tied to a complaint, with an expiry) subtract levels — the *effective* level, used for
   every perk and for the ranking (`Ranking` scores 5 × effective level).
   While sanctioned, **bonuses are suspended**: `claim()` refuses and
   `activeBonusUntil()` returns null, so a running no-fee or free-picks bonus
@@ -2057,9 +2057,10 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
 
 ## CMS (`admin/`, `cms/`)
 
-The staff back office (`docs/auth-cms-plan.md`, phases 6–9). **Phases 6–7
+The staff back office (`docs/auth-cms-plan.md`, phases 6–9). **Phases 6–8
 are in**: staff accounts, sign-in, roles, staff management, the audit log,
-and the content editor. Users (8) and Moderation (9) are placeholders.
+the content editor, the app's routes and the Users section. Moderation (9)
+is a placeholder.
 
 - **Its own origin and build**: `admin/` is a separate Vite + Vue 3 app
   (Pico, English only, no i18n) on `https://admin.belikelocal.club` — in
@@ -2161,13 +2162,68 @@ and the content editor. Users (8) and Moderation (9) are placeholders.
     own redirect would loop). Paths are unique; names are permanent.
   - Actions `pageMap`, `routeSave`, `routeDelete`, audited as
     `pages.route_create` / `pages.route_update` / `pages.route_delete`.
+- **Users** (`/users`, `users.view` — managers and admins;
+  `admin/src/pages/UsersPage.vue`, `UserPage.vue`; `cms/classes/UserAdmin.php`
+  reads, `UserEditor.php` changes, `UserFreezes.php` freezes):
+  - **Search** (`searchUsers`, 50 a page, server-side): one box — `#123` or a
+    short number is an id, `@` an email, 5+ digits a phone (formatting
+    ignored), else name or email — plus role, near a place (a guide's base or
+    a traveller's area, `placeSearch` over the app's geocoder) or a country,
+    level range in a role, verified, frozen, joined between; sortable. All of
+    it lives in the URL. Levels come from the app's own SQL
+    (`Levels::effectiveLevelSql()` with aliasable `Ranking::tripsJoin()` /
+    `Levels::sanctionsJoin()`), so the CMS shows exactly the app's level.
+  - **The user page** (`userDetail`): account, roles (headline/bio per role,
+    their picks), profile, levels (trips, points, earned, adjusted, now,
+    reviews), sanctions, adjustments, badges, bonuses, verification, freeze,
+    activity (matches, trips, reviews, complaints — linked to the other
+    person's page) and, for admins (`users.security`), browsers, sign-in
+    history and linked accounts.
+  - **Changes** (`userEdit` + `op`, `users.edit`, each audited as
+    `users.<op>`, answered with the fresh page): account (name, email —
+    unique, phone, sign-in codes email/off, remove photo), role text, profile
+    (birth date, gender, fee fields, party, trip length — interests stay the
+    user's), add a role / remove one (not the only one, not with open bookings
+    or active matches in it; ends their sign-ins so every device picks it up),
+    verification, **sanctions** (−1…7 levels, both roles, pause bonuses),
+    **level adjustments** (`level_adjustments`, 080: ±1…7 in one role or
+    both — staff can award levels too; summed into `sx.levels` with
+    sanctions, capped 0…7), **badges** (`user_badges`, 080: label ≤ 40 +
+    one symbol, shown on cards and profiles after the earned ones —
+    `ProfileAccount.badges`, `StandingBadges`; the team's own text, not
+    translated, contact-filtered), **bonuses** (free picks / no fee, 1–365
+    days, left for the user to claim or started now; extend; revoke —
+    `bonus_grants.revoked_at`, which the app's `Levels` ignores; LevelPanel
+    labels them `profile.level.reason_staff`, 081). Optional expiry in days
+    on sanctions, adjustments and badges; lifting/revoking keeps the record.
+  - **Freezing** (`userFreeze` / `userUnfreeze`, `users.freeze`;
+    `user_freezes`, 080; one rule for every service in `lib/Freezes.php`):
+    for N days or permanently, reason required, and a decision for **every**
+    open booking — leave it, or cancel with a full or partial refund
+    (cancelled by the API, `Bookings::cancelByStaff()` via the internal
+    action `staffCancelBooking` and `ServiceHttp::call()`, which tells both
+    sides and dissolves the match). The freeze ends every sign-in
+    (`Revocations::endAllSignIns()` + `revokeUser()`), auth refuses login
+    ("suspended until …", only after a correct password), 2FA and refresh,
+    and registration from a browser a frozen account used; the API leaves
+    them off every deck (so the planner too), their profile reads "not
+    found", chats with them are read-only (`can_send: false`), and nobody can
+    pick or pay them. Bookings left open show as "Needs a decision"
+    (`bookingDecision`, `refunds`). Lifting early needs a reason.
 - **Tests**: `lib/tests/cms-e2e.php` (29 checks against the running stack —
   run with the mailer stopped, it reads codes and links from the queued
   outbox: `docker exec lemp-rg-auth php /var/www/localguideapp/lib/tests/cms-e2e.php`);
+  `lib/tests/freeze-e2e.php` (25 checks — real sign-ins through auth, the API
+  over internal HTTP: the booking decision, sign-in/refresh/registration
+  refused, gone from decks and profiles, read-only chat, lifting; mailer
+  stopped too: `docker exec lemp-rg-cms php /var/www/localguideapp/lib/tests/freeze-e2e.php`);
   `admin/src/__tests__/cms.spec.ts` (menu by role, the two-step sign-in,
   staff invite/disable), `content.spec.ts` (wireframe, block form, language
   switch and its unsaved-edits guard, save, pinned field errors, add key,
-  history/revert), `pages.spec.ts` (routes list, save with rules, the
+  history/revert), `users.spec.ts` (search and filters in the URL,
+  sorting, paging; read-only without `users.edit`, pinned field errors, the
+  freeze confirm with booking decisions, lifting, deciding a booking, admin-only
+  security), `pages.spec.ts` (routes list, save with rules, the
   old-address note, locked system routes, field errors, remove with confirm,
   no content editing). In `admin/`: `yarn vitest run`, `yarn type-check`,
   `yarn lint` (oxlint; the `vi.fn<…>()` type-parameter rule applies here too).
@@ -2195,8 +2251,9 @@ and the content editor. Users (8) and Moderation (9) are placeholders.
   ports aren't published. The gateway accepts browser origins
   `belikelocal.club` (+ www/admin/api) and `localhost:5173`; `WS_EXTRA_ORIGINS`
   (comma-separated, exact) adds more, e.g. a second dev server.
-- **Refused from clients** (404): `pushState` (api, gateway-only) and the
-  sign-in actions, which are HTTP (`AuthHttp`).
+- **Refused from clients** (404): `pushState` (api, gateway-only),
+  `staffCancelBooking` (api, called by the CMS over internal HTTP —
+  `ServiceHttp::call()`) and the sign-in actions, which are HTTP (`AuthHttp`).
 - **Stateless**: nothing but the gateway's open sockets (and its copy of the
   revocation list) lives in a process. Revocations and caches are in Redis,
   everything else in MySQL, so every service
@@ -2903,6 +2960,12 @@ API service (`api/classes/`):
   the CMS) and `app_route_blocks` (each page's text blocks — developer-owned,
   for preloading text and the content editor's wireframe), seeded from the
   router and the code as of 2026-10-21. Applied 2026-10-21. Re-runnable.
+- `api/sql/080_user_admin.sql` — `user_freezes`, `level_adjustments`,
+  `user_badges`; `user_sanctions.staff_*`/`lifted_by`;
+  `bonus_grants.staff_email/note/revoked_at` (see "CMS → Users"). Applied
+  2026-10-21. Not re-runnable.
+- `api/sql/081_translations_staff_bonus.sql` — `profile.level.reason_staff`.
+  Applied 2026-10-21. Re-runnable.
 - `api/sql/082_translations_matches_rail.sql` — the Discover rail's Matched /
   Upcoming tabs and captions; drops `discover.rail.nothing_picked` and
   `trips.status.scheduled/in_progress/finished`; adds `common.booking_time`

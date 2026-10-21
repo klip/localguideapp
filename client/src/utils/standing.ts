@@ -6,6 +6,7 @@ export function standingOf(
   account: Pick<ProfileAccount, 'verified' | 'top_rated' | 'trips_completed'> & {
     level?: number
     volunteer?: boolean
+    badges?: ProfileAccount['badges']
   },
 ): Standing {
   return {
@@ -14,6 +15,7 @@ export function standingOf(
     tripsCompleted: account.trips_completed ?? 0,
     level: account.level ?? 0,
     volunteer: !!account.volunteer,
+    awarded: account.badges ?? [],
   }
 }
 

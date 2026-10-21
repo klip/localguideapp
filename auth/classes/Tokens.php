@@ -88,6 +88,13 @@ class Tokens
                 throw new AuthenticationException('Your session has expired. Please log in again.');
             }
             $userId = (int) $row['user_id'];
+            // A frozen account's sign-ins end at the freeze; this catches one
+            // that slipped through (Redis down when it was announced).
+            if (Freezes::activeFor($this->db, $userId) !== null) {
+                $this->revokeFamily((string) $row['sid'], 'frozen');
+                $this->db->db_Execute('COMMIT');
+                throw new AuthenticationException('Your account is suspended.');
+            }
 
             if ($row['used'] !== null && $now - (int) $row['used'] > self::GRACE_SECONDS) {
                 $this->revokeFamily((string) $row['sid'], 'reuse_detected');
@@ -194,16 +201,7 @@ class Tokens
      */
     public function revokeAllFor(int $userId, string $reason): void
     {
-        // Each live sign-in by its sid, so a sign-in right after this one
-        // (a new sid) isn't caught by it.
-        $sids = array_column((array) $this->db->db_GetArray(
-            'SELECT DISTINCT `sid` FROM `refresh_tokens` WHERE `user_id` = ' . $userId . ' AND `revoked_at` IS NULL'
-        ), 'sid');
-        $this->db->db_Execute(
-            'UPDATE `refresh_tokens` SET `revoked_at` = UTC_TIMESTAMP(), `revoke_reason` = "' . $this->db->db_Escape($reason) . '"
-             WHERE `user_id` = ' . $userId . ' AND `revoked_at` IS NULL'
-        );
-        $this->announce(static fn(RedisClient $redis) => Revocations::revokeSids($redis, $sids));
+        Revocations::endAllSignIns($this->db, $this->redis, $userId, $reason);
     }
 
     /** One sign-in, refresh and access tokens alike. */

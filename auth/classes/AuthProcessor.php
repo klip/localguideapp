@@ -183,6 +183,17 @@ class AuthProcessor
         $language = (string) ($this->input['language'] ?? 'en');
         $language = preg_match('/^[a-z]{2}$/', $language) ? $language : 'en';
 
+        // A browser a frozen account has used can't open a new one — the
+        // obvious way round a suspension (docs/auth-cms-plan.md, §2).
+        $deviceHash = (string) ($this->context['deviceHash'] ?? '');
+        if ($deviceHash !== '' && $this->db->db_GetRow(
+            'SELECT 1 FROM `devices` d WHERE d.`device_id` = "' . $this->db->db_Escape($deviceHash) . '" AND '
+            . Freezes::isFrozenSql('d.`user_id`') . ' LIMIT 1'
+        )) {
+            Log::warning('Registration from a frozen account’s browser refused');
+            throw new RuntimeException('New accounts can’t be created from this browser. Contact support if you think this is a mistake.');
+        }
+
         $this->db->db_Execute('START TRANSACTION');
         try {
             $userId = $this->accounts->register($email, $password, $role, $name, $image);
@@ -208,6 +219,8 @@ class AuthProcessor
             Log::info('Login failed', ['to' => Log::maskEmail($email)]);
             throw new RuntimeException('Invalid email or password.');
         }
+        // Only after the password matched, so a guess can't tell a frozen account exists.
+        self::assertNotFrozen($this->db, (int) $user['id']);
 
         // With two-factor on, the password only earns a challenge; the
         // sign-in waits for `verifyTwoFactor` — unless this browser sent a
@@ -226,6 +239,23 @@ class AuthProcessor
         }
 
         return $this->signIn($user);
+    }
+
+    /**
+     * Refuses a frozen account (`user_freezes`, set by staff in the CMS):
+     * "suspended until …", or permanently. A 400, not a 401 — the client
+     * shows it on the login form.
+     */
+    public static function assertNotFrozen(db $db, int $userId): void
+    {
+        $freeze = Freezes::activeFor($db, $userId);
+        if ($freeze === null) {
+            return;
+        }
+        Log::info('Sign-in refused: account frozen', ['user_id' => $userId]);
+        throw new RuntimeException($freeze['until'] !== null
+            ? 'Your account is suspended until ' . gmdate('j M Y, H:i', (int) strtotime($freeze['until'])) . ' UTC. Contact support if you think this is a mistake.'
+            : 'Your account is suspended. Contact support if you think this is a mistake.');
     }
 
     /** The `AuthResult` shape for `$user` (a `users` row); `AuthHttp` adds the tokens. */
@@ -258,6 +288,7 @@ class AuthProcessor
         if (!$user) {
             throw new RuntimeException('This code has expired. Log in again to get a new one.');
         }
+        self::assertNotFrozen($this->db, $userId);
 
         $result = $this->signIn($user);
         // "Don't ask on this device for 30 days" — the token comes back once,
