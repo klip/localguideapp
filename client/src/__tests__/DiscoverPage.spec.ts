@@ -308,6 +308,14 @@ describe('DiscoverPage', () => {
             phase: 'scheduled',
             guide_place: 'Porto',
           }),
+          tripRow({
+            id: 22,
+            counterpart_id: 12,
+            name: 'Lea',
+            phase: 'current',
+            location: 'Old town',
+            meeting_at: '2026-10-21 09:00:00',
+          }),
           tripRow({ id: 20, counterpart_id: 11, name: 'Old', phase: 'past' }),
         ],
       }),
@@ -315,9 +323,13 @@ describe('DiscoverPage', () => {
     const { wrapper } = await mountDiscover(api, true)
     const rail = wrapper.find('.matches-rail')
 
-    expect(rail.find('[data-test="rail-tab-matched"]').attributes('aria-selected')).toBe('true')
-    expect(rail.find('[data-test="rail-tab-matched"]').text()).toContain('2')
-    expect(rail.find('[data-test="rail-tab-upcoming"]').text()).toContain('1')
+    // Tabs show an icon and a count; the name is for tooltips and screen readers.
+    const matchedTab = rail.find('[data-test="rail-tab-matched"]')
+    expect(matchedTab.attributes('aria-selected')).toBe('true')
+    expect(matchedTab.text()).toBe('2')
+    expect(matchedTab.attributes('aria-label')).toBe('Matched (2)')
+    expect(matchedTab.find('svg').exists()).toBe(true)
+    expect(rail.find('[data-test="rail-tab-upcoming"]').text()).toBe('2')
     let items = rail.findAll('.rail-list li')
     expect(items.map((li) => li.find('a').text())).toEqual(['Igor', 'Zoe'])
     expect(items[0]!.find('a').attributes('href')).toBe('/guides/7')
@@ -327,9 +339,13 @@ describe('DiscoverPage', () => {
 
     await rail.find('[data-test="rail-tab-upcoming"]').trigger('click')
     items = rail.findAll('.rail-list li')
-    expect(items.map((li) => li.find('a').text())).toEqual(['Ana'])
-    expect(items[0]!.find('a').attributes('href')).toBe('/guides/10')
-    expect(items[0]!.text()).toContain('Porto · No date yet')
+    // The trip under way first, marked "In progress" instead of a date.
+    expect(items.map((li) => li.find('a').text())).toEqual(['Lea', 'Ana'])
+    expect(items[0]!.find('[data-test="rail-in-progress"]').text()).toBe('In progress')
+    expect(items[0]!.find('.rail-caption').text()).toBe('In progressOld town')
+    expect(items[1]!.find('a').attributes('href')).toBe('/guides/10')
+    expect(items[1]!.find('[data-test="rail-in-progress"]').exists()).toBe(false)
+    expect(items[1]!.text()).toContain('Porto · No date yet')
     expect(rail.find('[data-test="rail-link-upcoming"]').attributes('href')).toBe('/trips')
     wrapper.unmount()
   })

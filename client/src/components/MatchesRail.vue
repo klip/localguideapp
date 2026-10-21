@@ -27,6 +27,8 @@ interface RailItem {
   guideId: number
   name: string
   caption: string
+  /** A trip under way: "In progress" stands in for the date. */
+  inProgress?: boolean
 }
 
 type Tab = 'matched' | 'upcoming'
@@ -62,16 +64,24 @@ const matchedItems = computed<RailItem[]>(() =>
 
 const upcomingItems = computed<RailItem[]>(() =>
   trips.value
+    // Trips under way and trips still to come; the rest are history.
     .filter((trip) => trip.phase !== 'past')
-    // The server sends newest first; the next trip reads best on top.
+    // The server sends newest first: under way on top, then the next one up.
     .slice()
     .reverse()
-    .map((trip) => ({
-      key: `t${trip.id}`,
-      guideId: trip.counterpart_id,
-      name: trip.name || t('discover.rail.unnamed'),
-      caption: caption(trip.location || trip.guide_place, trip.meeting_at),
-    })),
+    .sort((a, b) => Number(b.phase === 'current') - Number(a.phase === 'current'))
+    .map((trip) => {
+      const place = trip.location || trip.guide_place
+      const inProgress = trip.phase === 'current'
+      return {
+        key: `t${trip.id}`,
+        guideId: trip.counterpart_id,
+        name: trip.name || t('discover.rail.unnamed'),
+        // Under way: the place only — the "In progress" label says when.
+        caption: inProgress ? (place ?? '') : caption(place, trip.meeting_at),
+        inProgress,
+      }
+    }),
 )
 
 const items = computed<Record<Tab, RailItem[]>>(() => ({
@@ -147,13 +157,14 @@ defineExpose({ reload })
         class="rail-tab"
         :class="{ 'rail-tab--active': activeTab === tab.id }"
         :aria-selected="activeTab === tab.id"
+        :aria-label="`${tab.label} (${items[tab.id].length})`"
+        :title="tab.label"
         aria-controls="rail-panel"
         :data-test="`rail-tab-${tab.id}`"
         @click="chosenTab = tab.id"
       >
         <NavIcon :name="tab.icon" />
-        {{ tab.label }}
-        <span class="rail-count">{{ items[tab.id].length }}</span>
+        <span class="rail-count" aria-hidden="true">{{ items[tab.id].length }}</span>
       </button>
     </div>
 
@@ -163,7 +174,12 @@ defineExpose({ reload })
           <RouterLink :to="{ name: 'guide-profile', params: { id: item.guideId } }">{{
             item.name
           }}</RouterLink>
-          <span class="tiny muted">{{ item.caption }}</span>
+          <span class="tiny muted rail-caption">
+            <span v-if="item.inProgress" class="rail-live" data-test="rail-in-progress">{{
+              t('discover.rail.in_progress')
+            }}</span>
+            <template v-if="item.caption">{{ item.caption }}</template>
+          </span>
         </li>
       </ul>
       <p v-else-if="loaded" class="tiny muted">{{ active.empty }}</p>
@@ -207,8 +223,8 @@ defineExpose({ reload })
   }
 
   :deep(.nav-icon) {
-    width: 15px;
-    height: 15px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
   }
 }
@@ -233,6 +249,24 @@ defineExpose({ reload })
   .rail-tab--active & {
     background: rgba(255, 255, 255, 0.25);
   }
+}
+
+.rail-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.4rem;
+}
+
+// A trip under way, in the brand colour so it stands out from the dates.
+.rail-live {
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: var(--rg-orange-500);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35rem;
 }
 
 .rail-list {

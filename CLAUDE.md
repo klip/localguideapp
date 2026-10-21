@@ -250,17 +250,21 @@ path/name table) and the shared `src/components/` each is built from:
   pages pull their deck from `stores/guides.ts`/`stores/visitors.ts`.
   **Picks left**: the deck header (once a pack is bought) and the rail
   both read "N selections left" (or "Free picks on" / "Free picks until …")
-  with an **Add more** button — `/unlock` with a pack, the first-pack modal
-  without; there's no "x / y picked" count and no "selections left" strip
-  under the header any more.
+  with an **Add more** button — the call to action, Pico's primary (orange)
+  button; `/unlock` with a pack, the first-pack modal without. There's no
+  "x / y picked" count and no "selections left" strip under the header any
+  more. In the rail the count is a small `PillBadge`, on one line beside the
+  button from `lg` up.
   `DiscoverPage.vue`'s right rail ("Your matches", signed in) is the picks
   left + Add more, then **`MatchesRail.vue`**. `MatchesRail` calls the
-  API itself (`matchOverview` + `trips`) and has two tabs with the menu's
-  icons: **Matched** (active pairs not yet confirmed — `/matches`' Matched
-  tab) and **Upcoming** (trips not finished — soonest first), each name
+  API itself (`matchOverview` + `trips`) and has two tabs that show **only
+  the menu's icon and a count** (the name is the `title` and `aria-label`):
+  **Matched** (active pairs not yet confirmed — `/matches`' Matched tab) and
+  **trips** (in progress first, then upcoming, soonest first), each name
   linking to the guide's profile with "where · when" under it (meeting place
   or the guide's base town `guide_place`; a pending booking's time, else "No
-  date yet"), and a link under the tab to `/matches` or `/trips`. It never
+  date yet"; a trip under way shows an orange "In progress" label instead of
+  the date), and a link under the tab to `/matches` or `/trips`. It never
   calls `markSeen`; it reloads on pushes (`badges.revision`, counters up) and
   when the page's own Interested completes a match (`reload()`, exposed).
 - **`GuideProfilePage.vue`** (`/guides/:id`) — the "Full profile →"
@@ -2973,6 +2977,8 @@ API service (`api/classes/`):
 - `api/sql/083_translations_picks_left.sql` — `discover.deck.add_more`; drops
   the old "x / y picked/selected", "Get +N", "Unlock +N · £5" and the counter
   strip's captions. Applied 2026-10-21. Re-runnable.
+- `api/sql/084_translations_rail_in_progress.sql` — `discover.rail.in_progress`
+  (a trip under way in the Discover rail). Applied 2026-10-21. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

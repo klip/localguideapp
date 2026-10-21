@@ -268,7 +268,7 @@ function reject(id: string) {
                 t('discover.deck.free_picks')
               }}</PillBadge>
               <PillBadge v-else data-test="picks-left">{{ picksLeftLabel }}</PillBadge>
-              <button type="button" class="soft-btn add-more" data-test="add-more" @click="addMore">
+              <button type="button" class="add-more" data-test="add-more" @click="addMore">
                 {{ t('discover.deck.add_more') }}
               </button>
             </div>
@@ -393,8 +393,10 @@ function reject(id: string) {
         </PanelCard>
         <PanelCard v-else :title="t('discover.rail.title')">
           <div class="picks-left rail-picks">
-            <strong data-test="rail-picks-left">{{ picksLeftLabel }}</strong>
-            <button type="button" class="soft-btn add-more" @click="addMore">
+            <PillBadge class="rail-picks-label" data-test="rail-picks-left">{{
+              picksLeftLabel
+            }}</PillBadge>
+            <button type="button" class="add-more" data-test="rail-add-more" @click="addMore">
               {{ t('discover.deck.add_more') }}
             </button>
           </div>
@@ -521,16 +523,33 @@ a[role='button'] {
   justify-content: flex-end;
 }
 
+// The rail's version: a small label, kept on one line beside the button on desktop.
 .rail-picks {
   justify-content: space-between;
   margin-bottom: 0.85rem;
+
+  @include bp.lg {
+    flex-wrap: nowrap;
+  }
 }
 
+.rail-picks-label {
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+// The call to action: Pico's primary (brand orange) button, sized down.
 .add-more {
+  flex-shrink: 0;
   width: auto;
   margin: 0;
-  padding: 0.3rem 0.7rem;
+  padding: 0.3rem 0.8rem;
   font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .price-head {
