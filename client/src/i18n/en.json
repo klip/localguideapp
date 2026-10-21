@@ -978,6 +978,7 @@
   "profile.level.progress_label": "Progress to the next level",
   "profile.level.reason_level": "For reaching {level}",
   "profile.level.reason_reviews": "For {count} excellent reviewers",
+  "profile.level.reason_staff": "A gift from the BeLikeLocal team",
   "profile.level.sanction_one": "Your level is lowered by {count} after a moderation decision",
   "profile.level.sanction_other": "Your level is lowered by {count} after a moderation decision",
   "profile.level.sanction_until": "until {date}",

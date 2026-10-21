@@ -130,6 +130,277 @@ export type RouteInput = Partial<
   >
 >
 
+export type AppRole = 'guest' | 'guide'
+
+/** One row of the Users list (`searchUsers`). */
+export interface UserRow {
+  id: number
+  name: string
+  email: string
+  phone: string | null
+  image: string | null
+  roles: AppRole[]
+  /** Effective level per role held (null for a role not held). */
+  levels: { guest: number | null; guide: number | null }
+  location: string | null
+  verified: boolean
+  frozen: boolean
+  /** When the freeze ends; null with `frozen` = permanently. */
+  frozenUntil: string | null
+  createdAt: string
+}
+
+export interface UserSearch {
+  q?: string
+  role?: '' | AppRole | 'both'
+  country?: string
+  near?: { latitude: number; longitude: number } | null
+  km?: number
+  levelRole?: '' | AppRole
+  levelMin?: number | ''
+  levelMax?: number | ''
+  verified?: '' | 'yes' | 'no'
+  frozen?: '' | 'yes' | 'no'
+  createdFrom?: string
+  createdTo?: string
+  sort?: 'id' | 'name' | 'email' | 'created' | 'guestLevel' | 'guideLevel'
+  dir?: 'asc' | 'desc'
+  page?: number
+}
+
+export interface PersonRef {
+  id: number
+  name: string
+}
+
+export interface RoleDetail {
+  held: boolean
+  headline: string | null
+  bio: string | null
+  announcedLevel: number
+  trips: number
+  paidTrips: number
+  points: number
+  earnedLevel: number
+  /** Net staff adjustment in force (`level_adjustments`). */
+  adjustment: number
+  effectiveLevel: number
+  reviews: { count: number; average: number | null }
+  topRated: boolean
+  volunteer: boolean
+  /** Category label → picked labels (or "09:00–13:00" spans). */
+  attributes: Record<string, string[]>
+}
+
+export interface OpenBooking {
+  id: number
+  side: AppRole
+  other: PersonRef
+  status: 'pending' | 'confirmed'
+  tripStatus: string
+  paid: boolean
+  amount: number | null
+  meetingAt: string | null
+}
+
+export interface Freeze {
+  id: number
+  startsAt: string
+  /** null = permanently. */
+  until: string | null
+  reason: string
+}
+
+/** Everything the user page shows (`userDetail`). */
+export interface UserDetail {
+  account: {
+    id: number
+    name: string
+    email: string
+    phone: string | null
+    image: string | null
+    twoFactorMethod: 'none' | 'email' | 'sms' | 'whatsapp'
+    createdAt: string
+    roles: AppRole[]
+  }
+  profile: {
+    dateOfBirth: string | null
+    gender: 'male' | 'female' | null
+    priceAmount: number | null
+    priceLabel: string | null
+    priceNote: string | null
+    includes: string | null
+    party: string | null
+    durationHours: number | null
+    guideBase: { label: string; countryCode: string | null; radiusKm: number | null } | null
+    travellerArea: { label: string; countryCode: string | null; updatedAt: string } | null
+  }
+  roles: Record<AppRole, RoleDetail>
+  verification: {
+    verifiedAt: string | null
+    method: 'id_card' | 'passport' | 'driving_licence' | null
+  }
+  sanctions: {
+    id: number
+    levels: number
+    reason: string
+    complaintId: number | null
+    createdAt: string
+    expiresAt: string | null
+    liftedAt: string | null
+    by: string
+    active: boolean
+  }[]
+  adjustments: {
+    id: number
+    role: AppRole | null
+    delta: number
+    reason: string
+    createdAt: string
+    expiresAt: string | null
+    liftedAt: string | null
+    by: string
+    active: boolean
+  }[]
+  badges: {
+    id: number
+    label: string
+    icon: string
+    createdAt: string
+    expiresAt: string | null
+    revokedAt: string | null
+    by: string
+    active: boolean
+  }[]
+  bonuses: {
+    id: number
+    kind: 'free_picks' | 'no_fee'
+    days: number
+    reason: string
+    note: string | null
+    grantedAt: string
+    startsAt: string | null
+    endsAt: string | null
+    revokedAt: string | null
+    by: string | null
+    state: 'unclaimed' | 'queued' | 'running' | 'used' | 'revoked'
+  }[]
+  freeze: Freeze | null
+  freezes: {
+    id: number
+    startsAt: string
+    endsAt: string | null
+    reason: string
+    by: string
+    liftedAt: string | null
+    liftedBy: string | null
+    liftReason: string | null
+  }[]
+  activity: {
+    counts: Record<
+      | 'matches'
+      | 'tripsFinished'
+      | 'reviewsWritten'
+      | 'reviewsReceived'
+      | 'complaintsBy'
+      | 'complaintsAbout',
+      number
+    >
+    bookings: {
+      id: number
+      side: AppRole
+      other: PersonRef
+      status: string
+      tripStatus: string
+      amount: number | null
+      meetingAt: string | null
+      createdAt: string
+    }[]
+    reviews: {
+      id: number
+      direction: 'written' | 'received'
+      other: PersonRef
+      rating: number
+      comment: string | null
+      createdAt: string
+    }[]
+    complaints: {
+      id: number
+      direction: 'by' | 'about'
+      other: PersonRef | null
+      title: string
+      status: string
+      createdAt: string
+    }[]
+  }
+  openBookings: OpenBooking[]
+  /** Admins only (`users.security`). */
+  security?: {
+    devices: {
+      id: number
+      label: string
+      place: string | null
+      country: string | null
+      ip: string | null
+      firstSeenAt: string
+      lastSeenAt: string
+    }[]
+    events: {
+      id: number
+      event: string
+      ip: string | null
+      place: string | null
+      country: string | null
+      userAgent: string
+      riskScore: number | null
+      riskReasons: string[] | null
+      at: string
+    }[]
+    links: {
+      id: number
+      other: PersonRef & { email: string }
+      signal: string
+      strength: number
+      hits: number
+      lastSeenAt: string
+      verdict: string | null
+    }[]
+  }
+}
+
+/** The changes `userEdit` makes (see `cms/classes/UserEditor.php`). */
+export type UserEditOp =
+  | 'account'
+  | 'roleText'
+  | 'profile'
+  | 'addRole'
+  | 'removeRole'
+  | 'verification'
+  | 'addSanction'
+  | 'liftSanction'
+  | 'addAdjustment'
+  | 'liftAdjustment'
+  | 'addBadge'
+  | 'revokeBadge'
+  | 'addBonus'
+  | 'extendBonus'
+  | 'revokeBonus'
+
+export interface FreezeInput {
+  days?: number
+  permanent?: boolean
+  reason: string
+  bookings: { id: number; decision: 'leave' | 'cancel'; refund?: number | null }[]
+}
+
+export interface Place {
+  label: string
+  name: string
+  countryCode: string | null
+  latitude: number
+  longitude: number
+}
+
 export interface CodeChallenge {
   codeRequired: true
   challengeToken: string
@@ -347,6 +618,21 @@ export const api = {
     call<{ history: ContentChange[] }>('contentHistory', { prefix }),
   contentRevert: (historyId: number) =>
     call<{ language: string; key: string; value: string | null }>('contentRevert', { historyId }),
+  searchUsers: (search: UserSearch) =>
+    call<{ users: UserRow[]; total: number; page: number; pageSize: number }>(
+      'searchUsers',
+      search,
+    ),
+  placeSearch: (query: string) => call<{ places: Place[] }>('placeSearch', { query }),
+  userDetail: (id: number) => call<UserDetail>('userDetail', { id }),
+  userEdit: (id: number, op: UserEditOp, payload: Record<string, unknown> = {}) =>
+    call<UserDetail>('userEdit', { id, op, ...payload }),
+  userFreeze: (id: number, freeze: FreezeInput) =>
+    call<UserDetail & { result: unknown }>('userFreeze', { id, ...freeze }),
+  userUnfreeze: (id: number, freezeId: number, reason: string) =>
+    call<UserDetail & { result: unknown }>('userUnfreeze', { id, freezeId, reason }),
+  bookingDecision: (id: number, bookingId: number, refund: number | null, note: string) =>
+    call<UserDetail & { result: unknown }>('bookingDecision', { id, bookingId, refund, note }),
   pageMap: () => call<PageMap>('pageMap'),
   routeSave: (route: RouteInput) => call<PageMap & { route: AppRoute }>('routeSave', route),
   routeDelete: (id: number) => call<PageMap>('routeDelete', { id }),

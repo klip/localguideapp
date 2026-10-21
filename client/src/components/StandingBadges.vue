@@ -7,8 +7,8 @@ import { levelLabel } from '@/utils/levels'
 /**
  * The badges a person has earned — ◆ their level (from successful trips,
  * `Levels.php`), ✓ Verified (identity checked), ★ Top rated
- * (≥ 5 reviews averaging ≥ 4.6) and their finished trips — on deck cards and
- * profile pages. The same facts that move them up the deck (`Ranking.php`),
+ * (≥ 5 reviews averaging ≥ 4.6), their finished trips, and any badge the team
+ * awarded by hand (`user_badges`) — on deck cards and profile pages. The same facts that move them up the deck (`Ranking.php`),
  * so a visitor can see *why* someone is near the top. Presentational: renders
  * nothing when there's nothing to show.
  */
@@ -55,6 +55,10 @@ const badges = computed(() => {
     const label = tn('common.standing.trips', props.standing.tripsCompleted)
     list.push({ key: 'trips', icon: '⛰', label, title: label })
   }
+  // Awarded by the team ("Founding guide") — their label is the team's own text.
+  props.standing.awarded?.forEach((badge, i) =>
+    list.push({ key: `awarded-${i}`, icon: badge.icon, label: badge.label, title: badge.label }),
+  )
   return list
 })
 </script>

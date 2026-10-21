@@ -56,7 +56,7 @@ final class Ranking
      * paid ones, the only trips that earn a level (`Levels::pointsSql()`).
      * `$userId` narrows it to one person (a profile page) instead of everyone.
      */
-    public static function tripsJoin(?int $userId, string $role): string
+    public static function tripsJoin(?int $userId, string $role, string $alias = 'ts'): string
     {
         $side = $role === 'guide' ? 'guide_id' : 'guest_id';
 
@@ -68,7 +68,7 @@ final class Ranking
                 FROM `bookings` b
                 WHERE ' . Levels::FINISHED_TRIP . ($userId ? ' AND b.`' . $side . '` = ' . $userId : '') . '
                 GROUP BY b.`' . $side . '`
-             ) ts ON ts.`uid` = u.`id`';
+             ) ' . $alias . ' ON ' . $alias . '.`uid` = u.`id`';
     }
 
     /**

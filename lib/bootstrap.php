@@ -19,6 +19,7 @@ require_once __DIR__.'/ImageData.php';
 require_once __DIR__.'/MailQueue.php';
 require_once __DIR__.'/LegalDocuments.php';
 require_once __DIR__.'/AppMap.php';
+require_once __DIR__.'/Freezes.php';
 require_once __DIR__.'/ContactFilter.php';
 require_once __DIR__.'/Ai.php';
 require_once __DIR__.'/ServiceHttp.php';

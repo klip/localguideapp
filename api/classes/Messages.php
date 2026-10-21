@@ -97,6 +97,9 @@ class Messages
         if (!$selection || (int) $selection['active'] !== 1) {
             throw new RuntimeException('You can only message someone you’re matched with.');
         }
+        if (Freezes::activeFor($this->db, $recipientId) !== null) {
+            throw new RuntimeException('This account is suspended, so the conversation is read-only for now.');
+        }
 
         return $selection;
     }
@@ -160,7 +163,7 @@ class Messages
         // person's role is the pair's other side, not something about them.
         $their = Roles::opposite($role);
         $rows = $this->db->db_GetArray(
-            'SELECT s.`id` AS `selection_id`, s.`active`, s.`matched_at`,
+            'SELECT s.`id` AS `selection_id`, s.`active` AND NOT ' . Freezes::isFrozenSql('u.`id`') . ' AS `active`, s.`matched_at`,
                     u.`id` AS `counterpart_id`, u.`name`, u.`image`,
                     m.`id` AS `last_id`, m.`sender_id` AS `last_sender_id`, m.`kind` AS `last_kind`, m.`body` AS `last_body`,
                     UNIX_TIMESTAMP(m.`created_at`) AS `last_ts`,
@@ -229,7 +232,8 @@ class Messages
                 'image' => $other['image'] ?: null,
                 'role' => Roles::opposite($role),
             ],
-            'can_send' => (int) $selection['active'] === 1,
+            // Read-only while either side is frozen (the CMS's `user_freezes`).
+            'can_send' => (int) $selection['active'] === 1 && Freezes::activeFor($this->db, $otherId) === null,
             'has_more' => $hasMore,
             'messages' => array_map(static fn(array $row): array => self::view($row, $userId), $rows),
         ];

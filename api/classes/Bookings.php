@@ -221,6 +221,9 @@ class Bookings
     public function pay(int $guestId, int $guideId, string $meetingAt, $durationHours = null, string $location = '', $latitude = null, $longitude = null): array
     {
         $selection = $this->activeSelection($guestId, $guideId);
+        if (Freezes::activeFor($this->db, $guideId) !== null) {
+            throw new RuntimeException('This guide isn’t available right now.');
+        }
 
         $fee = $this->guideFee($guideId);
         if ($fee <= 0) {
@@ -466,6 +469,65 @@ class Bookings
         );
 
         return $this->find($booking['id']);
+    }
+
+    /**
+     * Staff cancel an open booking (pending, or confirmed and unfinished) —
+     * when freezing one side of it (the CMS, `UserFreezes`). A paid booking
+     * is refunded `$refund` (null = the whole fee; at most the fee). The
+     * match dissolves, as with every cancellation, and both sides are told.
+     */
+    public function cancelByStaff(int $bookingId, ?float $refund, string $note = ''): array
+    {
+        $booking = $this->db->db_GetRowById($bookingId, 'bookings');
+        if (!$booking || !($booking['status'] === 'pending'
+            || ($booking['status'] === 'confirmed' && $booking['trip_status'] !== 'finished'))) {
+            throw new RuntimeException('That booking isn’t open any more.');
+        }
+        $paid = $booking['payment_status'] === 'paid';
+        $amount = (float) $booking['amount'];
+        if ($refund !== null && ($refund < 0 || $refund > $amount + 0.001)) {
+            throw new RuntimeException('A refund from 0 to the fee, ' . self::money($amount) . '.');
+        }
+        $refund = $paid ? ($refund ?? $amount) : null;
+        $note = self::reason($note);
+
+        $this->close($booking, 'cancelled', $refund, $note !== '' ? $note : 'Cancelled by BeLikeLocal');
+        $this->dissolveMatch($booking);
+
+        $guestId = (int) $booking['guest_id'];
+        $guideId = (int) $booking['guide_id'];
+        $when = $booking['meeting_at'] ? ' for ' . self::formatMeeting($booking['meeting_at']) : '';
+        foreach ([[$guestId, $guideId, 'guest'], [$guideId, $guestId, 'guide']] as [$to, $other, $role]) {
+            $otherName = self::nameOf($this->user($other), $role === 'guest' ? 'your guide' : 'your visitor');
+            $money = $refund !== null
+                ? ($role === 'guest' ? ' You have been refunded ' . self::money($refund) . '.' : ' The fee has been refunded to them.')
+                : '';
+            $this->notifications->notify(
+                $to,
+                'booking_cancelled',
+                "BeLikeLocal cancelled your booking with {$otherName}.{$money}",
+                "Your booking with {$otherName} was cancelled",
+                self::greeting($this->user($to))
+                . "BeLikeLocal has cancelled your booking with {$otherName}{$when}.
+"
+                . ($note !== '' ? "Note from our team: {$note}
+" : '')
+                . ($money !== '' ? "
+" . trim($money) . "
+" : '')
+                . ($role === 'guest' ? "The selection you used is back in your pack.
+" : '')
+                . "
+If you have questions, reply to this email.
+
+BeLikeLocal",
+                role: $role,
+                aboutUserId: $other
+            );
+        }
+
+        return $this->find($bookingId);
     }
 
     /**

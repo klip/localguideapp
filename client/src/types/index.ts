@@ -38,6 +38,8 @@ export interface Standing {
   level: number
   /** A guide who has only guided for free — shown as "Volunteer" instead of a level. */
   volunteer?: boolean
+  /** Badges the team awarded by hand, shown after the earned ones. */
+  awarded?: { label: string; icon: string }[]
 }
 
 /** A local guide, shown to visitors on the visitor discovery deck. */

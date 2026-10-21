@@ -113,4 +113,35 @@ final class ServiceHttp
         http_response_code($status);
         echo json_encode($body);
     }
+
+    /**
+     * Calls another service's action (`$url` its base, e.g. API_URL) the way
+     * the gateway does, with the internal token: `[status, body]`. For the
+     * CMS asking the API to do what only the API knows how to (cancelling a
+     * booking with its notifications). Throws when the service is unreachable.
+     */
+    public static function call(string $url, array $payload, int $timeoutSeconds = 20): array
+    {
+        $curl = curl_init(rtrim($url, '/') . '/');
+        curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => (string) json_encode($payload),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'X-Internal-Token: ' . (string) getenv('INTERNAL_TOKEN'),
+                'X-Request-Id: ' . bin2hex(random_bytes(8)),
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $timeoutSeconds,
+        ]);
+        $raw = curl_exec($curl);
+        $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($curl);
+        curl_close($curl);
+        if ($raw === false || $status === 0) {
+            throw new RuntimeException('The app’s service didn’t answer (' . ($error ?: 'no response') . ').');
+        }
+
+        return [$status, json_decode((string) $raw, true) ?: []];
+    }
 }

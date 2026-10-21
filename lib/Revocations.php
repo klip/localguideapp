@@ -103,4 +103,30 @@ final class Revocations
             ['PUBLISH', self::CHANNEL, (string) json_encode($subject + ['at' => $at])],
         ];
     }
+
+    /**
+     * Ends every live sign-in of app user `$userId`: their refresh tokens
+     * are revoked in MySQL and each sign-in's sid is announced, so gateways
+     * drop the access tokens and sockets at once. Used by auth (sign out
+     * everywhere, a password reset) and the CMS (a freeze, a role removed).
+     * The Redis half is best-effort — without it access tokens just run out
+     * within 15 minutes.
+     */
+    public static function endAllSignIns(db $db, RedisClient $redis, int $userId, string $reason): void
+    {
+        // Each live sign-in by its sid, so a sign-in right after this one
+        // (a new sid) isn't caught by it.
+        $sids = array_column((array) $db->db_GetArray(
+            'SELECT DISTINCT `sid` FROM `refresh_tokens` WHERE `user_id` = ' . $userId . ' AND `revoked_at` IS NULL'
+        ), 'sid');
+        $db->db_Execute(
+            'UPDATE `refresh_tokens` SET `revoked_at` = UTC_TIMESTAMP(), `revoke_reason` = "' . $db->db_Escape($reason) . '"
+             WHERE `user_id` = ' . $userId . ' AND `revoked_at` IS NULL'
+        );
+        try {
+            self::revokeSids($redis, $sids);
+        } catch (Throwable $e) {
+            Log::warning('Could not announce a revocation', ['error' => $e->getMessage()]);
+        }
+    }
 }

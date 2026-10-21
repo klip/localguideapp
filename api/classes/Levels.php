@@ -44,6 +44,7 @@ class Levels
     /** Points needed for each level (index = level). */
     public const THRESHOLDS = [0, 1, 3, 6, 12, 24, 48, 96];
     public const NAMES = ['new', 'starter', 'explorer', 'pathfinder', 'trailblazer', 'pioneer', 'legend', 'icon'];
+    public const TOP_LEVEL = 7;
 
     private const BASE_PACK = 5;
     private const MAX_PACK = 10;
@@ -82,29 +83,55 @@ class Levels
     /**
      * SQL for the effective level of `u` in the role listed, given
      * `ts.level_points` (`Ranking::tripsJoin()`) and `sx.levels`
-     * (`sanctionsJoin()`) — so the deck can rank by it in one query.
+     * (`sanctionsJoin()` — sanctions minus staff adjustments) — so the deck
+     * can rank by it in one query. Never below 0 or above the top level.
      */
-    public static function effectiveLevelSql(): string
+    public static function effectiveLevelSql(string $ts = 'ts', string $sx = 'sx'): string
     {
         $cases = [];
         foreach (array_reverse(self::THRESHOLDS, true) as $level => $needed) {
             if ($level > 0) {
-                $cases[] = 'WHEN COALESCE(ts.`level_points`, 0) >= ' . $needed . ' THEN ' . $level;
+                $cases[] = 'WHEN COALESCE(' . $ts . '.`level_points`, 0) >= ' . $needed . ' THEN ' . $level;
             }
         }
 
-        return 'GREATEST(0, (CASE ' . implode(' ', $cases) . ' ELSE 0 END) - COALESCE(sx.`levels`, 0))';
+        return 'LEAST(' . self::TOP_LEVEL . ', GREATEST(0, (CASE ' . implode(' ', $cases) . ' ELSE 0 END) - COALESCE(' . $sx . '.`levels`, 0)))';
     }
 
-    /** Active sanction levels per user, joined as `sx`. */
-    public static function sanctionsJoin(?int $userId = null): string
+    /**
+     * Per user, the levels taken off in `$role`, joined as `sx.levels`: active
+     * sanctions (person-wide) minus active staff adjustments for that role
+     * (`level_adjustments`, which can be negative too — so `sx.levels` can be
+     * negative, i.e. a net award).
+     */
+    public static function sanctionsJoin(?int $userId = null, ?string $role = null, string $alias = 'sx'): string
     {
+        $user = $userId ? ' AND `user_id` = ' . $userId : '';
+        $roleCondition = $role === 'guide' || $role === 'guest'
+            ? ' AND (`role` IS NULL OR `role` = "' . $role . '")'
+            : ' AND `role` IS NULL';
+
         return 'LEFT JOIN (
-                SELECT `user_id`, SUM(`levels`) AS `levels` FROM `user_sanctions`
-                WHERE `lifted_at` IS NULL AND (`expires_at` IS NULL OR `expires_at` > UTC_TIMESTAMP())'
-                . ($userId ? ' AND `user_id` = ' . $userId : '') . '
-                GROUP BY `user_id`
-             ) sx ON sx.`user_id` = u.`id`';
+                SELECT `user_id`, SUM(`levels`) AS `levels` FROM (
+                    SELECT `user_id`, `levels` FROM `user_sanctions`
+                    WHERE `lifted_at` IS NULL AND (`expires_at` IS NULL OR `expires_at` > UTC_TIMESTAMP())' . $user . '
+                    UNION ALL
+                    SELECT `user_id`, -`delta` FROM `level_adjustments`
+                    WHERE `lifted_at` IS NULL AND (`expires_at` IS NULL OR `expires_at` > UTC_TIMESTAMP())' . $user . $roleCondition . '
+                ) changes GROUP BY `user_id`
+             ) ' . $alias . ' ON ' . $alias . '.`user_id` = u.`id`';
+    }
+
+    /** Net staff adjustment to `$userId`'s level in `$role` (active `level_adjustments`). */
+    public function activeAdjustment(int $userId, string $role): int
+    {
+        return (int) $this->db->db_GetFieldFromQuery(
+            'SELECT COALESCE(SUM(`delta`), 0) AS `d` FROM `level_adjustments`
+             WHERE `user_id` = ' . $userId . ' AND `lifted_at` IS NULL
+               AND (`expires_at` IS NULL OR `expires_at` > UTC_TIMESTAMP())
+               AND (`role` IS NULL OR `role` = "' . ($role === 'guide' ? 'guide' : 'guest') . '")',
+            'd'
+        );
     }
 
     /** SQL condition: booking `b` is a finished trip (counted on the trips badge, free or not). */
@@ -188,7 +215,10 @@ class Levels
     /** `$userId`'s level in `$role`, after any active sanction. */
     public function effectiveLevel(int $userId, string $role): int
     {
-        return max(0, self::levelForPoints($this->recordFor($userId, $role)['points']) - $this->activeSanctions($userId)['levels']);
+        $level = self::levelForPoints($this->recordFor($userId, $role)['points'])
+            - $this->activeSanctions($userId)['levels'] + $this->activeAdjustment($userId, $role);
+
+        return max(0, min(self::TOP_LEVEL, $level));
     }
 
     /** When `$userId`'s active bonus of `$kind` ends (ISO), or null without one — or while sanctioned. */
@@ -200,7 +230,7 @@ class Levels
         $ts = $this->db->db_GetFieldFromQuery(
             'SELECT UNIX_TIMESTAMP(MAX(`ends_at`)) AS `ts` FROM `bonus_grants`
              WHERE `user_id` = ' . $userId . ' AND `kind` = "' . $this->db->db_Escape($kind) . '"
-               AND `starts_at` <= UTC_TIMESTAMP() AND `ends_at` > UTC_TIMESTAMP()',
+               AND `revoked_at` IS NULL AND `starts_at` <= UTC_TIMESTAMP() AND `ends_at` > UTC_TIMESTAMP()',
             'ts'
         );
 
@@ -301,7 +331,7 @@ class Levels
             'ends_at' => $row['ends_ts'] === null ? null : gmdate('Y-m-d\TH:i:s\Z', (int) $row['ends_ts']),
         ], $this->db->db_GetArray(
             'SELECT `id`, `kind`, `days`, `reason`, UNIX_TIMESTAMP(`starts_at`) AS `starts_ts`, UNIX_TIMESTAMP(`ends_at`) AS `ends_ts`
-             FROM `bonus_grants` WHERE `user_id` = ' . $userId . ' AND `kind` = "' . $kind . '" ORDER BY `id`'
+             FROM `bonus_grants` WHERE `user_id` = ' . $userId . ' AND `kind` = "' . $kind . '" AND `revoked_at` IS NULL ORDER BY `id`'
         ) ?: []);
 
         return [
@@ -334,7 +364,7 @@ class Levels
     {
         $grant = $this->db->db_GetRow(
             'SELECT `id`, `kind`, `days`, `starts_at` FROM `bonus_grants`
-             WHERE `id` = ' . $bonusId . ' AND `user_id` = ' . $userId
+             WHERE `id` = ' . $bonusId . ' AND `user_id` = ' . $userId . ' AND `revoked_at` IS NULL'
         );
         if (!$grant) {
             throw new RuntimeException('That bonus wasn’t found.');
@@ -348,7 +378,7 @@ class Levels
 
         $start = 'GREATEST(UTC_TIMESTAMP(), COALESCE((SELECT MAX(`ends_at`) FROM (
                 SELECT `ends_at` FROM `bonus_grants`
-                WHERE `user_id` = ' . $userId . ' AND `kind` = "' . $this->db->db_Escape($grant['kind']) . '" AND `ends_at` > UTC_TIMESTAMP()
+                WHERE `user_id` = ' . $userId . ' AND `kind` = "' . $this->db->db_Escape($grant['kind']) . '" AND `ends_at` > UTC_TIMESTAMP() AND `revoked_at` IS NULL
              ) x), UTC_TIMESTAMP()))';
         // In a transaction, with the user's grants locked, so two claims at
         // once queue one after the other instead of overlapping.

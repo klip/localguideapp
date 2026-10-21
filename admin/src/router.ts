@@ -43,8 +43,15 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/users',
     name: 'users',
-    component: () => import('@/pages/ComingSoonPage.vue'),
-    meta: { capability: 'users.view', title: 'Users', phase: 8 },
+    component: () => import('@/pages/UsersPage.vue'),
+    meta: { capability: 'users.view' },
+  },
+  {
+    path: '/users/:id(\\d+)',
+    name: 'user',
+    component: () => import('@/pages/UserPage.vue'),
+    props: true,
+    meta: { capability: 'users.view' },
   },
   {
     path: '/moderation',

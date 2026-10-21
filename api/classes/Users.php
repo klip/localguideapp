@@ -127,7 +127,9 @@ class Users
 
         // Holding the role is the `urx` join below (`user_role`); the headline
         // and description they show in it come from `rp` (`role_profiles`).
-        $where = ['1 = 1'];
+        // A frozen account (`user_freezes`, the CMS) is on no deck, and so in
+        // no planner suggestion either.
+        $where = ['1 = 1', Freezes::notFrozenSql('u.`id`')];
 
         if ($roleName === 'guide') {
             // A guide out on a trip isn't available: hidden until the trip's
@@ -281,7 +283,7 @@ class Users
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . $locationJoin . '
              ' . self::reviewSummaryJoin($roleName) . '
-             ' . Ranking::tripsJoin(null, $roleName) . ' ' . Ranking::reviewsJoin(null, $roleName) . ' ' . Levels::sanctionsJoin() . '
+             ' . Ranking::tripsJoin(null, $roleName) . ' ' . Ranking::reviewsJoin(null, $roleName) . ' ' . Levels::sanctionsJoin(null, $roleName) . '
              WHERE ' . implode(' AND ', $where) . '
              ' . ($distanceSql
                 // Searching near somewhere: people with no location go last.
@@ -291,6 +293,7 @@ class Users
 
         $userIds = array_map(fn($row) => (int) $row['id'], $rows);
         $attributes = $profiles->getAttributesFor($userIds, $roleName);
+        $awarded = $this->awardedBadges($userIds);
         $stops = $roleName === 'guest' ? $this->tripStops(array_column($rows, 'next_stop_id')) : [];
 
         foreach ($rows as &$row) {
@@ -300,6 +303,7 @@ class Users
             // — the client types both of these as maps keyed by category.
             $row['attributes'] = (object) ($attributes['attributes'][$id] ?? []);
             $row['ranges'] = (object) ($attributes['ranges'][$id] ?? []);
+            $row['badges'] = $awarded[$id] ?? [];
             if ($roleName === 'guest') {
                 $row['next_stop'] = $stops[(int) $row['next_stop_id']] ?? null;
                 unset($row['next_stop_id']);
@@ -343,7 +347,8 @@ class Users
     public function getPublicProfile(int $userId, Profiles $profiles, ?string $requestedRole = null): ?array
     {
         $roles = $this->getRoles($userId);
-        if (!$roles) {
+        // A frozen account's page reads as "not found" while the freeze lasts.
+        if (!$roles || Freezes::activeFor($this->db, $userId) !== null) {
             return null;
         }
         // Shown as the role asked for (the page: a guide's or a traveller's),
@@ -358,7 +363,7 @@ class Users
              LEFT JOIN `role_profiles` rp ON rp.`user_id` = u.`id` AND rp.`role` = "' . $this->db->db_Escape($role) . '"
              LEFT JOIN `user_profiles` p ON p.`user_id` = u.`id`
              ' . self::reviewSummaryJoin($role, $userId) . '
-             ' . Ranking::tripsJoin($userId, $role) . ' ' . Ranking::reviewsJoin($userId, $role) . ' ' . Levels::sanctionsJoin($userId) . '
+             ' . Ranking::tripsJoin($userId, $role) . ' ' . Ranking::reviewsJoin($userId, $role) . ' ' . Levels::sanctionsJoin($userId, $role) . '
              WHERE u.`id` = ' . $userId
         );
         if (!$row) {
@@ -373,8 +378,34 @@ class Users
         $row['roles'] = $roles;
         $row['attributes'] = (object) ($attributes['attributes'][$userId] ?? []);
         $row['ranges'] = (object) ($attributes['ranges'][$userId] ?? []);
+        $row['badges'] = $this->awardedBadges([$userId])[$userId] ?? [];
 
         return $row;
+    }
+
+    /**
+     * Badges staff awarded by hand (`user_badges`, 080) still in force, per
+     * user: `[{ label, icon }]`, oldest first. Shown beside the earned ones.
+     *
+     * @param int[] $userIds
+     * @return array<int, array<int, array{label: string, icon: string}>>
+     */
+    private function awardedBadges(array $userIds): array
+    {
+        if (!$userIds) {
+            return [];
+        }
+        $out = [];
+        foreach ((array) $this->db->db_GetArray(
+            'SELECT `user_id`, `label`, `icon` FROM `user_badges`
+             WHERE `user_id` IN (' . implode(',', array_map('intval', $userIds)) . ') AND `revoked_at` IS NULL
+               AND (`expires_at` IS NULL OR `expires_at` > UTC_TIMESTAMP())
+             ORDER BY `id`'
+        ) as $row) {
+            $out[(int) $row['user_id']][] = ['label' => (string) $row['label'], 'icon' => (string) $row['icon']];
+        }
+
+        return $out;
     }
 
     /**

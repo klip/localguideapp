@@ -38,6 +38,7 @@ describe('StandingBadges', () => {
       tripsCompleted: 2,
       level: 0,
       volunteer: false,
+      awarded: [],
     })
 
     const card = mount(ProfileCard, {
@@ -63,5 +64,24 @@ describe('StandingBadges', () => {
     expect(wrapper.find('[data-test="standing-volunteer"]').text()).toContain('Volunteer')
     expect(wrapper.find('[data-test="standing-level"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="standing-trips"]').text()).toContain('3 trips')
+  })
+
+  it('shows badges the team awarded after the earned ones', () => {
+    const wrapper = mount(StandingBadges, {
+      props: {
+        standing: standingOf({
+          verified: true,
+          top_rated: false,
+          trips_completed: 0,
+          badges: [{ label: 'Founding guide', icon: '🏅' }],
+        }),
+      },
+    })
+    const items = wrapper.findAll('li')
+    expect(items.map((li) => li.attributes('data-test'))).toEqual([
+      'standing-verified',
+      'standing-awarded-0',
+    ])
+    expect(items[1]!.text()).toBe('🏅 Founding guide')
   })
 })

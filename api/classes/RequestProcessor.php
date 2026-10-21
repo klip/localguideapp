@@ -243,6 +243,18 @@ class RequestProcessor
                     $input['description'] ?? null
                 )];
 
+            // Staff cancelling an open booking when freezing one side (the CMS's
+            // `UserFreezes`, over internal HTTP — the gateway refuses it from
+            // browsers, like `pushState`).
+            case 'staffCancelBooking':
+                $refund = $this->input['refund'] ?? null;
+
+                return [200, $this->bookings->cancelByStaff(
+                    (int) ($this->input['bookingId'] ?? 0),
+                    $refund === null || $refund === '' ? null : (float) $refund,
+                    (string) ($this->input['note'] ?? '')
+                )];
+
             // The app's routes and each page's text blocks, owned by the CMS
             // (`AppMap`, 079) — the client builds its router from it at start-up.
             case 'appMap':
