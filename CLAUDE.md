@@ -61,8 +61,11 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
   `docs/scaling.md`.
 - **Meeting times are free-form**: the guest picks any future date-time
   when paying (up to a year ahead); nothing checks it against the guide's
-  working hours (`hour_of_day`), and the guide can only accept or decline,
-  not propose another.
+  working hours (`hour_of_day`) or their other bookings, and the guide can
+  only accept or decline, not propose another. **Planned**: a guides'
+  availability calendar — visitors choose only free times, and the deck labels
+  guides already booked for the visitor's date "Booked for your date" — see
+  `docs/availability-plan.md`.
 - **Trip length is the guest's to set** (optional, when paying). The guide
   sees it before accepting but can't change it.
 - **`user_profiles.rating`/`tours` are dead columns** — nothing reads or
@@ -89,6 +92,8 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
   planner (built), document verification (not yet).
 - `docs/auth-cms-plan.md` — proposal: signed access/refresh tokens, device
   fingerprints and suspicious logins, the CMS (not built yet).
+- `docs/availability-plan.md` — plan (not built): guides' availability
+  calendar, booking only free times, "Booked for your date" on the deck.
 - `docs/production-memo.md` — every development stand-in (simulated
   payments, Gmail, free geocoder, Claude ID checks, …) and what replaces it
   in production. Add to it whenever a shortcut is taken.
