@@ -2171,10 +2171,16 @@ is a placeholder.
   reads, `UserEditor.php` changes, `UserFreezes.php` freezes):
   - **Search** (`searchUsers`, 50 a page, server-side): one box — `#123` or a
     short number is an id, `@` an email, 5+ digits a phone (formatting
-    ignored), else name or email — plus role, near a place (a guide's base or
-    a traveller's area, `placeSearch` over the app's geocoder) or a country,
-    level range in a role, verified, frozen, joined between; sortable. All of
-    it lives in the URL. Levels come from the app's own SQL
+    ignored), else name, email or location (a guide's base / traveller's area
+    label, so "Lisbon" or "Portugal") — plus role, **country** and **city**
+    dropdowns of where users actually are (`userLocations`: towns grouped by
+    the label's part before the comma + country code, so "Gibraltar" and
+    "Gibraltar, Gibraltar" are one city; a city filter is `"PT|Lisbon"`;
+    choosing a country narrows the cities), level range in a role, verified,
+    frozen, joined between; sortable. No Search/Apply button: typing searches
+    after a 350 ms pause, any filter change at once (Enter searches now); the
+    URL is replaced, not pushed, and a change resets to page 1. All of it
+    lives in the URL. Levels come from the app's own SQL
     (`Levels::effectiveLevelSql()` with aliasable `Ranking::tripsJoin()` /
     `Levels::sanctionsJoin()`), so the CMS shows exactly the app's level.
   - **The user page** (`userDetail`): account, roles (headline/bio per role,

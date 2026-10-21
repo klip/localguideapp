@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
-import { ApiError, api, type Place, type UserRow, type UserSearch } from '@/api'
+import { ApiError, api, type UserLocations, type UserRow, type UserSearch } from '@/api'
 
 /**
  * Finding app users (`users.view`): one search box that understands an id
- * (`#123`), an email, a phone (any formatting) or a name, plus filters —
- * role, place or country, level, verified, frozen, joined between. Server-
- * side, 50 a page. Everything is in the URL, so "back" from a user returns
- * to the same results.
+ * (`#123`), an email, a phone (any formatting), or a name, town or country
+ * (a guide's base, a traveller's search area) — plus filters: role, country
+ * and city (dropdowns of where users actually are), level, verified, frozen,
+ * joined between. Server-side, 50 a page. Everything is in the URL, so "back"
+ * from a user returns to the same results.
  */
 type Sort = NonNullable<UserSearch['sort']>
 
@@ -26,9 +27,7 @@ const form = reactive({
   q: '',
   role: '' as UserSearch['role'],
   country: '',
-  place: '',
-  near: null as { latitude: number; longitude: number } | null,
-  km: 25,
+  city: '',
   levelRole: '' as UserSearch['levelRole'],
   levelMin: '' as number | '',
   levelMax: '' as number | '',
@@ -37,8 +36,25 @@ const form = reactive({
   createdFrom: '',
   createdTo: '',
 })
-const places = ref<Place[]>([])
-let placeTimer: ReturnType<typeof setTimeout> | undefined
+const locations = ref<UserLocations>({ cities: [], countries: [] })
+const countryName = (() => {
+  try {
+    const names = new Intl.DisplayNames(['en'], { type: 'region' })
+    return (code: string) => names.of(code) ?? code
+  } catch {
+    return (code: string) => code
+  }
+})()
+/** The cities in the chosen country (all of them with none chosen). */
+const cities = computed(() =>
+  locations.value.cities.filter((c) => !form.country || c.countryCode === form.country),
+)
+/** Countries A–Z by name. */
+const countries = computed(() =>
+  [...locations.value.countries].sort((a, b) =>
+    countryName(a.code).localeCompare(countryName(b.code)),
+  ),
+)
 
 const sort = computed(() => (String(route.query.sort ?? 'id') as Sort) || 'id')
 const dir = computed(() => (route.query.dir === 'asc' ? 'asc' : 'desc'))
@@ -49,7 +65,7 @@ const filterCount = computed(
     [
       form.role,
       form.country,
-      form.near,
+      form.city,
       form.levelRole,
       form.verified,
       form.frozen,
@@ -66,17 +82,7 @@ function readQuery(query: LocationQuery) {
   form.q = str(query.q)
   form.role = str(query.role) as UserSearch['role']
   form.country = str(query.country)
-  form.place = str(query.place)
-  const [lat, lng] = str(query.near).split(',').map(Number)
-  form.near =
-    lat !== undefined &&
-    lng !== undefined &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    str(query.near)
-      ? { latitude: lat, longitude: lng }
-      : null
-  form.km = Number(query.km) || 25
+  form.city = str(query.city)
   form.levelRole = str(query.levelRole) as UserSearch['levelRole']
   form.levelMin =
     query.levelMin !== undefined && str(query.levelMin) !== '' ? Number(query.levelMin) : ''
@@ -96,12 +102,8 @@ function toQuery(extra: Record<string, string | number> = {}) {
   }
   set('q', form.q.trim())
   set('role', form.role)
-  set('country', form.country.trim().toUpperCase())
-  if (form.near) {
-    set('near', `${form.near.latitude},${form.near.longitude}`)
-    set('place', form.place)
-    set('km', form.km)
-  }
+  set('country', form.country)
+  set('city', form.city)
   set('levelRole', form.levelRole)
   if (form.levelRole) {
     set('levelMin', form.levelMin)
@@ -126,8 +128,7 @@ async function load() {
       q: form.q,
       role: form.role,
       country: form.country,
-      near: form.near,
-      km: form.km,
+      city: form.city,
       levelRole: form.levelRole,
       levelMin: form.levelMin,
       levelMax: form.levelMax,
@@ -150,17 +151,44 @@ async function load() {
 }
 
 /** Runs the search the form describes, from page 1. */
+/** Runs the search the form describes, from page 1 — now (Enter) rather than after the pause. */
 function search() {
-  void router.push({ query: toQuery() })
+  clearTimeout(typingTimer)
+  const query = toQuery()
+  // Unchanged apart from the page means nothing to do (e.g. the form was
+  // just filled from the URL on page 3); a real change starts from page 1.
+  const current: Record<string, unknown> = { ...route.query }
+  delete current.page
+  if (JSON.stringify(sorted(query)) !== JSON.stringify(sorted(current)))
+    void router.replace({ query })
 }
+
+function sorted(query: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(query).sort(([a], [b]) => a.localeCompare(b)))
+}
+
+/**
+ * No Search or Apply button: any change searches — typing after a short
+ * pause, a dropdown, number or date at once. The URL is replaced, not
+ * pushed, so "back" leaves the list instead of stepping through keystrokes.
+ * (Filling the form from the URL changes nothing, so it doesn't loop.)
+ */
+const TYPING_PAUSE_MS = 350
+let typingTimer: ReturnType<typeof setTimeout> | undefined
+watch(
+  () => ({ ...form }),
+  (now, before) => {
+    clearTimeout(typingTimer)
+    if (now.q !== before.q) typingTimer = setTimeout(search, TYPING_PAUSE_MS)
+    else search()
+  },
+)
 
 function clearFilters() {
   Object.assign(form, {
     role: '',
     country: '',
-    place: '',
-    near: null,
-    km: 25,
+    city: '',
     levelRole: '',
     levelMin: '',
     levelMax: '',
@@ -193,27 +221,9 @@ function ariaSort(column: Sort) {
   return dir.value === 'asc' ? 'ascending' : 'descending'
 }
 
-function onPlaceInput() {
-  form.near = null
-  clearTimeout(placeTimer)
-  const query = form.place.trim()
-  if (query.length < 2) {
-    places.value = []
-    return
-  }
-  placeTimer = setTimeout(async () => {
-    try {
-      places.value = (await api.placeSearch(query)).places
-    } catch {
-      places.value = []
-    }
-  }, 300)
-}
-
-function pickPlace(place: Place) {
-  form.place = place.label
-  form.near = { latitude: place.latitude, longitude: place.longitude }
-  places.value = []
+/** A different country drops a city that isn't in it. */
+function onCountry() {
+  if (form.city && !form.city.startsWith(`${form.country}|`)) form.city = ''
 }
 
 function initial(user: UserRow) {
@@ -231,6 +241,12 @@ function status(user: UserRow) {
 const ROLE_LABEL = { guest: 'Traveller', guide: 'Guide' } as const
 
 watch(() => route.query, load, { immediate: true })
+
+// The cities and countries users are in, for the two dropdowns.
+api
+  .userLocations()
+  .then((result) => (locations.value = result))
+  .catch(() => {})
 </script>
 
 <template>
@@ -241,11 +257,10 @@ watch(() => route.query, load, { immediate: true })
       <input
         v-model="form.q"
         type="search"
-        placeholder="#id, email, phone or name"
+        placeholder="#id, email, phone, name, town or country"
         aria-label="Search users"
         data-test="q"
       />
-      <button type="submit">Search</button>
     </form>
 
     <details class="filters" :open="filterCount > 0">
@@ -311,35 +326,25 @@ watch(() => route.query, load, { immediate: true })
           </label>
         </div>
         <div class="grid">
-          <label class="place">
-            Near (a guide’s base or a traveller’s area)
-            <input
-              v-model="form.place"
-              type="text"
-              placeholder="A town"
-              autocomplete="off"
-              data-test="place"
-              @input="onPlaceInput"
-            />
-            <ul v-if="places.length" class="places" role="listbox">
-              <li v-for="p in places" :key="`${p.latitude},${p.longitude}`">
-                <button type="button" class="link" @click="pickPlace(p)">{{ p.label }}</button>
-              </li>
-            </ul>
+          <label>
+            Country
+            <select v-model="form.country" data-test="country" @change="onCountry">
+              <option value="">Any</option>
+              <option v-for="c in countries" :key="c.code" :value="c.code">
+                {{ countryName(c.code) }} ({{ c.users }})
+              </option>
+            </select>
           </label>
           <label>
-            Within (km)
-            <input
-              v-model.number="form.km"
-              type="number"
-              min="1"
-              max="20000"
-              :disabled="!form.near"
-            />
-          </label>
-          <label>
-            Or country (code)
-            <input v-model="form.country" type="text" maxlength="2" placeholder="PT" />
+            City (a guide’s base or a traveller’s area)
+            <select v-model="form.city" data-test="city">
+              <option value="">Any</option>
+              <option v-for="c in cities" :key="c.value" :value="c.value">
+                {{ c.city }}{{ form.country ? '' : `, ${countryName(c.countryCode)}` }} ({{
+                  c.users
+                }})
+              </option>
+            </select>
           </label>
         </div>
         <div class="grid">
@@ -353,7 +358,6 @@ watch(() => route.query, load, { immediate: true })
           </label>
         </div>
         <div class="buttons">
-          <button type="submit">Apply</button>
           <button
             type="button"
             class="secondary outline"
@@ -461,7 +465,7 @@ watch(() => route.query, load, { immediate: true })
 <style scoped>
 .search {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr;
   gap: 0.5rem;
 }
 
@@ -475,28 +479,6 @@ watch(() => route.query, load, { immediate: true })
 
 .filters .count {
   color: var(--pico-primary);
-}
-
-.place {
-  position: relative;
-}
-
-.places {
-  position: absolute;
-  z-index: 2;
-  left: 0;
-  right: 0;
-  margin: -0.75rem 0 0;
-  padding: 0.25rem 0;
-  list-style: none;
-  background: var(--pico-background-color);
-  border: 1px solid var(--pico-muted-border-color);
-  border-radius: var(--pico-border-radius);
-}
-
-.places li {
-  padding: 0.2rem 0.75rem;
-  list-style: none;
 }
 
 .buttons {

@@ -154,8 +154,8 @@ export interface UserSearch {
   q?: string
   role?: '' | AppRole | 'both'
   country?: string
-  near?: { latitude: number; longitude: number } | null
-  km?: number
+  /** `"PT|Lisbon"` — a value from `userLocations`. */
+  city?: string
   levelRole?: '' | AppRole
   levelMin?: number | ''
   levelMax?: number | ''
@@ -393,12 +393,10 @@ export interface FreezeInput {
   bookings: { id: number; decision: 'leave' | 'cancel'; refund?: number | null }[]
 }
 
-export interface Place {
-  label: string
-  name: string
-  countryCode: string | null
-  latitude: number
-  longitude: number
+/** Where users are (guides' bases, travellers' search areas), for the list's filters. */
+export interface UserLocations {
+  cities: { value: string; city: string; countryCode: string; users: number }[]
+  countries: { code: string; users: number }[]
 }
 
 export interface CodeChallenge {
@@ -623,7 +621,7 @@ export const api = {
       'searchUsers',
       search,
     ),
-  placeSearch: (query: string) => call<{ places: Place[] }>('placeSearch', { query }),
+  userLocations: () => call<UserLocations>('userLocations'),
   userDetail: (id: number) => call<UserDetail>('userDetail', { id }),
   userEdit: (id: number, op: UserEditOp, payload: Record<string, unknown> = {}) =>
     call<UserDetail>('userEdit', { id, op, ...payload }),

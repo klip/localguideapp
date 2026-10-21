@@ -32,10 +32,11 @@ final class UserAdmin
      * One page of users matching `$input`:
      *
      * - `q`: `#123` or a short number → that id; something with `@` → email;
-     *   mostly digits (5+) → phone, formatting ignored; else name or email.
-     * - `role` guest | guide | both; `country` (ISO 2) matches a guide's base
-     *   or a traveller's search area; `near` `{ latitude, longitude }` + `km`
-     *   (default 25) the same, by distance.
+     *   mostly digits (5+) → phone, formatting ignored; else name, email or
+     *   location (a guide's base or a traveller's area — "Lisbon", "Portugal").
+     * - `role` guest | guide | both; `country` (ISO 2) and `city`
+     *   (`"PT|Lisbon"`, from `locations()`) match a guide's base or a
+     *   traveller's search area.
      * - `levelRole` guest | guide with `levelMin` / `levelMax` (effective
      *   level in that role); `verified` / `frozen` yes | no;
      *   `createdFrom` / `createdTo` (YYYY-MM-DD, inclusive).
@@ -67,14 +68,15 @@ final class UserAdmin
             $where[] = '(gb.`country_code` = "' . $country . '" OR ta.`country_code` = "' . $country . '")';
         }
 
-        $near = Places::readPoint($input['near'] ?? null, 'near');
-        if ($near) {
-            $km = (float) ($input['km'] ?? 25);
-            if ($km <= 0 || $km > 20000) {
-                throw new RuntimeException('A distance between 1 and 20,000 km.');
+        $city = trim((string) ($input['city'] ?? ''));
+        if ($city !== '') {
+            [$code, $town] = array_pad(explode('|', $city, 2), 2, '');
+            if (!preg_match('/^[A-Z]{2}$/', $code) || trim($town) === '') {
+                throw new RuntimeException('Pick a city from the list.');
             }
-            $where[] = '(' . Places::distanceKmSql('gb.`point`', $near) . ' <= ' . $km
-                . ' OR ' . Places::distanceKmSql('ta.`point`', $near) . ' <= ' . $km . ')';
+            $town = '"' . $this->db->db_Escape(trim($town)) . '"';
+            $where[] = '((gb.`country_code` = "' . $code . '" AND ' . self::townSql('gb') . ' = ' . $town . ')'
+                . ' OR (ta.`country_code` = "' . $code . '" AND ' . self::townSql('ta') . ' = ' . $town . '))';
         }
 
         $levelRole = (string) ($input['levelRole'] ?? '');
@@ -449,7 +451,53 @@ final class UserAdmin
             return 'REGEXP_REPLACE(COALESCE(u.`phone`, ""), "[^0-9]", "") LIKE "%' . $digits . '%"';
         }
 
-        return '(u.`name` LIKE ' . $like($q, $this->db) . ' OR u.`email` LIKE ' . $like($q, $this->db) . ')';
+        $pattern = $like($q, $this->db);
+
+        return '(u.`name` LIKE ' . $pattern . ' OR u.`email` LIKE ' . $pattern
+            . ' OR gb.`label` LIKE ' . $pattern . ' OR ta.`label` LIKE ' . $pattern . ')';
+    }
+
+    /** SQL: the town in a location row's label ("Lisbon, Portugal" → "Lisbon"). */
+    private static function townSql(string $alias): string
+    {
+        return 'TRIM(SUBSTRING_INDEX(' . $alias . '.`label`, ",", 1))';
+    }
+
+    /**
+     * The cities and countries users are in — guides' bases and travellers'
+     * search areas — for the list's filters: `cities: [{ value: "PT|Lisbon",
+     * city, countryCode, users }]`, `countries: [{ code, users }]`, most
+     * users first.
+     */
+    public function locations(): array
+    {
+        $rows = (array) $this->db->db_GetArray(
+            'SELECT `town`, `country_code`, COUNT(DISTINCT `user_id`) AS `users` FROM (
+                SELECT `user_id`, ' . self::townSql('gb') . ' AS `town`, gb.`country_code` FROM `guide_bases` gb
+                UNION ALL
+                SELECT `user_id`, ' . self::townSql('ta') . ' AS `town`, ta.`country_code` FROM `traveller_areas` ta
+             ) l WHERE `country_code` IS NOT NULL AND `town` <> ""
+             GROUP BY `town`, `country_code` ORDER BY `users` DESC, `town`'
+        );
+        $countries = (array) $this->db->db_GetArray(
+            'SELECT `country_code`, COUNT(DISTINCT `user_id`) AS `users` FROM (
+                SELECT `user_id`, `country_code` FROM `guide_bases`
+                UNION ALL SELECT `user_id`, `country_code` FROM `traveller_areas`
+             ) l WHERE `country_code` IS NOT NULL GROUP BY `country_code` ORDER BY `users` DESC'
+        );
+
+        return [
+            'cities' => array_map(static fn(array $r): array => [
+                'value' => $r['country_code'] . '|' . $r['town'],
+                'city' => (string) $r['town'],
+                'countryCode' => (string) $r['country_code'],
+                'users' => (int) $r['users'],
+            ], $rows),
+            'countries' => array_map(static fn(array $r): array => [
+                'code' => (string) $r['country_code'],
+                'users' => (int) $r['users'],
+            ], $countries),
+        ];
     }
 
     private function listRow(array $row): array

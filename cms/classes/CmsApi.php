@@ -40,7 +40,7 @@ final class CmsApi
         'userFreeze' => 'users.freeze',
         'userUnfreeze' => 'users.freeze',
         'bookingDecision' => 'refunds',
-        'placeSearch' => 'users.view',
+        'userLocations' => 'users.view',
         'pageMap' => 'pages.manage',
         'routeSave' => 'pages.manage',
         'routeDelete' => 'pages.manage',
@@ -174,8 +174,8 @@ final class CmsApi
                 return [200, ['history' => $this->content->history((string) ($input['prefix'] ?? ''), isset($input['key']) ? (string) $input['key'] : null)]];
             case 'contentRevert':
                 return [200, $this->contentRevert($input)];
-            case 'placeSearch':
-                return [200, ['places' => (new Geocoder($this->redis))->search((string) ($input['query'] ?? ''), 'en', null)]];
+            case 'userLocations':
+                return [200, $this->users->locations()];
             case 'userFreeze':
             case 'userUnfreeze':
             case 'bookingDecision':

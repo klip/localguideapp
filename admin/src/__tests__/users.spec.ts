@@ -12,7 +12,7 @@ vi.mock('@/api', async (importOriginal) => {
     ...actual,
     api: {
       searchUsers: vi.fn<Api['searchUsers']>(),
-      placeSearch: vi.fn<Api['placeSearch']>(),
+      userLocations: vi.fn<Api['userLocations']>(),
       userDetail: vi.fn<Api['userDetail']>(),
       userEdit: vi.fn<Api['userEdit']>(),
       userFreeze: vi.fn<Api['userFreeze']>(),
@@ -149,6 +149,16 @@ async function mountAt(path: string) {
 }
 
 beforeEach(() => {
+  vi.mocked(api.userLocations).mockResolvedValue({
+    cities: [
+      { value: 'PT|Lisbon', city: 'Lisbon', countryCode: 'PT', users: 9 },
+      { value: 'ES|Barcelona', city: 'Barcelona', countryCode: 'ES', users: 9 },
+    ],
+    countries: [
+      { code: 'ES', users: 17 },
+      { code: 'PT', users: 13 },
+    ],
+  })
   vi.mocked(api.searchUsers).mockResolvedValue({
     users: [
       row(),
@@ -174,7 +184,7 @@ afterEach(() => {
 })
 
 describe('the Users list', () => {
-  it('searches from the box, keeping the search in the URL', async () => {
+  it('searches as you type (after a pause), keeping the search in the URL', async () => {
     signIn(['users.view'])
     const { wrapper, router } = await mountAt('/users')
     expect(api.searchUsers).toHaveBeenCalledWith(
@@ -183,14 +193,60 @@ describe('the Users list', () => {
     expect(wrapper.find('[data-user="156"]').text()).toContain('Morris Reid')
     expect(wrapper.find('[data-user="217"]').text()).toContain('Frozen permanently')
 
-    await wrapper.find('[data-test="q"]').setValue('#156')
-    await wrapper.find('[data-test="search"]').trigger('submit.prevent')
+    vi.useFakeTimers()
+    try {
+      vi.mocked(api.searchUsers).mockClear()
+      await wrapper.find('[data-test="q"]').setValue('#15')
+      await wrapper.find('[data-test="q"]').setValue('#156')
+      await vi.advanceTimersByTimeAsync(200)
+      expect(api.searchUsers).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(400)
+    } finally {
+      vi.useRealTimers()
+    }
     await flushPromises()
     expect(router.currentRoute.value.query.q).toBe('#156')
+    // One search for the whole word, not one per keystroke.
+    expect(api.searchUsers).toHaveBeenCalledOnce()
     expect(api.searchUsers).toHaveBeenLastCalledWith(expect.objectContaining({ q: '#156' }))
+    expect(wrapper.find('[data-test="search"] button').exists()).toBe(false)
   })
 
-  it('applies filters, sorts by a column and pages', async () => {
+  it('filters by country and city from dropdowns of where users are', async () => {
+    signIn(['users.view'])
+    const { wrapper, router } = await mountAt('/users')
+    const country = wrapper.find('[data-test="country"]')
+    expect(country.findAll('option').map((o) => o.text())).toEqual([
+      'Any',
+      'Portugal (13)',
+      'Spain (17)',
+    ])
+    expect(
+      wrapper
+        .find('[data-test="city"]')
+        .findAll('option')
+        .map((o) => o.text()),
+    ).toEqual(['Any', 'Lisbon, Portugal (9)', 'Barcelona, Spain (9)'])
+
+    await wrapper.find('[data-test="city"]').setValue('ES|Barcelona')
+    await country.setValue('PT')
+    await country.trigger('change')
+    // A city outside the chosen country is dropped; the list narrows to that country.
+    expect(
+      wrapper
+        .find('[data-test="city"]')
+        .findAll('option')
+        .map((o) => o.text()),
+    ).toEqual(['Any', 'Lisbon (9)'])
+    await wrapper.find('[data-test="city"]').setValue('PT|Lisbon')
+    await flushPromises()
+    expect(router.currentRoute.value.query).toMatchObject({ country: 'PT', city: 'PT|Lisbon' })
+    expect(api.searchUsers).toHaveBeenLastCalledWith(
+      expect.objectContaining({ country: 'PT', city: 'PT|Lisbon' }),
+    )
+  })
+
+  it('applies a filter as soon as it changes, sorts by a column and pages', async () => {
     signIn(['users.view'])
     vi.mocked(api.searchUsers).mockResolvedValue({
       users: [row()],
@@ -201,9 +257,12 @@ describe('the Users list', () => {
     const { wrapper, router } = await mountAt('/users')
     await wrapper.find('[data-test="role"]').setValue('guide')
     await wrapper.find('[data-test="frozen"]').setValue('yes')
-    await wrapper.find('[data-test="filters"]').trigger('submit.prevent')
     await flushPromises()
     expect(router.currentRoute.value.query).toMatchObject({ role: 'guide', frozen: 'yes' })
+    expect(api.searchUsers).toHaveBeenLastCalledWith(
+      expect.objectContaining({ role: 'guide', frozen: 'yes' }),
+    )
+    expect(wrapper.find('[data-test="filters"] button[type="submit"]').exists()).toBe(false)
 
     await wrapper.find('[data-test="sort-name"]').trigger('click')
     await flushPromises()
@@ -217,6 +276,16 @@ describe('the Users list', () => {
     await flushPromises()
     expect(api.searchUsers).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 2, sort: 'name', role: 'guide', frozen: 'yes' }),
+    )
+    // Refilling the form from the URL isn't a change: still on page 2.
+    expect(router.currentRoute.value.query.page).toBe('2')
+
+    // A real change starts again from page 1.
+    await wrapper.find('[data-test="role"]').setValue('guest')
+    await flushPromises()
+    expect(router.currentRoute.value.query.page).toBeUndefined()
+    expect(api.searchUsers).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, role: 'guest' }),
     )
   })
 })
