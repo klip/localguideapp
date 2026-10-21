@@ -56,16 +56,8 @@ watch(isDesktop, (desktop) => {
 function onFiltersToggle(event: Event) {
   filtersOpen.value = (event.target as HTMLDetailsElement).open
 }
-const {
-  hasAccess,
-  picksUsed,
-  capacity,
-  selectionsLeft,
-  canPick,
-  packSize,
-  freePicksActive,
-  freePicksUntil,
-} = storeToRefs(matchesStore)
+const { hasAccess, selectionsLeft, canPick, packSize, freePicksActive, freePicksUntil } =
+  storeToRefs(matchesStore)
 const { items: guides, loading: guidesLoading } = storeToRefs(guidesStore)
 
 /**
@@ -124,7 +116,8 @@ const freePicksUntilLabel = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
   minute: '2-digit',
 })
-const counterHeadline = computed(() => {
+/** "3 selections left" — in the deck's header and the rail, each with "Add more". */
+const picksLeftLabel = computed(() => {
   if (freePicksActive.value && freePicksUntil.value) {
     return t('discover.counter.free_picks_until', {
       date: freePicksUntilLabel.format(new Date(freePicksUntil.value)),
@@ -134,6 +127,12 @@ const counterHeadline = computed(() => {
     ? tn('discover.counter.selections_left', selectionsLeft.value)
     : t('discover.counter.no_selections_left')
 })
+
+/** No pack yet: the first-pack modal. Otherwise the top-up page. */
+function addMore() {
+  if (hasAccess.value) router.push('/unlock')
+  else payOpen.value = true
+}
 
 /**
  * Persists the decision server-side (see `Selections::decide()`) in the
@@ -264,12 +263,15 @@ function reject(id: string) {
                 }}
               </div>
             </div>
-            <PillBadge v-if="freePicksActive" data-test="free-picks">{{
-              t('discover.deck.free_picks')
-            }}</PillBadge>
-            <PillBadge v-else-if="hasAccess">{{
-              t('discover.deck.picked', { picked: picksUsed, capacity })
-            }}</PillBadge>
+            <div v-if="hasAccess" class="picks-left">
+              <PillBadge v-if="freePicksActive" data-test="free-picks">{{
+                t('discover.deck.free_picks')
+              }}</PillBadge>
+              <PillBadge v-else data-test="picks-left">{{ picksLeftLabel }}</PillBadge>
+              <button type="button" class="soft-btn add-more" data-test="add-more" @click="addMore">
+                {{ t('discover.deck.add_more') }}
+              </button>
+            </div>
           </div>
         </template>
 
@@ -290,17 +292,6 @@ function reject(id: string) {
           :caption="t('discover.counter.unlock_caption')"
           :action-label="t('discover.counter.unlock')"
           @action="payOpen = true"
-        />
-        <SelectionCounter
-          v-else-if="auth.isAuthenticated"
-          :headline="counterHeadline"
-          :caption="
-            freePicksActive
-              ? t('discover.counter.free_picks_caption')
-              : t('discover.counter.pack_caption')
-          "
-          :action-label="t('discover.counter.get_more', { count: packSize })"
-          @action="router.push('/unlock')"
         />
 
         <LocationPrompt />
@@ -401,17 +392,15 @@ function reject(id: string) {
           }}</RouterLink>
         </PanelCard>
         <PanelCard v-else :title="t('discover.rail.title')">
-          <SelectionCounter
-            :headline="t('discover.rail.count', { picked: picksUsed, capacity })"
-            :caption="t('discover.rail.selected')"
-          />
+          <div class="picks-left rail-picks">
+            <strong data-test="rail-picks-left">{{ picksLeftLabel }}</strong>
+            <button type="button" class="soft-btn add-more" @click="addMore">
+              {{ t('discover.deck.add_more') }}
+            </button>
+          </div>
 
           <!-- Active matches and upcoming trips, each tab linking to its page. -->
           <MatchesRail ref="matchesRail" />
-
-          <RouterLink to="/unlock" role="button" class="full">
-            {{ t('discover.rail.unlock_more', { count: packSize }) }}
-          </RouterLink>
         </PanelCard>
       </aside>
     </div>
@@ -521,6 +510,27 @@ function reject(id: string) {
 
 a[role='button'] {
   margin-bottom: 0.5rem;
+}
+
+// "3 selections left" with "Add more" beside it.
+.picks-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.rail-picks {
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.add-more {
+  width: auto;
+  margin: 0;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
 }
 
 .price-head {

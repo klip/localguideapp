@@ -247,8 +247,13 @@ path/name table) and the shared `src/components/` each is built from:
   `SelectionCounter` is `DiscoverPage.vue`-only (the pack-remaining strip
   — see "Domain model" for why the guide side has no equivalent). Both
   pages pull their deck from `stores/guides.ts`/`stores/visitors.ts`.
+  **Picks left**: the deck header (once a pack is bought) and the rail
+  both read "N selections left" (or "Free picks on" / "Free picks until …")
+  with an **Add more** button — `/unlock` with a pack, the first-pack modal
+  without; there's no "x / y picked" count and no "selections left" strip
+  under the header any more.
   `DiscoverPage.vue`'s right rail ("Your matches", signed in) is the picks
-  counter, **`MatchesRail.vue`** and "Unlock more". `MatchesRail` calls the
+  left + Add more, then **`MatchesRail.vue`**. `MatchesRail` calls the
   API itself (`matchOverview` + `trips`) and has two tabs with the menu's
   icons: **Matched** (active pairs not yet confirmed — `/matches`' Matched
   tab) and **Upcoming** (trips not finished — soonest first), each name
@@ -336,8 +341,9 @@ own — every one just takes props/emits):
   itself): the whole booking for one matched pair on `MatchesPage.vue` —
   pay, accept/decline, cancel/request cancellation, finish the trip. See
   "Guide fees & bookings".
-- `SelectionCounter.vue` — the "N selections left" strip with an optional
-  unlock action; see `DiscoverPage.vue` above.
+- `SelectionCounter.vue` — a headline + caption strip with an optional
+  action; on `DiscoverPage.vue` only for "Browse freely" (signed out) and
+  "Unlock 5 picks" (no pack yet).
 - `AttributeCombobox.vue` — the generic type-ahead picker (see "Dynamic
   profile attributes" below for its full mechanics); also used standalone
   for the phone country-code field (`allow-create="false"`).
@@ -2901,6 +2907,9 @@ API service (`api/classes/`):
   Upcoming tabs and captions; drops `discover.rail.nothing_picked` and
   `trips.status.scheduled/in_progress/finished`; adds `common.booking_time`
   to the discover page's blocks. Applied 2026-10-21. Re-runnable.
+- `api/sql/083_translations_picks_left.sql` — `discover.deck.add_more`; drops
+  the old "x / y picked/selected", "Get +N", "Unlock +N · £5" and the counter
+  strip's captions. Applied 2026-10-21. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

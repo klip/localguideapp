@@ -230,6 +230,25 @@ describe('DiscoverPage', () => {
     wrapper.unmount()
   })
 
+  it('shows the picks left with "Add more" in the header and the rail, and no counter strip', async () => {
+    const api = fakeApi({
+      paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(payment(1)),
+    })
+    const { wrapper, router } = await mountDiscover(api, true)
+
+    expect(wrapper.find('[data-test="picks-left"]').text()).toBe('5 selections left')
+    expect(wrapper.find('[data-test="rail-picks-left"]').text()).toBe('5 selections left')
+    expect(wrapper.text()).not.toContain('picked')
+    expect(wrapper.text()).not.toContain('selected')
+    // The old strip under the header ("… before your current pack is used") is gone.
+    expect(wrapper.find('.counter').exists()).toBe(false)
+
+    await wrapper.find('[data-test="add-more"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/unlock')
+    wrapper.unmount()
+  })
+
   it('goes straight to matching for a guest who already has a pack', async () => {
     const api = fakeApi({
       paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(payment(1)),
