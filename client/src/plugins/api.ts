@@ -129,6 +129,11 @@ export interface TwoFactorChallenge {
   destination: string
   expiresInSeconds: number
   resendAfterSeconds: number
+  /**
+   * Why a code is asked for when the account wouldn't normally need one:
+   * this browser looks unfamiliar (`Risk::STEP_UP`).
+   */
+  reason?: 'unfamiliar_device'
 }
 
 export type LoginResult = AuthResult | TwoFactorChallenge
@@ -1148,6 +1153,16 @@ export const api = {
     } finally {
       signedOut(false)
     }
+  },
+  /**
+   * "Not you? Secure your account" (a new-sign-in email's link): ends every
+   * sign-in and forgets remembered browsers; returns a reset token for
+   * choosing a new password straight away. This tab is signed out too.
+   */
+  secureAccount: async (token: string) => {
+    const result = await call<{ resetToken: string }>('secureAccount', { token })
+    signedOut(false)
+    return result
   },
   /** The browsers this account is signed in on now, this one marked `current`. */
   myDevices: () => call<{ devices: MyDevice[] }>('myDevices'),

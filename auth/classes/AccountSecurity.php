@@ -29,6 +29,8 @@ class AccountSecurity
 {
     private const LOGIN_CODE_TTL_SECONDS = 10 * 60;
     private const RESET_TTL_SECONDS = 30 * 60;
+    /** The "Not you? Secure your account" link in a new-sign-in email. */
+    private const SECURE_TTL_SECONDS = 7 * 86400;
     /** Wrong guesses allowed per login challenge, across resends. */
     private const MAX_CODE_ATTEMPTS = 5;
     /** The first email plus two resends. */
@@ -71,7 +73,12 @@ class AccountSecurity
      * The password was right: open a login challenge and email its code.
      * Any older unfinished login challenge for the account is dropped.
      */
-    public function startLogin(array $user): array
+    /**
+     * `$reason` says why a code is needed when the account wouldn't normally
+     * ask for one — `unfamiliar_device` (`Risk::STEP_UP`) — and is passed to
+     * the login page to explain.
+     */
+    public function startLogin(array $user, ?string $reason = null): array
     {
         $userId = (int) $user['id'];
         $this->spendOpen($userId, 'login');
@@ -88,7 +95,7 @@ class AccountSecurity
 
         $this->sendCode($user, $code);
 
-        return $this->challengeResponse($token, (string) $user['email']);
+        return $this->challengeResponse($token, (string) $user['email']) + ($reason ? ['reason' => $reason] : []);
     }
 
     /**
@@ -252,13 +259,7 @@ class AccountSecurity
             return;
         }
 
-        $this->spendOpen($userId, 'reset');
-        $token = self::newToken();
-        $this->db->db_Execute(
-            'INSERT INTO `auth_challenges` (`user_id`, `purpose`, `token_hash`, `last_sent_at`, `expires_at`, `created_at`)
-             VALUES (' . $userId . ', "reset", "' . hash('sha256', $token) . '",
-                     UTC_TIMESTAMP(), UTC_TIMESTAMP() + INTERVAL ' . self::RESET_TTL_SECONDS . ' SECOND, UTC_TIMESTAMP())'
-        );
+        $token = $this->createResetToken($userId);
 
         $link = self::appUrl() . '/reset-password?token=' . $token;
         $minutes = (int) (self::RESET_TTL_SECONDS / 60);
@@ -272,6 +273,84 @@ class AccountSecurity
             'password_reset',
             MailQueue::PRIORITY_HIGH
         );
+    }
+
+    /** A fresh reset token (the newest only works, 30 minutes) — emailed, or handed over by `secureAccount()`. */
+    public function createResetToken(int $userId): string
+    {
+        $this->spendOpen($userId, 'reset');
+        $token = self::newToken();
+        $this->db->db_Execute(
+            'INSERT INTO `auth_challenges` (`user_id`, `purpose`, `token_hash`, `last_sent_at`, `expires_at`, `created_at`)
+             VALUES (' . $userId . ', "reset", "' . hash('sha256', $token) . '",
+                     UTC_TIMESTAMP(), UTC_TIMESTAMP() + INTERVAL ' . self::RESET_TTL_SECONDS . ' SECOND, UTC_TIMESTAMP())'
+        );
+
+        return $token;
+    }
+
+    /**
+     * "New sign-in to your account" — after a sign-in that looked unusual
+     * (`Risk::NOTIFY`): which browser, roughly where, and a one-click link
+     * that ends every sign-in and leads to a new password if it wasn't them.
+     */
+    public function notifyNewSignIn(array $user, string $label, ?string $place): void
+    {
+        $where = trim(($label !== '' ? $label : 'an unrecognised browser') . ($place ? ', near ' . $place : ''));
+        $this->mail->enqueue(
+            (string) $user['email'],
+            'New sign-in to your BeLikeLocal account',
+            self::greeting($user)
+            . "Your BeLikeLocal account was just signed in to from {$where}, at " . gmdate('H:i') . " UTC on " . gmdate('j F Y') . ".\n\n"
+            . "If that was you, there's nothing to do.\n\n"
+            . "If it wasn't, secure your account — this signs you out everywhere and lets you choose a new password:\n"
+            . $this->secureLink((int) $user['id']) . "\n\nBeLikeLocal",
+            'new_sign_in',
+            MailQueue::PRIORITY_HIGH
+        );
+    }
+
+    /** A copied sign-in was caught (`Tokens::rotate()` reuse) and ended; the owner should know. */
+    public function notifyTokenReuse(array $user): void
+    {
+        $this->mail->enqueue(
+            (string) $user['email'],
+            'We signed out a device on your BeLikeLocal account',
+            self::greeting($user)
+            . "A sign-in on one of your devices was used from two places at once, which usually means it was copied. "
+            . "We've signed that device out.\n\n"
+            . "If you don't recognise this, secure your account — this signs you out everywhere and lets you choose a new password:\n"
+            . $this->secureLink((int) $user['id']) . "\n\nBeLikeLocal",
+            'token_reuse',
+            MailQueue::PRIORITY_HIGH
+        );
+    }
+
+    /**
+     * Redeems a "secure your account" link: the account's id, the link spent.
+     * (`AuthProcessor::actionSecureAccount()` does the rest.)
+     */
+    public function redeemSecureLink(string $token): int
+    {
+        $challenge = $this->openChallenge('secure', $token);
+        if (!$challenge) {
+            throw new RuntimeException('This link has expired or was already used.');
+        }
+        $this->spend((int) $challenge['id']);
+
+        return (int) $challenge['user_id'];
+    }
+
+    private function secureLink(int $userId): string
+    {
+        $token = self::newToken();
+        $this->db->db_Execute(
+            'INSERT INTO `auth_challenges` (`user_id`, `purpose`, `token_hash`, `last_sent_at`, `expires_at`, `created_at`)
+             VALUES (' . $userId . ', "secure", "' . hash('sha256', $token) . '",
+                     UTC_TIMESTAMP(), UTC_TIMESTAMP() + INTERVAL ' . self::SECURE_TTL_SECONDS . ' SECOND, UTC_TIMESTAMP())'
+        );
+
+        return self::appUrl() . '/secure-account?token=' . $token;
     }
 
     /** Sets a new password from a reset link, spends the link, and signs the account out everywhere. */

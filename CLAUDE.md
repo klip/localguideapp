@@ -1615,7 +1615,7 @@ category a user invented on their profile page five minutes ago.
 
 ### Sign-in: access tokens and the refresh cookie
 
-Phases 1–3 of `docs/auth-cms-plan.md` are in: the client signs in with **signed
+Phases 1–4 of `docs/auth-cms-plan.md` are in: the client signs in with **signed
 tokens**; the old Redis sessions still work alongside (for any old client)
 until phase 5 retires them.
 
@@ -1718,6 +1718,30 @@ until phase 5 retires them.
   revokes every sign-in from that browser (`Tokens::revokeDevice()`), its
   sockets unbound at once. (073 has the text.) `trusted_devices` (2FA
   "remember me") is still separate — folding it in is left for later.
+- **Suspicious sign-ins** (phase 4, `auth/classes/Risk.php`, 074): a login
+  is scored before the password check, from the account's own history — +30
+  a browser (device cookie) it never used, +15 a fingerprint it never used
+  (both only once the account has a device, and the fingerprint only from 5+
+  details), +30 a new country (only with `GEO_LOOKUP_URL`), +20 for 3+ wrong
+  passwords in the hour. **≥ 40 (`STEP_UP`)**: an emailed code first, even
+  with two-factor off or a remembered browser (`AccountSecurity::
+  startLogin($user, 'unfamiliar_device')`; the challenge carries `reason`,
+  the code step says "We don’t recognise this browser…"). **≥ 30
+  (`NOTIFY`)**: after the sign-in, a "New sign-in to your BeLikeLocal
+  account" email (browser, place, time). A caught token reuse sends "We
+  signed out a device". Both carry a **"Secure your account" link**
+  (`auth_challenges.purpose = 'secure'`, 7 days, once) → `/secure-account`
+  (`SecureAccountPage.vue`, 075) → `secureAccount` (public, socket): every
+  sign-in ends, remembered browsers are forgotten, and a fresh reset token
+  comes back, so the page goes straight to "choose a new password". Scores
+  and reasons are stored on `login_events`. Not yet (they need GeoLite2):
+  impossible travel, hosting/VPN networks, time zone vs. IP country.
+- **Linked accounts** (`account_links`, 074): after every sign-in and
+  registration, `Risk::linkAccounts()` records other accounts on the same
+  device cookie (strength 3), the same address and fingerprint within 30
+  days (2), or the same fingerprint (1) — counted, never blocked; staff
+  decide (`verdict`, CMS phase 9). Blocking a frozen account's device from
+  registering waits for freezing (phase 8).
 - `addRole` (still on the socket) returns a new access token whose `roles`
   claim includes the new role (`Tokens::reissueAccess()`, using the caller's
   `sid` from the verified token); `api.addRole` adopts it.
@@ -1731,7 +1755,8 @@ until phase 5 retires them.
   verifying, a forged token, a role the token lacks, rotation, reuse
   revoking the family, Origin/Content-Type refusals, logout killing its
   access token at once, sign out everywhere unbinding another device, the
-  devices list and signing one out, the old session path);
+  devices list and signing one out, an unfamiliar browser asked for a code,
+  the old session path — it sends a few security emails, see its header);
   `lib/tests/ClientIpTest.php`; `api.spec.ts` and `ProfilePage.spec.ts`
   cover the client side.
 
@@ -2178,6 +2203,7 @@ is a `503` from the gateway.
 | `claimBonus` | **yes** | `api.claimBonus(payload)` | `bonusId` | `LevelState` | `Levels::claim()` |
 | `reportUser` | **yes** | `api.reportUser(payload)` | `subjectId, title` (≤120), `description` (≤2000) | `{ id, status: 'open', created_at }` | `Complaints::file()` |
 | `logout` | the refresh cookie | `api.logout()` — **HTTP** `POST /auth/logout` | — | `{ ok: true }`, cookie cleared, every tab signs out | `AuthHttp` → `Tokens::revokeByToken()` (the WebSocket `logout` still ends a session hash) |
+| `secureAccount` | no (the link's token) | `api.secureAccount(token)` | `token` (from a new-sign-in or token-reuse email) | `{ resetToken }` — every sign-in ended, remembered browsers forgotten; 400 when spent or expired | `AccountSecurity::redeemSecureLink()`, `signOutEverywhere()`, `createResetToken()` |
 | `myDevices` | **yes** | `api.myDevices()` | — | `{ devices: MyDevice[] }` (`id, label, place, country, last_seen_at, first_seen_at, current`) — browsers with a live sign-in | `AuthProcessor::actionMyDevices()` → `Devices::signedInFor()` |
 | `signOutDevice` | **yes** | `api.signOutDevice(id)` | `deviceId` | `{ ok: true, current }` (this browser → the tab signs out too) | `Tokens::revokeDevice()` |
 | `logoutEverywhere` | the refresh cookie | `api.logoutEverywhere()` — **HTTP** `POST /auth/logoutEverywhere` | — | `{ ok: true }`, cookie cleared; 401 without a live cookie | `AuthHttp` → `AuthProcessor::signOutEverywhere()` → `Tokens::revokeAllFor()`, `Session::destroyAllFor()` |
@@ -2263,7 +2289,8 @@ Auth service (`auth/classes/`):
   (emails queued through `MailQueue`).
 - `Session.php` — Redis sessions (the old path, see "Sign-in").
 - `Devices.php` — devices, keyed device hashes, `login_events`; `GeoIp.php`
-  — optional IP → place.
+  — optional IP → place; `Risk.php` — sign-in risk scores and linked
+  accounts.
 - `Tokens.php` — access tokens and refresh-token rotation; `AuthHttp.php` —
   the browser-facing `POST /auth/*` endpoint with the cookies
   (`auth/public.php`).
@@ -2641,6 +2668,11 @@ API service (`api/classes/`):
   "Sign-in"). Applied 2026-10-20. Re-runnable.
 - `api/sql/073_translations_devices.sql` — the "Signed in on" list. Applied
   2026-10-20. Re-runnable.
+- `api/sql/074_risk_account_links.sql` — `login_events.risk_score/
+  risk_reasons`, `auth_challenges.purpose` 'secure', `account_links`.
+  Applied 2026-10-21. Not re-runnable.
+- `api/sql/075_translations_secure_account.sql` — the secure-account page
+  and the "unfamiliar browser" note. Applied 2026-10-21. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

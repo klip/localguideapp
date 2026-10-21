@@ -49,6 +49,7 @@ real users and real money. Add to this list whenever a shortcut is taken.
 
 | Now | For production |
 | --- | --- |
+| **Sign-ins are scored and linked**: unfamiliar browsers get an emailed code, owners get "new sign-in" emails, and accounts sharing a browser or fingerprint are recorded in `account_links` — none of it in the privacy notice yet. | Same update as below (automated security checks, what's linked and why, that staff review it), reviewed by the lawyer. |
 | **Device data and the sign-in history are collected** (browser, system, screen, time zone, languages, CPU/memory class as keyed hashes; IP 90 days; events 12 months) and two security cookies are set, but the privacy notice (terms section 9) and the cookie notice don't mention them yet. | Add them — purpose (account security, fraud prevention), retention, the user's own devices list — and bump `NOTICE_VERSION`; the lawyer reviews it (docs/auth-cms-plan.md §2, "Legal"). |
 | **Terms, privacy notice and role agreements are drafts** (`docs/legal/`). | A lawyer reviews them in every language that will be offered. |
 | **`legal_placeholders` are all NULL** (operator, controller, processors, DPO, EU/UK representative, authority, retention, governing law), shown as `[label]`. | Fill them: `UPDATE legal_placeholders SET value = …`. |

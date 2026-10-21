@@ -5,6 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import ForgotPasswordPage from '../pages/ForgotPasswordPage.vue'
 import LoginPage from '../pages/LoginPage.vue'
 import ResetPasswordPage from '../pages/ResetPasswordPage.vue'
+import SecureAccountPage from '../pages/SecureAccountPage.vue'
 import {
   API_KEY,
   ApiError,
@@ -123,6 +124,19 @@ describe('LoginPage — two-factor', () => {
     expect(verifyTwoFactor).toHaveBeenCalledWith({ challengeToken: TOKEN, code: '123456' })
     expect(useAuthStore().user?.id).toBe(7)
     expect(router.currentRoute.value.path).toBe('/guide/discover')
+  })
+
+  it('says why when an unfamiliar browser is asked for a code', async () => {
+    const api = fakeApi({
+      login: vi.fn<Api['login']>().mockResolvedValue({ ...challenge, reason: 'unfamiliar_device' }),
+    })
+    const { wrapper } = await mountAt('/login', LoginPage, api)
+
+    await logInWithPassword(wrapper)
+
+    expect(wrapper.find('[data-test="unfamiliar-device"]').text()).toContain(
+      'We don’t recognise this browser',
+    )
   })
 
   it('keeps the code step open after a wrong code, and goes back to the password once the challenge is spent', async () => {
@@ -335,5 +349,43 @@ describe('ResetPasswordPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('This link doesn’t work')
+  })
+})
+
+describe('SecureAccountPage', () => {
+  it('secures the account and goes straight on to choosing a new password', async () => {
+    const secureAccount = vi
+      .fn<Api['secureAccount']>()
+      .mockResolvedValue({ resetToken: 'b'.repeat(64) })
+    const { router } = await mountAt(
+      `/secure-account?token=${TOKEN}`,
+      SecureAccountPage,
+      fakeApi({ secureAccount }),
+    )
+
+    expect(secureAccount).toHaveBeenCalledWith(TOKEN)
+    expect(router.currentRoute.value.path).toBe('/reset-password')
+    expect(router.currentRoute.value.query.token).toBe('b'.repeat(64))
+    expect(toasts()).toContain('signed out everywhere')
+  })
+
+  it('offers a password reset when the link is spent, or malformed', async () => {
+    const api = fakeApi({
+      secureAccount: vi
+        .fn<Api['secureAccount']>()
+        .mockRejectedValue(new ApiError('This link has expired or was already used.', 400)),
+    })
+    const { wrapper } = await mountAt(`/secure-account?token=${TOKEN}`, SecureAccountPage, api)
+    expect(wrapper.text()).toContain('This link doesn’t work any more')
+    expect(wrapper.find('a[href="/forgot-password"]').exists()).toBe(true)
+
+    const malformed = fakeApi()
+    const { wrapper: bad } = await mountAt(
+      '/secure-account?token=nope',
+      SecureAccountPage,
+      malformed,
+    )
+    expect(bad.text()).toContain('This link doesn’t work any more')
+    expect(malformed.secureAccount).not.toHaveBeenCalled()
   })
 })

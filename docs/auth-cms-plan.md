@@ -1,6 +1,6 @@
 # Plan: signed tokens, device security, and the CMS
 
-Status (2026-10-20): **phases 1–3 built** — see CLAUDE.md "Sign-in"; the
+Status (2026-10-21): **phases 1–4 built** — see CLAUDE.md "Sign-in"; the
 rest is a proposal. Three pieces that depend on
 each other, in build order:
 
@@ -459,7 +459,7 @@ reason, staff_id, lifted_at, lifted_by)`):
 | 1 ✓ | **Tokens, in parallel with sessions** — built 2026-10-20 | Ed25519 keys + env, `lib/Jwt.php`, `refresh_tokens`; `POST /auth/*` HTTP endpoints on the app's origin (Vite proxy in dev, nginx route in production) setting the HttpOnly refresh and device cookies; login/2FA/register return an access token *and* the session hash; gateway and services accept either; client keeps the access token in memory, refreshes under a cross-tab lock, re-binds the socket | — |
 | 2 ✓ | **Refresh security** — built 2026-10-20 | rotation, reuse detection, 30 s grace; the `auth:revoked` list (by sid, gateway only — the services are behind it); sign out on all devices | 1 |
 | 3 ✓ | **Client IP + devices** — built 2026-10-20 (geo lookup optional, off by default; `trusted_devices` not merged yet) | nginx → gateway → services IP header, `devices`, `login_events`, device info from the client, GeoLite2, "Your devices" on the profile page; `trusted_devices` merged into `devices` | 1 |
-| 4 | **Risk scoring & alerts** | scores, step-up 2FA, "new sign-in" email with "not me", `account_links`, ban-evasion check at registration; privacy notice + cookie notice update | 3, lawyer |
+| 4 ✓ | **Risk scoring & alerts** — built 2026-10-21 (without the geolocation signals and the ban-evasion check, which wait for GeoLite2 and freezing; the privacy notice still needs the lawyer) | scores, step-up 2FA, "new sign-in" email with "not me", `account_links`, ban-evasion check at registration; privacy notice + cookie notice update | 3, lawyer |
 | 5 | **Retire sessions** | remove the session hash path, `resolve`/`peekMany`, `Session.php`'s request role; Redis keeps pub/sub, counters, caches | 2 |
 | 6 | **CMS foundation** | `cms/` service + container, `admin/` Vue app, staff accounts with mandatory 2FA, `aud: cms` tokens, permissions, `staff_audit`, create-admin script | 1–2 |
 | 7 | **Content editor** | `layout.json` generator, page wireframe, block form with language switcher, add key, validation, history/revert, `i18n:pull` | 6 |

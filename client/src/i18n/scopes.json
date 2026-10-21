@@ -46,6 +46,12 @@
       "reset_password.header",
       "reset_password.toast"
     ],
+    "secure-account": [
+      "secure_account.failed",
+      "secure_account.header",
+      "secure_account.toast",
+      "secure_account.working"
+    ],
     "unlock": [
       "common.price_box",
       "common.protected_notice",

@@ -88,6 +88,12 @@ const router = createRouter({
       component: () => import('@/pages/ResetPasswordPage.vue'),
     },
     {
+      // "Not you? Secure your account", from a new-sign-in email, with `?token=`.
+      path: '/secure-account',
+      name: 'secure-account',
+      component: () => import('@/pages/SecureAccountPage.vue'),
+    },
+    {
       path: '/unlock',
       name: 'unlock',
       component: () => import('@/pages/UnlockPage.vue'),

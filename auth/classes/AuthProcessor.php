@@ -36,15 +36,20 @@ class AuthProcessor
     private $tokens;
     /** @var Devices */
     private $devices;
+    /** @var Risk */
+    private $risk;
     /** @var array */
     private $input = [];
     /**
      * `withSession: false` — called through `AuthHttp`, which issues tokens
      * instead of a Redis session.
      *
-     * @var array{userId: ?int, sid: ?string, did: ?int, userAgent: string, clientIp: string, requestId: string, withSession: bool}
+     * `stepUp` (from `AuthHttp`, when `Risk` found the attempt unusual) makes
+     * `login` ask for an emailed code whatever the account's settings.
+     *
+     * @var array{userId: ?int, sid: ?string, did: ?int, userAgent: string, clientIp: string, requestId: string, withSession: bool, stepUp: ?string}
      */
-    private $context = ['userId' => null, 'sid' => null, 'did' => null, 'userAgent' => '', 'clientIp' => '', 'requestId' => '', 'withSession' => true];
+    private $context = ['userId' => null, 'sid' => null, 'did' => null, 'userAgent' => '', 'clientIp' => '', 'requestId' => '', 'withSession' => true, 'stepUp' => null];
 
     public function __construct(db $db, RedisClient $redis)
     {
@@ -55,6 +60,17 @@ class AuthProcessor
         $this->legal = new LegalDocuments($db);
         $this->tokens = new Tokens($db, $this->accounts, $redis);
         $this->devices = new Devices($db, new GeoIp($redis));
+        $this->risk = new Risk($db);
+    }
+
+    public function risk(): Risk
+    {
+        return $this->risk;
+    }
+
+    public function security(): AccountSecurity
+    {
+        return $this->security;
     }
 
     public function devices(): Devices
@@ -117,6 +133,8 @@ class AuthProcessor
                 case 'logout':
                     $this->sessions->destroy($this->sessionHash());
                     return [200, ['ok' => true]];
+                case 'secureAccount':
+                    return [200, $this->actionSecureAccount()];
                 case 'myDevices':
                     return [200, $this->actionMyDevices()];
                 case 'signOutDevice':
@@ -217,6 +235,11 @@ class AuthProcessor
         // session waits for `verifyTwoFactor` — unless this browser sent a
         // device token the account trusted within the last 30 days.
         $deviceToken = (string) ($this->input['deviceToken'] ?? '');
+        // An unusual sign-in (`Risk::STEP_UP`) needs the code too, even with
+        // two-factor off or a remembered browser.
+        if ($this->context['stepUp']) {
+            return $this->security->startLogin($user, (string) $this->context['stepUp']);
+        }
         if (
             AccountSecurity::requiresTwoFactor($user)
             && !$this->security->isTrustedDevice((int) $user['id'], $deviceToken)
@@ -331,6 +354,22 @@ class AuthProcessor
         }
 
         return $result;
+    }
+
+    /**
+     * "Not you? Secure your account" — the link in a new-sign-in email: ends
+     * every sign-in, forgets every remembered browser, and hands back a
+     * one-time reset token so the page can go straight to "choose a new
+     * password". Whoever holds the link proved they read the account's email.
+     */
+    private function actionSecureAccount(): array
+    {
+        $userId = $this->security->redeemSecureLink((string) ($this->input['token'] ?? ''));
+        $this->signOutEverywhere($userId, 'not_me');
+        $this->security->forgetTrustedDevices($userId);
+        Log::warning('Account secured from a new-sign-in email', ['user_id' => $userId]);
+
+        return ['resetToken' => $this->security->createResetToken($userId)];
     }
 
     /** "Your devices": the browsers signed in now, this one marked. */

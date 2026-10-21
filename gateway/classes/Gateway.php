@@ -45,7 +45,7 @@ class Gateway
     private const AUTH_ACTIONS = [
         'register', 'login', 'verifyTwoFactor', 'resendTwoFactor', 'requestPasswordReset',
         'resetPassword', 'forgetTrustedDevices', 'changePassword', 'logout', 'session', 'addRole',
-        'myDevices', 'signOutDevice',
+        'myDevices', 'signOutDevice', 'secureAccount',
     ];
     /** Service actions only the gateway may call. */
     private const INTERNAL_ACTIONS = ['resolve', 'peekMany', 'pushState'];

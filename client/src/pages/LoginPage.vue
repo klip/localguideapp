@@ -194,6 +194,13 @@ function backToPassword() {
       :title="t('login.code.title')"
       :subtitle="t('login.code.subtitle', { destination: challenge.destination })"
     >
+      <p
+        v-if="challenge.reason === 'unfamiliar_device'"
+        class="tiny muted"
+        data-test="unfamiliar-device"
+      >
+        {{ t('login.code.unfamiliar_device') }}
+      </p>
       <form @submit.prevent="verify">
         <label>
           {{ t('login.code.label') }}

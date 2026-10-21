@@ -27,6 +27,7 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     logout: vi.fn<Api['logout']>(),
     logoutEverywhere: vi.fn<Api['logoutEverywhere']>(),
     myDevices: vi.fn<Api['myDevices']>().mockResolvedValue({ devices: [] }),
+    secureAccount: vi.fn<Api['secureAccount']>(),
     signOutDevice: vi.fn<Api['signOutDevice']>(),
     refresh: vi.fn<Api['refresh']>(),
     session: vi.fn<Api['session']>(),

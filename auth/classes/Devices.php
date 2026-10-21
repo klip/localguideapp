@@ -160,7 +160,7 @@ class Devices
      * One `login_events` row. `$device` is `touch()`'s result, or
      * `describe()`'s for an attempt that isn't a sign-in.
      */
-    public function record(string $event, ?int $userId, ?array $device, string $deviceHash, string $ip, string $userAgent, ?string $email = null): void
+    public function record(string $event, ?int $userId, ?array $device, string $deviceHash, string $ip, string $userAgent, ?string $email = null, ?array $risk = null): void
     {
         $this->db->db_Execute(
             'INSERT INTO `login_events` SET `event` = ' . $this->quote($event)
@@ -174,6 +174,8 @@ class Devices
             . ', `country` = ' . $this->quote($device['country'] ?? null)
             . ', `place` = ' . $this->quote($device['place'] ?? null)
             . ', `user_agent` = ' . $this->quote(mb_substr($userAgent, 0, 255))
+            . ', `risk_score` = ' . ($risk !== null ? (int) $risk['score'] : 'NULL')
+            . ', `risk_reasons` = ' . $this->quote($risk !== null ? (string) json_encode($risk['reasons']) : null)
             . ', `created_at` = "' . gmdate('Y-m-d H:i:s') . '"'
         );
     }

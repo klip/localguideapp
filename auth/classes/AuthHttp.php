@@ -13,6 +13,8 @@
  *   refresh  → `{ accessToken, accessExpiresAt, user }`, rotating the refresh
  *       cookie; 401 (and the cookie cleared) when the sign-in is over
  *   logout   → ends this sign-in, clears the refresh cookie
+ *   (a login `Risk` finds unusual needs an emailed code first, and the
+ *   owner is emailed about a new sign-in — `signIn()`)
  *   logoutEverywhere → ends every sign-in of the account (other devices,
  *       their access tokens too — `Revocations`), clears the cookie; 401
  *       without a live refresh cookie
@@ -124,24 +126,39 @@ final class AuthHttp
         self::respond($status, $body);
     }
 
-    /** register / login / verifyTwoFactor: the account action, then tokens instead of a session. */
+    /**
+     * register / login / verifyTwoFactor: the account action, then tokens
+     * instead of a session — with `Risk` deciding whether a login needs an
+     * emailed code first, and whether the owner gets a "new sign-in" email.
+     */
     private function signIn(string $action, array $input, array $client): array
     {
+        $devices = $this->processor->devices();
+        $described = $devices->describe($client['info'], $client['ip']);
+
+        // Scored before the password is checked, but it only matters once the
+        // password was right (`AuthProcessor::actionLogin()`).
+        $risk = null;
+        $stepUp = null;
+        $email = trim((string) ($input['email'] ?? ''));
+        $known = $action === 'login' && $email !== '' ? $this->processor->accounts()->findByEmail($email) : null;
+        if ($known) {
+            $risk = $this->processor->risk()->assess((int) $known['id'], $client['deviceHash'], $described);
+            $stepUp = $risk['score'] >= Risk::STEP_UP ? 'unfamiliar_device' : null;
+        }
+
         [$status, $body] = $this->processor->process(
             ['action' => $action] + $input,
             ['userId' => null, 'sid' => null, 'did' => null, 'userAgent' => $client['userAgent'],
-             'clientIp' => $client['ip'], 'requestId' => $client['requestId'], 'withSession' => false]
+             'clientIp' => $client['ip'], 'requestId' => $client['requestId'], 'withSession' => false, 'stepUp' => $stepUp]
         );
 
         if ($action === 'login' && !isset($body['id'])) {
             // A wrong password (on any address — its keyed hash is kept), or
             // the password right and a code on its way.
-            $email = (string) ($input['email'] ?? '');
-            $user = $email !== '' ? $this->processor->accounts()->findByEmail(trim($email)) : null;
             $event = $status === 200 ? 'two_factor_required' : 'login_failed';
-            $this->processor->devices()->record($event, $user ? (int) $user['id'] : null,
-                $this->processor->devices()->describe($client['info'], $client['ip']),
-                $client['deviceHash'], $client['ip'], $client['userAgent'], $email);
+            $devices->record($event, $known ? (int) $known['id'] : null, $described,
+                $client['deviceHash'], $client['ip'], $client['userAgent'], $email, $event === 'two_factor_required' ? $risk : null);
         }
         // A 2FA challenge, or an error: no sign-in yet.
         if ($status !== 200 || !isset($body['id'])) {
@@ -149,13 +166,26 @@ final class AuthHttp
         }
 
         $userId = (int) $body['id'];
-        $device = $this->processor->devices()->touch($userId, $client['deviceHash'], $client['info'], $client['ip']);
+        // After a code, score it now — before this browser becomes "known".
+        if ($action === 'verifyTwoFactor') {
+            $risk = $this->processor->risk()->assess($userId, $client['deviceHash'], $described);
+        }
+
+        $device = $devices->touch($userId, $client['deviceHash'], $client['info'], $client['ip']);
         $tokens = $this->processor->tokens()->issue($userId, $client['deviceHash'], $client['userAgent']);
         $this->setRefreshCookie($tokens['refreshToken']);
-        $this->processor->devices()->record(
+        $devices->record(
             ['register' => 'register', 'login' => 'login', 'verifyTwoFactor' => 'two_factor_ok'][$action],
-            $userId, $device, $client['deviceHash'], $client['ip'], $client['userAgent']
+            $userId, $device, $client['deviceHash'], $client['ip'], $client['userAgent'], null, $risk
         );
+        $this->processor->risk()->linkAccounts($userId, $client['deviceHash'], $device);
+
+        if ($risk !== null && $risk['score'] >= Risk::NOTIFY) {
+            $user = $this->processor->accounts()->findById($userId);
+            if ($user) {
+                $this->processor->security()->notifyNewSignIn($user, Devices::label($client['info']), $device['place']);
+            }
+        }
 
         return [200, $body + $this->processor->tokens()->access($userId, $tokens['sid'], $device['id'])];
     }
@@ -169,6 +199,10 @@ final class AuthHttp
             self::clearCookie(self::REFRESH_COOKIE);
             if ($tokens->lastFailure === 'reuse') {
                 $this->record('reuse_detected', (int) $tokens->lastFailureUserId, $client);
+                $user = $this->processor->accounts()->findById((int) $tokens->lastFailureUserId);
+                if ($user) {
+                    $this->processor->security()->notifyTokenReuse($user);
+                }
             }
             return [401, ['error' => $e->getMessage()]];
         }
