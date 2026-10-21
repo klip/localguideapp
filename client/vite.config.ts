@@ -31,6 +31,9 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
+    // Lets the dev server answer requests addressed to this hostname
+    // (Vite refuses unknown Host headers by default).
+    allowedHosts: ['www.belikelocal.club'],
     // Sign-in (`POST /auth/*`, HttpOnly cookies) must be on the app's own
     // origin: forward it to the auth service's browser endpoint
     // (auth/public.php, nginx :8083 on the docker network).
