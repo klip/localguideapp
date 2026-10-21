@@ -5,10 +5,10 @@
  * (see `016_auth_challenges.sql`).
  *
  * Two-factor login: when an account has a channel set (`users.two_factor_method`
- * — anything but 'none'), a correct password no longer creates a session.
- * `startLogin()` emails a 6-digit code and hands the client an opaque
- * `challengeToken`; `verifyLogin()` trades token + code for the user id, and
- * only then does `AuthProcessor` create the session. SMS/WhatsApp aren't
+ * — anything but 'none') — or a sign-in `Risk` finds unusual — a correct
+ * password doesn't sign in yet. `startLogin()` emails a 6-digit code and
+ * hands the client an opaque `challengeToken`; `verifyLogin()` trades token +
+ * code for the user id, and only then does `AuthHttp` issue the tokens. SMS/WhatsApp aren't
  * wired to a provider yet, so every code goes by email whatever the setting.
  *
  * Trusted devices: after a correct code the user can ask not to be asked
@@ -19,8 +19,8 @@
  * Password reset: `requestPasswordReset()` emails a one-time link (to
  * `APP_URL`/reset-password?token=…) if — and only if — the address belongs
  * to an account, but its caller can't tell either way. `resetPassword()`
- * sets the new password, spends the link, and signs the account out
- * everywhere.
+ * sets the new password and spends the link; `AuthProcessor` then revokes
+ * every sign-in (`Tokens::revokeAllFor()`).
  *
  * Tokens are 64 hex characters from `random_bytes()`; only their SHA-256 is
  * stored. Codes are stored as `password_hash()`. All date-times are UTC.
@@ -50,15 +50,12 @@ class AccountSecurity
     private $users;
     /** @var MailQueue */
     private $mail;
-    /** @var Session */
-    private $sessions;
 
-    public function __construct(db $db, Accounts $users, MailQueue $mail, Session $sessions)
+    public function __construct(db $db, Accounts $users, MailQueue $mail)
     {
         $this->db = $db;
         $this->users = $users;
         $this->mail = $mail;
-        $this->sessions = $sessions;
     }
 
     /** Whether logging in to `$user` (a `users` row) needs a code as well as the password. */
@@ -367,7 +364,6 @@ class AccountSecurity
         $this->users->setPassword($userId, $newPassword);
         $this->spendOpen($userId, 'reset');
         $this->spendOpen($userId, 'login');
-        $this->sessions->destroyAllFor($userId);
         $this->forgetTrustedDevices($userId);
 
         $user = $this->users->findById($userId);

@@ -1,24 +1,19 @@
 <?php
 
 /**
- * The auth service: accounts, passwords, two-factor login, password resets
- * and sessions. It owns `creds`, `auth_challenges`, `trusted_devices` and the
- * sessions in Redis; the API never sees a session hash — the gateway asks
- * this service who the caller is (`resolve`) and passes the API a user id.
+ * The auth service: accounts, passwords, two-factor login, password resets,
+ * sign-ins (`Tokens`), devices and risk. It owns `creds`, `auth_challenges`,
+ * `trusted_devices`, `refresh_tokens`, `devices`, `login_events` and
+ * `account_links`.
  *
- * Client actions (routed here by the gateway, payload as the client sent it,
- * `sessionHash` included): register, login, verifyTwoFactor, resendTwoFactor,
- * requestPasswordReset, resetPassword, forgetTrustedDevices, changePassword,
- * logout, session.
- *
- * Browsers sign in through `AuthHttp` (`POST /auth/*`, the refresh cookie),
- * which runs register/login/verifyTwoFactor here with `withSession: false`
- * and issues tokens (`Tokens`) instead of a session. A caller the gateway
- * identified by access token arrives as `context.userId` (+ `sid`).
- *
- * Gateway-only actions (the gateway never routes them for a client):
- *   resolve   { sessionHash }  → { userId: int|null }   slides the session
- *   peekMany  { hashes: [] }   → { live: { hash: userId } }   doesn't slide
+ * Signing in — register, login, verifyTwoFactor — happens only through
+ * `AuthHttp` (`POST /auth/*`, which sets the refresh cookie and issues the
+ * tokens); it passes `signIn: true`, and without it those actions are
+ * refused. Everything else arrives from the gateway over internal HTTP, the
+ * caller (whose access token the gateway verified) as `context.userId`, with
+ * the token's `sid` and `did`: resendTwoFactor, requestPasswordReset,
+ * resetPassword, forgetTrustedDevices, changePassword, addRole,
+ * secureAccount, myDevices, signOutDevice.
  */
 class AuthProcessor
 {
@@ -26,8 +21,6 @@ class AuthProcessor
     private $db;
     /** @var Accounts */
     private $accounts;
-    /** @var Session */
-    private $sessions;
     /** @var AccountSecurity */
     private $security;
     /** @var LegalDocuments */
@@ -41,22 +34,22 @@ class AuthProcessor
     /** @var array */
     private $input = [];
     /**
-     * `withSession: false` — called through `AuthHttp`, which issues tokens
-     * instead of a Redis session.
-     *
+     * `signIn: true` — called by `AuthHttp`, the only way to sign in.
      * `stepUp` (from `AuthHttp`, when `Risk` found the attempt unusual) makes
      * `login` ask for an emailed code whatever the account's settings.
      *
-     * @var array{userId: ?int, sid: ?string, did: ?int, userAgent: string, clientIp: string, requestId: string, withSession: bool, stepUp: ?string}
+     * @var array{userId: ?int, sid: ?string, did: ?int, userAgent: string, clientIp: string, requestId: string, signIn: bool, stepUp: ?string}
      */
-    private $context = ['userId' => null, 'sid' => null, 'did' => null, 'userAgent' => '', 'clientIp' => '', 'requestId' => '', 'withSession' => true, 'stepUp' => null];
+    private $context = ['userId' => null, 'sid' => null, 'did' => null, 'userAgent' => '', 'clientIp' => '', 'requestId' => '', 'signIn' => false, 'stepUp' => null];
+
+    /** Only `AuthHttp` may run these: they need the refresh cookie it sets. */
+    private const SIGN_IN_ACTIONS = ['register', 'login', 'verifyTwoFactor'];
 
     public function __construct(db $db, RedisClient $redis)
     {
         $this->db = $db;
         $this->accounts = new Accounts($db);
-        $this->sessions = new Session($redis);
-        $this->security = new AccountSecurity($db, $this->accounts, new MailQueue($db, $redis), $this->sessions);
+        $this->security = new AccountSecurity($db, $this->accounts, new MailQueue($db, $redis));
         $this->legal = new LegalDocuments($db);
         $this->tokens = new Tokens($db, $this->accounts, $redis);
         $this->devices = new Devices($db, new GeoIp($redis));
@@ -88,11 +81,10 @@ class AuthProcessor
         return $this->accounts;
     }
 
-    /** Ends every sign-in of the account: refresh tokens, access tokens already out, old sessions. */
+    /** Ends every sign-in of the account: its refresh tokens and the access tokens already out. */
     public function signOutEverywhere(int $userId, string $reason): void
     {
         $this->tokens->revokeAllFor($userId, $reason);
-        $this->sessions->destroyAllFor($userId);
         Log::info('Signed out everywhere', ['user_id' => $userId, 'reason' => $reason]);
     }
 
@@ -105,9 +97,13 @@ class AuthProcessor
     {
         $this->input = $input;
         $this->context = $context + $this->context;
+        $action = (string) ($input['action'] ?? '');
+        if (in_array($action, self::SIGN_IN_ACTIONS, true) && !$this->context['signIn']) {
+            return [404, ['error' => 'Unknown action.']];
+        }
 
         try {
-            switch ((string) ($input['action'] ?? '')) {
+            switch ($action) {
                 case 'register':
                     return [200, $this->actionRegister()];
                 case 'login':
@@ -120,7 +116,7 @@ class AuthProcessor
                     return [200, $this->actionRequestPasswordReset()];
                 case 'resetPassword':
                     $userId = $this->security->resetPassword((string) ($input['token'] ?? ''), (string) ($input['newPassword'] ?? ''));
-                    // Signed out everywhere: sessions (above) and every refresh token.
+                    // Signed out everywhere, the access tokens already out included.
                     $this->tokens->revokeAllFor($userId, 'password_reset');
                     return [200, ['ok' => true]];
                 case 'forgetTrustedDevices':
@@ -130,25 +126,12 @@ class AuthProcessor
                     return [200, $this->actionChangePassword()];
                 case 'addRole':
                     return [200, $this->actionAddRole()];
-                case 'logout':
-                    $this->sessions->destroy($this->sessionHash());
-                    return [200, ['ok' => true]];
                 case 'secureAccount':
                     return [200, $this->actionSecureAccount()];
                 case 'myDevices':
                     return [200, $this->actionMyDevices()];
                 case 'signOutDevice':
                     return [200, $this->actionSignOutDevice()];
-                case 'session':
-                    return [200, $this->actionSession()];
-
-                // The gateway checks the request's acting role against `roles`.
-                case 'resolve':
-                    $userId = $this->sessions->resolve($this->sessionHash());
-                    return [200, ['userId' => $userId, 'roles' => $userId ? $this->accounts->getRoles($userId) : []]];
-                case 'peekMany':
-                    $hashes = array_map('strval', array_filter((array) ($input['hashes'] ?? []), 'is_string'));
-                    return [200, ['live' => (object) $this->sessions->peekMany($hashes)]];
 
                 default:
                     return [404, ['error' => 'Unknown action.']];
@@ -212,12 +195,7 @@ class AuthProcessor
         }
         Log::info('Account registered', ['user_id' => $userId, 'role' => $role, 'terms_version' => $currentTerms]);
 
-        $result = ['id' => $userId, 'email' => $email, 'role' => $role, 'roles' => [$role]];
-        if ($this->context['withSession']) {
-            $result['sessionHash'] = $this->sessions->create($userId);
-        }
-
-        return $result;
+        return ['id' => $userId, 'email' => $email, 'role' => $role, 'roles' => [$role]];
     }
 
     private function actionLogin(): array
@@ -232,7 +210,7 @@ class AuthProcessor
         }
 
         // With two-factor on, the password only earns a challenge; the
-        // session waits for `verifyTwoFactor` — unless this browser sent a
+        // sign-in waits for `verifyTwoFactor` — unless this browser sent a
         // device token the account trusted within the last 30 days.
         $deviceToken = (string) ($this->input['deviceToken'] ?? '');
         // An unusual sign-in (`Risk::STEP_UP`) needs the code too, even with
@@ -250,18 +228,10 @@ class AuthProcessor
         return $this->signIn($user);
     }
 
-    /**
-     * The `AuthResult` shape for `$user` (a `users` row), with a new session —
-     * unless `AuthHttp` is calling, which signs in with tokens instead.
-     */
+    /** The `AuthResult` shape for `$user` (a `users` row); `AuthHttp` adds the tokens. */
     private function signIn(array $user): array
     {
-        $result = $this->userSummary($user);
-        if ($this->context['withSession']) {
-            $result['sessionHash'] = $this->sessions->create((int) $user['id']);
-        }
-
-        return $result;
+        return $this->userSummary($user);
     }
 
     /** `id, email, name, role, roles` — the `AuthResult` without credentials. */
@@ -424,46 +394,15 @@ class AuthProcessor
         return ['ok' => true];
     }
 
-    /**
-     * Validates the current session (sliding it) and returns the same
-     * `AuthResult` shape `register`/`login` do, with the same, unrotated
-     * hash — what `App.vue` calls on boot.
-     */
-    private function actionSession(): array
-    {
-        $userId = $this->requireUserId();
-        $user = $this->accounts->findById($userId);
-        if (!$user) {
-            throw new AuthenticationException('Your session has expired. Please log in again.');
-        }
-
-        return [
-            'id' => $userId,
-            'email' => $user['email'],
-            'name' => $user['name'],
-            'role' => $this->accounts->getRoleName($userId),
-            'roles' => $this->accounts->getRoles($userId),
-            'sessionHash' => $this->sessionHash(),
-        ];
-    }
-
-    /**
-     * The caller's id: from the gateway (which verified their access token),
-     * else from their `sessionHash` (sliding it); 401 without either.
-     */
+    /** The caller's id, from the gateway (which verified their access token); 401 without one. */
     private function requireUserId(): int
     {
-        $userId = $this->context['userId'] ?: $this->sessions->resolve($this->sessionHash());
+        $userId = $this->context['userId'];
         if (!$userId) {
             throw new AuthenticationException('Your session has expired. Please log in again.');
         }
         Log::context(['user_id' => $userId]);
 
         return $userId;
-    }
-
-    private function sessionHash(): string
-    {
-        return (string) ($this->input['sessionHash'] ?? '');
     }
 }

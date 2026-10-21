@@ -23,6 +23,7 @@ import { useGuidesStore } from '@/stores/guides'
 import { useMatchesStore } from '@/stores/matches'
 import { debounce } from '@/utils/debounce'
 import { addPendingReject } from '@/utils/pendingRejects'
+import { browseIntroSeen, markBrowseIntroSeen } from '@/utils/browseIntro'
 import { formatRating } from '@/utils/reviews'
 import { formatDistance } from '@/utils/distance'
 import { anchorTo } from '@/stores/messages'
@@ -177,6 +178,11 @@ async function persistDecision(guideId: string, decision: 'interested' | 'pass')
  * away (and again on "Interested"); everyone else just swipes.
  */
 const isGuest = computed(() => auth.activeRole === 'guest')
+
+// "Browse freely": once, to a first-time signed-out visitor (utils/browseIntro.ts).
+// Decided when the page opens, so it stays for this visit and not the next.
+const showBrowseIntro = !auth.isAuthenticated && !browseIntroSeen()
+if (showBrowseIntro) markBrowseIntroSeen()
 const authPromptOpen = ref(false)
 const payOpen = ref(false)
 const paying = ref(false)
@@ -288,21 +294,21 @@ function reject(id: string) {
           account for a signed-out visitor, by a pack for a guest without one.
         -->
         <SelectionCounter
-          v-if="!auth.isAuthenticated"
+          v-if="!auth.isAuthenticated && showBrowseIntro"
           :headline="t('discover.counter.browse_freely')"
           :caption="t('discover.counter.browse_caption')"
           :action-label="t('discover.counter.sign_up')"
           @action="router.push('/register')"
         />
         <SelectionCounter
-          v-else-if="isGuest && !hasAccess"
+          v-else-if="auth.isAuthenticated && isGuest && !hasAccess"
           :headline="t('discover.counter.unlock_headline', { count: packSize })"
           :caption="t('discover.counter.unlock_caption')"
           :action-label="t('discover.counter.unlock')"
           @action="payOpen = true"
         />
         <SelectionCounter
-          v-else
+          v-else-if="auth.isAuthenticated"
           :headline="counterHeadline"
           :caption="
             freePicksActive

@@ -8,16 +8,16 @@
  * load balancer, each with its own share of connections.
  *
  * Client → gateway
- * - `{ type: "request", id, action, accessToken? | sessionHash?, ...payload }`,
+ * - `{ type: "request", id, action, accessToken?, actingRole?, ...payload }`,
  *   answered by `{ type: "response", id, status, body }`. The caller is
  *   identified by an **access token**, verified right here with the public key
- *   (`Jwt`, no call to anyone) — or, until sessions are retired, a
- *   `sessionHash` the auth service resolves (`resolve`, which slides it). A
- *   token or hash that names no one is answered 401 here. Account actions
+ *   (`Jwt`, no call to anyone); a token that's forged, expired or revoked is
+ *   answered 401 here. Signing in isn't done here at all — it's HTTP, for the
+ *   cookie (`auth/classes/AuthHttp.php`). Account actions
  *   (`AUTH_ACTIONS`) go to the auth service, the rest to the API, with the
  *   caller as `X-User-Id` and their token as `Authorization: Bearer` (each
  *   service verifies it again — `ServiceHttp`).
- * - `{ type: "auth", accessToken | sessionHash }` — who's on this connection,
+ * - `{ type: "auth", accessToken }` — who's on this connection,
  *   so pushes reach them; empty signs it out. Answered by `{ type: "auth",
  *   userId }`. A token binding ends when the token expires, unless the client
  *   re-binds with a fresh one (it does after every refresh).
@@ -41,16 +41,15 @@
  */
 class Gateway
 {
-    /** Routed to the auth service, `sessionHash` and all. */
+    /** Routed to the auth service (signing in itself is HTTP — `AuthHttp`). */
     private const AUTH_ACTIONS = [
-        'register', 'login', 'verifyTwoFactor', 'resendTwoFactor', 'requestPasswordReset',
-        'resetPassword', 'forgetTrustedDevices', 'changePassword', 'logout', 'session', 'addRole',
-        'myDevices', 'signOutDevice', 'secureAccount',
+        'resendTwoFactor', 'requestPasswordReset', 'resetPassword', 'forgetTrustedDevices',
+        'changePassword', 'addRole', 'myDevices', 'signOutDevice', 'secureAccount',
     ];
-    /** Service actions only the gateway may call. */
-    private const INTERNAL_ACTIONS = ['resolve', 'peekMany', 'pushState'];
-    /** How often bound sessions are re-checked; one that expired stops getting pushes. */
-    private const SESSION_CHECK_EVERY_SECONDS = 20;
+    /** Refused here: sign-in actions (HTTP only now) and service actions only the gateway may call. */
+    private const NOT_FOR_CLIENTS = ['register', 'login', 'verifyTwoFactor', 'logout', 'session', 'pushState'];
+    /** How often expired token bindings and old revocations are cleared. */
+    private const HOUSEKEEPING_EVERY_SECONDS = 20;
     private const SERVICE_TIMEOUT_SECONDS = 25.0;
     /** Notification ids remembered per connection, so one is never shown twice. */
     private const SEEN_NOTES = 50;
@@ -72,13 +71,13 @@ class Gateway
     private $internalToken;
 
     /**
-     * @var array<int, array{userId: ?int, hash: ?string, tokenExpires: ?int, tokenSid: ?string,
-     *   tokenIat: ?int, userAgent: string, badges: ?string, bindSeq: int, notes: array<int, true>}> by connection id
+     * @var array<int, array{userId: ?int, tokenExpires: ?int, tokenSid: ?string,
+     *   tokenIat: ?int, userAgent: string, badges: ?string, notes: array<int, true>}> by connection id
      */
     private $connections = [];
     /** @var array<int, array<int, true>> user id → their connection ids */
     private $users = [];
-    private $lastSessionCheck = 0;
+    private $lastHousekeeping = 0;
     /** @var array<string, int> revoked sign-in (sid) → when */
     private $revokedSids = [];
     /** @var array<int, int> user id → tokens issued at or before this are revoked */
@@ -119,7 +118,6 @@ class Gateway
             function (int $id, array $headers): void {
                 $this->connections[$id] = [
                     'userId' => null,
-                    'hash' => null,
                     'tokenExpires' => null,
                     'tokenSid' => null,
                     'tokenIat' => null,
@@ -127,7 +125,6 @@ class Gateway
                     // The browser's address, from nginx's X-Forwarded-For (`ClientIp`).
                     'clientIp' => ClientIp::resolve((string) ($headers[':peer'] ?? ''), (string) ($headers['x-forwarded-for'] ?? '')),
                     'badges' => null,
-                    'bindSeq' => 0,
                     'notes' => [],
                 ];
             },
@@ -157,11 +154,7 @@ class Gateway
                     $this->onRequest($id, $message);
                     break;
                 case 'auth':
-                    if (isset($message['accessToken'])) {
-                        $this->bindToken($id, (string) $message['accessToken']);
-                    } else {
-                        $this->bind($id, (string) ($message['sessionHash'] ?? ''));
-                    }
+                    $this->bindToken($id, (string) ($message['accessToken'] ?? ''));
                     break;
             }
         } catch (Throwable $e) {
@@ -193,7 +186,7 @@ class Gateway
             }));
         };
 
-        if (in_array($action, self::INTERNAL_ACTIONS, true)) {
+        if (in_array($action, self::NOT_FOR_CLIENTS, true)) {
             $reply(404, ['error' => 'Unknown action.']);
             return;
         }
@@ -206,9 +199,9 @@ class Gateway
 
         if (in_array($action, self::AUTH_ACTIONS, true)) {
             // Identified by a valid token, the auth service gets the caller
-            // (changePassword, addRole…); otherwise as before (sessionHash).
+            // (changePassword, addRole…); some need none (a reset link).
+            unset($message['actingRole']);
             if ($claims !== null) {
-                unset($message['sessionHash'], $message['actingRole']);
                 $this->call($this->authUrl, $message, (int) $claims['sub'], $requestId, $userAgent, $reply, null, $token, $clientIp);
             } else {
                 $this->call($this->authUrl, $message, null, $requestId, $userAgent, $reply, null, null, $clientIp);
@@ -217,7 +210,6 @@ class Gateway
         }
 
         if ($token !== '') {
-            unset($message['sessionHash']);
             if ($claims === null) {
                 $reply(401, ['error' => 'Your session has expired. Please log in again.']);
                 return;
@@ -235,35 +227,9 @@ class Gateway
             return;
         }
 
-        $hash = (string) ($message['sessionHash'] ?? '');
-        unset($message['sessionHash']);
-        if ($hash === '') {
-            unset($message['actingRole']);
-            $this->call($this->apiUrl, $message, null, $requestId, $userAgent, $reply);
-            return;
-        }
-
-        $this->call($this->authUrl, ['action' => 'resolve', 'sessionHash' => $hash], null, $requestId, $userAgent,
-            function (int $status, array $body) use ($message, $requestId, $userAgent, $reply): void {
-                if ($status !== 200) {
-                    $reply($status === 503 ? 503 : 500, ['error' => $status === 503 ? self::UNAVAILABLE : 'Unexpected server error.']);
-                    return;
-                }
-                $userId = (int) ($body['userId'] ?? 0);
-                if ($userId <= 0) {
-                    $reply(401, ['error' => 'Your session has expired. Please log in again.']);
-                    return;
-                }
-                $actingRole = $this->actingRole($message, array_values(array_filter((array) ($body['roles'] ?? []), 'is_string')));
-                if ($actingRole === false) {
-                    $reply(403, ['error' => 'Your account doesn’t have that role.']);
-                    return;
-                }
-                $this->call($this->apiUrl, $message, $userId, $requestId, $userAgent,
-                    function (int $status, array $body) use ($reply, $userId): void {
-                        $reply($status, $body, $userId);
-                    }, $actingRole);
-            });
+        // Anonymous: the API decides what a signed-out caller may do.
+        unset($message['actingRole']);
+        $this->call($this->apiUrl, $message, null, $requestId, $userAgent, $reply, null, null, $clientIp);
     }
 
     /**
@@ -327,40 +293,6 @@ class Gateway
 
     // ------------------------------------------------------------ pushes
 
-    private function bind(int $id, string $hash): void
-    {
-        if (!isset($this->connections[$id])) {
-            return;
-        }
-        $this->detach($id);
-        $seq = ++$this->connections[$id]['bindSeq'];
-
-        if ($hash === '') {
-            $this->send($id, ['type' => 'auth', 'userId' => null]);
-            return;
-        }
-
-        $this->call($this->authUrl, ['action' => 'resolve', 'sessionHash' => $hash], null, bin2hex(random_bytes(8)), '',
-            function (int $status, array $body) use ($id, $seq, $hash): void {
-                // The connection closed, or re-identified, while we waited.
-                if (!isset($this->connections[$id]) || $this->connections[$id]['bindSeq'] !== $seq) {
-                    return;
-                }
-                $userId = $status === 200 ? (int) ($body['userId'] ?? 0) : 0;
-                if ($userId <= 0) {
-                    $this->send($id, ['type' => 'auth', 'userId' => null]);
-                    return;
-                }
-
-                $this->connections[$id]['userId'] = $userId;
-                $this->connections[$id]['hash'] = $hash;
-                $this->users[$userId][$id] = true;
-                $this->redis->subscribe(self::CHANNEL_PREFIX . $userId);
-                $this->send($id, ['type' => 'auth', 'userId' => $userId]);
-                $this->fetchState($userId, [$id]);
-            });
-    }
-
     /**
      * Binds a connection by access token — verified here, no call needed.
      * The binding lasts until the token expires (`onTick()`); the client
@@ -377,13 +309,11 @@ class Gateway
         // Re-binding the same user with a fresh token: keep the subscription.
         if ($userId > 0 && $this->connections[$id]['userId'] === $userId) {
             $this->rememberToken($id, $claims);
-            $this->connections[$id]['hash'] = null;
             $this->send($id, ['type' => 'auth', 'userId' => $userId]);
             return;
         }
 
         $this->detach($id);
-        ++$this->connections[$id]['bindSeq'];
         if ($userId <= 0) {
             $this->send($id, ['type' => 'auth', 'userId' => null]);
             return;
@@ -460,7 +390,6 @@ class Gateway
         $userId = $this->connections[$id]['userId'] ?? null;
         if (isset($this->connections[$id])) {
             $this->connections[$id]['userId'] = null;
-            $this->connections[$id]['hash'] = null;
             $this->connections[$id]['tokenExpires'] = null;
             $this->connections[$id]['tokenSid'] = null;
             $this->connections[$id]['tokenIat'] = null;
@@ -572,10 +501,10 @@ class Gateway
 
     private function onTick(): void
     {
-        if (time() - $this->lastSessionCheck < self::SESSION_CHECK_EVERY_SECONDS) {
+        if (time() - $this->lastHousekeeping < self::HOUSEKEEPING_EVERY_SECONDS) {
             return;
         }
-        $this->lastSessionCheck = time();
+        $this->lastHousekeeping = time();
 
         // Revocations outlive every token they could match only so long.
         $cutoff = time() - Revocations::TTL_SECONDS;
@@ -589,32 +518,6 @@ class Gateway
                 $this->send($id, ['type' => 'auth', 'userId' => null]);
             }
         }
-
-        $hashes = [];
-        foreach ($this->connections as $connection) {
-            if ($connection['hash'] !== null) {
-                $hashes[$connection['hash']] = true;
-            }
-        }
-        if (!$hashes) {
-            return;
-        }
-
-        // Without sliding them: an open tab mustn't keep a session alive.
-        $this->call($this->authUrl, ['action' => 'peekMany', 'hashes' => array_keys($hashes)], null, bin2hex(random_bytes(8)), '',
-            function (int $status, array $body) use ($hashes): void {
-                if ($status !== 200) {
-                    return;
-                }
-                $live = (array) ($body['live'] ?? []);
-                foreach ($this->connections as $id => $connection) {
-                    $hash = $connection['hash'];
-                    if ($hash !== null && isset($hashes[$hash]) && !isset($live[$hash])) {
-                        $this->detach($id);
-                        $this->send($id, ['type' => 'auth', 'userId' => null]);
-                    }
-                }
-            });
     }
 
     private function send(int $id, array $message): void

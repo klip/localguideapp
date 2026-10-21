@@ -14,6 +14,7 @@ import { useMessagesStore } from '@/stores/messages'
 import { useMatchesStore } from '@/stores/matches'
 import { notificationLink, withRole } from '@/utils/notificationLink'
 import { syncPendingRejects } from '@/utils/pendingRejects'
+import { markBrowseIntroSeen } from '@/utils/browseIntro'
 import { t } from '@/i18n'
 import { useRoute } from 'vue-router'
 
@@ -104,6 +105,16 @@ watch(
   (id, previous) => {
     if (id && id !== previous) void syncPendingRejects(api, auth.activeRole)
   },
+)
+
+// Someone has an account on this browser: no "Browse freely" intro on
+// Discover again (utils/browseIntro.ts).
+watch(
+  () => auth.user?.id,
+  (id) => {
+    if (id) markBrowseIntroSeen()
+  },
+  { immediate: true },
 )
 
 onMounted(async () => {

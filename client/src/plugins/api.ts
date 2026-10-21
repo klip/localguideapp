@@ -1191,8 +1191,6 @@ export const api = {
    * over; throws on a network failure, leaving it alone.
    */
   refresh: () => refreshAccessToken(),
-  /** The old session check (`AuthProcessor::actionSession()`), for a session-hash client; unused since tokens. */
-  session: () => call<AuthResult>('session'),
 
   unlockPack: () => call<PaymentState>('unlockPack'),
   paymentState: () => call<PaymentState>('paymentState'),

@@ -71,8 +71,7 @@ function payment(packsUnlocked: number): PaymentState {
 async function mountDiscover(api: Api, signedIn = false) {
   const pinia = createPinia()
   setActivePinia(pinia)
-  if (signedIn)
-    useAuthStore().setUser({ id: 9, email: 'me@example.com', role: 'guest' })
+  if (signedIn) useAuthStore().setUser({ id: 9, email: 'me@example.com', role: 'guest' })
   const router = testRouter()
   router.push('/discover')
   await router.isReady()
@@ -128,6 +127,28 @@ describe('DiscoverPage', () => {
     expect(wrapper.text()).not.toContain('Ana')
     expect(api.decide).not.toHaveBeenCalled()
     expect(api.paymentState).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('shows the "Browse freely" intro once, on a first signed-out visit only', async () => {
+    const first = await mountDiscover(fakeApi())
+    expect(first.wrapper.text()).toContain('Browse freely')
+    first.wrapper.unmount()
+
+    // The next visit (a reload, another day) doesn't show it again.
+    const second = await mountDiscover(fakeApi())
+    expect(second.wrapper.text()).not.toContain('Browse freely')
+    // …and nothing else stands in for it while signed out.
+    expect(second.wrapper.text()).not.toContain('Get +')
+    second.wrapper.unmount()
+  })
+
+  it('never shows the intro on a browser where someone has had an account', async () => {
+    localStorage.clear()
+    const { markBrowseIntroSeen } = await import('@/utils/browseIntro')
+    markBrowseIntroSeen() // what App.vue does on any sign-in or registration
+    const { wrapper } = await mountDiscover(fakeApi())
+    expect(wrapper.text()).not.toContain('Browse freely')
     wrapper.unmount()
   })
 

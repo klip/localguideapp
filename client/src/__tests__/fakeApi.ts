@@ -30,7 +30,6 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     secureAccount: vi.fn<Api['secureAccount']>(),
     signOutDevice: vi.fn<Api['signOutDevice']>(),
     refresh: vi.fn<Api['refresh']>(),
-    session: vi.fn<Api['session']>(),
     unlockPack: vi.fn<Api['unlockPack']>(),
     paymentState: vi.fn<Api['paymentState']>(),
     payGuideFee: vi.fn<Api['payGuideFee']>(),

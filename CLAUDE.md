@@ -141,8 +141,8 @@ after mount (`useMessagesStore().items`) the same way the component sees
 it. `App.spec.ts` needs the same `[API_KEY]` provide as of this session
 feature — `App.vue` calls `useApi()` synchronously in its own setup body
 (see "Sign-in" above) — even though its one test never triggers a call
-(anonymous render, and `App.vue` only calls `api.session()` when a cached
-session already exists). Any test that calls `useAuthStore().setUser()`
+(anonymous render, and `App.vue` only calls `api.refresh()` when a cached
+user exists). Any test that calls `useAuthStore().setUser()`
 should also clean up `localStorage` afterward (see `api.spec.ts`) — the
 store reads it back on creation, so one test's session can otherwise leak
 into the next test's fresh `Pinia` instance.
@@ -164,13 +164,13 @@ into the next test's fresh `Pinia` instance.
   `shortlist`; the paid selection pack:
   `packsUnlocked`, `picks`, `passed` — in-memory, so a reload drops it;
   `App.vue` re-fetches `packsUnlocked` at boot for guests, but `picks`/
-  `passed` genuinely start empty again — see below), `auth` (the signed-in user + session hash, set by
+  `passed` genuinely start empty again — see below), `auth` (the signed-in user, set by
   `RegisterPage`/`LoginPage` and persisted to `localStorage` — see
   "Sign-in" below), `messages` (global toast queue — see below),
   `guides`/`visitors` (real discovery-deck data — see "Real guide/visitor
   cards" below). Because `matches` doesn't survive a reload the way
   `auth` now does, two places re-sync it from the server: `App.vue` on every
-  boot (for a signed-in guest, right after its `api.session()` check — this
+  boot (for a signed-in guest, right after its `api.refresh()` check — this
   is what makes a purchased pack survive a plain refresh; without it the deck
   showed the paywall and the header read "0 / 0 picked" despite the payments
   existing in the DB), and `LoginPage.vue` right after `api.login()`, so the
@@ -446,7 +446,7 @@ own — every one just takes props/emits):
   "Header & mobile menu" for the layout.
 - Payments/matching actions — `api.unlockPack()`, `api.paymentState()`,
   `api.decide()`, `api.revokeSelection()` — no longer take
-  an explicit `userId`; the caller's identity comes from the session hash
+  an explicit `userId`; the caller's identity comes from the access token
   `call()` attaches automatically (see "Sign-in" below). `UnlockPage.vue` calls `unlockPack()`
   for real and syncs the result into `useMatchesStore().applyPaymentState()`.
   (`api.matches()`/`Selections::getActiveMatches()` were removed with the
@@ -566,7 +566,8 @@ failed registration closes it, toasts as before, and drops the cached terms.
 - **Cookie notice** (`CookieNotice.vue`, in App.vue): fixed at the foot of
   the page until "OK"; "Privacy notice" opens the dialog at 9.8. The app
   stores only strictly necessary things (localStorage: session, language,
-  trusted-device tokens, pending rejects, this notice), which under
+  trusted-device tokens, pending rejects, this notice, whether the Discover
+  intro was shown), which under
   ePrivacy needs telling, not consent — so there's deliberately no
   Accept/Reject. **Adding analytics or anything optional means turning it
   into a real consent choice** (nothing set before yes, Reject as easy as
@@ -605,6 +606,11 @@ failed registration closes it, toasts as before, and drops the cached terms.
 `/` redirects to `/discover`, so the deck is the landing page, and it's no
 longer behind a paywall — what's gated is "Interested":
 
+- **"Browse freely" intro** (the counter panel's signed-out form): shown
+  **once**, on a first signed-out visit — not on later visits, and never on a
+  browser where anyone has signed in or registered (`utils/browseIntro.ts`,
+  `localStorage` `belikelocal.browseIntro`; DiscoverPage marks it when shown,
+  App.vue on every sign-in). Signed out without it, no counter panel shows.
 - **Signed out**: the first suggested card shows; Interested opens a modal
   (`ModalDialog.vue`) with "Create account" / "Log in". Reject moves on and
   queues the guide id in `localStorage` (`belikelocal.pendingRejects`,
@@ -1067,8 +1073,9 @@ from when one PHP process did everything; behind it are services (see
   for a bad token or a role it lacks, and forwards the request with
   `X-User-Id`, `X-Acting-Role` and `Authorization: Bearer <token>`, which the
   service verifies again (`ServiceHttp`) — to auth for account actions, the
-  API for the rest. A `sessionHash` instead of a token still works (auth
-  `resolve`s it) until sessions are retired. `status` is the service's HTTP
+  API for the rest; no token = anonymous. Signing in isn't a socket action
+  (HTTP, for the cookie — the gateway refuses `login` & co. with 404).
+  `status` is the service's HTTP
   status; an unreachable service is a 503. Requests run concurrently. A
   dropped connection fails in-flight requests with status 0 (not retried);
   requests time out after 30 s (services after 25).
@@ -1077,8 +1084,7 @@ from when one PHP process did everything; behind it are services (see
   expires, so `App.vue` re-sends it with every renewed token (re-binding
   the same user keeps the subscription). The socket re-sends it on every
   reconnect (backoff 1 s → 15 s, only while signed in or with requests
-  waiting). Session-hash bindings are still re-checked every 20 s
-  (`peekMany`).
+  waiting).
 - **Pushes** go through Redis pub/sub, channel `user:<id>`: the API
   publishes `{ type: 'notification', notification }` as each row is written,
   `{ type: 'trip_plan', planId, status }` when a trip's guides are ready,
@@ -1232,7 +1238,7 @@ client-side `matchesFilters()`) is gone; don't recreate it.
 ### Decided cards stay out of the deck
 
 `Users::searchByRole()` takes the caller's id (`RequestProcessor::
-optionalUserId()`, from the session hash `call()` already attaches) and
+optionalUserId()`, from the access token `call()` already attaches) and
 excludes every candidate that user has an existing decision on —
 `guest_decision`/`guide_decision` not null, so both `'interested'` and
 `'pass'` — plus the caller themselves. Before this, a matched or passed
@@ -1615,9 +1621,8 @@ category a user invented on their profile page five minutes ago.
 
 ### Sign-in: access tokens and the refresh cookie
 
-Phases 1–4 of `docs/auth-cms-plan.md` are in: the client signs in with **signed
-tokens**; the old Redis sessions still work alongside (for any old client)
-until phase 5 retires them.
+Phases 1–5 of `docs/auth-cms-plan.md` are in: the client signs in with **signed
+tokens** only; the old Redis sessions are retired.
 
 - **Access token**: a 15-minute JWT signed with Ed25519 (`lib/Jwt.php`,
   libsodium — no Composer). Claims `iss belikelocal-auth`, `aud app`, `sub`
@@ -1743,12 +1748,12 @@ until phase 5 retires them.
   decide (`verdict`, CMS phase 9). Blocking a frozen account's device from
   registering waits for freezing (phase 8).
 - `addRole` (still on the socket) returns a new access token whose `roles`
-  claim includes the new role (`Tokens::reissueAccess()`, using the caller's
+  claim includes the new role (`Tokens::access()`, using the caller's
   `sid` from the verified token); `api.addRole` adopts it.
-- **The old sessions** (`auth/classes/Session.php`, Redis, 5-minute sliding
-  TTL): the WebSocket `login`/`register`/`verifyTwoFactor`/`session`/`logout`
-  actions still create and use them, and the gateway still resolves a
-  `sessionHash`. Nothing in the client uses them any more.
+- **The old Redis sessions are gone** (phase 5, 2026-10-21): no
+  `Session.php`, no `session`/`resolve`/`peekMany` actions, no `sessionHash`
+  anywhere; `AuthProcessor` refuses register/login/verifyTwoFactor unless
+  `AuthHttp` calls it (`signIn: true`).
 - Tests: `lib/tests/JwtTest.php` (signing, expiry, audience, forgery, `alg:
   none`, key rotation) and `lib/tests/auth-e2e.mjs` (end to end against the
   running stack, ~35 s: cookies and their flags, the gateway and services
@@ -1772,7 +1777,7 @@ the plumbing, is in:
   else the first; persisted in `localStorage` as `belikelocal.activeRole`) —
   **every page reads `auth.activeRole`, never `auth.user.role`**.
 - `call()` sends it as `actingRole` on every signed-in request. The gateway
-  gets the user's roles from auth's `resolve`, answers 403 for a role they
+  gets the user's roles from the access token's `roles` claim, answers 403 for a role they
   don't hold, defaults to their first, and forwards it as `X-Acting-Role`;
   `ServiceHttp` puts it in the context and `RequestProcessor::actingRole()`
   reads it. **The caller's role is never looked up any more** — other
@@ -2016,7 +2021,7 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
 | Service | Code | Container | Talks to |
 | --- | --- | --- | --- |
 | gateway | `gateway/bin/gateway.php` | `lemp-ws` (port 8090) | auth + api over internal HTTP, Redis (subscribe) |
-| auth | `auth/index.php` (php-fpm) | `lemp-rg-auth`, via nginx `:8082` | MySQL, Redis (sessions), outbox |
+| auth | `auth/index.php` (php-fpm; `auth/public.php` for `/auth/*`) | `lemp-rg-auth`, via nginx `:8082` (`:8083` browser-facing) | MySQL, Redis (revocations, caches), outbox |
 | api | `api/index.php` (php-fpm) | `lemp-rg-api`, via nginx `:8081` | MySQL, Redis (publish), outbox |
 | scheduler | `api/bin/scheduler.php` | `lemp-rg-scheduler` | MySQL, Redis |
 | planner | `api/bin/planner.php` | `lemp-rg-planner` | MySQL, Redis (wake-ups, publish), Claude API, Photon |
@@ -2033,10 +2038,11 @@ SHA-256 is stored), is spent once `used_at` is set, and dies at `expires_at`.
   ports aren't published. The gateway accepts browser origins
   `belikelocal.club` (+ www/admin/api) and `localhost:5173`; `WS_EXTRA_ORIGINS`
   (comma-separated, exact) adds more, e.g. a second dev server.
-- **Gateway-only actions** — `resolve`, `peekMany` (auth) and `pushState`
-  (api) — the gateway refuses them from clients (404).
-- **Stateless**: nothing but the gateway's open sockets lives in a
-  process. Sessions are in Redis, everything else in MySQL, so every service
+- **Refused from clients** (404): `pushState` (api, gateway-only) and the
+  sign-in actions, which are HTTP (`AuthHttp`).
+- **Stateless**: nothing but the gateway's open sockets (and its copy of the
+  revocation list) lives in a process. Revocations and caches are in Redis,
+  everything else in MySQL, so every service
   can run as several replicas (the scheduler's Redis lock and the mailer's
   `SKIP LOCKED` claims make those two safe to duplicate too).
 - **Long-running PHP**: after changing code, restart what runs it —
@@ -2069,7 +2075,7 @@ localhost — development only) has Loki provisioned and a "BeLikeLocal logs"
 dashboard: requests by status, p95 time per action, errors/warnings by
 service, email sent/retried/failed, and log streams. Example query:
 `{app="belikelocal", service="gateway"} | json | msg="Request" | status >= 500`.
-Never log secrets, codes, links or session hashes; mask emails with
+Never log secrets, codes, links or tokens; mask emails with
 `Log::maskEmail()`.
 
 ## Docker environment
@@ -2149,15 +2155,17 @@ MAIL_REDIRECT_TO=<your inbox>   # development only
 ## API reference
 
 Every action the services dispatch — `AuthProcessor` (auth/) for
-`register`, `login`, `verifyTwoFactor`, `resendTwoFactor`,
-`requestPasswordReset`, `resetPassword`, `forgetTrustedDevices`,
-`changePassword`, `logout`, `session`; `RequestProcessor` (api/) for the
+`register`, `login`, `verifyTwoFactor` (through `AuthHttp` only),
+`resendTwoFactor`, `requestPasswordReset`, `resetPassword`,
+`forgetTrustedDevices`, `changePassword`, `addRole`, `secureAccount`,
+`myDevices`, `signOutDevice`; `AuthHttp` for `refresh`, `logout`,
+`logoutEverywhere`; `RequestProcessor` (api/) for the
 rest — and the `src/plugins/api.ts` method that calls it: a 1:1 mapping,
 always sent as `{ action, accessToken?, ...payload }` over the WebSocket
 (see "Realtime"; the sign-in actions marked **HTTP** go to `POST /auth/*`
 instead); the gateway routes it. "Auth" means the action calls
 `requireUserId()` and throws a `401` `AuthenticationException` (see
-"Sign-in" below) without a valid access token (or session hash) — everything else either
+"Sign-in" below) without a valid access token — everything else either
 takes no identity at all or reads one from the payload (`register`/`login`)
 directly. Every response is `200` with a JSON body on success; a thrown
 `RuntimeException` maps to `400` (`ContactDetailsException` adds `code:
@@ -2167,7 +2175,7 @@ unknown `action` to `404`, anything else (a real bug) to `500` (logged via
 `Log::exception()`, generic message to the client); an unreachable service
 is a `503` from the gateway.
 
-| Action | Auth | Frontend call | Request fields (beyond `sessionHash`) | Response | Backend |
+| Action | Auth | Frontend call | Request fields (beyond `accessToken`) | Response | Backend |
 | --- | --- | --- | --- | --- | --- |
 | `register` | no | `api.register(payload)` — **HTTP** `POST /auth/register` | `email, password, role, termsVersion, language?, name?, image?` — `termsVersion` must be the terms in force | `AuthResult` (`id, email, role, roles, accessToken, accessExpiresAt`) + the refresh cookie | `AuthHttp` → `actionRegister()` → `Accounts::register()`, `Tokens::issue()` |
 | `login` | no | `api.login(payload)` — **HTTP** `POST /auth/login` | `email, password, deviceToken?` | `AuthResult` (`id, email, name, role, roles, accessToken, accessExpiresAt`) + the refresh cookie, or a `TwoFactorChallenge` for a 2FA account | `AuthHttp` → `actionLogin()` → `Accounts::verifyCredentials()`, then `AccountSecurity::startLogin()` or `signIn()`, `Tokens::issue()` |
@@ -2202,12 +2210,11 @@ is a `503` from the gateway.
 | `myLevel` | **yes** | `api.myLevel()` | — | `LevelState` (`level, name, trips_completed, next_level_trips, sanction, picks_per_pack, commission_rate, free_picks_until, no_fee_until, bonuses`) | `Levels::sync()` + `stateFor()` |
 | `claimBonus` | **yes** | `api.claimBonus(payload)` | `bonusId` | `LevelState` | `Levels::claim()` |
 | `reportUser` | **yes** | `api.reportUser(payload)` | `subjectId, title` (≤120), `description` (≤2000) | `{ id, status: 'open', created_at }` | `Complaints::file()` |
-| `logout` | the refresh cookie | `api.logout()` — **HTTP** `POST /auth/logout` | — | `{ ok: true }`, cookie cleared, every tab signs out | `AuthHttp` → `Tokens::revokeByToken()` (the WebSocket `logout` still ends a session hash) |
+| `logout` | the refresh cookie | `api.logout()` — **HTTP** `POST /auth/logout` | — | `{ ok: true }`, cookie cleared, every tab signs out | `AuthHttp` → `Tokens::revokeByToken()` |
 | `secureAccount` | no (the link's token) | `api.secureAccount(token)` | `token` (from a new-sign-in or token-reuse email) | `{ resetToken }` — every sign-in ended, remembered browsers forgotten; 400 when spent or expired | `AccountSecurity::redeemSecureLink()`, `signOutEverywhere()`, `createResetToken()` |
 | `myDevices` | **yes** | `api.myDevices()` | — | `{ devices: MyDevice[] }` (`id, label, place, country, last_seen_at, first_seen_at, current`) — browsers with a live sign-in | `AuthProcessor::actionMyDevices()` → `Devices::signedInFor()` |
 | `signOutDevice` | **yes** | `api.signOutDevice(id)` | `deviceId` | `{ ok: true, current }` (this browser → the tab signs out too) | `Tokens::revokeDevice()` |
 | `logoutEverywhere` | the refresh cookie | `api.logoutEverywhere()` — **HTTP** `POST /auth/logoutEverywhere` | — | `{ ok: true }`, cookie cleared; 401 without a live cookie | `AuthHttp` → `AuthProcessor::signOutEverywhere()` → `Tokens::revokeAllFor()`, `Session::destroyAllFor()` |
-| `session` | **yes** | `api.session()` (unused since tokens) | — | `AuthResult` with the unrotated `sessionHash` — for a session-hash client | `actionSession()` |
 | `publicProfile` | optional | `api.publicProfile(userId)` | `userId` | `PublicProfile` (a `ProfileAccount` minus `email`, plus `role`; `400` "Profile not found." for an unknown id or a non-guest/guide) | `Users::getPublicProfile()` |
 | `reviews` | optional* | `api.reviews(payload)` | `userId, limit? (default/max 20), offset?` | `ReviewsPage` (`reviews: Review[]` newest first, `total, average, histogram` `{ "5": n, …, "1": n }`, `viewer: { canReview, bookingId, myReview }` — all no/null signed out) | `Reviews::listFor()`/`viewerStateFor()` |
 | `submitReview` | **yes** | `api.submitReview(payload)` | `subjectId, rating, comment?` | `Review` (`id, booking_id, author_id, subject_id, rating, comment, created_at, updated_at, author_name, author_image`) | `Reviews::submit()` (upsert) |
@@ -2225,13 +2232,13 @@ is a `503` from the gateway.
 | `legalDocument` | no | `api.legalDocument(slug, language)` | `slug` (`'terms'`), `language` | `LegalDocumentView` (`slug, version, language, title, body`, placeholders filled) | `LegalDocuments::current()` |
 
 \* `guides`/`visitors`/`reviews` work signed out, but personalise themselves when a
-session *is* sent: `RequestProcessor::optionalUserId()` returns the caller's
-id (`null` with no `sessionHash`), and a hash that's present but invalid
-still 401s rather than silently degrading to the anonymous view.
+token *is* sent: `RequestProcessor::optionalUserId()` returns the caller's
+id (`null` with no `accessToken`), and a token that's present but invalid
+still 401s (at the gateway) rather than silently degrading to the anonymous view.
 
 On the client, every one of these goes through `plugins/api.ts`'s single
 `call()` function (see "Talking to the API" above and "Sign-in" below for
-what it does beyond the plain request/response: attaching `sessionHash`,
+what it does beyond the plain request/response: attaching the access token,
 normalizing every failure to a thrown `ApiError`, and reacting to a `401`).
 There is no endpoint without a frontend caller and no `api.*()` method
 without a matching backend `case` — if you add one side, add the other in
@@ -2277,8 +2284,7 @@ Shared (`lib/`):
 - `lib/Roles.php` — SQL for reading a user's role from `user_role`.
 
 Auth service (`auth/classes/`):
-- `AuthProcessor.php` — the auth actions plus gateway-only `resolve`/
-  `peekMany`.
+- `AuthProcessor.php` — the auth actions (sign-in ones only via `AuthHttp`).
 - `Accounts.php` — `register()` (now refuses any role but guest/guide —
   it used to accept `admin`), `verifyCredentials()`, `verifyPasswordFor()`,
   `setPassword()`, `findById()`, `getRoleName()`.
@@ -2287,7 +2293,6 @@ Auth service (`auth/classes/`):
   via `hash_hmac()`, then bcrypt. Every hash/verify throws without `PEPPER`.
 - `AccountSecurity.php` — 2FA codes, trusted devices, password resets
   (emails queued through `MailQueue`).
-- `Session.php` — Redis sessions (the old path, see "Sign-in").
 - `Devices.php` — devices, keyed device hashes, `login_events`; `GeoIp.php`
   — optional IP → place; `Risk.php` — sign-in risk scores and linked
   accounts.
@@ -2491,9 +2496,10 @@ API service (`api/classes/`):
   table replacement); and deliberately does *not* touch `users.phone` —
   the country-code split (see "Self-service profile editing" above) is a
   `ProfilePage.vue`-only concern, not a schema one.
-- `api/sql/009_sessions.sql` — the `sessions` table (2026-09-05): backs
-  `Session.php`'s sliding 5-minute-inactivity expiry — see "Sign-in" above
-  for the full feature.
+- `api/sql/009_sessions.sql` — the `sessions` table (2026-09-05), for the
+  first sign-in mechanism (sliding 5-minute sessions); moved to Redis and
+  dropped by 023, and the Redis sessions themselves replaced by tokens
+  (phases 1–5, see "Sign-in").
 - `api/sql/010_profile_attributes.sql` — finishes what 007 started
   (2026-09-15): `attribute_categories` gains `kind` (`options`/`range`),
   `provider_label` and `range_min`/`range_max`; `user_attribute_ranges` is

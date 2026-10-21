@@ -1,7 +1,7 @@
 # Plan: signed tokens, device security, and the CMS
 
-Status (2026-10-21): **phases 1–4 built** — see CLAUDE.md "Sign-in"; the
-rest is a proposal. Three pieces that depend on
+Status (2026-10-21): **phases 1–5 built** — sign-in is done (see CLAUDE.md
+"Sign-in"); the CMS (phases 6–9) is the proposal that remains. Three pieces that depend on
 each other, in build order:
 
 1. **Auth v2**: signed short-lived access tokens + rotating refresh tokens,
@@ -18,10 +18,10 @@ Open questions are collected at the end.
 
 ## 1. Auth v2: access + refresh tokens
 
-### Today
+### Before (retired in phase 5)
 
-`login` creates a random session hash in Redis (5-minute sliding TTL). Every
-request the gateway calls auth's `resolve` (one Redis `GETEX`), then forwards
+`login` created a random session hash in Redis (5-minute sliding TTL). Every
+request the gateway called auth's `resolve` (one Redis `GETEX`), then forwarded
 `X-User-Id`. Idle for 5 minutes = signed out.
 
 ### Target
@@ -460,7 +460,7 @@ reason, staff_id, lifted_at, lifted_by)`):
 | 2 ✓ | **Refresh security** — built 2026-10-20 | rotation, reuse detection, 30 s grace; the `auth:revoked` list (by sid, gateway only — the services are behind it); sign out on all devices | 1 |
 | 3 ✓ | **Client IP + devices** — built 2026-10-20 (geo lookup optional, off by default; `trusted_devices` not merged yet) | nginx → gateway → services IP header, `devices`, `login_events`, device info from the client, GeoLite2, "Your devices" on the profile page; `trusted_devices` merged into `devices` | 1 |
 | 4 ✓ | **Risk scoring & alerts** — built 2026-10-21 (without the geolocation signals and the ban-evasion check, which wait for GeoLite2 and freezing; the privacy notice still needs the lawyer) | scores, step-up 2FA, "new sign-in" email with "not me", `account_links`, ban-evasion check at registration; privacy notice + cookie notice update | 3, lawyer |
-| 5 | **Retire sessions** | remove the session hash path, `resolve`/`peekMany`, `Session.php`'s request role; Redis keeps pub/sub, counters, caches | 2 |
+| 5 ✓ | **Retire sessions** — done 2026-10-21 | remove the session hash path, `resolve`/`peekMany`, `Session.php`'s request role; Redis keeps pub/sub, counters, caches | 2 |
 | 6 | **CMS foundation** | `cms/` service + container, `admin/` Vue app, staff accounts with mandatory 2FA, `aud: cms` tokens, permissions, `staff_audit`, create-admin script | 1–2 |
 | 7 | **Content editor** | `layout.json` generator, page wireframe, block form with language switcher, add key, validation, history/revert, `i18n:pull` | 6 |
 | 8 | **Users** | search/list, user page, sanctions/adjustments, badges, bonuses, verification, freeze (+ booking handling), security tab | 3, 6 |
