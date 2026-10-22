@@ -266,7 +266,12 @@ path/name table) and the shared `src/components/` each is built from:
   has **"clear ×"** (`ClearFilters.vue`) while any filter is set — it replaced
   the panel's old full-width Clear filters button; the panel is white. The
   deck header is "Guides for you" with "Near {place}" right-aligned on the
-  same line; there's no other picks counter.
+  same line; there's no other picks counter. **The guide's deck
+  (`GuideDiscoverPage.vue`) matches it**: no page title, the same bar and
+  "clear ×", "Visitors" with "Travellers looking near {place}" beside it, and
+  the same "Your matches" rail (`MatchesRail`, which links names to
+  `/visitors/:id` and says "when a traveller you like…" in guide mode). The
+  old "N interested" pill and "Interested in" list are gone.
   `DiscoverPage.vue`'s right rail ("Your matches", signed in) is
   **`MatchesRail.vue`**. `MatchesRail` calls the
   API itself (`matchOverview` + `trips`) and has two tabs that show **only

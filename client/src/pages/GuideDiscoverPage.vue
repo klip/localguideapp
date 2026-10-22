@@ -6,9 +6,8 @@ import DeckBar from '@/components/DeckBar.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
-import PillBadge from '@/components/PillBadge.vue'
+import MatchesRail from '@/components/MatchesRail.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
-import SectionTitle from '@/components/SectionTitle.vue'
 import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
 import { t } from '@/i18n'
 import { useApi } from '@/plugins/api'
@@ -102,10 +101,6 @@ const deck = computed(() =>
 )
 const current = computed(() => deck.value[0])
 
-const interestedVisitors = computed(() =>
-  interested.value.map(visitorsStore.find).filter((visitor) => !!visitor),
-)
-
 /**
  * Records the decision server-side (see `Selections::decide()`) so a real
  * mutual match can actually happen — matching `Selections.decide()`'s
@@ -123,12 +118,17 @@ async function decide(visitorId: string, decision: 'interested' | 'pass') {
   }
 }
 
+/** The matches rail, to refresh when a decision completes a match. */
+const matchesRail = ref<InstanceType<typeof MatchesRail> | null>(null)
+
 async function accept(id: string) {
   const visitor = visitorsStore.find(id)
   interested.value.push(id)
 
   const row = await decide(id, 'interested')
   if (row?.active === 1) {
+    // A new match — it belongs on the rail's Matched tab now.
+    void matchesRail.value?.reload()
     messages.success(
       t('guide_discover.toast.matched', {
         name: visitor?.name ?? t('guide_discover.toast.matched_fallback_name'),
@@ -145,14 +145,8 @@ function reject(id: string) {
 
 <template>
   <section class="section shell">
-    <!-- The filters in force, right under the menu. -->
+    <!-- The filters in force, right under the menu (as on DiscoverPage.vue). -->
     <DeckBar />
-
-    <SectionTitle
-      :eyebrow="t('guide_discover.header.eyebrow')"
-      :heading="t('guide_discover.header.heading')"
-      :lead="t('guide_discover.header.lead')"
-    />
 
     <div class="discovery-layout">
       <aside class="rail">
@@ -168,20 +162,16 @@ function reject(id: string) {
 
       <PanelCard>
         <template #header>
-          <div class="row-between">
-            <div>
-              <strong>{{ t('guide_discover.deck.title') }}</strong>
-              <div class="tiny muted">
-                {{
-                  filters.near
-                    ? t('guide_discover.deck.subtitle_near', { place: filters.near.label })
-                    : t('guide_discover.deck.subtitle')
-                }}
-              </div>
-            </div>
-            <PillBadge>{{
-              t('guide_discover.deck.interested', { count: interested.length })
-            }}</PillBadge>
+          <!-- The title with where, on one line. -->
+          <div class="deck-head">
+            <strong>{{ t('guide_discover.deck.title') }}</strong>
+            <span class="tiny muted" data-test="deck-subtitle">
+              {{
+                filters.near
+                  ? t('guide_discover.deck.subtitle_near', { place: filters.near.label })
+                  : t('guide_discover.deck.subtitle')
+              }}
+            </span>
           </div>
         </template>
 
@@ -247,19 +237,9 @@ function reject(id: string) {
       </PanelCard>
 
       <aside class="rail">
-        <PanelCard
-          :title="t('guide_discover.rail.title')"
-          :subtitle="t('guide_discover.rail.subtitle')"
-        >
-          <ul v-if="interestedVisitors.length" class="picked">
-            <li v-for="visitor in interestedVisitors" :key="visitor.id">
-              {{ visitor.name }}
-              <span class="tiny muted">{{
-                t('guide_discover.rail.duration', { hours: visitor.durationHours })
-              }}</span>
-            </li>
-          </ul>
-          <p v-else class="tiny muted">{{ t('guide_discover.rail.empty') }}</p>
+        <!-- Matches and trips, as on the traveller's deck. -->
+        <PanelCard :title="t('discover.rail.title')">
+          <MatchesRail ref="matchesRail" />
         </PanelCard>
       </aside>
     </div>
@@ -318,12 +298,24 @@ function reject(id: string) {
   }
 }
 
-.picked {
-  padding-left: 1.1rem;
-  margin-bottom: 0;
+// The filters bar sits right under the menu, as on the traveller's deck.
+.section.shell {
+  padding-top: 1.25rem;
 
-  li {
-    margin-bottom: 0.2rem;
+  @include bp.lg {
+    padding-top: 1.5rem;
+  }
+}
+
+.deck-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  flex-wrap: wrap;
+
+  span {
+    text-align: end;
   }
 }
 </style>

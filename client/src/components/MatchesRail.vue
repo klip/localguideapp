@@ -24,7 +24,8 @@ import { debounce } from '@/utils/debounce'
  */
 interface RailItem {
   key: string
-  guideId: number
+  /** The other person — a guide for a traveller, a traveller for a guide. */
+  personId: number
   name: string
   caption: string
   /** A trip under way: "In progress" stands in for the date. */
@@ -35,6 +36,10 @@ type Tab = 'matched' | 'upcoming'
 
 const api = useApi()
 const auth = useAuthStore()
+/** Whose profile a name opens: a guide's while travelling, a traveller's while guiding. */
+const profileRoute = computed(() =>
+  auth.activeRole === 'guide' ? 'visitor-profile' : 'guide-profile',
+)
 const badges = useBadgesStore()
 
 const matches = ref<MatchOverviewRow[]>([])
@@ -51,7 +56,7 @@ const matchedItems = computed<RailItem[]>(() =>
     .filter((row) => row.active === 1 && row.booking_status !== 'confirmed')
     .map((row) => ({
       key: `m${row.id}`,
-      guideId: row.counterpart_id,
+      personId: row.counterpart_id,
       name: row.name || t('discover.rail.unnamed'),
       // A pending booking already has a time (and maybe a place); otherwise
       // where the guide works.
@@ -75,7 +80,7 @@ const upcomingItems = computed<RailItem[]>(() =>
       const inProgress = trip.phase === 'current'
       return {
         key: `t${trip.id}`,
-        guideId: trip.counterpart_id,
+        personId: trip.counterpart_id,
         name: trip.name || t('discover.rail.unnamed'),
         // Under way: the place only — the "In progress" label says when.
         caption: inProgress ? (place ?? '') : caption(place, trip.meeting_at),
@@ -104,7 +109,10 @@ const TABS = computed(() => [
     label: t('discover.rail.tab_matched'),
     to: '/matches',
     link: t('discover.rail.view_matches'),
-    empty: t('discover.rail.no_matches'),
+    // Who might like you back: a guide while travelling, a traveller while guiding.
+    empty: t(
+      auth.activeRole === 'guide' ? 'discover.rail.no_matches_guide' : 'discover.rail.no_matches',
+    ),
   },
   {
     id: 'upcoming' as const,
@@ -171,7 +179,7 @@ defineExpose({ reload })
     <div id="rail-panel" role="tabpanel" :aria-labelledby="`rail-tab-${activeTab}`">
       <ul v-if="items[activeTab].length" class="rail-list">
         <li v-for="item in items[activeTab]" :key="item.key">
-          <RouterLink :to="{ name: 'guide-profile', params: { id: item.guideId } }">{{
+          <RouterLink :to="{ name: profileRoute, params: { id: item.personId } }">{{
             item.name
           }}</RouterLink>
           <span class="tiny muted rail-caption">

@@ -688,6 +688,7 @@
   "discover.rail.log_in": "Log in",
   "discover.rail.no_date": "No date yet",
   "discover.rail.no_matches": "No matches yet — when a guide you like likes you back, they appear here.",
+  "discover.rail.no_matches_guide": "No matches yet — when a traveller you like likes you back, they appear here.",
   "discover.rail.no_trips": "No upcoming trips.",
   "discover.rail.signed_out_body": "Create an account to keep the guides you like — {count} picks for £5.",
   "discover.rail.tab_matched": "Matched",

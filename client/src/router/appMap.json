@@ -1,5 +1,5 @@
 {
-  "version": "decd2a24199b",
+  "version": "86dfadbc973c",
   "routes": [
     {
       "name": "root",
@@ -333,7 +333,9 @@
       "common.range_picker",
       "common.standing",
       "common.visitor_card",
-      "common.deck_bar"
+      "common.booking_time",
+      "common.deck_bar",
+      "discover.rail"
     ],
     "matches": [
       "matches.header",

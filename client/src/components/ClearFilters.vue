@@ -23,7 +23,7 @@ const { isPristine } = storeToRefs(filtersStore)
     @click.prevent.stop="filtersStore.reset()"
   >
     {{ t('common.filter_panel.clear_short') }}
-    <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+    <svg viewBox="0 0 14 14" width="12" height="12" aria-hidden="true">
       <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
     </svg>
   </button>
@@ -34,7 +34,7 @@ const { isPristine } = storeToRefs(filtersStore)
   display: inline-flex;
   align-items: center;
   align-self: center;
-  gap: 0.3rem;
+  gap: 0.2rem;
   width: auto;
   margin: 0 0 0 auto;
   padding: 0;
