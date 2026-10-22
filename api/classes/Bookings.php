@@ -238,6 +238,36 @@ class Bookings
         $location = self::parseLocation($location);
         $pin = self::parsePin($latitude, $longitude);
 
+        // A guide with a calendar (`Availability`) is booked only at a free
+        // time — checked again here under the guide's lock, so two guests
+        // paying for the same slot at once can't both get it. The lock is
+        // held until the booking is written (it then holds the slot).
+        $availability = new Availability($this->db);
+        $calendar = $availability->calendarFor($guideId);
+        $lock = null;
+        if ($calendar) {
+            $duration = $duration ?? $calendar['defaultTripHours'];
+            $lock = 'guide_calendar_' . $guideId;
+            if ((int) $this->db->db_GetFieldFromQuery('SELECT GET_LOCK("' . $lock . '", 5) AS `l`', 'l') !== 1) {
+                throw new RuntimeException('That guide’s calendar is busy — try again in a moment.');
+            }
+            if (!$availability->isFree($guideId, $meeting, (float) $duration)) {
+                $this->db->db_Execute('DO RELEASE_LOCK("' . $lock . '")');
+                throw new RuntimeException('That time isn’t free any more — pick another.');
+            }
+        }
+        try {
+            return $this->recordPayment($selection, $guestId, $guideId, $fee, $meeting, $duration, $location, $pin);
+        } finally {
+            if ($lock !== null) {
+                $this->db->db_Execute('DO RELEASE_LOCK("' . $lock . '")');
+            }
+        }
+    }
+
+    /** The payment row and the guide's notification — `pay()` after its checks. */
+    private function recordPayment(array $selection, int $guestId, int $guideId, float $fee, int $meeting, ?float $duration, ?string $location, ?array $pin): array
+    {
         $fields = [
             'selection_id' => (int) $selection['id'],
             'guest_id' => $guestId,

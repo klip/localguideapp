@@ -1,6 +1,13 @@
 # Plan: guides' availability calendar
 
-Status: **planned, not built** (added 2026-10-21).
+Status: **C1 and C2 built** (2026-10-22) — guides keep a calendar and visitors
+book only free times; C3 ("Booked for your date" on the deck) and C4
+(proposals, free guides) are still to do. Added 2026-10-21.
+
+One change from the plan below: `hour_of_day` isn't migrated into calendars
+automatically (its spans have no time zone, and a guide with a calendar is
+bookable only inside it). The Calendar page offers those hours as a starting
+point instead, and the filter stays until C3 replaces it.
 
 Today a guide's working hours are a rough filter (the `hour_of_day` range
 category, 44 guides / 52 spans) and the meeting time is free-form: the guest
@@ -137,8 +144,8 @@ below).
 
 | # | Phase | Contents |
 | --- | --- | --- |
-| C1 | **Calendar data + editor** | tables, `Availability` engine with tests (DST, buffers, overlaps), the guide's Calendar page, `hour_of_day` migrated to weekly hours |
-| C2 | **Booking against the calendar** | `guideCalendar` / `guideStartTimes`, the date + start-time picker in `BookingPanel`, `pay()` validation under the lock, trip length required with a calendar |
+| C1 ✓ | **Calendar data + editor** | tables, `Availability` engine with tests (DST, buffers, overlaps), the guide's Calendar page, `hour_of_day` migrated to weekly hours |
+| C2 ✓ | **Booking against the calendar** | `guideCalendar` / `guideStartTimes`, the date + start-time picker in `BookingPanel`, `pay()` validation under the lock, trip length required with a calendar |
 | C3 | **"Booked for your date" on the deck** | the When filter (URL, per session), `availabilityFor()` in `searchByRole()`, labels and ranking, planner stops feeding it |
 | C4 | **Proposals + free guides** | `proposeTime` on pending requests, `setMeetingTime` for free bookings, answer reminders, calendar required for paid bookings after the grace period |
 

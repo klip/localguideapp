@@ -107,7 +107,13 @@ class RequestProcessor
         } catch (ContactDetailsException $e) {
             return [400, $e->toBody()];
         } catch (RuntimeException $e) {
-            return [400, ['error' => $e->getMessage()]];
+            // A field error (`{ field, error }` as the message — `Availability`)
+            // comes back pinned to its input, as `ContactDetailsException`s do.
+            $pinned = json_decode($e->getMessage(), true);
+
+            return [400, is_array($pinned) && isset($pinned['field'], $pinned['error'])
+                ? ['error' => (string) $pinned['error'], 'field' => (string) $pinned['field']]
+                : ['error' => $e->getMessage()]];
         } catch (Throwable $e) {
             Log::exception('Request failed', $e);
             return [500, ['error' => 'Unexpected server error.']];
@@ -164,6 +170,18 @@ class RequestProcessor
 
             case 'payGuideFee':
                 return [200, $this->actionPayGuideFee()];
+
+            // A guide's availability calendar (`Availability`, docs/availability-plan.md):
+            // their own (guide mode), and a matched guide's free days and times
+            // for a traveller paying them.
+            case 'myCalendar':
+            case 'saveCalendar':
+            case 'addDayOff':
+            case 'removeDayOff':
+                return [200, $this->actionMyCalendar($action)];
+            case 'guideCalendar':
+            case 'guideStartTimes':
+                return [200, $this->actionGuideCalendar($action)];
 
             case 'cancelBooking':
                 return [200, $this->actionCancelBooking()];
@@ -508,6 +526,80 @@ class RequestProcessor
      * The guest pays the fee of a guide they're matched with, choosing when
      * to meet — see `Bookings::pay()`. Unlocks both sides' contact details.
      */
+    /** The acting guide's own calendar: read it, save it, add or remove a day off. */
+    private function actionMyCalendar(string $action): array
+    {
+        $guideId = $this->requireUserId();
+        if ($this->actingRole() !== 'guide') {
+            throw new RuntimeException('Switch to guide mode to manage your calendar.');
+        }
+        $input = $this->readInput();
+        $availability = new Availability($this->db);
+        switch ($action) {
+            case 'saveCalendar':
+                $availability->save($guideId, $input);
+                break;
+            case 'addDayOff':
+                $availability->addException($guideId, $input);
+                break;
+            case 'removeDayOff':
+                $availability->removeException($guideId, (int) ($input['id'] ?? 0));
+                break;
+        }
+        $today = gmdate('Y-m-d');
+
+        return $availability->viewFor(
+            $guideId,
+            (string) ($input['from'] ?? $today),
+            (string) ($input['to'] ?? gmdate('Y-m-d', strtotime('+41 days')))
+        );
+    }
+
+    /**
+     * For a traveller matched with `guideId`: whether the guide has a
+     * calendar, and the days in `month` with a free start (`guideCalendar`),
+     * or the free start times on `day` (`guideStartTimes`), for a trip of
+     * `durationHours` (default: the guide's usual length).
+     */
+    private function actionGuideCalendar(string $action): array
+    {
+        $guestId = $this->requireUserId();
+        $input = $this->readInput();
+        $guideId = (int) ($input['guideId'] ?? 0);
+        if ($this->actingRole() !== 'guest' || !$this->db->db_GetRow(
+            'SELECT `id` FROM `selections` WHERE `guest_id` = ' . $guestId . ' AND `guide_id` = ' . $guideId . ' AND `active` = 1'
+        )) {
+            throw new RuntimeException('You can see a guide’s calendar once you’re matched.');
+        }
+        $availability = new Availability($this->db);
+        $calendar = $availability->calendarFor($guideId);
+        if (!$calendar) {
+            return ['hasCalendar' => false];
+        }
+        $hours = isset($input['durationHours']) && $input['durationHours'] !== ''
+            ? Availability::hours($input['durationHours'])
+            : $calendar['defaultTripHours'];
+        $base = [
+            'hasCalendar' => true,
+            'timeZone' => $calendar['timeZone'],
+            'defaultTripHours' => $calendar['defaultTripHours'],
+            'slotMinutes' => $calendar['slotMinutes'],
+            'durationHours' => $hours,
+        ];
+        if ($action === 'guideStartTimes') {
+            return $base + ['starts' => array_map(
+                static fn(int $t): string => gmdate('Y-m-d\TH:i:s\Z', $t),
+                $availability->startTimes($guideId, (string) ($input['day'] ?? ''), $hours)
+            )];
+        }
+        $month = (string) ($input['month'] ?? '');
+        if ($month === '') {
+            $month = (new DateTimeImmutable('now', new DateTimeZone($calendar['timeZone'])))->format('Y-m');
+        }
+
+        return $base + ['month' => $month, 'days' => $availability->daysWithTime($guideId, $month, $hours)];
+    }
+
     private function actionPayGuideFee(): array
     {
         $input = $this->readInput();

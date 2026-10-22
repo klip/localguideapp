@@ -3,7 +3,14 @@
  * The menu links' icons (`AppHeader.vue`): line icons on a 24px grid,
  * stroked in the link's own colour. Decorative — the link's text names it.
  */
-export type NavIconName = 'how' | 'discover' | 'planner' | 'matches' | 'trips' | 'messages'
+export type NavIconName =
+  | 'how'
+  | 'discover'
+  | 'planner'
+  | 'calendar'
+  | 'matches'
+  | 'trips'
+  | 'messages'
 
 defineProps<{ name: NavIconName }>()
 </script>
@@ -40,6 +47,14 @@ defineProps<{ name: NavIconName }>()
       <path d="M2.5 6.5v14l6-3 7 3 6-3v-14l-6 3-7-3z" />
       <path d="M8.5 3.5v14" />
       <path d="M15.5 6.5v14" />
+    </template>
+    <!-- Calendar: a page of a calendar with a tick. -->
+    <template v-else-if="name === 'calendar'">
+      <rect x="3" y="4.5" width="18" height="16.5" rx="2" />
+      <path d="M3 9.5h18" />
+      <path d="M8 2.5v4" />
+      <path d="M16 2.5v4" />
+      <path d="m9 15 2 2 4-4" />
     </template>
     <!-- Matches: a handshake (Lucide's, ISC licence). -->
     <template v-else-if="name === 'matches'">

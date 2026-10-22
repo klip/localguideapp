@@ -22,6 +22,7 @@ export const PAGES: Record<string, () => Promise<RouteComponent>> = {
   TripsPage: () => import('@/pages/TripsPage.vue'),
   MessagesPage: () => import('@/pages/MessagesPage.vue'),
   PlannerPage: () => import('@/pages/PlannerPage.vue'),
+  CalendarPage: () => import('@/pages/CalendarPage.vue'),
   ProfilePage: () => import('@/pages/ProfilePage.vue'),
   NotFoundPage: () => import('@/pages/NotFoundPage.vue'),
 }

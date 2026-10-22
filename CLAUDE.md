@@ -60,13 +60,11 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
 - **Services share one database** — `users` in particular is read and
   written by both auth and api. The plan for splitting it is in
   `docs/scaling.md`.
-- **Meeting times are free-form**: the guest picks any future date-time
-  when paying (up to a year ahead); nothing checks it against the guide's
-  working hours (`hour_of_day`) or their other bookings, and the guide can
-  only accept or decline, not propose another. **Planned**: a guides'
-  availability calendar — visitors choose only free times, and the deck labels
-  guides already booked for the visitor's date "Booked for your date" — see
-  `docs/availability-plan.md`.
+- **Meeting times are free-form for guides without a calendar**: until a
+  guide saves one (see "Availability calendar"), the guest picks any future
+  date-time and nothing checks it. The guide still can only accept or decline,
+  not propose another time, and the deck doesn't yet label guides "Booked for
+  your date" — both are later stages of `docs/availability-plan.md` (C3, C4).
 - **Trip length is the guest's to set** (optional, when paying). The guide
   sees it before accepting but can't change it.
 - **`user_profiles.rating`/`tours` are dead columns** — nothing reads or
@@ -161,7 +159,7 @@ into the next test's fresh `Pinia` instance.
 
 - `src/pages/` — one component per route (Home, Register, Login, Unlock,
   Discover, GuideProfile, VisitorProfile, GuideDiscover,
-  Matches, Trips, Planner, Profile, ForgotPassword, ResetPassword, NotFound).
+  Matches, Trips, Planner, Calendar, Profile, ForgotPassword, ResetPassword, NotFound).
 - `src/router/` — **the routes come from the database, managed in the
   CMS** (see "Routes" under CMS): `appMap.ts` turns the `appMap` action's
   routes into router records (`installAppMap()`, done in `main.ts` before
@@ -678,8 +676,8 @@ is two rows.** Top: logo and language switch on the left; on the right the
 role switch, the **profile circle** (the user's photo, else their initial,
 linking to `/profile` — there's no "Profile" menu item) and Log out (signed
 out: Log in + Get started). Below: the menu links — How it works (signed out), Discover, Trip planner
-(traveller), Matches, My trips, Messages — each with a line icon
-(`NavIcon.vue`: bulb, compass, map, handshake, suitcase, speech bubble; give a
+(traveller), Calendar (guide), Matches, My trips, Messages — each with a line icon
+(`NavIcon.vue`: bulb, compass, map, calendar, handshake, suitcase, speech bubble; give a
 new link one too) — black, 0.9rem; the active one has
 a 4px underline and a 1px white text shadow (in the mobile drawer it's bold
 instead). There's no picks counter in the header any more (the
@@ -798,6 +796,53 @@ server-computed `phase`:
   (`booking_status`, `booking_amount`, …) — the shared subset is the
   `BookingView` type `BookingPanel` takes — but `id` is the *booking's*.
 - Date/money formatting for both is in `src/utils/bookingTime.ts`.
+
+### Availability calendar (`Availability.php`, `CalendarPage.vue`, `SlotPicker.vue`)
+
+Stages C1 and C2 of `docs/availability-plan.md` are built: a guide keeps a
+calendar, and a visitor paying them can only pick a free time.
+
+- **Data** (086): `guide_calendars` (time zone — IANA, from the browser —
+  start-time step 15/30/60 min, free time between trips, usual trip length,
+  minimum notice, how far ahead), `guide_weekly_hours` (windows per ISO
+  weekday, minutes from local midnight, several a day), `guide_days_off`
+  (a dated day or window `off`, or `extra` hours). **Busy time is derived**:
+  every pending or unfinished confirmed booking holds its meeting time for its
+  length (or the usual one), plus the buffer either side.
+- **The engine** (`api/classes/Availability.php`): pure static functions —
+  `windowsOn()` (a local date's working windows as UTC, per date through
+  `DateTimeImmutable`, so daylight-saving days are right), `startsIn()` (free
+  starts on the step grid), `fits()` (any start, grid or not) — plus the DB
+  side: `startTimes()`, `daysWithTime()`, `isFree()`, `viewFor()`, `save()`,
+  `addException()`. Tested by `lib/tests/AvailabilityTest.php` (DST, buffers,
+  overlaps, notice, horizon).
+- **Guide side**: **Calendar** in the menu (guide mode, `/calendar`; route
+  `calendar` in `app_routes`, signed in, guides — 087): weekly hours per day
+  (add/remove windows, "Copy Monday to Tuesday–Friday", "Start from the hours
+  on my profile" — their `hour_of_day` spans, which stay as the deck filter
+  until C3), booking rules, days off and extra hours, and the bookings coming
+  up (six weeks). Actions `myCalendar`, `saveCalendar`, `addDayOff`,
+  `removeDayOff` (guide mode only).
+- **Visitor side**: `BookingPanel`'s pay form asks `guideCalendar`; with a
+  calendar it shows `SlotPicker` — the trip length (the guide's usual by
+  default), a month where only days with a free start can be picked
+  (`guideCalendar` → `days`), then that day's free starts (`guideStartTimes`),
+  in the viewer's time with the guide's beside it when the zones differ. Without
+  one, the old date-time input. Both actions need an active match.
+- **`Bookings::pay()`** with a calendar: the length defaults to the usual
+  one, and the time is checked again (`isFree()`) under
+  `GET_LOCK('guide_calendar_<id>')` held until the booking is written — so two
+  guests paying for one slot at the same moment can't both get it ("That time
+  isn't free any more — pick another."). A guide without a calendar is
+  unchanged.
+- API field errors: a `RuntimeException` whose message is `{ field, error }`
+  JSON now comes back as `400 { error, field }` (as the CMS does), so the
+  page pins it under the input.
+- Tests: `client/src/__tests__/calendar.spec.ts` (the picker in the pay form,
+  the Calendar page), `lib/tests/calendar-e2e.php` (19 checks through the API:
+  free days/times, taken and off-hours times refused, **two simultaneous
+  payments for one slot — exactly one succeeds**, days off, who may look;
+  mailer stopped: `docker exec lemp-rg-cms php /var/www/localguideapp/lib/tests/calendar-e2e.php`).
 
 ### Guide fees & bookings
 
@@ -2516,7 +2561,9 @@ is a `503` from the gateway.
 | `revokeSelection` | **yes** | `api.revokeSelection(payload)` | `targetId` | `SelectionRow` | `Selections::revoke()` |
 | `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, location, location_pin, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
 | `trips` | **yes** | `api.trips()` | — | `{ trips: TripRow[] }` (booking `id`, `selection_id, counterpart_id, phase, is_latest, name, image, active, fee_amount, booking_status, payment_status, booking_amount, meeting_at, booking_duration_hours, location, location_pin, refund_amount, trip_status, accepted_at, cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason, finish_requested_by, finished_at, matched_at, auto_finish, refund_if_cancelled, refund_if_guest_cancels` — newest first) | `Bookings::tripsFor()` |
-| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year), `durationHours?` (0.5–24), `location?` (≤160 chars), `latitude?`/`longitude?` (a pin — both numbers or neither) | `Booking` (`status: 'pending'` — waits for the guide; `location_pin`) | `actionPayGuideFee()` → `Bookings::pay()` |
+| `myCalendar` / `saveCalendar` / `addDayOff` / `removeDayOff` | **yes** (guide mode) | `api.myCalendar(range?)`, `api.saveCalendar(settings)`, `api.addDayOff(exception)`, `api.removeDayOff(id)` | `from?, to?` (local dates, ≤2 months) / `timeZone, slotMinutes, bufferMinutes, defaultTripHours, minNoticeHours, maxDaysAhead, weekly: [{ weekday, start, end }]` / `day, kind: off\|extra, start?, end?, note?` / `id` | `MyCalendar` (`calendar` or null, `suggestedHours`, `bookings`) | `Availability::viewFor()/save()/addException()/removeException()` |
+| `guideCalendar` / `guideStartTimes` | **yes** (guest, matched) | `api.guideCalendar(guideId, month?, hours?)`, `api.guideStartTimes(guideId, day, hours)` | `guideId, month?` (`YYYY-MM`), `durationHours?` / `guideId, day, durationHours` | `{ hasCalendar: false }` or `{ hasCalendar, timeZone, defaultTripHours, slotMinutes, durationHours, month, days }` / `{ …, starts }` (ISO UTC) | `Availability::daysWithTime()/startTimes()` |
+| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year — **a free time** when the guide has a calendar), `durationHours?` (0.5–24; the guide's usual length by default with a calendar), `location?` (≤160 chars), `latitude?`/`longitude?` (a pin — both numbers or neither) | `Booking` (`status: 'pending'` — waits for the guide; `location_pin`) | `actionPayGuideFee()` → `Bookings::pay()` |
 | `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation), `location?`, `latitude?`/`longitude?` (setLocation: replaces text and pin; neither clears) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/setLocation()/…` |
 | `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
 | `conversations` | **yes** | `api.conversations()` | — | `{ conversations: Conversation[] }` (`counterpart_id, name, image, role, can_send, unread, last_message`) | `Messages::conversationsFor()` |
@@ -3031,6 +3078,12 @@ API service (`api/classes/`):
   assigned_at/resolved_by/reporter_told_at`, `complaint_notes`,
   `account_links.reviewed_by/review_note` (see "CMS → Moderation"). Applied
   2026-10-21. Not re-runnable.
+- `api/sql/086_guide_calendars.sql` — `guide_calendars`, `guide_weekly_hours`,
+  `guide_days_off` (see "Availability calendar"). Applied 2026-10-22.
+  Re-runnable.
+- `api/sql/087_calendar_page.sql` — the `calendar` route (guides, signed in)
+  and its text blocks, and the Calendar page's and time picker's text in 15
+  languages. Applied 2026-10-22. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

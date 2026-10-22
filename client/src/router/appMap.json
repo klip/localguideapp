@@ -1,5 +1,5 @@
 {
-  "version": "ce34b19197b4",
+  "version": "280b433a9a40",
   "routes": [
     {
       "name": "root",
@@ -146,6 +146,15 @@
       "role": null
     },
     {
+      "name": "calendar",
+      "path": "/calendar",
+      "component": "CalendarPage",
+      "redirect": null,
+      "props": false,
+      "access": "signed_in",
+      "role": "guide"
+    },
+    {
       "name": "planner",
       "path": "/planner",
       "component": "PlannerPage",
@@ -186,7 +195,13 @@
       "common.modal_dialog",
       "common.terms_dialog"
     ],
-    "home": ["home.hero", "home.how", "home.pricing", "common.phone_preview", "common.price_box"],
+    "home": [
+      "home.hero",
+      "home.how",
+      "home.pricing",
+      "common.phone_preview",
+      "common.price_box"
+    ],
     "register": [
       "register.header",
       "register.form",
@@ -194,7 +209,13 @@
       "register.toast",
       "common.form"
     ],
-    "login": ["login.header", "login.code", "login.form", "login.toast", "common.form"],
+    "login": [
+      "login.header",
+      "login.code",
+      "login.form",
+      "login.toast",
+      "common.form"
+    ],
     "forgot-password": [
       "forgot_password.header",
       "forgot_password.sent",
@@ -325,7 +346,8 @@
       "common.booking_time",
       "common.level",
       "common.map_links",
-      "common.protected_notice"
+      "common.protected_notice",
+      "common.slot_picker"
     ],
     "trips": [
       "trips.header",
@@ -340,7 +362,8 @@
       "common.booking_time",
       "common.level",
       "common.map_links",
-      "common.protected_notice"
+      "common.protected_notice",
+      "common.slot_picker"
     ],
     "messages": [
       "messages.header",
@@ -349,6 +372,14 @@
       "messages.thread",
       "messages.location",
       "messages.toast"
+    ],
+    "calendar": [
+      "calendar.page",
+      "calendar.weekly",
+      "calendar.rules",
+      "calendar.exceptions",
+      "calendar.upcoming",
+      "common.slot_picker"
     ],
     "planner": [
       "planner.page",
@@ -389,6 +420,8 @@
       "common.standing",
       "common.time_ago"
     ],
-    "not-found": ["not_found.panel"]
+    "not-found": [
+      "not_found.panel"
+    ]
   }
 }

@@ -292,6 +292,11 @@ onBeforeUnmount(() => {
                 ><NavIcon name="planner" />{{ t('common.app_header.planner') }}</RouterLink
               >
             </li>
+            <li v-if="isAuthenticated && activeRole === 'guide'">
+              <RouterLink to="/calendar" class="nav-link" data-test="nav-calendar"
+                ><NavIcon name="calendar" />{{ t('common.app_header.calendar') }}</RouterLink
+              >
+            </li>
             <li v-if="isAuthenticated">
               <RouterLink to="/matches" class="nav-link nav-link--counted">
                 <NavIcon name="matches" />{{ t('common.app_header.matches')

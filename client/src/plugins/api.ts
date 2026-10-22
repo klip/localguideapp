@@ -463,6 +463,71 @@ export type BookingPaymentStatus = 'none' | 'paid' | 'refunded'
 export type TripStatus = 'pending' | 'started' | 'finished'
 
 /** Every step `api.bookingAction()` can take — see `RequestProcessor::actionBooking()` for who may take which. */
+/** A guide's availability calendar (`Availability.php`, docs/availability-plan.md). Hours are minutes from local midnight in `timeZone`. */
+export interface GuideCalendar {
+  timeZone: string
+  slotMinutes: number
+  bufferMinutes: number
+  defaultTripHours: number
+  minNoticeHours: number
+  maxDaysAhead: number
+  /** ISO weekday (1 = Monday) → `[[start, end], …]`. */
+  weekly: Record<string, [number, number][]>
+  daysOff: CalendarException[]
+}
+
+/** A dated exception: a day (or window) off, or extra hours. */
+export interface CalendarException {
+  id: number
+  day: string
+  kind: 'off' | 'extra'
+  /** Minutes from midnight; both null for a whole day off. */
+  start: number | null
+  end: number | null
+  note: string | null
+}
+
+/** The guide's own view (`myCalendar`). */
+export interface MyCalendar {
+  calendar: GuideCalendar | null
+  /** The hours on their profile (`hour_of_day`), offered as a starting point. */
+  suggestedHours: [number, number][]
+  bookings: {
+    id: number
+    status: 'pending' | 'confirmed'
+    tripStatus: string
+    start: string
+    hours: number | null
+    guest: { id: number; name: string }
+  }[]
+}
+
+export interface CalendarSettings {
+  timeZone: string
+  slotMinutes: number
+  bufferMinutes: number
+  defaultTripHours: number
+  minNoticeHours: number
+  maxDaysAhead: number
+  weekly: { weekday: number; start: number; end: number }[]
+}
+
+/** A matched guide's free time, for paying them (`guideCalendar` / `guideStartTimes`). */
+export type GuideAvailability =
+  | { hasCalendar: false }
+  | {
+      hasCalendar: true
+      timeZone: string
+      defaultTripHours: number
+      slotMinutes: number
+      durationHours: number
+      month?: string
+      /** Local dates (`YYYY-MM-DD`, the guide's zone) with a free start. */
+      days?: string[]
+      /** Free start times, ISO UTC. */
+      starts?: string[]
+    }
+
 export type BookingOp =
   | 'accept'
   | 'decline'
@@ -1208,6 +1273,23 @@ export const api = {
   unlockPack: () => call<PaymentState>('unlockPack'),
   paymentState: () => call<PaymentState>('paymentState'),
   /** Guest pays a matched guide's fee; `meetingAt` is an ISO date-time, `durationHours` and `location` optional. The booking then waits for the guide to accept. */
+  /** The acting guide's calendar, and their bookings from `from` to `to` (local dates). */
+  myCalendar: (range: { from?: string; to?: string } = {}) => call<MyCalendar>('myCalendar', range),
+  saveCalendar: (settings: CalendarSettings) => call<MyCalendar>('saveCalendar', settings),
+  addDayOff: (exception: {
+    day: string
+    kind: 'off' | 'extra'
+    start?: number | null
+    end?: number | null
+    note?: string
+  }) => call<MyCalendar>('addDayOff', exception),
+  removeDayOff: (id: number) => call<MyCalendar>('removeDayOff', { id }),
+  /** A matched guide's free days in `month` (`YYYY-MM`) for a trip of `durationHours` (default: their usual). */
+  guideCalendar: (guideId: number, month?: string, durationHours?: number) =>
+    call<GuideAvailability>('guideCalendar', { guideId, month, durationHours }),
+  /** A matched guide's free start times on `day` (their local date). */
+  guideStartTimes: (guideId: number, day: string, durationHours: number) =>
+    call<GuideAvailability>('guideStartTimes', { guideId, day, durationHours }),
   payGuideFee: (payload: {
     targetId: number
     meetingAt: string

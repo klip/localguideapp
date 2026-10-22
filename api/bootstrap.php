@@ -10,6 +10,7 @@ require_once __DIR__.'/classes/Payments.php';
 require_once __DIR__.'/classes/Badges.php';
 require_once __DIR__.'/classes/Push.php';
 require_once __DIR__.'/classes/Notifications.php';
+require_once __DIR__.'/classes/Availability.php';
 require_once __DIR__.'/classes/Bookings.php';
 require_once __DIR__.'/classes/Selections.php';
 require_once __DIR__.'/classes/Places.php';

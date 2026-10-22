@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import MapPinLinks from '@/components/MapPinLinks.vue'
+import SlotPicker from '@/components/SlotPicker.vue'
 import MeetingPinField from '@/components/MeetingPinField.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import ProtectedNotice from '@/components/ProtectedNotice.vue'
@@ -60,6 +61,11 @@ type FormKind = 'pay' | 'guideCancel' | 'decline' | 'requestCancel' | 'freeCance
 const openForm = ref<FormKind | null>(null)
 const meetingAt = ref('')
 const durationHours = ref<number | ''>('')
+/** With a guide's calendar: the start picked from their free times, and the trip length (`SlotPicker`). */
+const slotStart = ref('')
+const slotHours = ref(2)
+/** The guide keeps no calendar — any future time, as before. */
+const noCalendar = ref(false)
 const location = ref('')
 /** The meeting pin in the open form — from the device, or the booking's current one. */
 const pin = ref<MapPin | null>(null)
@@ -117,6 +123,8 @@ function show(kind: FormKind) {
   openForm.value = kind
   meetingAt.value = ''
   durationHours.value = ''
+  slotStart.value = ''
+  noCalendar.value = false
   location.value = kind === 'location' ? (props.row.location ?? '') : ''
   pin.value = kind === 'location' ? (props.row.location_pin ?? null) : null
   reason.value = ''
@@ -157,12 +165,25 @@ function op(name: BookingOp, success: string, withReason = false) {
 }
 
 function pay() {
-  const when = new Date(meetingAt.value)
-  if (!meetingAt.value || Number.isNaN(when.getTime())) {
-    messages.error(t('common.booking_panel.meeting_required'), anchorTo('element', root.value))
+  // A guide with a calendar: the start picked from their free times.
+  const chosen = noCalendar.value ? meetingAt.value : slotStart.value
+  const when = new Date(chosen)
+  if (!chosen || Number.isNaN(when.getTime())) {
+    messages.error(
+      t(
+        noCalendar.value
+          ? 'common.booking_panel.meeting_required'
+          : 'common.slot_picker.choose_time',
+      ),
+      anchorTo('element', root.value),
+    )
     return
   }
-  const hours = durationHours.value === '' ? undefined : Number(durationHours.value)
+  const hours = !noCalendar.value
+    ? slotHours.value
+    : durationHours.value === ''
+      ? undefined
+      : Number(durationHours.value)
   const place = location.value.trim()
   return run(
     () =>
@@ -545,7 +566,15 @@ function guideCancel() {
       :aria-label="t('common.booking_panel.pay_form_label', { name })"
       @submit.prevent="pay"
     >
-      <div class="fields">
+      <SlotPicker
+        v-if="!noCalendar"
+        v-model="slotStart"
+        v-model:hours="slotHours"
+        :guide-id="row.counterpart_id"
+        :name="name"
+        @unavailable="noCalendar = true"
+      />
+      <div v-else class="fields">
         <label>
           {{ t('common.booking_panel.meeting_question') }}
           <input v-model="meetingAt" type="datetime-local" :min="minMeeting" required />

@@ -33,6 +33,13 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     unlockPack: vi.fn<Api['unlockPack']>(),
     paymentState: vi.fn<Api['paymentState']>(),
     payGuideFee: vi.fn<Api['payGuideFee']>(),
+    myCalendar: vi.fn<Api['myCalendar']>(),
+    saveCalendar: vi.fn<Api['saveCalendar']>(),
+    addDayOff: vi.fn<Api['addDayOff']>(),
+    removeDayOff: vi.fn<Api['removeDayOff']>(),
+    // Most guides have no calendar: the pay form keeps its free date-time input.
+    guideCalendar: vi.fn<Api['guideCalendar']>().mockResolvedValue({ hasCalendar: false }),
+    guideStartTimes: vi.fn<Api['guideStartTimes']>(),
     bookingAction: vi.fn<Api['bookingAction']>(),
     cancelBooking: vi.fn<Api['cancelBooking']>(),
     markSeen: vi.fn<Api['markSeen']>().mockResolvedValue({ ok: true }),
