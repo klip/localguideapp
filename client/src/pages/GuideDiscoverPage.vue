@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import ClearFilters from '@/components/ClearFilters.vue'
 import DeckBar from '@/components/DeckBar.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
@@ -158,6 +159,7 @@ function reject(id: string) {
         <details class="filters-disclosure" :open="filtersOpen" @toggle="onFiltersToggle">
           <summary>
             <strong>{{ t('guide_discover.filters.title') }}</strong>
+            <ClearFilters />
           </summary>
           <p class="tiny muted">{{ t('guide_discover.filters.hint') }}</p>
           <FilterPanel compact target-role="guest" />
@@ -268,9 +270,21 @@ function reject(id: string) {
 @use 'breakpoints' as bp;
 
 .filters-disclosure {
+  // "Filters", then "clear ×" (while any are set) just before the chevron.
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    // The title takes the room, so "clear" and the chevron sit at the end.
+    strong {
+      flex: 1;
+    }
+  }
+
   border: 1px solid var(--rg-line);
   border-radius: var(--rg-radius-panel);
-  background: rgba(255, 255, 255, 0.75);
+  background: #fff;
   padding: 0.85rem 1rem;
   margin-bottom: 0;
 

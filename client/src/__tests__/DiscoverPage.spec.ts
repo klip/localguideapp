@@ -12,6 +12,7 @@ import {
   type TripRow,
 } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
+import PicksButton from '../components/PicksButton.vue'
 import { useMatchesStore } from '@/stores/matches'
 import { readPendingRejects } from '@/utils/pendingRejects'
 import { fakeApi as baseFakeApi } from './fakeApi'
@@ -230,23 +231,40 @@ describe('DiscoverPage', () => {
     wrapper.unmount()
   })
 
-  it('shows the picks left as one button in the bar above the deck, which opens the add-picks dialog', async () => {
+  it('keeps the picks counter out of the page (it’s in the header), and opens the add-picks dialog when asked', async () => {
     const api = fakeApi({
       paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(payment(1)),
     })
     const { wrapper } = await mountDiscover(api, true)
 
-    const button = wrapper.find('[data-test="deck-bar"] [data-test="picks-button"]')
-    expect(button.text()).toBe('5/5 left')
-    // No second counter in the deck's header or the matches rail.
+    // No counter on the page itself: not in the bar, the deck's header or the rail.
+    expect(wrapper.find('[data-test="picks-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="picks-left"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="rail-picks-left"]').exists()).toBe(false)
-    expect(wrapper.find('.counter').exists()).toBe(false)
 
     expect(dialogs(wrapper).pay.attributes('open')).toBeUndefined()
-    await button.trigger('click')
+    useMatchesStore().addPicksOpen = true
+    await flushPromises()
     expect(dialogs(wrapper).pay.attributes('open')).toBeDefined()
     wrapper.unmount()
+  })
+
+  it('shows the picks counter in the header on Discover: “5/5 left”, opening the dialog', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useAuthStore().setUser({ id: 9, email: 'me@example.com', role: 'guest' })
+    useMatchesStore().applyPaymentState(payment(1))
+    const router = testRouter()
+    await router.push('/discover')
+    const button = mount(PicksButton, { global: { plugins: [pinia, router] } })
+    expect(button.text()).toBe('5/5 left')
+    expect(button.classes()).toEqual(expect.arrayContaining(['secondary', 'outline']))
+    await button.trigger('click')
+    expect(useMatchesStore().addPicksOpen).toBe(true)
+
+    await router.push('/matches')
+    await flushPromises()
+    expect(button.find('[data-test="picks-button"]').exists()).toBe(false)
   })
 
   it('goes straight to matching for a guest who already has a pack', async () => {

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
+import ClearFilters from '@/components/ClearFilters.vue'
 import DeckBar from '@/components/DeckBar.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
 import MatchesRail from '@/components/MatchesRail.vue'
@@ -56,8 +57,7 @@ watch(isDesktop, (desktop) => {
 function onFiltersToggle(event: Event) {
   filtersOpen.value = (event.target as HTMLDetailsElement).open
 }
-const { hasAccess, selectionsLeft, capacity, canPick, packSize, freePicksActive, freePicksUntil } =
-  storeToRefs(matchesStore)
+const { hasAccess, canPick, packSize } = storeToRefs(matchesStore)
 const { items: guides, loading: guidesLoading } = storeToRefs(guidesStore)
 
 /**
@@ -110,31 +110,6 @@ const currentMeta = computed(() => {
   return parts.length ? parts.join(' · ') : undefined
 })
 
-const freePicksUntilLabel = new Intl.DateTimeFormat(undefined, {
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-})
-/**
- * The picks counter in the bar above the deck: "2/10 left", "Free picks on"
- * during a free-picks bonus, "Get picks" before the first pack. It opens the
- * add-picks dialog.
- */
-const picksButtonText = computed(() => {
-  if (freePicksActive.value) return t('discover.deck.free_picks')
-  return hasAccess.value
-    ? t('discover.bar.picks_left', { left: selectionsLeft.value, capacity: capacity.value })
-    : t('discover.bar.get_picks')
-})
-const picksButtonTitle = computed(() =>
-  freePicksActive.value && freePicksUntil.value
-    ? t('discover.counter.free_picks_until', {
-        date: freePicksUntilLabel.format(new Date(freePicksUntil.value)),
-      })
-    : t('discover.bar.add_picks'),
-)
-
 /**
  * Persists the decision server-side (see `Selections::decide()`) in the
  * background, best-effort — `matchesStore`'s local pick/pass state is what the
@@ -168,7 +143,8 @@ const isGuest = computed(() => auth.activeRole === 'guest')
 const showBrowseIntro = !auth.isAuthenticated && !browseIntroSeen()
 if (showBrowseIntro) markBrowseIntroSeen()
 const authPromptOpen = ref(false)
-const payOpen = ref(false)
+// The add-picks dialog: opened here, or by the header's counter (`PicksButton`).
+const { addPicksOpen: payOpen } = storeToRefs(matchesStore)
 const paying = ref(false)
 const payPanelRef = ref<HTMLElement | null>(null)
 /** The card whose "Interested" opened the payment modal — picked once paid. */
@@ -239,35 +215,8 @@ function reject(id: string) {
 
 <template>
   <section class="section shell">
-    <!-- The filters in force and, for a traveller, the picks counter. -->
-    <DeckBar>
-      <template v-if="auth.isAuthenticated && isGuest" #end>
-        <button
-          type="button"
-          class="picks-button"
-          data-test="picks-button"
-          :title="picksButtonTitle"
-          :aria-label="`${picksButtonText} — ${t('discover.bar.add_picks')}`"
-          @click="payOpen = true"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
-            <path d="m8 12.5 3 3 5-6" />
-          </svg>
-          {{ picksButtonText }}
-        </button>
-      </template>
-    </DeckBar>
+    <!-- The filters in force (the picks counter is in the header, PicksButton). -->
+    <DeckBar />
 
     <div class="discovery-layout">
       <!-- Filters: a side rail on desktop, a collapsed disclosure on mobile. -->
@@ -275,6 +224,7 @@ function reject(id: string) {
         <details class="filters-disclosure" :open="filtersOpen" @toggle="onFiltersToggle">
           <summary>
             <strong>{{ t('discover.filters.title') }}</strong>
+            <ClearFilters />
           </summary>
           <p class="tiny muted">{{ t('discover.filters.hint') }}</p>
           <FilterPanel target-role="guide" />
@@ -477,9 +427,21 @@ function reject(id: string) {
 }
 
 .filters-disclosure {
+  // "Filters", then "clear ×" (while any are set) just before the chevron.
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    // The title takes the room, so "clear" and the chevron sit at the end.
+    strong {
+      flex: 1;
+    }
+  }
+
   border: 1px solid var(--rg-line);
   border-radius: var(--rg-radius-panel);
-  background: rgba(255, 255, 255, 0.75);
+  background: #fff;
   padding: 0.85rem 1rem;
   margin-bottom: 0;
 
@@ -537,20 +499,6 @@ a[role='button'] {
   span {
     text-align: end;
   }
-}
-
-// The picks counter in the bar: Pico's primary button, pill-shaped.
-.picks-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: auto;
-  margin: 0;
-  padding: 0.4rem 1rem;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .price-head {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import ActiveFilters from '../components/ActiveFilters.vue'
+import ClearFilters from '../components/ClearFilters.vue'
 import FilterPanel from '../components/FilterPanel.vue'
 import { API_KEY, type Api, type AttributeCategory } from '@/plugins/api'
 import { useFiltersStore } from '@/stores/filters'
@@ -182,14 +183,21 @@ describe('FilterPanel', () => {
     expect(store.isPristine).toBe(true)
   })
 
-  it('has no apply button — picking a filter is the query — and an icon on Clear filters', async () => {
+  it('has no apply button — picking a filter is the query — and “clear ×” in the heading only while one is set', async () => {
     const wrapper = await mountPanel()
+    const clear = mount(ClearFilters, { global: { plugins: [getActivePinia()!] } })
 
     expect(wrapper.find('button[type="submit"]').exists()).toBe(false)
-    expect(wrapper.find('.clear-btn').exists()).toBe(false)
+    expect(clear.find('[data-test="clear-filters"]').exists()).toBe(false)
 
     await option(wrapper, 'Spanish').trigger('click')
-    expect(wrapper.find('.clear-btn svg').exists()).toBe(true)
+    const link = clear.find('[data-test="clear-filters"]')
+    expect(link.text()).toBe('clear')
+    expect(link.find('svg').exists()).toBe(true)
+
+    await link.trigger('click')
+    expect(useFiltersStore().isPristine).toBe(true)
+    expect(clear.find('[data-test="clear-filters"]').exists()).toBe(false)
   })
 
   it('filters a range category with one two-handle slider, applied as it moves', async () => {

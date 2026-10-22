@@ -1,5 +1,5 @@
 {
-  "version": "4ad5aec946c4",
+  "version": "decd2a24199b",
   "routes": [
     {
       "name": "root",
@@ -186,6 +186,7 @@
     "_shell": [
       "common.app_header",
       "common.language_switcher",
+      "common.picks_button",
       "common.app_footer",
       "common.cookie_notice",
       "common.api",
@@ -244,7 +245,6 @@
       "common.protected_notice"
     ],
     "discover": [
-      "discover.bar",
       "discover.filters",
       "discover.deck",
       "discover.counter",

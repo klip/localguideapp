@@ -253,14 +253,20 @@ path/name table) and the shared `src/components/` each is built from:
   `DiscoverPage.vue`. Both pages pull their deck from
   `stores/guides.ts`/`stores/visitors.ts`.
   **`DeckBar.vue`** sits between the menu and both decks (first thing on the
-  page): the filters in force as pills (`ActiveFilters`) on the left, and on
-  `/discover` for a signed-in traveller the **picks counter button** on the
-  right — a check-box icon and "2/10 left" (`discover.bar.picks_left`; "Free
-  picks on" during a bonus, its end date as the tooltip; "Get picks" before
-  the first pack), which opens the add-picks dialog (the pay modal — a first
-  pack or a top-up). Hidden while there's nothing to show. The deck header
-  is "Guides for you" with "Near {place}" right-aligned on the same line;
-  there's no other picks counter (not in the deck header, not in the rail).
+  page): only the filters in force as pills (`ActiveFilters`). It's always
+  there at one pill's height and fully transparent (no border, padding or
+  background), so picking a filter never moves the page. The **picks
+  counter** is in the header instead (`PicksButton.vue`, centred in the top
+  row on desktop, between logo and burger on mobile; `/discover`, signed-in
+  traveller only): Pico's secondary outline button with a check-box icon and
+  "2/10 left" (`common.picks_button.*`; "Free picks on" during a bonus, its
+  end date as the tooltip; "Get picks" before the first pack). It sets
+  `matchesStore.addPicksOpen`, which opens the page's add-picks dialog (the
+  pay modal — a first pack or a top-up). The Filters heading on both decks
+  has **"clear ×"** (`ClearFilters.vue`) while any filter is set — it replaced
+  the panel's old full-width Clear filters button; the panel is white. The
+  deck header is "Guides for you" with "Near {place}" right-aligned on the
+  same line; there's no other picks counter.
   `DiscoverPage.vue`'s right rail ("Your matches", signed in) is
   **`MatchesRail.vue`**. `MatchesRail` calls the
   API itself (`matchOverview` + `trips`) and has two tabs that show **only
@@ -684,7 +690,7 @@ out: Log in + Get started). Below: the menu links — How it works (signed out),
 new link one too) — black, 0.9rem; the active one has
 a 4px underline and a 1px white text shadow (in the mobile drawer it's bold
 instead). There's no picks counter in the header any more (the
-Discover page's bar has it — `DeckBar.vue`).
+Discover page's counter is in the header's top row instead — `PicksButton.vue`).
 
 - **The role switch**: a dual-role account gets "Travel [switch] Guide" —
   Pico's iOS-style switch (`<input type="checkbox" role="switch">`,
@@ -1648,7 +1654,7 @@ Add button. (`RangePicker`, with its several spans, is the profile page's.)
 Distance isn't a category any more (058 dropped the old self-typed spans) —
 see "Location". **There's
 no apply button** — both decks already refetch (debounced) on every filter
-change. "Clear filters" (funnel-with-× icon) shows once anything is set.
+change. "clear ×" (`ClearFilters.vue`) shows in the Filters heading once anything is set.
 Accordion state is the browser's own (uncontrolled `<details>`); every value
 lives in `stores/filters.ts`, so collapsing never loses one. The bar sits in a `<details>`
 on both decks, open from `lg` (1024px) up — where its summary is a plain,

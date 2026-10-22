@@ -26,6 +26,11 @@ export const useMatchesStore = defineStore('matches', () => {
   /** An active free-picks bonus ends at this ISO time; null without one. */
   const freePicksUntil = ref<string | null>(null)
   const picks = ref<string[]>([])
+  /**
+   * The add-picks dialog (the pay modal on /discover) is open — set by the
+   * header's picks counter (`PicksButton.vue`), read by `DiscoverPage.vue`.
+   */
+  const addPicksOpen = ref(false)
   /** Picks made during free picks — they don't use the pack. */
   const freePicks = ref<string[]>([])
   // Rejects made before signing in survive a reload (see utils/pendingRejects.ts).
@@ -58,7 +63,9 @@ export const useMatchesStore = defineStore('matches', () => {
   /** Picks that used the pack. */
   const picksUsed = computed(() => picks.value.filter((id) => !freePicks.value.includes(id)).length)
   const selectionsLeft = computed(() => Math.max(0, capacity.value - picksUsed.value))
-  const canPick = computed(() => freePicksActive.value || (hasAccess.value && selectionsLeft.value > 0))
+  const canPick = computed(
+    () => freePicksActive.value || (hasAccess.value && selectionsLeft.value > 0),
+  )
   const isEmpty = computed(() => picks.value.length === 0)
 
   /**
@@ -125,6 +132,7 @@ export const useMatchesStore = defineStore('matches', () => {
   }
 
   return {
+    addPicksOpen,
     packsUnlocked,
     capacity,
     packSize,

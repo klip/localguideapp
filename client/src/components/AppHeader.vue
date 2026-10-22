@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import BrandMark from './BrandMark.vue'
 import LanguageSwitcher from './LanguageSwitcher.vue'
+import PicksButton from './PicksButton.vue'
 import NavIcon from './NavIcon.vue'
 import { t, tn } from '@/i18n'
 import { useApi, type Role } from '@/plugins/api'
@@ -188,6 +189,9 @@ onBeforeUnmount(() => {
     <div class="shell">
       <nav :aria-label="t('common.app_header.nav_label')">
         <BrandMark class="logo" />
+
+        <!-- A traveller's picks counter on Discover, in the middle of the bar. -->
+        <PicksButton class="picks" />
 
         <button
           ref="burgerRef"
@@ -838,7 +842,7 @@ nav .nav {
     display: grid;
     grid-template-columns: auto auto 1fr auto auto auto;
     grid-template-areas:
-      'logo lang . role me account'
+      'logo lang picks role me account'
       'links links links links links links';
     column-gap: 1rem;
     padding-block: 0.6rem 0;
@@ -846,6 +850,11 @@ nav .nav {
 
   .logo {
     grid-area: logo;
+  }
+
+  .picks {
+    grid-area: picks;
+    justify-self: center;
   }
 
   .burger,

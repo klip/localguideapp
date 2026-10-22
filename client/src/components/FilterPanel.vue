@@ -196,29 +196,6 @@ function onGenderChange(event: Event) {
     <p v-if="categoriesStore.loading && !categoriesStore.loaded" class="tiny muted">
       {{ t('common.filter_panel.loading') }}
     </p>
-
-    <button
-      v-if="!isPristine"
-      type="button"
-      class="soft-btn full clear-btn"
-      @click="filtersStore.reset()"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        width="16"
-        height="16"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M2 4h13l-5 6.5V18l-3 2v-9.5z" />
-        <path d="M17 4l5 5M22 4l-5 5" />
-      </svg>
-      {{ t('common.filter_panel.clear') }}
-    </button>
   </div>
 </template>
 
