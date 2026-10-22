@@ -8,7 +8,7 @@ real users and real money. Add to this list whenever a shortcut is taken.
 
 | Now | For production |
 | --- | --- |
-| **Pack purchases are simulated**: `Payments::recordPackPurchase()` inserts a `paid` row; no card is charged. | A payment provider (Stripe Checkout / Payment Intents). Record the purchase from the provider's webhook, not from the client's request. |
+| **Pack purchases are simulated**: `Payments::recordPackPurchase()` inserts a `paid` row; no card is charged. | A payment provider — **Stripe** recommended, see `docs/payments-plan.md`. Record the purchase from the provider's webhook, not from the client's request. |
 | **Guide fees, refunds and commission are recorded, never moved** (`Bookings::pay()`, `cancelByGuide()`, `approveCancellation()`, `commission_*`). | Stripe Connect (or similar) for marketplace payouts: hold the fee, pay the guide after the trip minus commission, refund through the provider. Guides need onboarding (KYC by the payment provider). |
 | Prices are stored and **charged in GBP only**; other currencies are display conversions (`utils/money.ts`), with a "you're charged £X in pounds" note before each payment. | Charge in the viewer's currency through the payment provider (Stripe presentment currencies / Adaptive Pricing) and store the currency per payment and booking; let guides price in their own currency. See `docs/payments-plan.md`. |
 | **Exchange rates from Frankfurter** (`ExchangeRates.php` — the ECB's free daily reference rates, no key, no SLA). | A contracted rates feed (the payment provider's own FX quotes, or Open Exchange Rates / XE), especially once charges follow displayed prices. |
@@ -26,9 +26,9 @@ real users and real money. Add to this list whenever a shortcut is taken.
 | Now | For production |
 | --- | --- |
 | **`MAIL_FORWARDS`** (server env): `igor@belikelocal.club` → a personal Gmail, because belikelocal.club has no mail service yet (added 2026-10-21; the CMS admin account uses that address). | A real mailbox (or the provider's forwarding) for belikelocal.club, then delete the pair — the setting is meant to end up empty. |
-| **Gmail SMTP with an App Password** (`Mailer.php`), about 500 emails a day. | A transactional email service (Postmark, SES, Mailgun) with SPF, DKIM and DMARC on the sending domain; bounce/complaint webhooks. |
+| **Gmail SMTP with an App Password** (`Mailer.php`), about 500 emails a day. | A transactional email service — **Postmark** recommended (`docs/messaging-plan.md`) — with SPF, DKIM and DMARC on the sending domain; bounce/complaint webhooks. |
 | **`MAIL_REDIRECT_TO`** sends every email to one inbox. | Remove it from the production env file. |
-| **SMS / WhatsApp two-factor are disabled** "(coming soon)"; codes go by email only. | An SMS/WhatsApp provider (Twilio, MessageBird), then enable the options in `ProfilePage.vue` and `actionUpdateAccount()`. |
+| **SMS / WhatsApp two-factor are disabled** "(coming soon)"; codes go by email only. | **Twilio** (Verify for codes, Messaging for WhatsApp/SMS) — see `docs/messaging-plan.md` — then enable the options in `ProfilePage.vue` and `actionUpdateAccount()`. |
 
 ## Location
 

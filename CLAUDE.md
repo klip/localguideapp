@@ -96,6 +96,10 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
   fingerprints and suspicious logins, the CMS (not built yet).
 - `docs/availability-plan.md` — plan (not built): guides' availability
   calendar, booking only free times, "Booked for your date" on the deck.
+- `docs/payments-plan.md` — proposal: a real payment provider (Stripe
+  Connect recommended; options compared, costs, money flows, phases).
+- `docs/messaging-plan.md` — proposal: email (Postmark), SMS and WhatsApp
+  (Twilio, with Vonage/Infobip as a second route) — operators compared, phases.
 - `docs/production-memo.md` — every development stand-in (simulated
   payments, Gmail, free geocoder, Claude ID checks, …) and what replaces it
   in production. Add to it whenever a shortcut is taken.
