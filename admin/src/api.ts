@@ -466,6 +466,20 @@ export interface Complaint {
     }[]
     messageCount: number
   } | null
+  /** A trip dispute: a started trip's cancellation the guide didn't agree to — staff decide the refund. */
+  dispute: {
+    bookingId: number
+    /** Still waiting for the refund decision (resolving needs `refund`). */
+    open: boolean
+    amount: number
+    paymentStatus: string
+    status: string
+    refund: number | null
+    meetingAt: string | null
+    startedAt: string | null
+    guestReason: string | null
+    disputedAt: string | null
+  } | null
   notes: { id: number; body: string; by: string; createdAt: string }[]
   sanctions: {
     id: number

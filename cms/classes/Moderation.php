@@ -122,6 +122,7 @@ final class Moderation
             'reporter' => $reporter ? $this->brief($reporter) : null,
             'subject' => $subject ? $this->brief($subject) : null,
             'between' => $reporter && $subject ? $this->between($reporter, $subject) : null,
+            'dispute' => $this->dispute($c),
             'notes' => array_map(fn(array $n): array => [
                 'id' => (int) $n['id'],
                 'body' => (string) $n['body'],
@@ -204,6 +205,25 @@ final class Moderation
     {
         $c = $this->find($id);
         $resolution = $this->closingText($input['resolution'] ?? '', 'resolution', 'What was done — kept with the complaint.');
+        $dispute = $this->dispute($c);
+        $refund = null;
+        if ($dispute && $dispute['open']) {
+            // A trip dispute: the refund is decided here, by the API (it owns bookings).
+            $raw = $input['refund'] ?? null;
+            if (!is_int($raw) && !is_float($raw) || $raw < 0 || $raw > $dispute['amount'] + 0.001) {
+                throw self::fieldError('refund', 'Decide the refund: from 0 (the trip stands) to £' . number_format($dispute['amount'], 2) . '.');
+            }
+            $refund = round((float) $raw, 2);
+            [$status, $body] = ServiceHttp::call($this->apiUrl, [
+                'action' => 'staffSettleDispute',
+                'bookingId' => $dispute['bookingId'],
+                'refund' => $refund,
+                'note' => $resolution,
+            ]);
+            if ($status !== 200) {
+                throw new RuntimeException((string) ($body['error'] ?? 'The app refused (' . $status . ').'));
+            }
+        }
         $sanction = $input['sanction'] ?? null;
         if (is_array($sanction) && !empty($sanction['levels'])) {
             if ($c['subject_id'] === null) {
@@ -218,13 +238,17 @@ final class Moderation
         }
         $this->close($c, 'resolved', $resolution, $staff);
 
-        return [['status' => $c['status']], ['status' => 'resolved', 'resolution' => $resolution, 'sanction' => $sanction]];
+        return [['status' => $c['status']], ['status' => 'resolved', 'resolution' => $resolution, 'sanction' => $sanction, 'refund' => $refund]];
     }
 
     /** Closes it as not needing action, with a reason. The reporter is told it was reviewed. */
     public function dismiss(int $id, string $reason, array $staff): array
     {
         $c = $this->find($id);
+        $dispute = $this->dispute($c);
+        if ($dispute && $dispute['open']) {
+            throw new RuntimeException('A trip dispute needs a decision — resolve it with a refund (0 if the trip stands).');
+        }
         $reason = $this->closingText($reason, 'resolution', 'Why — kept with the complaint.');
         $this->close($c, 'dismissed', $reason, $staff);
 
@@ -375,6 +399,35 @@ final class Moderation
                 . ' AND `lifted_at` IS NULL AND (`expires_at` IS NULL OR `expires_at` > UTC_TIMESTAMP())',
                 'n'
             ),
+        ];
+    }
+
+    /**
+     * A trip dispute (`complaints.booking_id`, opened by the app when a
+     * started trip's cancellation wasn't agreed): the booking, and whether
+     * it still waits for a refund decision.
+     */
+    private function dispute(array $c): ?array
+    {
+        if (empty($c['booking_id'])) {
+            return null;
+        }
+        $b = $this->db->db_GetRowById((int) $c['booking_id'], 'bookings');
+        if (!$b) {
+            return null;
+        }
+
+        return [
+            'bookingId' => (int) $b['id'],
+            'open' => $b['disputed_at'] !== null && $b['status'] === 'confirmed',
+            'amount' => (float) $b['amount'],
+            'paymentStatus' => (string) $b['payment_status'],
+            'status' => (string) $b['status'],
+            'refund' => $b['refund_amount'] !== null ? (float) $b['refund_amount'] : null,
+            'meetingAt' => self::iso($b['meeting_at']),
+            'startedAt' => self::iso($b['started_at']),
+            'guestReason' => $b['cancel_request_reason'],
+            'disputedAt' => self::iso($b['disputed_at']),
         ];
     }
 

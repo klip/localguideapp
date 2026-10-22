@@ -168,8 +168,7 @@ class Selections
                     b.`duration_hours` AS `booking_duration_hours`, b.`location`, b.`accepted_at`,
                     b.`location_lat`, b.`location_lng`,
                     b.`cancel_requested_at`, b.`cancel_request_reason`,
-                    b.`finish_requested_by`, b.`finished_at`, b.`started_at`,
-                    b.`guest_started_at`, b.`guide_started_at`,
+                    b.`finish_requested_by`, b.`finished_at`, b.`started_at`, b.`disputed_at`,
                     ' . ($own === 'guide'
                         ? 'b.`commission_rate`, b.`guide_payout`'
                         : 'NULL AS `commission_rate`, NULL AS `guide_payout`') . '
@@ -204,8 +203,6 @@ class Selections
                 ? null
                 : ((int) $row['finish_requested_by'] === $userId ? 'me' : 'them');
             $row['auto_finish'] = Bookings::finishesAutomatically(['trip_status' => $row['trip_status'], 'started_at' => $row['started_at'], 'duration_hours' => $row['booking_duration_hours']]);
-            $row['start_confirmed_by'] = Bookings::startConfirmedBy($row, $own);
-            unset($row['guest_started_at'], $row['guide_started_at']);
             $row = Bookings::withPin($row);
 
             $open = $row['booking_status'] === 'confirmed' && $row['trip_status'] !== 'finished';
@@ -215,7 +212,7 @@ class Selections
                 : null;
             // What the guest gets back if the guide approves their cancellation request.
             $row['refund_if_guest_cancels'] = $paidAndOpen
-                ? $this->bookings->guestCancelRefund(['amount' => $row['booking_amount']])
+                ? $this->bookings->guestCancelRefund(['amount' => $row['booking_amount'], 'trip_status' => $row['trip_status']])
                 : null;
         }
         unset($row);

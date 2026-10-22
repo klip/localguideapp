@@ -356,70 +356,128 @@ describe('BookingPanel — starting the trip', () => {
     vi.unstubAllGlobals()
   })
 
-  it('says when "Start the trip" opens, and offers no button before then', () => {
-    const wrapper = mountPanel(fakeApi(), { ...confirmedBooking, meeting_at: utcIn(120) }, true)
-    expect(wrapper.find('[data-test="start-opens"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="start-trip"]').exists()).toBe(false)
-  })
-
-  it('sends where the device is when location is on', async () => {
+  function locationOn(accuracy = 8) {
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
       value: {
         getCurrentPosition: vi.fn<Geolocation['getCurrentPosition']>((success) =>
           success({
-            coords: { latitude: 36.1408, longitude: -5.3536, accuracy: 8 },
+            coords: { latitude: 36.1408, longitude: -5.3536, accuracy },
           } as GeolocationPosition),
         ),
       },
     })
     vi.stubGlobal('isSecureContext', true)
-    const api = fakeApi()
-    const wrapper = mountPanel(api, { ...confirmedBooking, meeting_at: utcIn(20) }, true)
+  }
 
-    expect(wrapper.text()).toContain('within 20 m of each other')
-    await wrapper.find('[data-test="start-trip"]').trigger('click')
+  it('shows the guide a disabled Start button until 15 minutes before', () => {
+    const api = fakeApi()
+    const wrapper = mountPanel(api, { ...confirmedBooking, meeting_at: utcIn(120) }, false)
+    expect(wrapper.find('[data-test="start-trip"]').attributes('disabled')).toBeDefined()
+    expect(api.tripPresence).not.toHaveBeenCalled()
+  })
+
+  it('reports where the guide is, and starts the trip with that position', async () => {
+    locationOn()
+    const api = fakeApi()
+    const wrapper = mountPanel(api, { ...confirmedBooking, meeting_at: utcIn(10) }, false)
+    await flushPromises()
+
+    expect(api.tripPresence).toHaveBeenCalledWith({
+      targetId: 7,
+      latitude: 36.1408,
+      longitude: -5.3536,
+      accuracy: 8,
+    })
+    const start = wrapper.find('[data-test="start-trip"]')
+    expect(start.attributes('disabled')).toBeUndefined()
+    await start.trigger('click')
     await flushPromises()
     expect(api.bookingAction).toHaveBeenCalledWith({
       targetId: 7,
       op: 'startTrip',
       latitude: 36.1408,
       longitude: -5.3536,
+      accuracy: 8,
     })
-    expect(toasts()).toContain('Start confirmed. The trip begins as soon as Igor confirms too.')
-  })
-
-  it('confirms with the button alone when location is off', async () => {
-    Object.defineProperty(navigator, 'geolocation', {
-      configurable: true,
-      value: {
-        getCurrentPosition: vi.fn<Geolocation['getCurrentPosition']>((_ok, fail) =>
-          fail?.({ code: 1, PERMISSION_DENIED: 1 } as GeolocationPositionError),
-        ),
-      },
-    })
-    vi.stubGlobal('isSecureContext', true)
-    const api = fakeApi()
-    const wrapper = mountPanel(
-      api,
-      { ...confirmedBooking, meeting_at: utcIn(-5), start_confirmed_by: 'them' },
-      false,
-    )
-
-    expect(wrapper.find('[data-test="start-them"]').text()).toContain('Igor has confirmed the start')
-    await wrapper.find('[data-test="start-trip"]').trigger('click')
-    await flushPromises()
-    expect(api.bookingAction).toHaveBeenCalledWith({ targetId: 7, op: 'startTrip' })
     expect(toasts()).toContain('Your trip has started — enjoy it!')
   })
 
-  it('tells the side that confirmed it is waiting for the other', () => {
+  it('keeps Start disabled while the server says they are apart', async () => {
+    locationOn()
+    const api = fakeApi({
+      tripPresence: vi
+        .fn<Api['tripPresence']>()
+        .mockResolvedValue({ start_ready: false, poor_gps: false, meetup: null }),
+    })
+    const wrapper = mountPanel(api, { ...confirmedBooking, meeting_at: utcIn(5) }, false)
+    await flushPromises()
+    expect(wrapper.find('[data-test="start-trip"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="meetup"]').exists()).toBe(false)
+  })
+
+  it('asks both to confirm the meetup when GPS is too vague', async () => {
+    locationOn(120)
+    const api = fakeApi({
+      tripPresence: vi
+        .fn<Api['tripPresence']>()
+        .mockResolvedValueOnce({ start_ready: null, poor_gps: true, meetup: null })
+        .mockResolvedValue({ start_ready: null, poor_gps: true, meetup: 'me' }),
+    })
+    const wrapper = mountPanel(api, { ...confirmedBooking, meeting_at: utcIn(5) }, true)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="start-trip"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="meetup"]').text()).toContain('GPS can’t confirm')
+    await wrapper.find('[data-test="confirm-meetup"]').trigger('click')
+    await flushPromises()
+    expect(api.tripPresence).toHaveBeenLastCalledWith({ targetId: 7, meetup: true })
+    expect(wrapper.find('[data-test="meetup"]').text()).toContain('Waiting for Igor')
+  })
+
+  it('lets the guest cancel a started trip, which the guide or our team decides', async () => {
+    const api = fakeApi()
+    const wrapper = mountPanel(api, { ...startedTrip, refund_if_guest_cancels: 50 }, true)
+
+    await wrapper.find('[data-test="cancel-started"]').trigger('click')
+    expect(wrapper.text()).toContain('you’re refunded £50.00 in full. If not, our team decides.')
+    await wrapper.find('textarea').setValue('We never met')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(api.bookingAction).toHaveBeenCalledWith({
+      targetId: 7,
+      op: 'requestCancellation',
+      reason: 'We never met',
+    })
+  })
+
+  it('sends a refused cancellation of a started trip to our team', async () => {
+    const api = fakeApi()
+    const wrapper = mountPanel(
+      api,
+      {
+        ...startedTrip,
+        cancel_requested_at: '2030-01-02 10:30:00',
+        cancel_request_reason: 'We never met',
+        refund_if_guest_cancels: 50,
+      },
+      false,
+    )
+    expect(wrapper.text()).toContain('Approving refunds them £50.00 in full.')
+    await button(wrapper, 'Refuse').trigger('click')
+    await flushPromises()
+    expect(toasts()).toContain('Sent to our team')
+  })
+
+  it('shows a dispute in review, with nothing left to press', () => {
     const wrapper = mountPanel(
       fakeApi(),
-      { ...confirmedBooking, meeting_at: utcIn(-5), start_confirmed_by: 'me' },
+      { ...startedTrip, cancel_requested_at: '2030-01-02 10:30:00', disputed_at: '2030-01-03 10:30:00' },
       true,
     )
-    expect(wrapper.find('[data-test="start-waiting"]').text()).toContain('waiting for Igor')
+    expect(wrapper.find('[data-test="dispute-open"]').exists()).toBe(true)
+    expect(hasButton(wrapper, 'Mark trip finished')).toBe(false)
+    expect(wrapper.find('[data-test="cancel-started"]').exists()).toBe(false)
   })
 })
 

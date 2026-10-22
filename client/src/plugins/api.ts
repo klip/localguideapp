@@ -668,10 +668,21 @@ export interface MatchOverviewRow {
   finished_at: string | null
   /** The trip finishes on its own — it has started and its length is known. */
   auto_finish: boolean
-  /** When both sides confirmed the start (`startTrip`); null until then. */
+  /** When the guide started the trip (`startTrip`); null until then. */
   started_at?: string | null
-  /** Before the start: who has confirmed it so far, from the caller's point of view. */
-  start_confirmed_by?: 'me' | 'them' | null
+  /** The guest cancelled after the start and the guide didn't agree: our team decides the refund. */
+  disputed_at?: string | null
+}
+
+/**
+ * `tripPresence`'s answer (see `Bookings::presence()`): whether the guide may
+ * press "Start the trip" now (null for the guest), whether GPS is too vague
+ * to tell they're together (then both confirm the meetup), and who has.
+ */
+export interface TripPresence {
+  start_ready: boolean | null
+  poor_gps: boolean
+  meetup: 'me' | 'them' | 'both' | null
 }
 
 /**
@@ -699,7 +710,7 @@ export type BookingView = Pick<
   | 'finish_requested_by'
   | 'auto_finish'
   | 'started_at'
-  | 'start_confirmed_by'
+  | 'disputed_at'
   | 'commission_rate'
   | 'guide_payout'
 >
@@ -1317,7 +1328,19 @@ export const api = {
     location?: string
     latitude?: number
     longitude?: number
+    accuracy?: number
   }) => call<Booking>('bookingAction', payload),
+  /**
+   * Where this side is while a trip is about to start — unlocks the guide's
+   * Start button. `meetup: true` confirms the meetup when GPS can't tell.
+   */
+  tripPresence: (payload: {
+    targetId: number
+    latitude?: number
+    longitude?: number
+    accuracy?: number
+    meetup?: true
+  }) => call<TripPresence>('tripPresence', payload),
   /** Every confirmed trip the caller has had, newest first — see `TripRow`. */
   trips: () => call<{ trips: TripRow[] }>('trips'),
   /** Guide cancels the booking with a visitor — they're refunded (plus 5% if late) and get their pick back. */

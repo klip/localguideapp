@@ -189,6 +189,30 @@ class RequestProcessor
             case 'bookingAction':
                 return [200, $this->actionBooking()];
 
+            // Where this side is while a trip is about to start (see
+            // `Bookings::presence()`): unlocks the guide's Start button.
+            // `meetup: true` confirms the meetup when GPS can't tell.
+            case 'tripPresence':
+                $userId = $this->requireUserId();
+                $targetId = (int) ($this->input['targetId'] ?? 0);
+                $role = $this->actingRole();
+                if (!$targetId || !$this->users->hasRole($targetId, Roles::opposite($role))) {
+                    throw new RuntimeException('Bookings are between a visitor and a guide.');
+                }
+                [$guestId, $guideId] = $role === 'guest' ? [$userId, $targetId] : [$targetId, $userId];
+                if (($this->input['meetup'] ?? false) === true) {
+                    return [200, $this->bookings->confirmMeetup($userId, $guestId, $guideId)];
+                }
+
+                return [200, $this->bookings->presence(
+                    $userId,
+                    $guestId,
+                    $guideId,
+                    $this->input['latitude'] ?? null,
+                    $this->input['longitude'] ?? null,
+                    $this->input['accuracy'] ?? null
+                )];
+
             // Clears the Matches or My trips counter (see `Badges`); the
             // new counts reach the client as a `badges` push.
             case 'markSeen':
@@ -270,6 +294,16 @@ class RequestProcessor
                 return [200, $this->bookings->cancelByStaff(
                     (int) ($this->input['bookingId'] ?? 0),
                     $refund === null || $refund === '' ? null : (float) $refund,
+                    (string) ($this->input['note'] ?? '')
+                )];
+
+            // Staff decided a disputed trip (the CMS, resolving its complaint):
+            // a refund above 0 cancels it with that refund, 0 lets it stand.
+            // Internal only, like `staffCancelBooking`.
+            case 'staffSettleDispute':
+                return [200, $this->bookings->settleDispute(
+                    (int) ($this->input['bookingId'] ?? 0),
+                    (float) ($this->input['refund'] ?? 0),
                     (string) ($this->input['note'] ?? '')
                 )];
 
@@ -649,8 +683,8 @@ class RequestProcessor
         [$guestId, $guideId] = $role === 'guest' ? [$userId, $targetId] : [$targetId, $userId];
 
         $guestOps = ['withdraw', 'requestCancellation', 'withdrawCancellation'];
-        $guideOps = ['accept', 'decline', 'approveCancellation', 'refuseCancellation'];
-        $eitherOps = ['startTrip', 'requestFinish', 'confirmFinish', 'dismissFinish', 'setLocation'];
+        $guideOps = ['accept', 'decline', 'approveCancellation', 'refuseCancellation', 'startTrip'];
+        $eitherOps = ['requestFinish', 'confirmFinish', 'dismissFinish', 'setLocation'];
         if (in_array($op, $guestOps, true) && $role !== 'guest') {
             throw new RuntimeException('Only the visitor can do that.');
         }
@@ -674,12 +708,12 @@ class RequestProcessor
             case 'refuseCancellation':
                 return $this->bookings->refuseCancellation($guideId, $guestId, $reason);
             case 'startTrip':
-                return $this->bookings->confirmStart(
-                    $userId,
-                    $guestId,
+                return $this->bookings->startTrip(
                     $guideId,
+                    $guestId,
                     $input['latitude'] ?? null,
-                    $input['longitude'] ?? null
+                    $input['longitude'] ?? null,
+                    $input['accuracy'] ?? null
                 );
             case 'requestFinish':
                 return $this->bookings->requestFinish($userId, $guestId, $guideId);

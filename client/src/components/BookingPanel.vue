@@ -5,9 +5,15 @@ import SlotPicker from '@/components/SlotPicker.vue'
 import MeetingPinField from '@/components/MeetingPinField.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import ProtectedNotice from '@/components/ProtectedNotice.vue'
-import { useCurrentPosition } from '@/composables/useCurrentPosition'
+import { useCurrentPosition, type DevicePosition } from '@/composables/useCurrentPosition'
 import { t } from '@/i18n'
-import { useApi, type BookingOp, type BookingView, type MapPin } from '@/plugins/api'
+import {
+  useApi,
+  type BookingOp,
+  type BookingView,
+  type MapPin,
+  type TripPresence,
+} from '@/plugins/api'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
 import { formatHours, formatMoney, formatWhen, tripEnd, utcDate } from '@/utils/bookingTime'
 import { percent } from '@/utils/levels'
@@ -24,11 +30,14 @@ import { reportApiError } from '@/utils/reportApiError'
  *   pending         guest: Withdraw payment · guide: Accept / Decline
  *   confirmed       guest: Request cancellation (reason), or Cancel trip if free
  *                   guide: Cancel booking, or Approve / Refuse a guest's request
- *                   both: Start the trip when they meet (from 30 minutes before
- *                   the meeting time) — with location on, the server checks
- *                   they're within 20 m of each other; once started, Mark trip
- *                   finished → the other side confirms, unless the trip
- *                   finishes on its own (its length is known)
+ *                   guide: Start the trip — enabled from 15 minutes before the
+ *                   meeting while, when both phones report where they are,
+ *                   they're within 50 m (or both confirmed the meetup when GPS
+ *                   is too vague); both apps report it every 30 s meanwhile
+ *                   guest, once started: Cancel trip (a reason) — the guide
+ *                   approves (full refund) or our team decides
+ *                   both, once started: Mark trip finished → the other side
+ *                   confirms, unless the trip finishes on its own
  *   finished        Leave a review; the guest can book again (`allowBooking`)
  *
  * While a booking is open, either side can set or change the meeting place:
@@ -90,28 +99,80 @@ const free = computed(() => confirmed.value && props.row.payment_status !== 'pai
 const started = computed(() => confirmed.value && props.row.trip_status === 'started')
 const notStarted = computed(() => confirmed.value && props.row.trip_status === 'pending')
 
-/** Matches `Bookings::START_OPENS_SECONDS`. */
-const START_OPENS_MS = 30 * 60 * 1000
-/** Ticks so "Start the trip" appears on time and the meeting passing is noticed. */
-const now = ref(Date.now())
-let clock: ReturnType<typeof setInterval> | undefined
-onMounted(() => {
-  clock = setInterval(() => (now.value = Date.now()), 30_000)
-})
-onBeforeUnmount(() => clearInterval(clock))
+const disputed = computed(() => started.value && !!props.row.disputed_at)
 
+/** Match `Bookings::START_OPENS_SECONDS` and `NO_SHOW_DEFAULT_HOURS`. */
+const START_OPENS_MS = 15 * 60 * 1000
+const NO_SHOW_DEFAULT_HOURS = 3
+/** How often both apps report where they are around the start. */
+const PRESENCE_EVERY_MS = 30_000
+
+const now = ref(Date.now())
 const meetingDate = computed(() => utcDate(props.row.meeting_at))
-const startOpensAt = computed(() =>
-  meetingDate.value ? new Date(meetingDate.value.getTime() - START_OPENS_MS) : null,
-)
-const canStart = computed(
-  () => notStarted.value && (!startOpensAt.value || now.value >= startOpensAt.value.getTime()),
-)
-const startOpensLabel = computed(() => formatWhen(startOpensAt.value))
 const meetingPassed = computed(
   () => !!meetingDate.value && now.value >= meetingDate.value.getTime(),
 )
+/** From 15 minutes before the meeting until its no-show time (meeting + length). */
+const aroundStart = computed(() => {
+  if (!notStarted.value || !meetingDate.value) return false
+  const meeting = meetingDate.value.getTime()
+  const hours = props.row.booking_duration_hours ?? NO_SHOW_DEFAULT_HOURS
+  return now.value >= meeting - START_OPENS_MS && now.value < meeting + hours * 3_600_000
+})
+/** The guide's Start button: shown for any upcoming trip, disabled until the start opens. */
+const showStart = computed(() => !props.isGuest && notStarted.value)
+
 const { locating, locate } = useCurrentPosition()
+/** The server's last word on starting (`tripPresence`); null until the first answer. */
+const presence = ref<TripPresence | null>(null)
+const startEnabled = computed(
+  () =>
+    showStart.value &&
+    (aroundStart.value || !meetingDate.value) &&
+    presence.value?.start_ready !== false,
+)
+/** GPS can't tell they're together: both confirm the meetup instead. */
+const askMeetup = computed(
+  () => aroundStart.value && !!presence.value?.poor_gps && presence.value.meetup !== 'both',
+)
+
+const positionFields = (p: DevicePosition | null) =>
+  p
+    ? {
+        latitude: p.latitude,
+        longitude: p.longitude,
+        ...(p.accuracy !== null ? { accuracy: p.accuracy } : {}),
+      }
+    : {}
+
+let reporting = false
+/** Tells the server where this side is (or that it can't tell), around the start. */
+async function reportPresence() {
+  if (!aroundStart.value || reporting || busy.value) return
+  reporting = true
+  try {
+    const result = await locate()
+    if (result === null) return
+    presence.value = await api.tripPresence({
+      targetId: props.row.counterpart_id,
+      ...positionFields(result.ok ? result.position : null),
+    })
+  } catch {
+    // Best effort: the server checks again when the guide presses Start.
+  } finally {
+    reporting = false
+  }
+}
+
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  void reportPresence()
+  clock = setInterval(() => {
+    now.value = Date.now()
+    void reportPresence()
+  }, PRESENCE_EVERY_MS)
+})
+onBeforeUnmount(() => clearInterval(clock))
 /** A guide who charges, and nothing booked right now — a first booking, or the next trip. */
 const needsBooking = computed(
   () =>
@@ -122,7 +183,9 @@ const needsBooking = computed(
     props.row.fee_amount > 0,
 )
 const lastDeclined = computed(() => props.row.booking_status === 'declined')
-const cancelRequested = computed(() => paid.value && !!props.row.cancel_requested_at)
+const cancelRequested = computed(
+  () => paid.value && !!props.row.cancel_requested_at && !disputed.value,
+)
 const lateCancel = computed(
   () =>
     props.row.refund_if_cancelled !== null &&
@@ -197,27 +260,34 @@ function op(name: BookingOp, success: string, withReason = false) {
   )
 }
 
-/**
- * Confirms the start. Where the device can tell its position, it goes along
- * and the server checks the two of them are within 20 m; with location off
- * (or unreadable) the press alone counts.
- */
+/** The guide starts the trip, sending where they are when the device can tell. */
 async function startTrip() {
   if (busy.value || locating.value) return
   const result = await locate()
   if (result === null) return
-  const position = result.ok
-    ? { latitude: result.position.latitude, longitude: result.position.longitude }
-    : {}
-  const completes = props.row.start_confirmed_by === 'them'
   return run(
     () =>
-      api.bookingAction({ targetId: props.row.counterpart_id, op: 'startTrip', ...position }),
-    completes
-      ? t('common.booking_panel.trip_started')
-      : t('common.booking_panel.start_confirmed', { name: props.name }),
+      api.bookingAction({
+        targetId: props.row.counterpart_id,
+        op: 'startTrip',
+        ...positionFields(result.ok ? result.position : null),
+      }),
+    t('common.booking_panel.trip_started'),
     t('common.booking_panel.start_failed'),
   )
+}
+
+/** "We've met" when GPS can't tell — both confirming unlocks the guide's Start. */
+async function confirmMeetup() {
+  if (busy.value) return
+  busy.value = true
+  try {
+    presence.value = await api.tripPresence({ targetId: props.row.counterpart_id, meetup: true })
+  } catch (err) {
+    reportApiError(err, t('common.booking_panel.update_failed'), anchorTo('element', root.value))
+  } finally {
+    busy.value = false
+  }
 }
 
 function pay() {
@@ -425,28 +495,38 @@ function guideCancel() {
         }}</strong
         ><br />
         <span class="tiny muted">{{
-          t('common.booking_panel.approve_refund_note', {
-            amount: money(row.refund_if_guest_cancels),
-          })
+          t(
+            started
+              ? 'common.booking_panel.approve_refund_note_started'
+              : 'common.booking_panel.approve_refund_note',
+            { amount: money(row.refund_if_guest_cancels) },
+          )
         }}</span>
       </p>
     </div>
 
-    <template v-if="notStarted">
-      <p v-if="row.start_confirmed_by === 'me'" class="tiny muted note" data-test="start-waiting">
-        {{ t('common.booking_panel.start_waiting', { name }) }}
+    <div v-if="askMeetup" class="note meetup" data-test="meetup">
+      <p v-if="presence?.meetup === 'me'" class="tiny muted">
+        {{ t('common.booking_panel.meetup_waiting', { name }) }}
       </p>
-      <p v-else-if="row.start_confirmed_by === 'them'" class="note" data-test="start-them">
-        {{ t('common.booking_panel.start_them', { name }) }}
-      </p>
-      <p v-else-if="canStart" class="tiny muted note">
-        {{ t('common.booking_panel.start_hint') }}
-      </p>
-      <p v-else-if="startOpensLabel" class="tiny muted note" data-test="start-opens">
-        {{ t('common.booking_panel.start_opens', { when: startOpensLabel }) }}
-      </p>
-    </template>
-    <template v-else-if="started">
+      <template v-else>
+        <p class="tiny">{{ t('common.booking_panel.meetup_prompt') }}</p>
+        <button
+          type="button"
+          class="accept"
+          :aria-busy="busy"
+          :disabled="busy"
+          data-test="confirm-meetup"
+          @click="confirmMeetup"
+        >
+          {{ t('common.booking_panel.confirm_meetup') }}
+        </button>
+      </template>
+    </div>
+    <p v-if="disputed" class="note" data-test="dispute-open">
+      {{ t('common.booking_panel.dispute_open') }}
+    </p>
+    <template v-else-if="started && !cancelRequested">
       <p v-if="row.auto_finish && endLabel" class="tiny muted note">
         {{ t('common.booking_panel.auto_finish_note', { when: endLabel }) }}
       </p>
@@ -525,6 +605,16 @@ function guideCancel() {
         >
           {{ t('common.booking_panel.request_cancellation') }}
         </button>
+        <button
+          v-else-if="started && !disputed && openForm !== 'requestCancel'"
+          type="button"
+          class="reject"
+          :disabled="busy"
+          data-test="cancel-started"
+          @click="show('requestCancel')"
+        >
+          {{ t('common.booking_panel.cancel_trip') }}
+        </button>
       </template>
       <button
         v-if="free && isGuest && openForm !== 'freeCancel'"
@@ -535,7 +625,7 @@ function guideCancel() {
       >
         {{ t('common.booking_panel.cancel_trip') }}
       </button>
-      <template v-if="confirmed && !isGuest">
+      <template v-if="confirmed && !isGuest && !disputed">
         <template v-if="cancelRequested">
           <button
             type="button"
@@ -558,7 +648,14 @@ function guideCancel() {
             type="button"
             class="soft-btn"
             :disabled="busy"
-            @click="op('refuseCancellation', t('common.booking_panel.cancel_refused', { name }))"
+            @click="
+              op(
+                'refuseCancellation',
+                started
+                  ? t('common.booking_panel.dispute_raised')
+                  : t('common.booking_panel.cancel_refused', { name }),
+              )
+            "
           >
             {{ t('common.booking_panel.refuse') }}
           </button>
@@ -575,22 +672,18 @@ function guideCancel() {
       </template>
 
       <button
-        v-if="canStart"
+        v-if="showStart"
         type="button"
-        :class="row.start_confirmed_by === 'me' ? 'soft-btn' : 'accept'"
-        :aria-busy="busy || locating"
-        :disabled="busy || locating"
+        class="accept"
+        :aria-busy="busy"
+        :disabled="busy || !startEnabled"
         data-test="start-trip"
         @click="startTrip"
       >
-        {{
-          locating
-            ? t('common.booking_panel.start_locating')
-            : t('common.booking_panel.start_trip')
-        }}
+        {{ t('common.booking_panel.start_trip') }}
       </button>
 
-      <template v-if="started && !row.auto_finish">
+      <template v-if="started && !row.auto_finish && !cancelRequested && !disputed">
         <button
           v-if="row.finish_requested_by === null"
           type="button"
@@ -746,10 +839,12 @@ function guideCancel() {
     >
       <p>
         {{
-          t('common.booking_panel.request_cancel_note', {
-            name,
-            amount: money(row.refund_if_guest_cancels),
-          })
+          t(
+            started
+              ? 'common.booking_panel.request_cancel_note_started'
+              : 'common.booking_panel.request_cancel_note',
+            { name, amount: money(row.refund_if_guest_cancels) },
+          )
         }}
       </p>
       <label>

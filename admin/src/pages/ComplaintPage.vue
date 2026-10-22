@@ -15,7 +15,10 @@ import {
  * by side (with what counts against them), what's between them — their
  * match, bookings and, only when asked for, their chat (every look is in the
  * audit log) — staff notes, and the actions: take it (under review), resolve
- * (a resolution, optionally a sanction tied to it) or dismiss (a reason),
+ * (a resolution, optionally a sanction tied to it) or dismiss (a reason).
+ * A trip dispute (a started trip's cancellation the guide didn't agree to)
+ * also needs the refund decided when resolving — 0 lets the trip stand — and
+ * can't be dismissed;
  * reopen. Closing tells the reporter it was reviewed, never the outcome.
  */
 const props = defineProps<{ id: string }>()
@@ -34,7 +37,10 @@ const closing = reactive({
   sanction: false,
   levels: 1,
   days: 30 as number | '',
+  /** A trip dispute's refund to the traveller, in £. */
+  refund: '' as number | '',
 })
+const disputeOpen = computed(() => !!complaint.value?.dispute?.open)
 
 const open = computed(
   () => complaint.value?.status === 'open' || complaint.value?.status === 'reviewing',
@@ -94,6 +100,9 @@ async function close() {
           'resolve',
           {
             resolution: closing.text,
+            ...(disputeOpen.value
+              ? { refund: closing.refund === '' ? null : Number(closing.refund) }
+              : {}),
             ...(closing.sanction
               ? {
                   sanction: {
@@ -110,7 +119,7 @@ async function close() {
           { resolution: closing.text },
           'Dismissed — the reporter was told it was reviewed.',
         )
-  if (ok) Object.assign(closing, { mode: '', text: '', sanction: false })
+  if (ok) Object.assign(closing, { mode: '', text: '', sanction: false, refund: '' })
 }
 
 async function showMessages() {
@@ -231,6 +240,33 @@ watch(() => props.id, load, { immediate: true })
           <p v-else class="muted">{{ who(null, role) }}</p>
         </article>
       </div>
+
+      <article v-if="complaint.dispute" data-test="dispute">
+        <h3>Trip dispute</h3>
+        <p>
+          Booking #{{ complaint.dispute.bookingId }} · £{{ complaint.dispute.amount.toFixed(2) }}
+          {{ complaint.dispute.paymentStatus }}
+          <template v-if="complaint.dispute.meetingAt">
+            · meeting {{ dateTime(complaint.dispute.meetingAt) }}</template
+          >
+          <template v-if="complaint.dispute.startedAt">
+            · started by the guide {{ dateTime(complaint.dispute.startedAt) }}</template
+          >
+        </p>
+        <p v-if="complaint.dispute.guestReason">
+          The traveller’s reason: “{{ complaint.dispute.guestReason }}”
+        </p>
+        <p v-if="complaint.dispute.open" class="tiny muted">
+          The traveller cancelled after the guide started the trip, and the guide didn’t agree.
+          Resolving it decides the refund.
+        </p>
+        <p v-else class="tiny muted">
+          Decided: {{ complaint.dispute.status === 'cancelled' ? 'cancelled' : 'the trip stood' }}
+          <template v-if="complaint.dispute.refund !== null">
+            · refunded £{{ complaint.dispute.refund.toFixed(2) }}</template
+          >
+        </p>
+      </article>
 
       <article v-if="complaint.between" data-test="between">
         <h2>Between them</h2>
@@ -357,6 +393,7 @@ watch(() => props.id, load, { immediate: true })
               Resolve…
             </button>
             <button
+              v-if="!disputeOpen"
               type="button"
               :class="closing.mode === 'dismiss' ? '' : 'secondary outline'"
               data-test="dismiss"
@@ -384,6 +421,22 @@ watch(() => props.id, load, { immediate: true })
                 fieldError.message
               }}</small>
             </label>
+            <label v-if="closing.mode === 'resolve' && complaint.dispute?.open">
+              Refund to the traveller, £ (0 = the trip stands)
+              <input
+                v-model.number="closing.refund"
+                type="number"
+                min="0"
+                :max="complaint.dispute.amount"
+                step="0.01"
+                required
+                data-test="dispute-refund"
+                :aria-invalid="fieldError.field === 'refund' ? 'true' : undefined"
+              />
+              <small v-if="fieldError.field === 'refund'" class="field-error">{{
+                fieldError.message
+              }}</small>
+            </label>
             <template v-if="closing.mode === 'resolve' && complaint.subject">
               <label class="check">
                 <input v-model="closing.sanction" type="checkbox" data-test="with-sanction" /> Also
@@ -399,7 +452,7 @@ watch(() => props.id, load, { immediate: true })
                 /></label>
               </div>
               <small
-                v-if="fieldError.field && fieldError.field !== 'resolution'"
+                v-if="fieldError.field && !['resolution', 'refund'].includes(fieldError.field)"
                 class="field-error"
                 >{{ fieldError.message }}</small
               >

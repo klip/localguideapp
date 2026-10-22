@@ -70,6 +70,7 @@ function complaint(overrides: Partial<Complaint> = {}): Complaint {
       bookings: [],
       messageCount: 2,
     },
+    dispute: null,
     notes: [],
     sanctions: [],
     ...overrides,
@@ -261,6 +262,39 @@ describe('a complaint', () => {
     })
     expect(wrapper.find('[data-test="status"]').text()).toBe('Resolved')
     expect(wrapper.find('[data-test="reopen"]').exists()).toBe(true)
+  })
+
+  it('decides a trip dispute’s refund when resolving, and can’t dismiss it', async () => {
+    const dispute = {
+      bookingId: 41,
+      open: true,
+      amount: 50,
+      paymentStatus: 'paid',
+      status: 'confirmed',
+      refund: null,
+      meetingAt: '2026-10-20T10:00:00Z',
+      startedAt: '2026-10-20T10:05:00Z',
+      guestReason: 'We never met',
+      disputedAt: '2026-10-20T12:00:00Z',
+    }
+    vi.mocked(api.moderationComplaint).mockResolvedValue(complaint({ dispute }))
+    const { wrapper } = await mountAt('/moderation/complaints/7')
+
+    expect(wrapper.find('[data-test="dispute"]').text()).toContain('We never met')
+    expect(wrapper.find('[data-test="dismiss"]').exists()).toBe(false)
+    vi.mocked(api.complaintAction).mockResolvedValueOnce(
+      complaint({ status: 'resolved', dispute: { ...dispute, open: false, status: 'cancelled', refund: 25 } }),
+    )
+    await wrapper.find('[data-test="resolve"]').trigger('click')
+    await wrapper.find('[data-test="close-form"] textarea').setValue('Half: they met late')
+    await wrapper.find('[data-test="dispute-refund"]').setValue(25)
+    await wrapper.find('[data-test="close-form"]').trigger('submit.prevent')
+    await flushPromises()
+    expect(api.complaintAction).toHaveBeenLastCalledWith(7, 'resolve', {
+      resolution: 'Half: they met late',
+      refund: 25,
+    })
+    expect(wrapper.find('[data-test="dispute"]').text()).toContain('refunded £25.00')
   })
 
   it('dismisses with a reason, and can reopen', async () => {

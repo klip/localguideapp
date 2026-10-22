@@ -1,11 +1,12 @@
 <?php
 
 // End-to-end check of the clock-driven booking steps and starting a trip
-// (migration 092): the guide's answer reminder, the 15-minute warning, an
-// unanswered request cancelled with the fee minus the platform fee refunded,
-// trip reminders a day and two hours ahead, both sides confirming the start
-// (within 20 m of each other when both send a position, or by button alone),
-// and a started trip finishing after its length.
+// (migrations 092, 093): the guide's answer reminder, the 15-minute warning,
+// an unanswered request cancelled and refunded in full, trip reminders a day
+// and two hours ahead, the guide starting the trip (within 50 m of the guest
+// when both phones report where they are, or after both confirm the meetup
+// when GPS is vague), a started trip's cancellation approved or disputed and
+// settled by staff, a no-show refunded in full, and finishing after the length.
 //
 // It uses the first active pair with a paid guide and no open booking, writes
 // its own bookings directly, runs `Bookings::sweep()` in-process and calls the
@@ -79,6 +80,25 @@ echo "Pair: guest #{$guest}, guide #{$guide}\n";
 
 $started = gmdate('Y-m-d H:i:s');
 $created = [];
+// Cancelling dissolves the match; put it back as it was.
+$match = $db->db_GetRowById($selectionId, 'selections', '`guest_decision`, `guide_decision`, `active`, `matched_at`');
+function restoreMatch(): void
+{
+    global $db, $selectionId, $match;
+    $db->db_Execute(
+        'UPDATE `selections` SET `guest_decision` = ' . ($match['guest_decision'] === null ? 'NULL' : '"' . $match['guest_decision'] . '"')
+        . ', `guide_decision` = ' . ($match['guide_decision'] === null ? 'NULL' : '"' . $match['guide_decision'] . '"')
+        . ', `active` = ' . (int) $match['active']
+        . ', `matched_at` = ' . ($match['matched_at'] === null ? 'NULL' : '"' . $match['matched_at'] . '"')
+        . ' WHERE `id` = ' . $selectionId
+    );
+}
+
+/** An internal-only API action, as the CMS sends it: [status, body]. */
+function internal(array $payload): array
+{
+    return ServiceHttp::call('http://nginx:8081', $payload);
+}
 
 /** A booking row for the pair, straight into the table. */
 function booking(array $fields): int
@@ -133,12 +153,12 @@ try {
     check('expiry warning stamped', row($id)['expiry_warned_at'] !== null);
     check('both sides are warned', heard($guide, 'request_expiring') === 1 && heard($guest, 'request_expiring') === 1);
 
-    // 3. At the meeting time it's cancelled: the fee minus the platform fee back.
+    // 3. At the meeting time it's cancelled and refunded in full.
     $db->db_Execute('UPDATE `bookings` SET `meeting_at` = "' . utc(-60) . '" WHERE `id` = ' . $id);
     $bookings->sweep();
     $expired = row($id);
     check('unanswered request declined', $expired['status'] === 'declined');
-    check('refunded the fee minus the platform fee', $expired['payment_status'] === 'refunded' && (float) $expired['refund_amount'] === 42.5, (string) $expired['refund_amount']);
+    check('refunded in full', $expired['payment_status'] === 'refunded' && (float) $expired['refund_amount'] === 50.0, (string) $expired['refund_amount']);
     check('both told it expired', heard($guide, 'booking_expired') === 1 && heard($guest, 'booking_expired') === 1);
 
     // 4. Trip reminders, a day and two hours ahead.
@@ -148,50 +168,100 @@ try {
     $db->db_Execute('UPDATE `bookings` SET `meeting_at` = "' . utc(90 * 60) . '" WHERE `id` = ' . $trip);
     $bookings->sweep();
     check('2 h reminder to both', heard($guide, 'trip_reminder') === 2 && heard($guest, 'trip_reminder') === 2);
-    check('the clock no longer starts a trip', row($trip)['trip_status'] === 'pending');
+    check('the clock doesn’t start a trip', row($trip)['trip_status'] === 'pending');
 
-    // 5. Starting: not before 30 minutes ahead; finishing needs a start.
+    // 5. Only the guide starts it, from 15 minutes before, within 50 m.
     [$s, $b] = api('bookingAction', ['targetId' => $guide, 'op' => 'startTrip'], $guest, 'guest');
+    check('the guest can’t start it', $s === 400 && str_contains((string) ($b['error'] ?? ''), 'Only the guide'));
+    [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip'], $guide, 'guide');
     check('too early to start', $s === 400 && str_contains((string) ($b['error'] ?? ''), 'from'), (string) ($b['error'] ?? ''));
     [$s, $b] = api('bookingAction', ['targetId' => $guide, 'op' => 'requestFinish'], $guest, 'guest');
-    check('finishing an unstarted trip refused', $s === 400 && str_contains((string) ($b['error'] ?? ''), 'Start the trip first'));
+    check('finishing an unstarted trip refused', $s === 400);
 
     $db->db_Execute('UPDATE `bookings` SET `meeting_at` = "' . utc(10 * 60) . '" WHERE `id` = ' . $trip);
-    [$s, $b] = api('bookingAction', ['targetId' => $guide, 'op' => 'startTrip', 'latitude' => 38.7100, 'longitude' => -9.1400], $guest, 'guest');
-    check('the guest confirms with a position', $s === 200 && ($b['trip_status'] ?? '') === 'pending');
-    check('no position in the response', !array_key_exists('guest_start_lat', $b));
-    check('the guide is asked to confirm', heard($guide, 'trip_start_confirmed') === 1);
-    [, $trips] = api('trips', [], $guest, 'guest');
-    $mine = array_values(array_filter($trips['trips'] ?? [], fn ($t) => (int) $t['id'] === $trip))[0] ?? [];
-    check('trips row says "me" for the guest', ($mine['start_confirmed_by'] ?? null) === 'me');
-
-    // ~110 m away: refused.
-    [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip', 'latitude' => 38.7110, 'longitude' => -9.1400], $guide, 'guide');
-    check('the guide 110 m away is refused', $s === 400 && str_contains((string) ($b['error'] ?? ''), 'meet up'), (string) ($b['error'] ?? ''));
-    check('…and the trip not started', row($trip)['trip_status'] === 'pending' && row($trip)['guide_started_at'] === null);
-
-    // ~11 m away: started.
-    [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip', 'latitude' => 38.7101, 'longitude' => -9.1400], $guide, 'guide');
-    check('the guide 11 m away starts it', $s === 200 && ($b['trip_status'] ?? '') === 'started' && !empty($b['started_at']));
+    [$s, $b] = api('tripPresence', ['targetId' => $guide, 'latitude' => 38.7100, 'longitude' => -9.1400, 'accuracy' => 8], $guest, 'guest');
+    check('the guest’s position is noted', $s === 200 && $b['start_ready'] === null && row($trip)['guest_located_at'] !== null);
+    [$s, $b] = api('tripPresence', ['targetId' => $guest, 'latitude' => 38.7110, 'longitude' => -9.1400, 'accuracy' => 8], $guide, 'guide');
+    check('110 m apart: Start stays locked', $s === 200 && $b['start_ready'] === false && $b['poor_gps'] === false);
+    [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip', 'latitude' => 38.7110, 'longitude' => -9.1400, 'accuracy' => 8], $guide, 'guide');
+    check('starting 110 m apart refused', $s === 400 && str_contains((string) ($b['error'] ?? ''), 'meet up'), (string) ($b['error'] ?? ''));
+    [, $b] = api('tripPresence', ['targetId' => $guest, 'latitude' => 38.71036, 'longitude' => -9.1400, 'accuracy' => 8], $guide, 'guide');
+    check('40 m apart: Start unlocks', $b['start_ready'] === true);
+    [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip', 'latitude' => 38.71036, 'longitude' => -9.1400, 'accuracy' => 8], $guide, 'guide');
+    check('the guide starts it', $s === 200 && ($b['trip_status'] ?? '') === 'started' && !empty($b['started_at']));
+    check('no positions in the response', !array_key_exists('guest_lat', $b) && !array_key_exists('guide_lat', $b));
     check('both told it started', heard($guide, 'trip_started') === 1 && heard($guest, 'trip_started') === 1);
-    [$s] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip'], $guide, 'guide');
-    check('starting twice refused', $s === 400);
 
-    // 6. It finishes after its length since the start (2 h; started 3 h ago).
-    $db->db_Execute('UPDATE `bookings` SET `payment_status` = "none", `started_at` = "' . utc(-3 * 3600) . '" WHERE `id` = ' . $trip);
+    // 6. The guest cancels the started trip; the guide refuses: our team decides.
+    [$s, $b] = api('bookingAction', ['targetId' => $guide, 'op' => 'requestCancellation', 'reason' => 'We never met'], $guest, 'guest');
+    check('the guest cancels a started trip — no refund yet', $s === 200 && ($b['status'] ?? '') === 'confirmed' && ($b['payment_status'] ?? '') === 'paid');
+    [$s] = api('bookingAction', ['targetId' => $guest, 'op' => 'refuseCancellation', 'reason' => 'We did meet'], $guide, 'guide');
+    $disputed = row($trip);
+    check('the refusal opens a dispute', $s === 200 && $disputed['disputed_at'] !== null && $disputed['dispute_complaint_id'] !== null);
+    $complaint = $db->db_GetRowById((int) $disputed['dispute_complaint_id'], 'complaints');
+    check('…as a complaint tied to the booking', $complaint && (int) $complaint['booking_id'] === $trip && (int) $complaint['reporter_id'] === $guest);
+    check('both told our team decides', heard($guide, 'trip_disputed') === 1 && heard($guest, 'trip_disputed') === 1);
+    $db->db_Execute('UPDATE `bookings` SET `started_at` = "' . utc(-3 * 3600) . '" WHERE `id` = ' . $trip);
     $bookings->sweep();
-    check('the started trip finishes after its length', row($trip)['trip_status'] === 'finished');
+    check('a disputed trip doesn’t finish by itself', row($trip)['trip_status'] === 'started');
+    [$s, $b] = internal(['action' => 'staffSettleDispute', 'bookingId' => $trip, 'refund' => 20, 'note' => 'Half the walk happened']);
+    check('staff settle it with a partial refund', $s === 200 && row($trip)['status'] === 'cancelled' && (float) row($trip)['refund_amount'] === 20.0);
+    restoreMatch();
 
-    // 7. Location off on one side: the buttons alone start it.
+    // 7. Poor GPS: both confirm the meetup, which unlocks Start.
+    $vague = booking(['status' => 'confirmed', 'meeting_at' => utc(5 * 60), 'accepted_at' => utc(-86400), 'duration_hours' => '2.0']);
+    api('tripPresence', ['targetId' => $guide, 'latitude' => 38.7100, 'longitude' => -9.1400, 'accuracy' => 120], $guest, 'guest');
+    [, $b] = api('tripPresence', ['targetId' => $guest, 'latitude' => 38.7110, 'longitude' => -9.1400, 'accuracy' => 10], $guide, 'guide');
+    check('vague GPS: both asked to confirm the meetup', $b['poor_gps'] === true && $b['start_ready'] === false);
+    [, $b] = api('tripPresence', ['targetId' => $guest, 'meetup' => true], $guide, 'guide');
+    check('the guide confirms', $b['meetup'] === 'me' && $b['start_ready'] === false);
+    [, $b] = api('tripPresence', ['targetId' => $guide, 'meetup' => true], $guest, 'guest');
+    check('the guest confirms', $b['meetup'] === 'both');
+    [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip', 'latitude' => 38.7110, 'longitude' => -9.1400, 'accuracy' => 10], $guide, 'guide');
+    check('the meetup unlocks the start', $s === 200 && ($b['trip_status'] ?? '') === 'started', (string) ($b['error'] ?? ''));
+    $db->db_Execute('UPDATE `bookings` SET `payment_status` = "none", `started_at` = "' . utc(-3 * 3600) . '" WHERE `id` = ' . $vague);
+    $bookings->sweep();
+    check('a started trip finishes after its length', row($vague)['trip_status'] === 'finished');
+
+    // 8. Nobody started it: cancelled and refunded in full, into Past.
+    $noShow = booking(['status' => 'confirmed', 'meeting_at' => utc(-4 * 3600), 'accepted_at' => utc(-86400), 'duration_hours' => '2.0']);
+    $bookings->sweep();
+    $gone = row($noShow);
+    check('a no-show is cancelled and refunded in full', $gone['status'] === 'cancelled' && (float) $gone['refund_amount'] === 50.0);
+    check('both told it wasn’t started', heard($guide, 'trip_not_started') === 1 && heard($guest, 'trip_not_started') === 1);
+    [, $trips] = api('trips', [], $guest, 'guest');
+    $past = array_values(array_filter($trips['trips'] ?? [], fn ($t) => (int) $t['id'] === $noShow))[0] ?? [];
+    check('…and shows under Past', ($past['phase'] ?? '') === 'past');
+
+    // 9. The guide agrees to cancel a started trip: full refund.
+    $agreed = booking(['status' => 'confirmed', 'meeting_at' => utc(-10 * 60), 'accepted_at' => utc(-86400), 'trip_status' => 'started', 'started_at' => utc(-5 * 60)]);
+    api('bookingAction', ['targetId' => $guide, 'op' => 'requestCancellation', 'reason' => 'Guide never came'], $guest, 'guest');
+    [$s] = api('bookingAction', ['targetId' => $guest, 'op' => 'approveCancellation'], $guide, 'guide');
+    check('the guide’s approval refunds in full', $s === 200 && (float) row($agreed)['refund_amount'] === 50.0);
+    restoreMatch();
+
+    // 10. Unanswered for a day: our team decides; 0 lets the trip stand.
+    $late = booking(['status' => 'confirmed', 'meeting_at' => utc(-26 * 3600), 'accepted_at' => utc(-3 * 86400), 'trip_status' => 'started',
+        'started_at' => utc(-26 * 3600), 'duration_hours' => '2.0', 'cancel_requested_at' => utc(-25 * 3600), 'cancel_request_reason' => 'Not as described']);
+    $bookings->sweep();
+    check('an unanswered cancellation goes to our team after a day', row($late)['disputed_at'] !== null);
+    [$s] = internal(['action' => 'staffSettleDispute', 'bookingId' => $late, 'refund' => 0]);
+    check('0 refund: the trip stands', $s === 200 && row($late)['disputed_at'] === null && row($late)['status'] === 'confirmed');
+    $db->db_Execute('UPDATE `bookings` SET `payment_status` = "none" WHERE `id` = ' . $late);
+    $bookings->sweep();
+    check('…and finishes as usual', row($late)['trip_status'] === 'finished');
+
+    // 11. Location off: the time alone unlocks Start.
     $plain = booking(['status' => 'confirmed', 'payment_status' => 'none', 'amount' => '0.00', 'meeting_at' => utc(-5 * 60), 'accepted_at' => utc(-86400)]);
-    [$s1] = api('bookingAction', ['targetId' => $guide, 'op' => 'startTrip', 'latitude' => 38.7100, 'longitude' => -9.1400], $guest, 'guest');
-    [$s2, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip'], $guide, 'guide');
-    check('button-only confirmation starts it', $s1 === 200 && $s2 === 200 && ($b['trip_status'] ?? '') === 'started');
+    [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip'], $guide, 'guide');
+    check('without positions the guide just starts it', $s === 200 && ($b['trip_status'] ?? '') === 'started');
 } finally {
     if ($created) {
         $in = implode(',', $created);
+        $db->db_Execute('DELETE FROM `complaints` WHERE `booking_id` IN (' . $in . ')');
         $db->db_Execute('DELETE FROM `bookings` WHERE `id` IN (' . $in . ')');
     }
+    restoreMatch();
     $db->db_Execute(
         'DELETE FROM `notifications` WHERE `user_id` IN (' . $guest . ',' . $guide . ') AND `created_at` >= "' . $started . '"'
     );

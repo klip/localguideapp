@@ -59,9 +59,15 @@ class Bookings
     /** ...and again this long before. */
     private const TRIP_REMINDER_LATE_SECONDS = 2 * 3600;
     /** "Start the trip" opens this long before the meeting time. */
-    public const START_OPENS_SECONDS = 30 * 60;
-    /** With location on, the two must be this close to start the trip. */
-    public const START_RADIUS_M = 20;
+    public const START_OPENS_SECONDS = 15 * 60;
+    /** With both locations known, guide and guest must be this close to start the trip. */
+    public const START_RADIUS_M = 50;
+    /** A guest's position counts for the start check while it's this fresh. */
+    private const POSITION_FRESH_SECONDS = 180;
+    /** An unstarted trip with no length is a no-show this long after its meeting time. */
+    private const NO_SHOW_DEFAULT_HOURS = 3;
+    /** A started trip's cancellation the guide hasn't answered goes to our team after this. */
+    private const DISPUTE_AFTER_SECONDS = 24 * 3600;
 
     /** @var db */
     private $db;
@@ -584,11 +590,15 @@ BeLikeLocal",
         if ($booking['payment_status'] !== 'paid') {
             throw new RuntimeException('This booking is free — just unmatch to cancel it.');
         }
-        if ($booking['trip_status'] !== 'pending') {
-            throw new RuntimeException('The trip has already started.');
+        if ($booking['trip_status'] === 'finished') {
+            throw new RuntimeException('The trip is already finished.');
         }
-        if ($booking['meeting_at'] !== null && strtotime($booking['meeting_at'] . ' UTC') <= time()) {
-            throw new RuntimeException('The meeting time has passed.');
+        $started = $booking['trip_status'] === 'started';
+        if ($started && $booking['disputed_at'] !== null) {
+            throw new RuntimeException('Our team is already reviewing this trip.');
+        }
+        if (!$started && $booking['meeting_at'] !== null && strtotime($booking['meeting_at'] . ' UTC') <= time()) {
+            throw new RuntimeException('The meeting time has passed — the trip is cancelled and refunded if it isn’t started.');
         }
         if ($booking['cancel_requested_at']) {
             throw new RuntimeException('You have already asked to cancel this booking.');
@@ -613,8 +623,12 @@ BeLikeLocal",
             self::greeting($this->user($guideId))
             . "{$guestName} has asked to cancel their tour on " . self::formatMeeting($booking['meeting_at']) . ".\n"
             . "Their reason: {$reason}\n\n"
-            . "If you approve, they're refunded {$refund} (the fee minus " . self::percent(self::GUEST_CANCEL_FEE_RATE) . "). "
-            . "If you refuse, the booking stands. Answer on your My trips page.\n\nBeLikeLocal",
+            . ($started
+                ? "You had started this trip. If you approve, they're refunded {$refund} in full. "
+                    . "If you refuse — or don't answer within a day — our team reviews it and decides the refund. "
+                : "If you approve, they're refunded {$refund} (the fee minus " . self::percent(self::GUEST_CANCEL_FEE_RATE) . "). "
+                    . 'If you refuse, the booking stands. ')
+            . "Answer on your My trips page.\n\nBeLikeLocal",
             role: 'guide'
         );
 
@@ -649,6 +663,9 @@ BeLikeLocal",
     public function approveCancellation(int $guideId, int $guestId): array
     {
         $booking = $this->requireCancelRequest($guestId, $guideId);
+        if ($booking['disputed_at'] !== null) {
+            throw new RuntimeException('Our team is reviewing this trip.');
+        }
         $refund = $this->guestCancelRefund($booking);
 
         $this->close($booking, 'cancelled', $refund, 'Cancelled at the visitor’s request: ' . $booking['cancel_request_reason']);
@@ -662,8 +679,8 @@ BeLikeLocal",
             "{$guideName} approved your cancellation",
             self::greeting($this->user($guestId))
             . "{$guideName} has approved your request to cancel the tour on " . self::formatMeeting($booking['meeting_at']) . ".\n\n"
-            . 'You have been refunded ' . self::money($refund) . ' — your ' . self::money($booking['amount'])
-            . ' fee minus ' . self::percent(self::GUEST_CANCEL_FEE_RATE) . ".\n"
+            . 'You have been refunded ' . self::money($refund)
+            . ($refund < $booking['amount'] ? ' — your ' . self::money($booking['amount']) . ' fee minus ' . self::percent(self::GUEST_CANCEL_FEE_RATE) : ' in full') . ".\n"
             . "The selection you used on them is back in your pack.\n\nBeLikeLocal",
             role: 'guest'
         );
@@ -676,6 +693,14 @@ BeLikeLocal",
     {
         $booking = $this->requireCancelRequest($guestId, $guideId);
         $reason = self::reason($reason);
+        if ($booking['trip_status'] === 'started') {
+            if ($booking['disputed_at'] !== null) {
+                throw new RuntimeException('Our team is already reviewing this trip.');
+            }
+            $this->raiseDispute($this->db->db_GetRowById($booking['id'], 'bookings'), $reason !== '' ? "refused: {$reason}" : 'refused.');
+
+            return $this->find($booking['id']);
+        }
         $this->clearCancelRequest($booking);
 
         $guideName = self::nameOf($this->user($guideId), 'Your guide');
@@ -732,7 +757,10 @@ BeLikeLocal",
     {
         $booking = $this->requireStatus($guestId, $guideId, 'confirmed', 'There is no confirmed trip to finish.');
         if ($booking['trip_status'] !== 'started') {
-            throw new RuntimeException('Start the trip first — you both confirm the start when you meet.');
+            throw new RuntimeException('The guide starts the trip when you meet — it can finish after that.');
+        }
+        if ($booking['cancel_requested_at'] !== null || $booking['disputed_at'] !== null) {
+            throw new RuntimeException('This trip’s cancellation is still open.');
         }
         if (self::finishesAutomatically($booking)) {
             throw new RuntimeException('This trip finishes on its own at ' . self::formatMeeting(self::endOf($booking)) . '.');
@@ -838,10 +866,22 @@ BeLikeLocal",
         $this->warnExpiring($now);
         $this->expireUnanswered($now);
         $this->remindTrips($now);
+        $this->cancelNoShows($now);
+
+        // A started trip's cancellation left unanswered goes to our team.
+        foreach ($this->db->db_GetArray(
+            'SELECT * FROM `bookings`
+             WHERE `status` = "confirmed" AND `trip_status` = "started" AND `disputed_at` IS NULL
+               AND `cancel_requested_at` <= "' . gmdate('Y-m-d H:i:s', $now - self::DISPUTE_AFTER_SECONDS) . '"
+             LIMIT 50'
+        ) as $row) {
+            $this->raiseDispute($row, "didn't answer within " . (int) (self::DISPUTE_AFTER_SECONDS / 3600) . ' hours.');
+        }
 
         foreach ($this->db->db_GetArray(
             'SELECT * FROM `bookings`
              WHERE `status` = "confirmed" AND `trip_status` = "started"
+               AND `cancel_requested_at` IS NULL AND `disputed_at` IS NULL
                AND `started_at` IS NOT NULL AND `duration_hours` IS NOT NULL
                AND `started_at` + INTERVAL ROUND(`duration_hours` * 60) MINUTE <= "' . gmdate('Y-m-d H:i:s', $now) . '"
              LIMIT 50'
@@ -936,18 +976,17 @@ BeLikeLocal",
                 "{$guideName} hasn't confirmed your booking yet",
                 self::greeting($this->user($booking['guest_id']))
                 . "{$guideName} hasn't answered your booking request for {$when} yet. "
-                . "If they don't accept it within {$in}, it will be cancelled and you'll be refunded {$refund} "
-                . "(the fee minus the platform fee).\n\nBeLikeLocal",
+                . "If they don't accept it within {$in}, it will be cancelled and you'll be refunded {$refund} in full.\n\nBeLikeLocal",
                 $booking['guide_id'],
                 role: 'guest'
             );
         }
     }
 
-    /** What the guest gets back when a request expires: the fee minus the booking's platform fee. */
+    /** What the guest gets back when a request expires: the whole fee — the guide's silence costs them nothing. */
     private function expiryRefund(array $row): float
     {
-        return max(0.0, round((float) $row['amount'] - (float) ($row['commission_amount'] ?? 0), 2));
+        return round((float) $row['amount'], 2);
     }
 
     private function expireUnanswered(int $now): void
@@ -957,14 +996,11 @@ BeLikeLocal",
         ) as $row) {
             $booking = self::cast($row);
             $refundAmount = $this->expiryRefund($row);
-            $kept = round($booking['amount'] - $refundAmount, 2);
             $this->close($booking, 'declined', $refundAmount, 'The guide did not confirm in time');
 
             $guideName = self::nameOf($this->user($booking['guide_id']), 'Your guide');
             $refund = self::money($refundAmount);
-            $refundLine = $kept > 0
-                ? "you've been refunded {$refund} (the fee minus the " . self::money($kept) . ' platform fee)'
-                : "you've been refunded {$refund} in full";
+            $refundLine = "you've been refunded {$refund} in full";
             $this->notifications->notify(
                 $booking['guest_id'],
                 'booking_expired',
@@ -983,6 +1019,55 @@ BeLikeLocal",
                 self::greeting($this->user($booking['guide_id']))
                 . 'You didn\'t answer a booking request for ' . self::formatMeeting($booking['meeting_at'])
                 . " in time, so it was cancelled and the visitor refunded.\n\nBeLikeLocal",
+                role: 'guide'
+            );
+        }
+    }
+
+    /**
+     * A confirmed trip nobody started by the end of its time (meeting time +
+     * length, or `NO_SHOW_DEFAULT_HOURS`) is cancelled and the guest refunded
+     * in full, at once. It moves to Past; the match stays, so they can book
+     * again.
+     */
+    private function cancelNoShows(int $now): void
+    {
+        foreach ($this->db->db_GetArray(
+            'SELECT * FROM `bookings`
+             WHERE `status` = "confirmed" AND `trip_status` = "pending" AND `meeting_at` IS NOT NULL
+               AND ' . self::NO_SHOW_SQL . ' <= "' . gmdate('Y-m-d H:i:s', $now) . '"
+             LIMIT 50'
+        ) as $row) {
+            $booking = self::cast($row);
+            $paid = $booking['payment_status'] === 'paid';
+            $this->close($booking, 'cancelled', $paid ? $booking['amount'] : null, 'The trip wasn’t started');
+            $this->clearCancelRequest($booking);
+
+            $when = self::formatMeeting($booking['meeting_at']);
+            $guideName = self::nameOf($this->user($booking['guide_id']), 'your guide');
+            $guestName = self::nameOf($this->user($booking['guest_id']), 'your visitor');
+            $refund = $paid ? ' You’ve been refunded ' . self::money($booking['amount']) . ' in full.' : '';
+            $this->notifications->notify(
+                $booking['guest_id'],
+                'trip_not_started',
+                "Your trip with {$guideName} on {$when} wasn’t started, so it’s been cancelled.{$refund}",
+                "Your trip with {$guideName} wasn't started",
+                self::greeting($this->user($booking['guest_id']))
+                . "Your trip with {$guideName} on {$when} was never started, so it's been cancelled.{$refund}\n"
+                . "You're still matched — book another date whenever you like.\n\nBeLikeLocal",
+                $booking['guide_id'],
+                role: 'guest'
+            );
+            $this->notifications->notify(
+                $booking['guide_id'],
+                'trip_not_started',
+                "Your trip with {$guestName} on {$when} wasn’t started, so it was cancelled" . ($paid ? ' and the visitor refunded.' : '.'),
+                "Your trip with {$guestName} wasn't started",
+                self::greeting($this->user($booking['guide_id']))
+                . "Your trip with {$guestName} on {$when} was never started in the app, so it's been cancelled"
+                . ($paid ? ' and the visitor refunded in full' : '') . ".\n"
+                . "When you meet a visitor, press \"Start the trip\" on your My trips page.\n\nBeLikeLocal",
+                $booking['guest_id'],
                 role: 'guide'
             );
         }
@@ -1018,7 +1103,7 @@ BeLikeLocal",
                     $to = $booking[$side . '_id'];
                     $otherName = self::nameOf($this->user($booking[$otherSide . '_id']), 'your match');
                     $next = $soon
-                        ? 'When you meet, you both press “Start the trip” on My trips.'
+                        ? ($side === 'guide' ? 'When you meet, start the trip on My trips.' : 'Your guide starts the trip on the app when you meet.')
                         : 'Plan the details in Messages.';
                     $this->notifications->notify(
                         $to,
@@ -1029,7 +1114,9 @@ BeLikeLocal",
                         . "Your trip with {$otherName} is on {$when}.\n"
                         . $place . "\n"
                         . ($soon
-                            ? "When you meet, you both press \"Start the trip\" on your My trips page — with location on, the app checks you're together.\n\nBeLikeLocal"
+                            ? ($side === 'guide'
+                                ? "When you meet, press \"Start the trip\" on your My trips page.\n\nBeLikeLocal"
+                                : "When you meet, your guide starts the trip in the app. Keep BeLikeLocal open with location on so it can tell you're together.\n\nBeLikeLocal")
                             : "Anything left to agree? Message {$otherName} in BeLikeLocal.\n\nBeLikeLocal"),
                         $booking[$otherSide . '_id'],
                         role: $side
@@ -1042,20 +1129,135 @@ BeLikeLocal",
     // ---------------------------------------------------------------- starting
 
     /**
-     * One side confirms the trip has started — they've met. Open from
-     * `START_OPENS_SECONDS` before the meeting time (any time for a trip with
-     * no time). When both have confirmed, the trip is `started`.
+     * Where one side is, sent by their app every 30 s while a confirmed trip
+     * is about to start (from `START_OPENS_SECONDS` before the meeting until
+     * its no-show time): the point and the device's accuracy, kept per side
+     * and never shown to anyone. Answers with what both apps need:
      *
-     * With a position (the device's location was readable) and the other side
-     * having confirmed with one too, the two must be within `START_RADIUS_M`
-     * of each other, or this confirmation is refused. Without one (location
-     * off or unavailable) the button alone counts. Confirming again just
-     * refreshes the position. Positions are never shown to anyone.
+     *   start_ready  (guide only) whether "Start the trip" may be pressed now
+     *   poor_gps     both positions are fresh but one is too vague to tell
+     *                they're together — both get "Confirm meetup" instead
+     *   meetup       who has confirmed the meetup: 'me' | 'them' | 'both' | null
+     *
+     * @return array{start_ready: bool|null, poor_gps: bool, meetup: string|null}
      */
-    public function confirmStart(int $actingUserId, int $guestId, int $guideId, $latitude = null, $longitude = null): array
+    public function presence(int $actingUserId, int $guestId, int $guideId, $latitude, $longitude, $accuracy = null): array
+    {
+        $booking = $this->openFor($guestId, $guideId);
+        if (!$booking || $booking['status'] !== 'confirmed' || $booking['trip_status'] !== 'pending') {
+            return ['start_ready' => null, 'poor_gps' => false, 'meetup' => null];
+        }
+        $pin = self::parsePin($latitude, $longitude);
+        $side = $actingUserId === $guestId ? 'guest' : 'guide';
+        if ($pin !== null) {
+            $acc = is_int($accuracy) || is_float($accuracy) ? (int) min(65535, max(0, round($accuracy))) : null;
+            $this->db->db_Execute(
+                'UPDATE `bookings` SET `' . $side . '_located_at` = "' . gmdate('Y-m-d H:i:s') . '",
+                    `' . $side . '_lat` = ' . $pin[0] . ', `' . $side . '_lng` = ' . $pin[1] . ',
+                    `' . $side . '_accuracy_m` = ' . ($acc === null ? 'NULL' : $acc) . '
+                 WHERE `id` = ' . (int) $booking['id']
+            );
+        }
+
+        return $this->startState($this->db->db_GetRowById($booking['id'], 'bookings'), $side);
+    }
+
+    /** One side confirms they've met (when GPS can't tell) — both confirming unlocks the guide's Start. */
+    public function confirmMeetup(int $actingUserId, int $guestId, int $guideId): array
+    {
+        $booking = $this->requireStatus($guestId, $guideId, 'confirmed', 'There is no confirmed trip.');
+        if ($booking['trip_status'] !== 'pending') {
+            throw new RuntimeException('The trip has already started.');
+        }
+        $side = $actingUserId === $guestId ? 'guest' : 'guide';
+        $this->db->db_Execute(
+            'UPDATE `bookings` SET `' . $side . '_meetup_at` = "' . gmdate('Y-m-d H:i:s') . '" WHERE `id` = ' . (int) $booking['id']
+        );
+
+        return $this->startState($this->db->db_GetRowById($booking['id'], 'bookings'), $side);
+    }
+
+    /** What `presence()` answers, for side `$side` of the raw booking row. */
+    private function startState(array $raw, string $side): array
+    {
+        $other = $side === 'guest' ? 'guide' : 'guest';
+        $mine = $raw[$side . '_meetup_at'] !== null;
+        $theirs = $raw[$other . '_meetup_at'] !== null;
+
+        return [
+            'start_ready' => $side === 'guide' ? $this->startBlocked($raw) === null : null,
+            'poor_gps' => $this->gpsState($raw) === 'poor',
+            'meetup' => $mine && $theirs ? 'both' : ($mine ? 'me' : ($theirs ? 'them' : null)),
+        ];
+    }
+
+    private function isFresh(?string $at): bool
+    {
+        return $at !== null && time() - strtotime($at . ' UTC') <= self::POSITION_FRESH_SECONDS;
+    }
+
+    /**
+     * What the two positions say: 'unknown' (one side's location is off or
+     * stale — no location rule), 'poor' (both known, one less precise than
+     * `START_RADIUS_M`), 'together' or 'apart'.
+     */
+    private function gpsState(array $raw): string
+    {
+        if (!$this->isFresh($raw['guest_located_at']) || !$this->isFresh($raw['guide_located_at'])) {
+            return 'unknown';
+        }
+        foreach (['guest', 'guide'] as $s) {
+            if ($raw[$s . '_accuracy_m'] !== null && (int) $raw[$s . '_accuracy_m'] > self::START_RADIUS_M) {
+                return 'poor';
+            }
+        }
+        $apart = self::distanceM((float) $raw['guide_lat'], (float) $raw['guide_lng'], (float) $raw['guest_lat'], (float) $raw['guest_lng']);
+
+        return $apart <= self::START_RADIUS_M ? 'together' : 'apart';
+    }
+
+    /**
+     * Why the guide can't start the trip right now, or null when they can:
+     * not before `START_OPENS_SECONDS` ahead of the meeting; with both
+     * locations known, not while they're more than `START_RADIUS_M` apart —
+     * or, when GPS is too vague to tell, until both confirmed the meetup.
+     */
+    private function startBlocked(array $raw): ?string
+    {
+        if ($raw['meeting_at'] !== null) {
+            $opens = strtotime($raw['meeting_at'] . ' UTC') - self::START_OPENS_SECONDS;
+            if (time() < $opens) {
+                return 'You can start the trip from ' . self::formatMeeting(gmdate('Y-m-d H:i:s', $opens)) . '.';
+            }
+        }
+        $metUp = $raw['guest_meetup_at'] !== null && $raw['guide_meetup_at'] !== null;
+        switch ($this->gpsState($raw)) {
+            case 'apart':
+                if ($metUp) {
+                    return null;
+                }
+                $apart = self::distanceM((float) $raw['guide_lat'], (float) $raw['guide_lng'], (float) $raw['guest_lat'], (float) $raw['guest_lng']);
+                $guestName = self::nameOf($this->user((int) $raw['guest_id']), 'your visitor');
+
+                return 'You’re about ' . self::roughMetres($apart) . " from {$guestName} — meet up first.";
+            case 'poor':
+                return $metUp ? null : 'Both of you confirm the meetup first.';
+        }
+
+        return null;
+    }
+
+    /**
+     * The guide starts the trip — they've met. Refused before the start
+     * opens, or while the two are apart (see `startBlocked()`). The guest is
+     * told and, if they never met, can cancel the started trip
+     * (`requestCancellation()`), which the guide confirms or our team decides.
+     */
+    public function startTrip(int $guideId, int $guestId, $latitude = null, $longitude = null, $accuracy = null): array
     {
         $open = $this->requireStatus($guestId, $guideId, 'confirmed', 'There is no confirmed trip to start.');
         $pin = self::parsePin($latitude, $longitude);
+        $accuracy = is_int($accuracy) || is_float($accuracy) ? (int) min(65535, max(0, round($accuracy))) : null;
 
         $lock = 'booking_start_' . $open['id'];
         if ((int) $this->db->db_GetFieldFromQuery('SELECT GET_LOCK("' . $lock . '", 5) AS `l`', 'l') !== 1) {
@@ -1063,68 +1265,138 @@ BeLikeLocal",
         }
         try {
             $raw = $this->db->db_GetRowById($open['id'], 'bookings');
-            if ($raw['trip_status'] === 'started') {
+            if ($raw['trip_status'] !== 'pending') {
                 throw new RuntimeException('The trip has already started.');
             }
-            if ($raw['trip_status'] === 'finished') {
-                throw new RuntimeException('This trip is already finished.');
-            }
-            if ($raw['meeting_at'] !== null) {
-                $opens = strtotime($raw['meeting_at'] . ' UTC') - self::START_OPENS_SECONDS;
-                if (time() < $opens) {
-                    throw new RuntimeException('You can start the trip from ' . self::formatMeeting(gmdate('Y-m-d H:i:s', $opens)) . '.');
-                }
-            }
-
-            [$side, $otherSide] = $actingUserId === $guestId ? ['guest', 'guide'] : ['guide', 'guest'];
-            $otherId = $otherSide === 'guest' ? $guestId : $guideId;
-            $otherName = self::nameOf($this->user($otherId), 'your match');
-            if ($pin !== null && $raw[$otherSide . '_start_lat'] !== null) {
-                $apart = self::distanceM(
-                    (float) $pin[0], (float) $pin[1],
-                    (float) $raw[$otherSide . '_start_lat'], (float) $raw[$otherSide . '_start_lng']
-                );
-                if ($apart > self::START_RADIUS_M) {
-                    throw new RuntimeException('You’re about ' . self::roughMetres($apart) . " from {$otherName} — meet up, then try again.");
-                }
-            }
-
-            $already = $raw[$side . '_started_at'] !== null;
             $now = gmdate('Y-m-d H:i:s');
-            $this->db->db_Execute(
-                'UPDATE `bookings` SET `' . $side . '_started_at` = "' . $now . '",
-                    `' . $side . '_start_lat` = ' . ($pin ? $pin[0] : 'NULL') . ',
-                    `' . $side . '_start_lng` = ' . ($pin ? $pin[1] : 'NULL') . '
-                 WHERE `id` = ' . (int) $raw['id']
-            );
-
-            if ($raw[$otherSide . '_started_at'] !== null) {
+            if ($pin !== null) {
+                // The position sent with the press is the guide's latest.
                 $this->db->db_Execute(
-                    'UPDATE `bookings` SET `trip_status` = "started", `started_at` = "' . $now . '" WHERE `id` = ' . (int) $raw['id']
+                    'UPDATE `bookings` SET `guide_located_at` = "' . $now . '", `guide_lat` = ' . $pin[0] . ', `guide_lng` = ' . $pin[1]
+                    . ($accuracy === null ? '' : ', `guide_accuracy_m` = ' . $accuracy) . ' WHERE `id` = ' . (int) $raw['id']
                 );
-                foreach ([[$guestId, $guideId, 'guest'], [$guideId, $guestId, 'guide']] as [$to, $about, $role]) {
-                    $name = self::nameOf($this->user($about), 'your match');
-                    $this->notifications->notifyInApp($to, 'trip_started', "Your trip with {$name} has started — enjoy it!", $about, $role);
-                }
-            } elseif (!$already) {
-                $actorName = self::nameOf($this->user($actingUserId), 'Your match');
-                $this->notifications->notify(
-                    $otherId,
-                    'trip_start_confirmed',
-                    "{$actorName} has confirmed the start of your trip. Confirm it on My trips when you’re together.",
-                    "{$actorName} is ready to start your trip",
-                    self::greeting($this->user($otherId))
-                    . "{$actorName} has confirmed the start of your trip together. "
-                    . "When you've met, press \"Start the trip\" on your My trips page too.\n\nBeLikeLocal",
-                    $actingUserId,
-                    role: $otherSide
-                );
+                $raw = $this->db->db_GetRowById($open['id'], 'bookings');
             }
+            $blocked = $this->startBlocked($raw);
+            if ($blocked !== null) {
+                throw new RuntimeException($blocked);
+            }
+
+            $this->db->db_Execute(
+                'UPDATE `bookings` SET `trip_status` = "started", `started_at` = "' . $now . '" WHERE `id` = ' . (int) $raw['id']
+            );
+            $guideName = self::nameOf($this->user($guideId), 'Your guide');
+            $guestName = self::nameOf($this->user($guestId), 'your visitor');
+            $this->notifications->notify(
+                $guestId,
+                'trip_started',
+                "{$guideName} has started your trip. If you haven’t met, you can cancel it on My trips.",
+                "{$guideName} has started your trip",
+                self::greeting($this->user($guestId))
+                . "{$guideName} has started your trip together. Enjoy it!\n\n"
+                . "If you haven't actually met, cancel the trip on your My trips page — {$guideName} confirms it, or our team decides.\n\nBeLikeLocal",
+                $guideId,
+                role: 'guest'
+            );
+            $this->notifications->notifyInApp($guideId, 'trip_started', "Your trip with {$guestName} has started — enjoy it!", $guestId, 'guide');
         } finally {
             $this->db->db_Execute('DO RELEASE_LOCK("' . $lock . '")');
         }
 
         return $this->find((int) $open['id']);
+    }
+
+    /** When an unstarted trip counts as a no-show: its meeting time plus its length (or `NO_SHOW_DEFAULT_HOURS`). */
+    private const NO_SHOW_SQL = '`meeting_at` + INTERVAL ROUND(COALESCE(`duration_hours`, ' . self::NO_SHOW_DEFAULT_HOURS . ') * 60) MINUTE';
+
+    // ---------------------------------------------------------------- disputes
+
+    /**
+     * Hands a started trip's cancellation to our team: the guide refused it,
+     * or didn't answer within `DISPUTE_AFTER_SECONDS`. Opens a complaint tied
+     * to the booking (the CMS's Moderation queue); staff decide the refund
+     * (`settleDispute()`). Nothing finishes the trip meanwhile.
+     */
+    private function raiseDispute(array $booking, string $guideAnswer): void
+    {
+        $guestId = (int) $booking['guest_id'];
+        $guideId = (int) $booking['guide_id'];
+        $guideName = self::nameOf($this->user($guideId), 'The guide');
+        $guestName = self::nameOf($this->user($guestId), 'The visitor');
+        $complaintId = (int) $this->db->db_Insert('complaints', [
+            'reporter_id' => $guestId,
+            'subject_id' => $guideId,
+            'booking_id' => (int) $booking['id'],
+            'title' => mb_substr("Trip dispute: booking #{$booking['id']} with {$guideName}", 0, 120),
+            'description' => mb_substr(
+                "{$guestName} cancelled the trip after {$guideName} had started it"
+                . ($booking['meeting_at'] ? ' (meeting ' . self::formatMeeting($booking['meeting_at']) . ')' : '') . ".\n"
+                . "Their reason: " . ($booking['cancel_request_reason'] ?? '') . "\n"
+                . "The guide: {$guideAnswer}\n"
+                . 'Fee paid: ' . self::money((float) $booking['amount']) . '. Decide the refund when resolving.',
+                0,
+                2000
+            ),
+            'status' => 'open',
+        ]);
+        $this->db->db_Execute(
+            'UPDATE `bookings` SET `disputed_at` = "' . gmdate('Y-m-d H:i:s') . '", `dispute_complaint_id` = ' . $complaintId
+            . ' WHERE `id` = ' . (int) $booking['id']
+        );
+
+        foreach ([[$guestId, $guideId, 'guest'], [$guideId, $guestId, 'guide']] as [$to, $other, $role]) {
+            $otherName = self::nameOf($this->user($other), 'your match');
+            $this->notifications->notify(
+                $to,
+                'trip_disputed',
+                "Your trip with {$otherName} is with our team — we’ll decide on the refund and let you both know.",
+                "Our team is reviewing your trip with {$otherName}",
+                self::greeting($this->user($to))
+                . "The cancellation of your trip with {$otherName} wasn't agreed, so our team will review it and decide on the refund. "
+                . "We'll let you both know. Nothing else is needed from you for now.\n\nBeLikeLocal",
+                $other,
+                role: $role
+            );
+        }
+    }
+
+    /**
+     * Staff settle a disputed trip (the CMS, resolving its complaint): a
+     * refund above 0 cancels it with that refund (`cancelByStaff()`); 0
+     * leaves the trip standing, and it finishes as usual.
+     */
+    public function settleDispute(int $bookingId, float $refund, string $note = ''): array
+    {
+        $raw = $this->db->db_GetRowById($bookingId, 'bookings');
+        if (!$raw || $raw['disputed_at'] === null || $raw['status'] !== 'confirmed') {
+            throw new RuntimeException('That booking has no open dispute.');
+        }
+        if ($refund > 0) {
+            return $this->cancelByStaff($bookingId, $refund, $note);
+        }
+
+        $this->db->db_Execute(
+            'UPDATE `bookings` SET `disputed_at` = NULL, `cancel_requested_at` = NULL, `cancel_request_reason` = NULL
+             WHERE `id` = ' . $bookingId
+        );
+        $note = self::reason($note);
+        foreach ([[(int) $raw['guest_id'], (int) $raw['guide_id'], 'guest'], [(int) $raw['guide_id'], (int) $raw['guest_id'], 'guide']] as [$to, $other, $role]) {
+            $otherName = self::nameOf($this->user($other), 'your match');
+            $this->notifications->notify(
+                $to,
+                'trip_dispute_settled',
+                "Our team reviewed your trip with {$otherName}: the booking stands, with no refund.",
+                "Your trip with {$otherName}: our decision",
+                self::greeting($this->user($to))
+                . "Our team has reviewed your trip with {$otherName}. The booking stands, and no refund is due.\n"
+                . ($note !== '' ? "Note from our team: {$note}\n" : '')
+                . "\nIf you have questions, reply to this email.\n\nBeLikeLocal",
+                $other,
+                role: $role
+            );
+        }
+
+        return $this->find($bookingId);
     }
 
     /** Great-circle distance in metres. */
@@ -1184,8 +1456,7 @@ BeLikeLocal",
                     b.`location_lat`, b.`location_lng`,
                     b.`refund_amount`, b.`trip_status`, b.`accepted_at`,
                     b.`cancel_reason`, b.`cancelled_at`, b.`cancel_requested_at`, b.`cancel_request_reason`,
-                    b.`finish_requested_by`, b.`finished_at`, b.`started_at`,
-                    b.`guest_started_at`, b.`guide_started_at`,
+                    b.`finish_requested_by`, b.`finished_at`, b.`started_at`, b.`disputed_at`,
                     s.`active`, s.`matched_at`,
                     u.`name`, u.`image`,
                     COALESCE(gp.`price_amount`, 0) AS `fee_amount`,
@@ -1220,8 +1491,6 @@ BeLikeLocal",
                 ? null
                 : ((int) $row['finish_requested_by'] === $userId ? 'me' : 'them');
             $row['auto_finish'] = self::finishesAutomatically(['trip_status' => $row['trip_status'], 'started_at' => $row['started_at'], 'duration_hours' => $row['booking_duration_hours']]);
-            $row['start_confirmed_by'] = self::startConfirmedBy($row, $own);
-            unset($row['guest_started_at'], $row['guide_started_at']);
 
             $open = $row['booking_status'] === 'confirmed' && $row['trip_status'] !== 'finished';
             $row['phase'] = !$open ? 'past' : ($row['trip_status'] === 'started' ? 'current' : 'scheduled');
@@ -1231,7 +1500,7 @@ BeLikeLocal",
             $row['refund_if_cancelled'] = $own === 'guide' && $paidAndOpen
                 ? $this->refundAmount(['amount' => $row['booking_amount'], 'meeting_at' => $row['meeting_at']], $row['matched_at'])
                 : null;
-            $row['refund_if_guest_cancels'] = $paidAndOpen ? $this->guestCancelRefund(['amount' => $row['booking_amount']]) : null;
+            $row['refund_if_guest_cancels'] = $paidAndOpen ? $this->guestCancelRefund(['amount' => $row['booking_amount'], 'trip_status' => $row['trip_status']]) : null;
         }
         unset($row);
 
@@ -1265,9 +1534,17 @@ BeLikeLocal",
         return round($late ? $amount * (1 + self::LATE_CANCEL_RATE) : $amount, 2);
     }
 
-    /** What the guest gets back when the guide approves their cancellation request. */
+    /**
+     * What the guest gets back when the guide approves their cancellation
+     * request: the fee minus `GUEST_CANCEL_FEE_RATE` before the trip starts,
+     * all of it once the guide has started it (they agree it didn't happen).
+     */
     public function guestCancelRefund(array $booking): float
     {
+        if (($booking['trip_status'] ?? null) === 'started') {
+            return round((float) $booking['amount'], 2);
+        }
+
         return round((float) $booking['amount'] * (1 - self::GUEST_CANCEL_FEE_RATE), 2);
     }
 
@@ -1278,22 +1555,6 @@ BeLikeLocal",
             && $booking['duration_hours'] !== null && $booking['duration_hours'] !== '';
     }
 
-    /**
-     * Who has confirmed the start of a not-yet-started trip, for the viewer
-     * on side `$own`: 'me', 'them', or null (the positions stay private).
-     */
-    public static function startConfirmedBy(array $row, string $own): ?string
-    {
-        $their = $own === 'guest' ? 'guide' : 'guest';
-        if (($row['trip_status'] ?? null) !== 'pending') {
-            return null;
-        }
-        if (!empty($row[$own . '_started_at'])) {
-            return 'me';
-        }
-
-        return !empty($row[$their . '_started_at']) ? 'them' : null;
-    }
 
     // ---------------------------------------------------------------- internals
 
@@ -1546,8 +1807,10 @@ BeLikeLocal",
         // The platform fee is the guide's business: only their overview and
         // trips rows carry it (`commission_*`, `guide_payout`).
         unset($row['open_pair'], $row['commission_rate'], $row['commission_amount'], $row['guide_payout']);
-        // Where each side stood when confirming the start is never shown.
-        unset($row['guest_start_lat'], $row['guest_start_lng'], $row['guide_start_lat'], $row['guide_start_lng']);
+        // Where each side was around the start is never shown.
+        foreach (['guest', 'guide'] as $side) {
+            unset($row[$side . '_located_at'], $row[$side . '_lat'], $row[$side . '_lng'], $row[$side . '_accuracy_m'], $row[$side . '_meetup_at']);
+        }
 
         return self::withPin($row);
     }
