@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import ActiveFilters from '@/components/ActiveFilters.vue'
+import DeckBar from '@/components/DeckBar.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
@@ -144,6 +144,9 @@ function reject(id: string) {
 
 <template>
   <section class="section shell">
+    <!-- The filters in force, right under the menu. -->
+    <DeckBar />
+
     <SectionTitle
       :eyebrow="t('guide_discover.header.eyebrow')"
       :heading="t('guide_discover.header.heading')"
@@ -181,7 +184,6 @@ function reject(id: string) {
         </template>
 
         <LocationPrompt />
-        <ActiveFilters />
 
         <ProfileCard
           v-if="current"

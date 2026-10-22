@@ -27,12 +27,9 @@ const pills = computed<Pill[]>(() => {
   const { filters } = filtersStore
   const out: Pill[] = []
 
+  // The search point itself has no pill — the location filter and the deck's
+  // header already show it; only a distance limit around it does.
   if (filters.near) {
-    out.push({
-      id: 'near',
-      label: t('common.active_filters.near', { place: filters.near.label }),
-      remove: () => filtersStore.setNear(null),
-    })
     if (filters.maxKm) {
       out.push({
         id: 'maxKm',

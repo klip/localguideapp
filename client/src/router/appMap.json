@@ -1,5 +1,5 @@
 {
-  "version": "280b433a9a40",
+  "version": "4ad5aec946c4",
   "routes": [
     {
       "name": "root",
@@ -244,6 +244,7 @@
       "common.protected_notice"
     ],
     "discover": [
+      "discover.bar",
       "discover.filters",
       "discover.deck",
       "discover.counter",
@@ -269,7 +270,8 @@
       "common.rating",
       "common.standing",
       "common.time_ago",
-      "common.booking_time"
+      "common.booking_time",
+      "common.deck_bar"
     ],
     "guide-profile": [
       "guide_profile.page",
@@ -330,7 +332,8 @@
       "common.profile_card",
       "common.range_picker",
       "common.standing",
-      "common.visitor_card"
+      "common.visitor_card",
+      "common.deck_bar"
     ],
     "matches": [
       "matches.header",

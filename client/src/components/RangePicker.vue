@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import DualRangeSlider from '@/components/DualRangeSlider.vue'
 import { t } from '@/i18n'
-import { formatRange, formatRangeValue, type RangeFormat } from '@/utils/formatRange'
+import { formatRange, type RangeFormat } from '@/utils/formatRange'
 import type { NumericRange } from '@/types'
 
 /**
- * Two sliders and an Add button: the input for a `range` category (hours of
- * the day on a profile, hours or age in the filter bar). Adding is explicit
+ * One slider with two handles and an Add button: the input for a `range`
+ * category with several spans (a guide's hours on their profile). Adding is explicit
  * rather than live because a category holds *several* spans — "mornings and
  * evenings" is two of them — so dragging has to be able to settle before it
  * means anything.
@@ -45,14 +46,14 @@ watch(
   },
 )
 
-/** Dragging one handle past the other pushes rather than inverts the span. */
-function onStartInput() {
-  if (start.value > end.value) end.value = start.value
-}
-
-function onEndInput() {
-  if (end.value < start.value) start.value = end.value
-}
+/** The two handles' span (`DualRangeSlider` keeps them from crossing). */
+const span = computed({
+  get: (): NumericRange => [start.value, end.value],
+  set: (next: NumericRange) => {
+    start.value = next[0]
+    end.value = next[1]
+  },
+})
 
 const preview = computed(() => formatRange([start.value, end.value], props.format))
 
@@ -77,22 +78,18 @@ const isDuplicate = computed(() =>
       </li>
     </ul>
 
-    <div class="sliders">
-      <label class="tiny">
-        <span class="slider-label"
-          >{{ t('common.range_picker.from') }}
-          <strong>{{ formatRangeValue(start, format) }}</strong></span
-        >
-        <input v-model.number="start" type="range" :min="min" :max="max" @input="onStartInput" />
-      </label>
-
-      <label class="tiny">
-        <span class="slider-label"
-          >{{ t('common.range_picker.to') }}
-          <strong>{{ formatRangeValue(end, format) }}</strong></span
-        >
-        <input v-model.number="end" type="range" :min="min" :max="max" @input="onEndInput" />
-      </label>
+    <div class="slider">
+      <div class="slider-label tiny">
+        <span>{{ t('common.range_picker.from') }} – {{ t('common.range_picker.to') }}</span>
+        <strong data-test="range-preview">{{ preview }}</strong>
+      </div>
+      <DualRangeSlider
+        v-model="span"
+        :min="min"
+        :max="max"
+        :min-label="t('common.range_picker.from')"
+        :max-label="t('common.range_picker.to')"
+      />
     </div>
 
     <button
@@ -159,23 +156,22 @@ const isDuplicate = computed(() =>
   }
 }
 
-.sliders {
+.slider {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-
-  label {
-    margin: 0;
-  }
-
-  input[type='range'] {
-    margin: 0;
-  }
+  gap: 0.35rem;
 }
 
+// "From – to … 09:00–13:00", like the filter bar's age row.
 .slider-label {
-  display: block;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   color: var(--rg-muted);
+
+  strong {
+    color: var(--rg-ink, inherit);
+  }
 }
 
 .add-btn {

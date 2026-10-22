@@ -249,18 +249,20 @@ path/name table) and the shared `src/components/` each is built from:
   filters"), `ProfileCard` (the
   swipeable card, which itself renders a `TagList` and a `DecisionRow` for
   its accept/reject buttons), `PillBadge` (the header counter/pill).
-  `SelectionCounter` is `DiscoverPage.vue`-only (the pack-remaining strip
-  — see "Domain model" for why the guide side has no equivalent). Both
-  pages pull their deck from `stores/guides.ts`/`stores/visitors.ts`.
-  **Picks left**: the deck header (once a pack is bought) and the rail
-  both read "N selections left" (or "Free picks on" / "Free picks until …")
-  with an **Add more** button — the call to action, Pico's primary (orange)
-  button; `/unlock` with a pack, the first-pack modal without. There's no
-  "x / y picked" count and no "selections left" strip under the header any
-  more. In the rail the count is a small `PillBadge`, on one line beside the
-  button from `lg` up.
-  `DiscoverPage.vue`'s right rail ("Your matches", signed in) is the picks
-  left + Add more, then **`MatchesRail.vue`**. `MatchesRail` calls the
+  `SelectionCounter` is now only the signed-out "Browse freely" intro on
+  `DiscoverPage.vue`. Both pages pull their deck from
+  `stores/guides.ts`/`stores/visitors.ts`.
+  **`DeckBar.vue`** sits between the menu and both decks (first thing on the
+  page): the filters in force as pills (`ActiveFilters`) on the left, and on
+  `/discover` for a signed-in traveller the **picks counter button** on the
+  right — a check-box icon and "2/10 left" (`discover.bar.picks_left`; "Free
+  picks on" during a bonus, its end date as the tooltip; "Get picks" before
+  the first pack), which opens the add-picks dialog (the pay modal — a first
+  pack or a top-up). Hidden while there's nothing to show. The deck header
+  is "Guides for you" with "Near {place}" right-aligned on the same line;
+  there's no other picks counter (not in the deck header, not in the rail).
+  `DiscoverPage.vue`'s right rail ("Your matches", signed in) is
+  **`MatchesRail.vue`**. `MatchesRail` calls the
   API itself (`matchOverview` + `trips`) and has two tabs that show **only
   the menu's icon and a count** (the name is the `title` and `aria-label`):
   **Matched** (active pairs not yet confirmed — `/matches`' Matched tab) and
@@ -333,9 +335,10 @@ own — every one just takes props/emits):
   prose, a slot, then its own `DecisionRow`. Deliberately domain-agnostic
   (plain scalar props, not a `Guide`/`Visitor` object) since both decks
   render it with different emphasis.
-- `RangePicker.vue` — two sliders, an Add button and the spans collected so
-  far as removable chips: the input for a `range` category (a guide's hours
-  on `ProfilePage.vue`, hours or age in the filter bar). Adding is explicit
+- `RangePicker.vue` — one slider with two handles (`DualRangeSlider`), the
+  chosen span above it ("09:00–13:00"), an Add button and the spans collected
+  so far as removable chips: the input for a `range` category with several
+  spans (a guide's hours on `ProfilePage.vue`). Adding is explicit
   because a category holds *several* spans. (`FilterChips.vue`, the old
   hardcoded quick-filter row, is gone — the filter bar covers it.)
 - `FilterPanel.vue` — the filter form: gender + age on top, then an
@@ -681,7 +684,7 @@ out: Log in + Get started). Below: the menu links — How it works (signed out),
 new link one too) — black, 0.9rem; the active one has
 a 4px underline and a 1px white text shadow (in the mobile drawer it's bold
 instead). There's no picks counter in the header any more (the
-Discover page's sidebar has it).
+Discover page's bar has it — `DeckBar.vue`).
 
 - **The role switch**: a dual-role account gets "Travel [switch] Guide" —
   Pico's iOS-style switch (`<input type="checkbox" role="switch">`,
@@ -1974,7 +1977,8 @@ the plumbing, is in:
   drops `maxKm`. `LocationFilter.vue` tops the filter bar on the traveller's
   deck ("📍 Lisbon · Change" / "Anywhere · Set a location", then Distance:
   an "Unlimited" switch, on by default, waking a 1–200 km slider at 25);
-  `ActiveFilters` shows "Near Lisbon" and "Within 25 km" pills. The card's
+  `ActiveFilters` shows a "Within 25 km" pill — the place itself gets none
+  (the location filter and the deck header already show it). The card's
   meta line reads "★ 4.8 · 1 review · 3 km away" (`utils/distance.ts`).
 - **The search point per role, per session** (phase A3): `stores/filters.ts`
   keeps `near` in `sessionStorage` (`belikelocal.near.<role>`) and swaps it

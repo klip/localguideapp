@@ -242,9 +242,8 @@ describe('FilterPanel', () => {
     expect(slider.element.disabled).toBe(true)
     // A place ranks, it doesn't filter.
     expect(store.isPristine).toBe(true)
-    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual([
-      'Near Lisbon, Portugal',
-    ])
+    // …and it gets no pill: the location filter and the deck's header show it.
+    expect(pills.findAll('.filter-pill')).toHaveLength(0)
 
     await toggle.setValue(false)
     expect(store.filters.maxKm).toBe(25)
@@ -252,10 +251,7 @@ describe('FilterPanel', () => {
     await slider.setValue(60)
     expect(store.filters.maxKm).toBe(60)
     expect(location.find('[data-test="distance-value"]').text()).toBe('Within 60 km')
-    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual([
-      'Near Lisbon, Portugal',
-      'Within 60 km',
-    ])
+    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual(['Within 60 km'])
 
     // Clear filters drops the limit but keeps where.
     store.reset()
@@ -264,11 +260,16 @@ describe('FilterPanel', () => {
     expect(store.filters.near?.label).toBe('Lisbon, Portugal')
     expect(toggle.element.checked).toBe(true)
 
-    // Removing the place (its pill's ×) takes the limit with it.
+    // The distance pill's × drops the limit, not the place…
     store.setMaxKm(10)
     await flushPromises()
     await pills.find('.filter-pill-remove').trigger('click')
-    expect(store.filters.near).toBeNull()
+    expect(store.filters.maxKm).toBeNull()
+    expect(store.filters.near?.label).toBe('Lisbon, Portugal')
+
+    // …and removing the place takes a limit with it.
+    store.setMaxKm(10)
+    store.setNear(null)
     expect(store.filters.maxKm).toBeNull()
   })
 

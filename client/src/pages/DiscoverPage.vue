@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import ActiveFilters from '@/components/ActiveFilters.vue'
+import DeckBar from '@/components/DeckBar.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
 import MatchesRail from '@/components/MatchesRail.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
@@ -56,7 +56,7 @@ watch(isDesktop, (desktop) => {
 function onFiltersToggle(event: Event) {
   filtersOpen.value = (event.target as HTMLDetailsElement).open
 }
-const { hasAccess, selectionsLeft, canPick, packSize, freePicksActive, freePicksUntil } =
+const { hasAccess, selectionsLeft, capacity, canPick, packSize, freePicksActive, freePicksUntil } =
   storeToRefs(matchesStore)
 const { items: guides, loading: guidesLoading } = storeToRefs(guidesStore)
 
@@ -116,23 +116,24 @@ const freePicksUntilLabel = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
   minute: '2-digit',
 })
-/** "3 selections left" — in the deck's header and the rail, each with "Add more". */
-const picksLeftLabel = computed(() => {
-  if (freePicksActive.value && freePicksUntil.value) {
-    return t('discover.counter.free_picks_until', {
-      date: freePicksUntilLabel.format(new Date(freePicksUntil.value)),
-    })
-  }
-  return selectionsLeft.value > 0
-    ? tn('discover.counter.selections_left', selectionsLeft.value)
-    : t('discover.counter.no_selections_left')
+/**
+ * The picks counter in the bar above the deck: "2/10 left", "Free picks on"
+ * during a free-picks bonus, "Get picks" before the first pack. It opens the
+ * add-picks dialog.
+ */
+const picksButtonText = computed(() => {
+  if (freePicksActive.value) return t('discover.deck.free_picks')
+  return hasAccess.value
+    ? t('discover.bar.picks_left', { left: selectionsLeft.value, capacity: capacity.value })
+    : t('discover.bar.get_picks')
 })
-
-/** No pack yet: the first-pack modal. Otherwise the top-up page. */
-function addMore() {
-  if (hasAccess.value) router.push('/unlock')
-  else payOpen.value = true
-}
+const picksButtonTitle = computed(() =>
+  freePicksActive.value && freePicksUntil.value
+    ? t('discover.counter.free_picks_until', {
+        date: freePicksUntilLabel.format(new Date(freePicksUntil.value)),
+      })
+    : t('discover.bar.add_picks'),
+)
 
 /**
  * Persists the decision server-side (see `Selections::decide()`) in the
@@ -238,6 +239,36 @@ function reject(id: string) {
 
 <template>
   <section class="section shell">
+    <!-- The filters in force and, for a traveller, the picks counter. -->
+    <DeckBar>
+      <template v-if="auth.isAuthenticated && isGuest" #end>
+        <button
+          type="button"
+          class="picks-button"
+          data-test="picks-button"
+          :title="picksButtonTitle"
+          :aria-label="`${picksButtonText} — ${t('discover.bar.add_picks')}`"
+          @click="payOpen = true"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
+            <path d="m8 12.5 3 3 5-6" />
+          </svg>
+          {{ picksButtonText }}
+        </button>
+      </template>
+    </DeckBar>
+
     <div class="discovery-layout">
       <!-- Filters: a side rail on desktop, a collapsed disclosure on mobile. -->
       <aside class="rail">
@@ -252,26 +283,16 @@ function reject(id: string) {
 
       <PanelCard>
         <template #header>
-          <div class="row-between">
-            <div>
-              <strong>{{ t('discover.deck.title') }}</strong>
-              <div class="tiny muted">
-                {{
-                  filters.near
-                    ? t('discover.deck.subtitle_near', { place: filters.near.label })
-                    : t('discover.deck.subtitle')
-                }}
-              </div>
-            </div>
-            <div v-if="hasAccess" class="picks-left">
-              <PillBadge v-if="freePicksActive" data-test="free-picks">{{
-                t('discover.deck.free_picks')
-              }}</PillBadge>
-              <PillBadge v-else data-test="picks-left">{{ picksLeftLabel }}</PillBadge>
-              <button type="button" class="add-more" data-test="add-more" @click="addMore">
-                {{ t('discover.deck.add_more') }}
-              </button>
-            </div>
+          <!-- "Guides for you" with where, on one line. -->
+          <div class="deck-head">
+            <strong>{{ t('discover.deck.title') }}</strong>
+            <span class="tiny muted" data-test="deck-subtitle">
+              {{
+                filters.near
+                  ? t('discover.deck.subtitle_near', { place: filters.near.label })
+                  : t('discover.deck.subtitle')
+              }}
+            </span>
           </div>
         </template>
 
@@ -286,16 +307,8 @@ function reject(id: string) {
           :action-label="t('discover.counter.sign_up')"
           @action="router.push('/register')"
         />
-        <SelectionCounter
-          v-else-if="auth.isAuthenticated && isGuest && !hasAccess"
-          :headline="t('discover.counter.unlock_headline', { count: packSize })"
-          :caption="t('discover.counter.unlock_caption')"
-          :action-label="t('discover.counter.unlock')"
-          @action="payOpen = true"
-        />
 
         <LocationPrompt />
-        <ActiveFilters />
 
         <ProfileCard
           v-if="current"
@@ -392,15 +405,6 @@ function reject(id: string) {
           }}</RouterLink>
         </PanelCard>
         <PanelCard v-else :title="t('discover.rail.title')">
-          <div class="picks-left rail-picks">
-            <PillBadge class="rail-picks-label" data-test="rail-picks-left">{{
-              picksLeftLabel
-            }}</PillBadge>
-            <button type="button" class="add-more" data-test="rail-add-more" @click="addMore">
-              {{ t('discover.deck.add_more') }}
-            </button>
-          </div>
-
           <!-- Active matches and upcoming trips, each tab linking to its page. -->
           <MatchesRail ref="matchesRail" />
         </PanelCard>
@@ -463,6 +467,15 @@ function reject(id: string) {
 <style scoped lang="scss">
 @use 'breakpoints' as bp;
 
+// The bar of filters and picks sits right under the menu.
+.section.shell {
+  padding-top: 1.25rem;
+
+  @include bp.lg {
+    padding-top: 1.5rem;
+  }
+}
+
 .filters-disclosure {
   border: 1px solid var(--rg-line);
   border-radius: var(--rg-radius-panel);
@@ -514,40 +527,28 @@ a[role='button'] {
   margin-bottom: 0.5rem;
 }
 
-// "3 selections left" with "Add more" beside it.
-.picks-left {
+.deck-head {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-// The rail's version: a small label, kept on one line beside the button on desktop.
-.rail-picks {
+  align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 0.85rem;
+  gap: 0.25rem 1rem;
+  flex-wrap: wrap;
 
-  @include bp.lg {
-    flex-wrap: nowrap;
+  span {
+    text-align: end;
   }
 }
 
-.rail-picks-label {
-  font-size: 0.72rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-// The call to action: Pico's primary (brand orange) button, sized down.
-.add-more {
-  flex-shrink: 0;
+// The picks counter in the bar: Pico's primary button, pill-shaped.
+.picks-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   width: auto;
   margin: 0;
-  padding: 0.3rem 0.8rem;
-  font-size: 0.8rem;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
   font-weight: 700;
   white-space: nowrap;
 }

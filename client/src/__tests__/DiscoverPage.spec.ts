@@ -230,22 +230,22 @@ describe('DiscoverPage', () => {
     wrapper.unmount()
   })
 
-  it('shows the picks left with "Add more" in the header and the rail, and no counter strip', async () => {
+  it('shows the picks left as one button in the bar above the deck, which opens the add-picks dialog', async () => {
     const api = fakeApi({
       paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(payment(1)),
     })
-    const { wrapper, router } = await mountDiscover(api, true)
+    const { wrapper } = await mountDiscover(api, true)
 
-    expect(wrapper.find('[data-test="picks-left"]').text()).toBe('5 selections left')
-    expect(wrapper.find('[data-test="rail-picks-left"]').text()).toBe('5 selections left')
-    expect(wrapper.text()).not.toContain('picked')
-    expect(wrapper.text()).not.toContain('selected')
-    // The old strip under the header ("… before your current pack is used") is gone.
+    const button = wrapper.find('[data-test="deck-bar"] [data-test="picks-button"]')
+    expect(button.text()).toBe('5/5 left')
+    // No second counter in the deck's header or the matches rail.
+    expect(wrapper.find('[data-test="picks-left"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="rail-picks-left"]').exists()).toBe(false)
     expect(wrapper.find('.counter').exists()).toBe(false)
 
-    await wrapper.find('[data-test="add-more"]').trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.path).toBe('/unlock')
+    expect(dialogs(wrapper).pay.attributes('open')).toBeUndefined()
+    await button.trigger('click')
+    expect(dialogs(wrapper).pay.attributes('open')).toBeDefined()
     wrapper.unmount()
   })
 
