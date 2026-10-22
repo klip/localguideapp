@@ -155,6 +155,11 @@ into the next test's fresh `Pinia` instance.
 
 `@` is aliased to `client/src`.
 
+Pico is **patched** (`client/.yarn/patches/@picocss-pico-npm-2.1.1-*.patch`,
+via `yarn patch`): its `_modal.scss` used Sass's deprecated `if()` function,
+now an `@if` block. Our own SCSS uses `@if`/`@else` only. Drop the patch when
+Pico ships a fix (2.1.1 is the latest as of 2026-10-22).
+
 ### Structure
 
 - `src/pages/` — one component per route (Home, Register, Login, Unlock,

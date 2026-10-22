@@ -22,7 +22,7 @@
     "i18n:check": "node scripts/i18n-check.mjs"
   },
   "dependencies": {
-    "@picocss/pico": "^2.1.1",
+    "@picocss/pico": "patch:@picocss/pico@npm%3A2.1.1#~/.yarn/patches/@picocss-pico-npm-2.1.1-adea4c2424.patch",
     "pinia": "^4.0.2",
     "vue": "^3.5.40",
     "vue-router": "^5.2.0"

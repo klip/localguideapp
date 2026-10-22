@@ -1146,10 +1146,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@picocss/pico@npm:^2.1.1":
+"@picocss/pico@npm:2.1.1":
   version: 2.1.1
   resolution: "@picocss/pico@npm:2.1.1"
   checksum: 10c0/7a088119538765937abd8effcfb348ea4a768101c21c4e139c28f28019dd3a47478ea0ddbff5bc1d76f10c50c98741f73f6e27ad52b1abd50a27f3840f2d330a
+  languageName: node
+  linkType: hard
+
+"@picocss/pico@patch:@picocss/pico@npm%3A2.1.1#~/.yarn/patches/@picocss-pico-npm-2.1.1-adea4c2424.patch":
+  version: 2.1.1
+  resolution: "@picocss/pico@patch:@picocss/pico@npm%3A2.1.1#~/.yarn/patches/@picocss-pico-npm-2.1.1-adea4c2424.patch::version=2.1.1&hash=aed5a8"
+  checksum: 10c0/c34db9a0727fcb0323f5da4745b52a45a6a41a10cfd2f97bfc04d74ae99e4dc4f561d762f7e4d61e88abad175b185d4b5ff8ee54b044c78178c050b29bcf1617
   languageName: node
   linkType: hard
 
@@ -4127,7 +4134,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "localguideapp@workspace:."
   dependencies:
-    "@picocss/pico": "npm:^2.1.1"
+    "@picocss/pico": "patch:@picocss/pico@npm%3A2.1.1#~/.yarn/patches/@picocss-pico-npm-2.1.1-adea4c2424.patch"
     "@tsconfig/node24": "npm:^24.0.4"
     "@types/jsdom": "npm:^28.0.3"
     "@types/node": "npm:^24.13.3"
