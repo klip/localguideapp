@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import BrandMark from './BrandMark.vue'
 import LanguageSwitcher from './LanguageSwitcher.vue'
+import CurrencySwitcher from './CurrencySwitcher.vue'
 import PicksButton from './PicksButton.vue'
 import NavIcon from './NavIcon.vue'
 import { t, tn } from '@/i18n'
@@ -274,7 +275,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div class="language"><LanguageSwitcher /></div>
+          <div class="language"><LanguageSwitcher /><CurrencySwitcher /></div>
 
           <!-- Desktop only; on mobile the circle is in the bar (.bar-profile). -->
           <RouterLink
@@ -775,9 +776,12 @@ nav .nav {
 }
 
 .language {
+  display: flex;
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
 
   :deep(.language-switcher) {
+    flex: 1 1 auto;
     width: 100%;
   }
 }
@@ -909,6 +913,7 @@ nav .nav {
     margin: 0;
 
     :deep(.language-switcher) {
+      flex: 0 0 auto;
       width: auto;
     }
   }

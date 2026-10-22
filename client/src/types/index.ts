@@ -55,8 +55,14 @@ export interface Guide {
    */
   ratingAverage: number
   reviewCount: number
-  /** Display-ready price, e.g. "£95 / 6 hours". */
+  /**
+   * The guide's own price text as written ("£95 / 6 hours") — show it through
+   * `guidePriceLabel(priceAmount, priceLabel)`, which puts the fee in the
+   * viewer's currency.
+   */
   priceLabel: string
+  /** The fee in pounds; null/0 for a free guide (or the marketing mock). */
+  priceAmount?: number | null
   priceNote: string
   bio: string
   /** Longer prose listing what the fee covers. */

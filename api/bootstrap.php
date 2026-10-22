@@ -15,6 +15,7 @@ require_once __DIR__.'/classes/Bookings.php';
 require_once __DIR__.'/classes/Selections.php';
 require_once __DIR__.'/classes/Places.php';
 require_once __DIR__.'/classes/Geocoder.php';
+require_once __DIR__.'/classes/ExchangeRates.php';
 require_once __DIR__.'/classes/TripPlanner.php';
 require_once __DIR__.'/classes/Profiles.php';
 require_once __DIR__.'/classes/Reviews.php';

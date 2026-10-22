@@ -1,5 +1,5 @@
 {
-  "version": "906e17245e97",
+  "version": "2ea9f0fb34b3",
   "routes": [
     {
       "name": "root",
@@ -203,7 +203,8 @@
       "common.message_toaster",
       "common.messages",
       "common.modal_dialog",
-      "common.terms_dialog"
+      "common.terms_dialog",
+      "common.currency_switcher"
     ],
     "home": [
       "home.hero",

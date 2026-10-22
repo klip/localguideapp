@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { guidePriceLabel } from '@/utils/money'
 import { computed } from 'vue'
 import NavIcon from './NavIcon.vue'
 import StandingBadges from './StandingBadges.vue'
@@ -30,7 +31,7 @@ const meta = computed(() =>
       ? formatRating(props.guide.ratingAverage, props.guide.reviewCount)
       : null,
     props.distanceKm !== null ? formatDistance(props.distanceKm) : null,
-    props.guide.priceLabel || null,
+    guidePriceLabel(props.guide.priceAmount ?? null, props.guide.priceLabel) || null,
   ]
     .filter((part): part is string => !!part)
     .join(' · '),

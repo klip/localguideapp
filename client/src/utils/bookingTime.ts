@@ -29,9 +29,8 @@ export function tripEnd(start: Date | null, hours: number | null): Date | null {
   return start && hours ? new Date(start.getTime() + hours * 3600_000) : null
 }
 
-export function formatMoney(amount: number | null): string {
-  return `£${(amount ?? 0).toFixed(2)}`
-}
+/** In the viewer's currency — see `utils/money.ts` (kept here for the many existing imports). */
+export { formatMoney } from './money'
 
 /** "3 h", "1.5 h"; `null` when not set. */
 export function formatHours(hours: number | null): string | null {

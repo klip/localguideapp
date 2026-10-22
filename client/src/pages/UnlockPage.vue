@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMoney, PACK_PRICE } from '@/utils/money'
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
@@ -68,20 +69,29 @@ async function pay() {
           <div class="price-head">
             <div>
               <span class="tiny muted">{{ t('unlock.price.one_time_fee') }}</span>
-              <div class="price">£5</div>
+              <div class="price">{{ formatMoney(PACK_PRICE, { trim: true }) }}</div>
             </div>
             <PillBadge>{{ t('unlock.price.picks', { count: packSize }) }}</PillBadge>
           </div>
         </PriceBox>
 
-        <ProtectedNotice kind="pack" />
+        <ProtectedNotice kind="pack" :amount="PACK_PRICE" />
 
         <button type="button" class="full" :aria-busy="paying" :disabled="paying" @click="pay">
-          {{ paying ? t('unlock.panel.paying') : t('unlock.panel.pay') }}
+          {{
+            paying
+              ? t('unlock.panel.paying')
+              : t('unlock.panel.pay', { price: formatMoney(PACK_PRICE, { trim: true }) })
+          }}
         </button>
 
         <p class="tiny muted">
-          {{ t('unlock.panel.top_up_note', { count: packSize }) }}
+          {{
+            t('unlock.panel.top_up_note', {
+              count: packSize,
+              price: formatMoney(PACK_PRICE, { trim: true }),
+            })
+          }}
         </p>
 
         <p v-if="hasAccess" class="tiny">

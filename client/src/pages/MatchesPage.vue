@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { guidePriceLabel } from '@/utils/money'
 import { computed, ref } from 'vue'
 import BookingPanel from '@/components/BookingPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
@@ -131,7 +132,7 @@ function displayName(row: MatchOverviewRow) {
 
 function subline(row: MatchOverviewRow) {
   const parts = isGuest.value
-    ? [row.headline, row.price_label]
+    ? [row.headline, guidePriceLabel(row.fee_amount, row.price_label) || null]
     : [
         row.party,
         row.duration_hours ? t('matches.row.tour_length', { hours: row.duration_hours }) : null,

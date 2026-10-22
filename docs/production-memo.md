@@ -10,7 +10,8 @@ real users and real money. Add to this list whenever a shortcut is taken.
 | --- | --- |
 | **Pack purchases are simulated**: `Payments::recordPackPurchase()` inserts a `paid` row; no card is charged. | A payment provider (Stripe Checkout / Payment Intents). Record the purchase from the provider's webhook, not from the client's request. |
 | **Guide fees, refunds and commission are recorded, never moved** (`Bookings::pay()`, `cancelByGuide()`, `approveCancellation()`, `commission_*`). | Stripe Connect (or similar) for marketplace payouts: hold the fee, pay the guide after the trip minus commission, refund through the provider. Guides need onboarding (KYC by the payment provider). |
-| Prices are GBP only. | Decide currencies for a global service; store currency per booking. |
+| Prices are stored and **charged in GBP only**; other currencies are display conversions (`utils/money.ts`), with a "you're charged £X in pounds" note before each payment. | Charge in the viewer's currency through the payment provider (Stripe presentment currencies / Adaptive Pricing) and store the currency per payment and booking; let guides price in their own currency. See `docs/payments-plan.md`. |
+| **Exchange rates from Frankfurter** (`ExchangeRates.php` — the ECB's free daily reference rates, no key, no SLA). | A contracted rates feed (the payment provider's own FX quotes, or Open Exchange Rates / XE), especially once charges follow displayed prices. |
 
 ## Identity and verification
 

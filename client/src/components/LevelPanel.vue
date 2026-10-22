@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMoney, PACK_PRICE } from '@/utils/money'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { t, tn } from '@/i18n'
 import { useApi, type BonusGrant, type LevelState } from '@/plugins/api'
@@ -202,7 +203,12 @@ onBeforeUnmount(() => {
           <h4 class="perks-title">{{ t('profile.level.perks') }}</h4>
           <ul class="perks">
             <li v-if="state.picks_per_pack !== null">
-              {{ t('profile.level.perk_picks', { count: state.picks_per_pack }) }}
+              {{
+                t('profile.level.perk_picks', {
+                  count: state.picks_per_pack,
+                  price: formatMoney(PACK_PRICE, { trim: true }),
+                })
+              }}
             </li>
             <li v-if="state.commission_rate !== null">
               {{ t('profile.level.perk_fee', { rate: percent(state.commission_rate) }) }}

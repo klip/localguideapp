@@ -174,6 +174,8 @@ export interface ProfileAccount extends Omit<BasicAccount, 'email'> {
   gender: Gender | null
   headline: string | null
   bio: string | null
+  /** The guide's fee in pounds (null/0: free); shown converted, see `guidePriceLabel()`. */
+  price_amount?: number | null
   price_label: string | null
   price_note: string | null
   includes: string | null
@@ -1354,6 +1356,9 @@ export const api = {
 
   unlockPack: () => call<PaymentState>('unlockPack'),
   paymentState: () => call<PaymentState>('paymentState'),
+  /** Today's rates from GBP (ECB), for showing prices in the viewer's currency. Public. */
+  exchangeRates: () =>
+    call<{ base: string; date: string | null; rates: Record<string, number> }>('exchangeRates'),
   /** The Payments page: picks, payments and refunds, bonuses past and present — for the acting role. */
   paymentHistory: (query: PaymentHistoryQuery = {}) =>
     call<PaymentHistory>('paymentHistory', query),

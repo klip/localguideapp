@@ -2,6 +2,7 @@
 import { useId } from 'vue'
 import { t } from '@/i18n'
 import { useLegalStore } from '@/stores/legal'
+import { formatCharge, isConverted } from '@/utils/money'
 
 /**
  * "Protected by BeLikeLocal" — shown right before every payment (a selection
@@ -10,7 +11,14 @@ import { useLegalStore } from '@/stores/legal'
  * outside it doesn't. "How it works" opens the terms at section 5.1.
  * `kind` picks the wording: a pack buys picks, a fee books a trip.
  */
-withDefaults(defineProps<{ kind?: 'pack' | 'fee' }>(), { kind: 'fee' })
+withDefaults(
+  defineProps<{
+    kind?: 'pack' | 'fee'
+    /** What will be charged, in pounds — shown exactly when prices are shown converted. */
+    amount?: number | null
+  }>(),
+  { kind: 'fee', amount: null },
+)
 
 const legal = useLegalStore()
 const uid = useId()
@@ -22,6 +30,9 @@ const uid = useId()
     <div>
       <strong :id="uid">{{ t('common.protected_notice.title') }}</strong>
       <p class="tiny">{{ t(`common.protected_notice.body_${kind}`) }}</p>
+      <p v-if="isConverted && amount" class="tiny charged" data-test="charged-in-gbp">
+        {{ t('common.protected_notice.charged_in_gbp', { amount: formatCharge(amount) }) }}
+      </p>
       <button type="button" class="link tiny" @click="legal.showTerms('5.1')">
         {{ t('common.protected_notice.how_it_works') }}
       </button>

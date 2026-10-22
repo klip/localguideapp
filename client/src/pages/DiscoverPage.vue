@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMoney, guidePriceLabel, PACK_PRICE } from '@/utils/money'
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
@@ -267,7 +268,13 @@ function reject(id: string) {
           :age="current.age"
           :photo="current.photo"
           :meta="currentMeta"
-          :price-label="current.priceLabel"
+          :price-label="
+            guidePriceLabel(
+              current.priceAmount ?? null,
+              current.priceLabel,
+              t('common.guide_card.default_price_label'),
+            )
+          "
           :price-note="current.priceNote"
           :bio="current.bio"
           :tags="categoriesStore.tagsFor(current.attributes)"
@@ -345,7 +352,12 @@ function reject(id: string) {
       <aside class="rail">
         <PanelCard v-if="!auth.isAuthenticated" :title="t('discover.rail.title')">
           <p class="tiny muted">
-            {{ t('discover.rail.signed_out_body', { count: packSize }) }}
+            {{
+              t('discover.rail.signed_out_body', {
+                count: packSize,
+                price: formatMoney(PACK_PRICE, { trim: true }),
+              })
+            }}
           </p>
           <RouterLink to="/register" role="button" class="full">{{
             t('discover.rail.create_account')
@@ -367,7 +379,12 @@ function reject(id: string) {
       @close="authPromptOpen = false"
     >
       <p class="muted">
-        {{ t('discover.auth_modal.body', { count: packSize }) }}
+        {{
+          t('discover.auth_modal.body', {
+            count: packSize,
+            price: formatMoney(PACK_PRICE, { trim: true }),
+          })
+        }}
       </p>
       <RouterLink to="/register" role="button" class="full">{{
         t('discover.auth_modal.create_account')
@@ -391,12 +408,12 @@ function reject(id: string) {
           <div class="price-head">
             <div>
               <span class="tiny muted">{{ t('discover.pay_modal.one_time_fee') }}</span>
-              <div class="price">£5</div>
+              <div class="price">{{ formatMoney(PACK_PRICE, { trim: true }) }}</div>
             </div>
             <PillBadge>{{ t('discover.pay_modal.picks', { count: packSize }) }}</PillBadge>
           </div>
         </PriceBox>
-        <ProtectedNotice kind="pack" />
+        <ProtectedNotice kind="pack" :amount="PACK_PRICE" />
         <button
           type="button"
           class="full pay"
@@ -404,10 +421,19 @@ function reject(id: string) {
           :disabled="paying"
           @click="payForPack"
         >
-          {{ paying ? t('discover.pay_modal.paying') : t('discover.pay_modal.pay') }}
+          {{
+            paying
+              ? t('discover.pay_modal.paying')
+              : t('discover.pay_modal.pay', { price: formatMoney(PACK_PRICE, { trim: true }) })
+          }}
         </button>
         <p class="tiny muted">
-          {{ t('discover.pay_modal.top_up_note', { count: packSize }) }}
+          {{
+            t('discover.pay_modal.top_up_note', {
+              count: packSize,
+              price: formatMoney(PACK_PRICE, { trim: true }),
+            })
+          }}
         </p>
       </div>
     </ModalDialog>

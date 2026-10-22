@@ -420,7 +420,7 @@ class Users
 
     private const PROFILE_COLUMNS = 'u.`id`, u.`name`, u.`image`, u.`created_at`,
                     TIMESTAMPDIFF(YEAR, p.`date_of_birth`, CURDATE()) AS `age`,
-                    p.`gender`, rp.`headline`, rp.`bio`, p.`price_label`, p.`price_note`,
+                    p.`gender`, rp.`headline`, rp.`bio`, p.`price_amount`, p.`price_label`, p.`price_note`,
                     p.`includes`, p.`party`, p.`duration_hours`,
                     rs.`rating_average`, COALESCE(rs.`review_count`, 0) AS `review_count`';
 
@@ -445,6 +445,10 @@ class Users
     {
         $row['review_count'] = (int) $row['review_count'];
         $row['rating_average'] = $row['rating_average'] === null ? null : (float) $row['rating_average'];
+        // The guide's fee in pounds — the client shows it in the viewer's currency.
+        if (array_key_exists('price_amount', $row)) {
+            $row['price_amount'] = $row['price_amount'] === null ? null : (float) $row['price_amount'];
+        }
 
         return $row;
     }

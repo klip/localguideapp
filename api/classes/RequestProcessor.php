@@ -34,6 +34,8 @@ class RequestProcessor
     private $profiles;
     /** @var Geocoder */
     private $geocoder;
+    /** @var ExchangeRates */
+    private $exchangeRates;
     /** @var TripPlanner */
     private $planner;
     /** @var Reviews */
@@ -73,6 +75,7 @@ class RequestProcessor
         $this->selections = new Selections($db, $this->users, $this->payments, $this->bookings, $this->levels);
         $this->profiles = new Profiles($db);
         $this->geocoder = new Geocoder($redis);
+        $this->exchangeRates = new ExchangeRates($redis);
         $this->planner = new TripPlanner($db, $redis, $this->users, $this->profiles, $this->geocoder, $this->push, new Ai());
         $this->reviews = new Reviews($db, $this->levels);
         $this->translations = new Translations($db);
@@ -383,6 +386,10 @@ class RequestProcessor
             // Place search (a guide's base, the deck's search point): names ↔
             // coordinates through `Geocoder`. No session needed — the deck
             // works signed out too.
+            // Today's rates from GBP, for showing prices in the viewer's currency.
+            case 'exchangeRates':
+                return [200, $this->exchangeRates->current()];
+
             case 'geocode':
                 return [200, ['places' => $this->geocoder->search(
                     (string) ($this->readInput()['query'] ?? ''),

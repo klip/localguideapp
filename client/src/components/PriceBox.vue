@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { formatMoney, PACK_PRICE } from '@/utils/money'
 import { t } from '@/i18n'
 /**
- * Warm gradient panel carrying the £5 price. Used full-width on the landing
- * page and compact inside the unlock panel.
+ * Warm gradient panel carrying the pack price (in the viewer's currency, see
+ * `utils/money.ts`). Used full-width on the landing page and compact inside
+ * the unlock panel.
  */
 withDefaults(
   defineProps<{
@@ -10,14 +12,14 @@ withDefaults(
     caption?: string
     compact?: boolean
   }>(),
-  { price: '£5', compact: false },
+  { price: undefined, compact: false },
 )
 </script>
 
 <template>
   <div class="price-box" :class="{ 'price-box--compact': compact }">
     <slot>
-      <div class="price">{{ price }}</div>
+      <div class="price">{{ price ?? formatMoney(PACK_PRICE, { trim: true }) }}</div>
       <div class="muted">{{ caption ?? t('common.price_box.caption') }}</div>
     </slot>
   </div>

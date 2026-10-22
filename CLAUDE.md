@@ -530,6 +530,37 @@ own — every one just takes props/emits):
   mock-id decks; see the Domain model section below for the mutual-match
   notification this unlocked.
 
+### Currency (`utils/money.ts`, `CurrencySwitcher.vue`)
+
+Every amount the server stores and sends is **GBP**, and charges are in GBP;
+other currencies are a display conversion.
+
+- **The switcher** sits beside the language picker (header; the drawer's
+  top row on mobile): "Automatic (EUR)" or a currency the rates cover
+  ("EUR · €"), remembered in localStorage `belikelocal.currency`. Prices
+  change at once, no reload.
+- **Automatic** = where the viewer is (`detectCurrency()`): the device's time
+  zone (Europe/* → EUR, but London → GBP, Zurich → CHF, Stockholm → SEK…;
+  America/* → USD, Toronto → CAD, Mexico City → MXN; Tokyo → JPY…), else the
+  browser's region (`de-CH` → CHF), else USD.
+- **Rates**: `exchangeRates` (public) → `ExchangeRates.php`: the ECB's daily
+  reference rates from GBP via Frankfurter (free — a stand-in, see the
+  production memo), cached 6 h in Redis (`fx:gbp`), last good copy a week
+  (`fx:gbp:last`). App.vue loads them at start-up; until then, or for a
+  currency they don't cover, amounts show in pounds.
+- **Showing money**: `formatMoney(gbp, { trim? })` (also re-exported from
+  `utils/bookingTime.ts`) converts and formats in the UI language ("59,69 €");
+  `formatCharge(gbp)` is the exact pound amount. The pack price is
+  `PACK_PRICE` (5); **text never contains "£5"** — 13 strings take a
+  `{price}` placeholder (101). A guide's card price is
+  `guidePriceLabel(price_amount, price_label)`: the fee converted, plus what
+  their own label says it covers ("£50 / half day" → "€59.69 / half day");
+  deck rows now carry `price_amount`.
+- **Before every payment** `ProtectedNotice` (`:amount`) adds "you're charged
+  £5.00 in pounds" when another currency is shown.
+- Not converted: server text (emails, notifications) and the CMS — pounds.
+- Tests: `money.spec.ts`.
+
 ### Translations & language switcher (`src/i18n`)
 
 **No UI text is hardcoded** — every string is `t('{page}.{widget}.{key}')`
@@ -2670,6 +2701,7 @@ is a `503` from the gateway.
 | `reviews` | optional* | `api.reviews(payload)` | `userId, limit? (default/max 20), offset?` | `ReviewsPage` (`reviews: Review[]` newest first, `total, average, histogram` `{ "5": n, …, "1": n }`, `viewer: { canReview, bookingId, myReview }` — all no/null signed out) | `Reviews::listFor()`/`viewerStateFor()` |
 | `submitReview` | **yes** | `api.submitReview(payload)` | `subjectId, rating, comment?` | `Review` (`id, booking_id, author_id, subject_id, rating, comment, created_at, updated_at, author_name, author_image`) | `Reviews::submit()` (upsert) |
 | `deleteReview` | **yes** | `api.deleteReview(payload)` | `reviewId` | `{ ok: true }` | `Reviews::delete()` |
+| `exchangeRates` | no | `api.exchangeRates()` (App.vue, at start-up) | — | `{ base: 'GBP', date, rates: { CODE: rate } }` (GBP alone when no rates are available) | `ExchangeRates::current()` |
 | `appMap` | no | `api.appMap()` (main.ts, at start-up) | — | `AppMap` (`version, routes: [{ name, path, component, redirect, props, access, role }], blocks: { [routeName \| '_shell']: prefixes[] }`) — enabled routes only, cached in Redis | `AppMap::forApp()` (`lib/AppMap.php`) |
 | `translations` | no | `api.translations(language, scope?)` | `language` (one of the 15 codes), `scopes?` / `except?` (key prefixes, `page` or `page.widget`) | `{ language, strings: { key: value } }` (always an object; `400` "Unsupported language." otherwise) | `Translations::forLanguage()` |
 | `geocode` | no | `api.geocode(query, language, near?)` | `query` (2–120 chars), `language`, `near?` `{ latitude, longitude }` | `{ places: Place[] }` (`label, name, countryCode, latitude, longitude, kind`) | `Geocoder::search()` |
@@ -3198,6 +3230,12 @@ API service (`api/classes/`):
   2026-10-22. Re-runnable (upserts).
 - `api/sql/100_payments_filters.sql` — the Payments page's period filter and
   pager text (15 languages) and their text blocks. Applied 2026-10-22.
+  Re-runnable.
+- `api/sql/101_translations_price_placeholder.sql` — "£5" in 13 strings ×
+  15 languages becomes `{price}` (see "Currency"). Applied 2026-10-22.
+  Re-runnable.
+- `api/sql/102_currency.sql` — the currency switcher's text, the "charged in
+  pounds" line, and the switcher's block on every page. Applied 2026-10-22.
   Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.

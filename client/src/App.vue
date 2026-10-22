@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, watch } from 'vue'
+import { applyRates } from '@/utils/money'
 import AppFooter from '@/components/AppFooter.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import CookieNotice from '@/components/CookieNotice.vue'
@@ -118,6 +119,13 @@ watch(
 )
 
 onMounted(async () => {
+  // Today's exchange rates for showing prices in the viewer's currency
+  // (`utils/money.ts`). Best effort: without them amounts stay in pounds.
+  void api
+    .exchangeRates()
+    .then(applyRates)
+    .catch(() => undefined)
+
   if (!auth.isAuthenticated) return
 
   try {

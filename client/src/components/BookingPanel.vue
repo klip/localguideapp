@@ -798,7 +798,7 @@ function guideCancel() {
           })
         }}
       </p>
-      <ProtectedNotice kind="fee" />
+      <ProtectedNotice kind="fee" :amount="row.fee_amount" />
       <div class="form-actions">
         <button type="submit" class="accept" :aria-busy="busy" :disabled="busy">
           {{ t('common.booking_panel.confirm_payment') }}
@@ -961,7 +961,6 @@ function guideCancel() {
 </template>
 
 <style scoped lang="scss">
-
 .fee-note {
   flex-basis: 100%;
   margin: 0;

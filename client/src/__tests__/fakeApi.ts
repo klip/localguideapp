@@ -42,6 +42,9 @@ export function fakeApi(overrides: Partial<Api> = {}): Api {
     guideStartTimes: vi.fn<Api['guideStartTimes']>(),
     bookingAction: vi.fn<Api['bookingAction']>(),
     paymentHistory: vi.fn<Api['paymentHistory']>(),
+    exchangeRates: vi
+      .fn<Api['exchangeRates']>()
+      .mockResolvedValue({ base: 'GBP', date: null, rates: { GBP: 1 } }),
     tripPresence: vi
       .fn<Api['tripPresence']>()
       .mockResolvedValue({ start_ready: true, needs_meetup: false, meetup: null }),

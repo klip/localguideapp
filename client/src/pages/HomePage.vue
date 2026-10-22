@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMoney, PACK_PRICE } from '@/utils/money'
 import { computed } from 'vue'
 import FeatureCard from '@/components/FeatureCard.vue'
 import PhonePreview from '@/components/PhonePreview.vue'
@@ -17,7 +18,10 @@ const heroGuide = guides[0]
 const steps = computed(() =>
   (['unlock', 'filter', 'match'] as const).map((step) => ({
     title: t(`home.how.${step}_title`),
-    body: t(`home.how.${step}_body`, { count: PACK_SIZE }),
+    body: t(`home.how.${step}_body`, {
+      count: PACK_SIZE,
+      price: formatMoney(PACK_PRICE, { trim: true }),
+    }),
   })),
 )
 </script>
@@ -30,11 +34,13 @@ const steps = computed(() =>
           <PillBadge><span aria-hidden="true">🌍</span> {{ t('home.hero.badge') }}</PillBadge>
           <h1>{{ t('home.hero.heading') }}</h1>
           <p class="lead">
-            {{ t('home.hero.lead') }}
+            {{ t('home.hero.lead', { price: formatMoney(PACK_PRICE, { trim: true }) }) }}
           </p>
 
           <div class="cta-row">
-            <RouterLink to="/register" role="button">{{ t('home.hero.find_guide') }}</RouterLink>
+            <RouterLink to="/register" role="button">{{
+              t('home.hero.find_guide', { price: formatMoney(PACK_PRICE, { trim: true }) })
+            }}</RouterLink>
             <RouterLink
               v-if="!auth.isAuthenticated"
               :to="{ path: '/register', query: { role: 'guide' } }"
@@ -47,7 +53,12 @@ const steps = computed(() =>
 
           <div class="cta-row">
             <PillBadge>{{ t('home.hero.selections_included', { count: PACK_SIZE }) }}</PillBadge>
-            <PillBadge>{{ t('home.hero.more_for_price', { count: PACK_SIZE }) }}</PillBadge>
+            <PillBadge>{{
+              t('home.hero.more_for_price', {
+                count: PACK_SIZE,
+                price: formatMoney(PACK_PRICE, { trim: true }),
+              })
+            }}</PillBadge>
             <PillBadge>{{ t('home.hero.direct_contact') }}</PillBadge>
           </div>
         </div>
@@ -72,7 +83,7 @@ const steps = computed(() =>
         <div class="grid-3 price-grid">
           <div>
             <PillBadge>{{ t('home.pricing.badge') }}</PillBadge>
-            <div class="price">£5</div>
+            <div class="price">{{ formatMoney(PACK_PRICE, { trim: true }) }}</div>
             <div class="muted">{{ t('home.pricing.caption') }}</div>
           </div>
           <div>

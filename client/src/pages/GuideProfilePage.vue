@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatMoney, guidePriceLabel, PACK_PRICE } from '@/utils/money'
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import DecisionRow from '@/components/DecisionRow.vue'
@@ -124,7 +125,16 @@ function reject(id: string) {
           </div>
         </div>
 
-        <PanelCard :title="guide.priceLabel" :subtitle="guide.priceNote">
+        <PanelCard
+          :title="
+            guidePriceLabel(
+              guide.priceAmount ?? null,
+              guide.priceLabel,
+              t('common.guide_card.default_price_label'),
+            )
+          "
+          :subtitle="guide.priceNote"
+        >
           <p>{{ guide.bio }}</p>
 
           <!--
@@ -162,7 +172,11 @@ function reject(id: string) {
             />
             <p v-if="!isPicked && !canPick" class="tiny muted">
               {{ t('guide_profile.details.no_selections') }}
-              <RouterLink to="/unlock">{{ t('guide_profile.details.unlock') }}</RouterLink>
+              <RouterLink to="/unlock">{{
+                t('guide_profile.details.unlock', {
+                  price: formatMoney(PACK_PRICE, { trim: true }),
+                })
+              }}</RouterLink>
             </p>
           </template>
         </PanelCard>
