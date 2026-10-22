@@ -867,14 +867,33 @@ export interface BonusRecord {
   revokedAt: string | null
 }
 
-/** `paymentHistory`: the acting side's picks (travellers), money in and out, and bonuses. */
+/**
+ * `paymentHistory`: the acting side's picks (travellers), one page of money
+ * in and out (within the date range asked for), and every bonus.
+ */
 export interface PaymentHistory {
   role: 'guest' | 'guide'
   picks:
     | (Omit<PaymentState, 'pickedIds' | 'passedIds' | 'freePickIds'> & { freePicksUsed: number })
     | null
+  /** This page of payments, newest first. */
   entries: PaymentEntry[]
+  /** How many payments the range holds, and which page of what size this is. */
+  total: number
+  page: number
+  perPage: number
+  /** Sums over the whole range: paid (guest), received (guide, payouts not refunded), refunded. */
+  totals: { paid: number; refunded: number; received: number }
   bonuses: BonusRecord[]
+}
+
+/** Which payments `paymentHistory` returns: paid from `from` up to (not incl.) `to`, UNIX seconds. */
+export interface PaymentHistoryQuery {
+  from?: number
+  to?: number
+  page?: number
+  /** 10, 20 or 50. */
+  perPage?: number
 }
 
 export interface BonusGrant {
@@ -1336,7 +1355,8 @@ export const api = {
   unlockPack: () => call<PaymentState>('unlockPack'),
   paymentState: () => call<PaymentState>('paymentState'),
   /** The Payments page: picks, payments and refunds, bonuses past and present — for the acting role. */
-  paymentHistory: () => call<PaymentHistory>('paymentHistory'),
+  paymentHistory: (query: PaymentHistoryQuery = {}) =>
+    call<PaymentHistory>('paymentHistory', query),
   /** Guest pays a matched guide's fee; `meetingAt` is an ISO date-time, `durationHours` and `location` optional. The booking then waits for the guide to accept. */
   /** The acting guide's calendar, and their bookings from `from` to `to` (local dates). */
   myCalendar: (range: { from?: string; to?: string } = {}) => call<MyCalendar>('myCalendar', range),

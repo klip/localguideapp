@@ -10,6 +10,8 @@ class Payments
 {
     public const PACK_SIZE = 5;
     public const PACK_PRICE = 5.00;
+    /** Page sizes the Payments page offers; the first is the default. */
+    public const PER_PAGE = [10, 20, 50];
 
     /** @var db */
     private $db;
@@ -68,14 +70,25 @@ class Payments
      * payout fixed at payment (`bookings.commission_*`), and any refund.
      * Bonuses: free picks for a traveller, fee-free days for a guide, each
      * `available | queued | active | used | revoked`.
+     *
+     * The payments are a page of `$perPage` (10, 20 or 50), optionally only
+     * those paid from `$from` up to (not including) `$to` — UNIX times the
+     * client computes from the viewer's own day boundaries. `total` and the
+     * sums (`totals`) cover the whole filtered range, not just the page.
      */
-    public function historyFor(int $userId, string $role): array
+    public function historyFor(int $userId, string $role, ?int $from = null, ?int $to = null, int $page = 1, int $perPage = 10): array
     {
+        $perPage = in_array($perPage, self::PER_PAGE, true) ? $perPage : self::PER_PAGE[0];
+        $range = static function (string $column) use ($from, $to): string {
+            return ($from !== null ? ' AND ' . $column . ' >= FROM_UNIXTIME(' . $from . ')' : '')
+                . ($to !== null ? ' AND ' . $column . ' < FROM_UNIXTIME(' . $to . ')' : '');
+        };
+
         $entries = [];
         if ($role === 'guest') {
             foreach ($this->db->db_GetArray(
                 'SELECT `id`, `amount`, `pack_size`, `status`, UNIX_TIMESTAMP(`created_at`) AS `at`
-                 FROM `payments` WHERE `user_id` = ' . $userId . ' ORDER BY `id` DESC'
+                 FROM `payments` WHERE `user_id` = ' . $userId . $range('`created_at`') . ' ORDER BY `id` DESC'
             ) ?: [] as $p) {
                 $entries[] = [
                     'type' => 'pack',
@@ -98,7 +111,7 @@ class Payments
              FROM `bookings` b
              LEFT JOIN `users` u ON u.`id` = b.`' . $their . '_id`
              WHERE b.`' . ($role === 'guest' ? 'guest' : 'guide') . '_id` = ' . $userId . '
-               AND b.`payment_status` IN ("paid", "refunded")
+               AND b.`payment_status` IN ("paid", "refunded")' . $range('b.`created_at`') . '
              ORDER BY b.`id` DESC'
         ) ?: [] as $b) {
             $refunded = $b['payment_status'] === 'refunded';
@@ -122,6 +135,24 @@ class Payments
             ];
         }
         usort($entries, static fn(array $a, array $b): int => strcmp((string) $b['at'], (string) $a['at']));
+
+        // Sums over the whole range: paid out (guest) or received (guide), and refunded.
+        $totals = ['paid' => 0.0, 'refunded' => 0.0, 'received' => 0.0];
+        foreach ($entries as $e) {
+            if ($e['status'] !== 'failed') {
+                $totals['paid'] += $e['amount'];
+            }
+            $totals['refunded'] += $e['refundAmount'] ?? 0;
+            if (empty($e['refundAmount']) && !empty($e['payout'])) {
+                $totals['received'] += $e['payout'];
+            }
+        }
+        $totals = array_map(static fn(float $v): float => round($v, 2), $totals);
+
+        $total = count($entries);
+        $pages = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $page), $pages);
+        $entries = array_slice($entries, ($page - 1) * $perPage, $perPage);
 
         $kind = $role === 'guest' ? 'free_picks' : 'no_fee';
         $now = time();
@@ -150,7 +181,14 @@ class Payments
              ORDER BY `id` DESC'
         ) ?: []);
 
-        return ['entries' => $entries, 'bonuses' => $bonuses];
+        return [
+            'entries' => $entries,
+            'total' => $total,
+            'page' => $page,
+            'perPage' => $perPage,
+            'totals' => $totals,
+            'bonuses' => $bonuses,
+        ];
     }
 
     /** A UNIX time (or null) as ISO 8601 UTC. */

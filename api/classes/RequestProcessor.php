@@ -165,7 +165,20 @@ class RequestProcessor
                     $picks['freePicksUsed'] = count($this->selections->getDecisionIdsFor($userId)['free']);
                 }
 
-                return [200, ['role' => $role, 'picks' => $picks] + $this->payments->historyFor($userId, $role)];
+                $from = $this->input['from'] ?? null;
+                $to = $this->input['to'] ?? null;
+                if (($from !== null && !is_int($from)) || ($to !== null && !is_int($to))) {
+                    throw new RuntimeException('The date range must be whole UNIX times.');
+                }
+
+                return [200, ['role' => $role, 'picks' => $picks] + $this->payments->historyFor(
+                    $userId,
+                    $role,
+                    $from,
+                    $to,
+                    (int) ($this->input['page'] ?? 1),
+                    (int) ($this->input['perPage'] ?? Payments::PER_PAGE[0])
+                )];
 
             case 'decide':
                 return [200, $this->actionDecide()];

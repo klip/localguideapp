@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import PanelCard from '@/components/PanelCard.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import { t, tn } from '@/i18n'
-import { useApi, type BonusRecord, type PaymentEntry, type PaymentHistory } from '@/plugins/api'
+import {
+  useApi,
+  type BonusRecord,
+  type PaymentEntry,
+  type PaymentHistory,
+  type PaymentHistoryQuery,
+} from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useMatchesStore } from '@/stores/matches'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
@@ -20,6 +27,12 @@ import { reportApiError } from '@/utils/reportApiError'
  *   guide      fees travellers paid, the platform fee and payout, refunds
  *   both       every bonus of the role's kind — ready to start (Start now),
  *              queued, running, ended or withdrawn by the team
+ *
+ * The payments come a page at a time (10 / 20 / 50) and can be narrowed to a
+ * period — today, the past week, month or three months, or a custom range of
+ * days; no period shows everything. Both live in the URL (`?range=month&per=20
+ * &page=2`, `?range=custom&from=2026-10-01&to=2026-10-15`) so a reload or a
+ * shared link keeps them. Ranges are the viewer's own calendar days.
  *
  * The header's picks button leads here from every page but Discover.
  */
@@ -47,29 +60,123 @@ const freeUntil = computed(() => {
   return until && until.getTime() > Date.now() ? until : null
 })
 
-/** Paid in (guest) or received (guide), net of refunds. */
-const totals = computed(() => {
-  let paid = 0
-  let refunded = 0
-  let payout = 0
-  for (const e of history.value?.entries ?? []) {
-    if (e.status !== 'failed') paid += e.amount
-    refunded += e.refundAmount ?? 0
-    if (!e.refundAmount && e.payout) payout += e.payout
+/** Sums over the whole selected period (the server's), not just this page. */
+const totals = computed(() => history.value?.totals ?? { paid: 0, refunded: 0, received: 0 })
+
+// --- Period and paging, kept in the URL ----------------------------------------
+const route = useRoute()
+const router = useRouter()
+
+type Range = '' | 'today' | 'week' | 'month' | 'quarter' | 'custom'
+const RANGES: Range[] = ['', 'today', 'week', 'month', 'quarter', 'custom']
+const PER_PAGE = [10, 20, 50] as const
+
+const one = (q: LocationQuery, key: string) => {
+  const v = q[key]
+  return typeof v === 'string' ? v : ''
+}
+const isDay = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v)
+
+const range = computed<Range>(() => {
+  const r = one(route.query, 'range') as Range
+  return RANGES.includes(r) ? r : ''
+})
+const customFrom = computed(() => (isDay(one(route.query, 'from')) ? one(route.query, 'from') : ''))
+const customTo = computed(() => (isDay(one(route.query, 'to')) ? one(route.query, 'to') : ''))
+const perPage = computed(() => {
+  const n = Number(one(route.query, 'per'))
+  return (PER_PAGE as readonly number[]).includes(n) ? n : PER_PAGE[0]
+})
+const page = computed(() => Math.max(1, Math.floor(Number(one(route.query, 'page')) || 1)))
+const pages = computed(() =>
+  Math.max(1, Math.ceil((history.value?.total ?? 0) / (history.value?.perPage ?? perPage.value))),
+)
+
+/** Midnight at the start of a local day, `days` days after `date`. */
+function startOfDay(date: Date, days = 0) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
+}
+function fromInput(day: string) {
+  const [y, m, d] = day.split('-').map(Number) as [number, number, number]
+  return new Date(y, m - 1, d)
+}
+
+/** The period as UNIX seconds, from its first local midnight up to (not incl.) the day after it. */
+const bounds = computed<{ from?: number; to?: number }>(() => {
+  const now = new Date()
+  const tomorrow = startOfDay(now, 1)
+  const secs = (d: Date) => Math.floor(d.getTime() / 1000)
+  switch (range.value) {
+    case 'today':
+      return { from: secs(startOfDay(now)), to: secs(tomorrow) }
+    case 'week':
+      return { from: secs(startOfDay(now, -6)), to: secs(tomorrow) }
+    case 'month':
+      return {
+        from: secs(new Date(now.getFullYear(), now.getMonth() - 1, now.getDate() + 1)),
+        to: secs(tomorrow),
+      }
+    case 'quarter':
+      return {
+        from: secs(new Date(now.getFullYear(), now.getMonth() - 3, now.getDate() + 1)),
+        to: secs(tomorrow),
+      }
+    case 'custom':
+      return {
+        ...(customFrom.value ? { from: secs(fromInput(customFrom.value)) } : {}),
+        ...(customTo.value ? { to: secs(startOfDay(fromInput(customTo.value), 1)) } : {}),
+      }
+    default:
+      return {}
   }
-  return { paid, refunded, payout }
 })
 
+/** Changes the period or page size (back to page 1), or the page, in the URL. */
+function setQuery(change: Record<string, string | number | null>, keepPage = false) {
+  const query: Record<string, string> = {}
+  for (const [k, v] of Object.entries({ ...route.query, ...change })) {
+    if (typeof v === 'string' && v !== '') query[k] = v
+    else if (typeof v === 'number') query[k] = String(v)
+  }
+  if (!keepPage) delete query.page
+  if (query.range !== 'custom') {
+    delete query.from
+    delete query.to
+  }
+  if (query.per === String(PER_PAGE[0])) delete query.per
+  if (query.page === '1') delete query.page
+  void router.replace({ query })
+}
+
+const historyQuery = computed<PaymentHistoryQuery>(() => ({
+  ...bounds.value,
+  page: page.value,
+  perPage: perPage.value,
+}))
+const firstShown = computed(() =>
+  history.value?.total ? (history.value.page - 1) * history.value.perPage + 1 : 0,
+)
+const lastShown = computed(() =>
+  history.value
+    ? Math.min(history.value.total, firstShown.value + history.value.entries.length - 1)
+    : 0,
+)
+
+let requested = 0
 async function load() {
+  const mine = ++requested
   loading.value = true
   failed.value = false
   try {
-    history.value = await api.paymentHistory()
+    const result = await api.paymentHistory(historyQuery.value)
+    // A slower answer for a period the viewer has already left is dropped.
+    if (mine !== requested) return
+    history.value = result
   } catch (err) {
     failed.value = true
     reportApiError(err, t('payments.page.load_failed'))
   } finally {
-    loading.value = false
+    if (mine === requested) loading.value = false
   }
 }
 
@@ -132,7 +239,7 @@ function bonusState(b: BonusRecord) {
   }
 }
 
-onMounted(load)
+watch(historyQuery, load, { immediate: true, deep: true })
 </script>
 
 <template>
@@ -214,7 +321,55 @@ onMounted(load)
         </PanelCard>
 
         <PanelCard :title="t('payments.history.title')" data-test="history">
-          <p v-if="!history.entries.length" class="tiny muted">{{ t('payments.history.empty') }}</p>
+          <div class="filters" data-test="history-filters">
+            <label>
+              {{ t('payments.filters.range') }}
+              <select
+                :value="range"
+                data-test="range"
+                @change="setQuery({ range: ($event.target as HTMLSelectElement).value })"
+              >
+                <option v-for="r in RANGES" :key="r || 'all'" :value="r">
+                  {{ t(`payments.filters.range_${r || 'all'}`) }}
+                </option>
+              </select>
+            </label>
+            <template v-if="range === 'custom'">
+              <label>
+                {{ t('payments.filters.from') }}
+                <input
+                  type="date"
+                  :value="customFrom"
+                  :max="customTo || undefined"
+                  data-test="custom-from"
+                  @change="setQuery({ from: ($event.target as HTMLInputElement).value })"
+                />
+              </label>
+              <label>
+                {{ t('payments.filters.to') }}
+                <input
+                  type="date"
+                  :value="customTo"
+                  :min="customFrom || undefined"
+                  data-test="custom-to"
+                  @change="setQuery({ to: ($event.target as HTMLInputElement).value })"
+                />
+              </label>
+            </template>
+            <label class="per-page">
+              {{ t('payments.filters.per_page') }}
+              <select
+                :value="perPage"
+                data-test="per-page"
+                @change="setQuery({ per: ($event.target as HTMLSelectElement).value })"
+              >
+                <option v-for="n in PER_PAGE" :key="n" :value="n">{{ n }}</option>
+              </select>
+            </label>
+          </div>
+          <p v-if="!history.entries.length" class="tiny muted" data-test="history-empty">
+            {{ range ? t('payments.history.empty_range') : t('payments.history.empty') }}
+          </p>
           <template v-else>
             <p class="totals tiny" data-test="totals">
               <template v-if="isGuest"
@@ -227,7 +382,9 @@ onMounted(load)
                 ></template
               >
               <template v-else
-                >{{ t('payments.history.total_received', { amount: formatMoney(totals.payout) }) }}
+                >{{
+                  t('payments.history.total_received', { amount: formatMoney(totals.received) })
+                }}
                 <template v-if="totals.refunded">
                   ·
                   {{
@@ -238,7 +395,7 @@ onMounted(load)
                 ></template
               >
             </p>
-            <ul class="rows">
+            <ul class="rows" :aria-busy="loading">
               <li v-for="e in history.entries" :key="`${e.type}-${e.id}`" class="row">
                 <div class="row-main">
                   <strong>
@@ -281,6 +438,41 @@ onMounted(load)
                 </span>
               </li>
             </ul>
+            <nav
+              v-if="history.total > history.perPage"
+              class="pager"
+              :aria-label="t('payments.pager.label')"
+              data-test="pager"
+            >
+              <button
+                type="button"
+                class="secondary outline"
+                :disabled="history.page <= 1 || loading"
+                data-test="prev"
+                @click="setQuery({ page: history.page - 1 }, true)"
+              >
+                <span class="rtl-flip" aria-hidden="true">←</span> {{ t('payments.pager.prev') }}
+              </button>
+              <span class="tiny muted" aria-live="polite" data-test="page-info">
+                {{ t('payments.pager.page', { page: history.page, pages }) }} ·
+                {{
+                  t('payments.pager.showing', {
+                    from: firstShown,
+                    to: lastShown,
+                    total: history.total,
+                  })
+                }}
+              </span>
+              <button
+                type="button"
+                class="secondary outline"
+                :disabled="history.page >= pages || loading"
+                data-test="next"
+                @click="setQuery({ page: history.page + 1 }, true)"
+              >
+                {{ t('payments.pager.next') }} <span class="rtl-flip" aria-hidden="true">→</span>
+              </button>
+            </nav>
           </template>
         </PanelCard>
       </template>
@@ -398,6 +590,59 @@ onMounted(load)
 
 .totals {
   margin: 0 0 0.25rem;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+
+  label {
+    display: grid;
+    gap: 0.2rem;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--pico-muted-color);
+  }
+
+  select,
+  input {
+    width: auto;
+    min-width: 8rem;
+    margin: 0;
+    padding-block: 0.35rem;
+    font-size: 0.9rem;
+  }
+}
+
+.per-page {
+  margin-inline-start: auto !important;
+
+  select {
+    min-width: 5rem;
+  }
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+
+  button {
+    width: auto;
+    margin: 0;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+  }
+}
+
+ul[aria-busy='true'] {
+  opacity: 0.55;
 }
 
 .amount {

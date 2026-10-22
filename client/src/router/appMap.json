@@ -1,5 +1,5 @@
 {
-  "version": "2b576e1d795e",
+  "version": "906e17245e97",
   "routes": [
     {
       "name": "root",
@@ -205,7 +205,13 @@
       "common.modal_dialog",
       "common.terms_dialog"
     ],
-    "home": ["home.hero", "home.how", "home.pricing", "common.phone_preview", "common.price_box"],
+    "home": [
+      "home.hero",
+      "home.how",
+      "home.pricing",
+      "common.phone_preview",
+      "common.price_box"
+    ],
     "register": [
       "register.header",
       "register.form",
@@ -213,7 +219,13 @@
       "register.toast",
       "common.form"
     ],
-    "login": ["login.header", "login.code", "login.form", "login.toast", "common.form"],
+    "login": [
+      "login.header",
+      "login.code",
+      "login.form",
+      "login.toast",
+      "common.form"
+    ],
     "forgot-password": [
       "forgot_password.header",
       "forgot_password.sent",
@@ -403,6 +415,8 @@
       "payments.picks",
       "payments.bonuses",
       "payments.history",
+      "payments.filters",
+      "payments.pager",
       "profile.level",
       "common.booking_time",
       "common.level"
@@ -431,6 +445,8 @@
       "common.standing",
       "common.time_ago"
     ],
-    "not-found": ["not_found.panel"]
+    "not-found": [
+      "not_found.panel"
+    ]
   }
 }

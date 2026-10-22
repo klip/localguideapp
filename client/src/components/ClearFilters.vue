@@ -40,13 +40,14 @@ const { isPristine } = storeToRefs(filtersStore)
   padding: 0;
   border: 0;
   background: none;
-  color: #000;
+  color: rgba(#000,.6);
   font-size: 0.9rem;
   line-height: 1;
   text-decoration: none;
   // The summary is inert on desktop (pointer-events: none); this isn't.
   pointer-events: auto;
   cursor: pointer;
+  &:hover {color: #000;}
 
   svg {
     color: var(--rg-red);
