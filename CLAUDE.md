@@ -58,8 +58,8 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
   out or a trip finishes up to half a minute late — and a page loaded in that
   window still shows the old state.
 - **The guest's position only reaches the server while their app is open**
-  (a web app can't track in the background), so with the guest's app closed
-  the guide's Start is gated by time alone.
+  (a web app can't track in the background); with it closed, the two confirm
+  the meetup instead.
 - **Services share one database** — `users` in particular is read and
   written by both auth and api. The plan for splitting it is in
   `docs/scaling.md`.
@@ -882,7 +882,7 @@ after each step so the page re-fetches.
 | *(none)* | matched, nothing booked | guest: **Pay £X** — meeting date-time + optional trip length (0.5–24 h) + optional meeting place → `payGuideFee` |
 | `pending` | guest paid | guide: **Accept** → `confirmed` (a trip) or **Decline** (optional reason) → `declined`, full refund. Guest: **Withdraw payment** → `withdrawn`, full refund. Still unanswered a day before (and waiting 3 h+) → the guide is reminded (`request_reminder`); 15 minutes before the meeting both are warned (`request_expiring`); at the meeting time `sweep()` declines it and refunds it **in full** — the guest never pays for the guide's silence. The match survives all of these, so the guest can try another time. |
 | `confirmed` | guide accepted | guide: **Cancel booking** → `cancelled`, fee refunded **+5% if late**. Guest: **Request cancellation** (reason required, only before the trip starts) → guide **Approves** → `cancelled`, refund **fee − 5%**; or **Refuses** → booking stands. Guest can withdraw their request. Either cancel dissolves the match on both sides, which returns the guest's pick. |
-| trip `started` | **the guide pressed "Start the trip"** (`bookingAction` op `startTrip`; the guest has no start button) | The button shows for any upcoming trip, **disabled until 15 min before** the meeting (any time with no date) and, when both phones report where they are, **while they're more than 50 m apart** (`Bookings::START_RADIUS_M`) — no explanation shown. Around the start (15 min before → the no-show time) both apps send `tripPresence` every 30 s (position + accuracy, stored per side — `guest_lat/lng/accuracy_m`, `guide_…` — never shown); its answer carries `start_ready` (guide), `poor_gps` and `meetup`. **Poor GPS** (either accuracy worse than 50 m): both see "GPS can't confirm you've met" + **Confirm meetup** (`tripPresence` with `meetup: true`); both confirming unlocks Start. A position older than 3 min, or location off on either side, means no location rule. The server checks again on the press. A guide on a started trip is **hidden from the visitor deck** until `started_at` + its length (or 12 h). |
+| trip `started` | **the guide pressed "Start the trip"** (`bookingAction` op `startTrip`; the guest has no start button) | The button shows for any upcoming trip, **disabled until 15 min before** the meeting (any time with no date), and after that **unlocked only by the server**: when both phones' fresh, precise positions put them **within 50 m** (`Bookings::START_RADIUS_M`), or — when the locations can't tell — once **both confirmed the meetup**. Never by the time alone; no explanation shown. Around the start (15 min before → the no-show time) both apps send `tripPresence` every 30 s (position + accuracy, stored per side — `guest_lat/lng/accuracy_m`, `guide_…` — never shown); its answer carries `start_ready` (guide), `needs_meetup` and `meetup`. **When the locations can't tell** — either side's location off or older than 3 min, or an accuracy worse than 50 m — both see "We can't confirm from your locations that you've met" + **Confirm meetup** (`tripPresence` with `meetup: true`); both confirming unlocks Start. The server checks again on the press. A guide on a started trip is **hidden from the visitor deck** until `started_at` + its length (or 12 h). |
 | **no-show** | a confirmed trip nobody started by its meeting time + length (3 h if none) | `sweep()` cancels it and **refunds the guest in full at once** (`trip_not_started` to both); it moves to Past, the match stays (the guest can pay for another date). |
 | **disputed** | the guest pressed **Cancel trip** on a *started* trip (reason required — `requestCancellation`, never an automatic refund) | guide **Approves** → cancelled, **full refund**; **Refuses**, or doesn't answer within 24 h (`sweep()`) → `disputed_at`: a complaint tied to the booking (`complaints.booking_id`) opens in the CMS Moderation queue, both are told our team decides (`trip_disputed`). Staff resolve it with a refund (CMS → `staffSettleDispute`: > 0 cancels with that refund, 0 lets the trip stand — `trip_dispute_settled`). Nothing finishes a trip with an open cancellation or dispute. |
 | trip `finished` | see below | both can review each other; the guest can **Book again**. |
@@ -907,7 +907,8 @@ after each step so the page re-fetches.
   presses **Mark trip finished** and the other **Confirms** (or says **Not
   yet**, which clears it and tells the asker; the asker can **Undo**). Both
   asking counts as confirming. Before the start the guest's **Request
-  cancellation** (fee − 5%) works until the meeting time; after that an
+  cancellation** (fee − 5%; the fee in pounds is spelled out beside the
+  button and in the form — `cancel_fee_note`) works until the meeting time; after that an
   unstarted trip is a no-show (above).
 - **Free guide** (price 0 or unset — the default): a `confirmed` booking
   opens by itself when the match forms (`Selections::syncActive()` →
@@ -2608,7 +2609,7 @@ is a `503` from the gateway.
 | `trips` | **yes** | `api.trips()` | — | `{ trips: TripRow[] }` (booking `id`, `selection_id, counterpart_id, phase, is_latest, name, image, active, fee_amount, booking_status, payment_status, booking_amount, meeting_at, booking_duration_hours, location, location_pin, refund_amount, trip_status, accepted_at, cancel_reason, cancelled_at, cancel_requested_at, cancel_request_reason, finish_requested_by, finished_at, matched_at, auto_finish, refund_if_cancelled, refund_if_guest_cancels` — newest first) | `Bookings::tripsFor()` |
 | `myCalendar` / `saveCalendar` / `addDayOff` / `removeDayOff` | **yes** (guide mode) | `api.myCalendar(range?)`, `api.saveCalendar(settings)`, `api.addDayOff(exception)`, `api.removeDayOff(id)` | `from?, to?` (local dates, ≤2 months) / `timeZone, slotMinutes, bufferMinutes, defaultTripHours, minNoticeHours, maxDaysAhead, weekly: [{ weekday, start, end }]` / `day, kind: off\|extra, start?, end?, note?` / `id` | `MyCalendar` (`calendar` or null, `suggestedHours`, `bookings`) | `Availability::viewFor()/save()/addException()/removeException()` |
 | `guideCalendar` / `guideStartTimes` | **yes** (guest, matched) | `api.guideCalendar(guideId, month?, hours?)`, `api.guideStartTimes(guideId, day, hours)` | `guideId, month?` (`YYYY-MM`), `durationHours?` / `guideId, day, durationHours` | `{ hasCalendar: false }` or `{ hasCalendar, timeZone, defaultTripHours, slotMinutes, durationHours, month, days }` / `{ …, starts }` (ISO UTC) | `Availability::daysWithTime()/startTimes()` |
-| `tripPresence` | **yes** (either side of a confirmed trip) | `api.tripPresence(payload)` | `targetId, latitude?, longitude?, accuracy?` (m) — or `meetup: true` to confirm the meetup | `TripPresence` (`start_ready` — guide only, `poor_gps`, `meetup: 'me' \| 'them' \| 'both' \| null`) | `Bookings::presence()` / `confirmMeetup()` |
+| `tripPresence` | **yes** (either side of a confirmed trip) | `api.tripPresence(payload)` | `targetId, latitude?, longitude?, accuracy?` (m) — or `meetup: true` to confirm the meetup | `TripPresence` (`start_ready` — guide only, `needs_meetup`, `meetup: 'me' \| 'them' \| 'both' \| null`) | `Bookings::presence()` / `confirmMeetup()` |
 | `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year — **a free time** when the guide has a calendar), `durationHours?` (0.5–24; the guide's usual length by default with a calendar), `location?` (≤160 chars), `latitude?`/`longitude?` (a pin — both numbers or neither) | `Booking` (`status: 'pending'` — waits for the guide; `location_pin`) | `actionPayGuideFee()` → `Bookings::pay()` |
 | `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation), `location?`, `latitude?`/`longitude?` (setLocation: replaces text and pin; neither clears) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/setLocation()/…` |
 | `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
@@ -3142,6 +3143,9 @@ API service (`api/classes/`):
   `dispute_complaint_id`, `complaints.booking_id`; the meetup/dispute text,
   full-refund pending note; drops the old start hints. Applied 2026-10-22.
   Not re-runnable. Test: `trip-start-e2e.php` now has 42 checks.
+- `api/sql/094_translations_cancel_fee_meetup.sql` — `cancel_fee_note`
+  (replaces `request_cancel_note`) and the reworded meetup prompt. Applied
+  2026-10-22. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

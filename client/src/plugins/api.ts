@@ -676,12 +676,13 @@ export interface MatchOverviewRow {
 
 /**
  * `tripPresence`'s answer (see `Bookings::presence()`): whether the guide may
- * press "Start the trip" now (null for the guest), whether GPS is too vague
- * to tell they're together (then both confirm the meetup), and who has.
+ * press "Start the trip" now (null for the guest), whether their locations
+ * can't tell they're together (missing, stale or too vague — then both
+ * confirm the meetup), and who has.
  */
 export interface TripPresence {
   start_ready: boolean | null
-  poor_gps: boolean
+  needs_meetup: boolean
   meetup: 'me' | 'them' | 'both' | null
 }
 

@@ -408,7 +408,7 @@ describe('BookingPanel — starting the trip', () => {
     const api = fakeApi({
       tripPresence: vi
         .fn<Api['tripPresence']>()
-        .mockResolvedValue({ start_ready: false, poor_gps: false, meetup: null }),
+        .mockResolvedValue({ start_ready: false, needs_meetup: false, meetup: null }),
     })
     const wrapper = mountPanel(api, { ...confirmedBooking, meeting_at: utcIn(5) }, false)
     await flushPromises()
@@ -421,18 +421,41 @@ describe('BookingPanel — starting the trip', () => {
     const api = fakeApi({
       tripPresence: vi
         .fn<Api['tripPresence']>()
-        .mockResolvedValueOnce({ start_ready: null, poor_gps: true, meetup: null })
-        .mockResolvedValue({ start_ready: null, poor_gps: true, meetup: 'me' }),
+        .mockResolvedValueOnce({ start_ready: null, needs_meetup: true, meetup: null })
+        .mockResolvedValue({ start_ready: null, needs_meetup: true, meetup: 'me' }),
     })
     const wrapper = mountPanel(api, { ...confirmedBooking, meeting_at: utcIn(5) }, true)
     await flushPromises()
 
     expect(wrapper.find('[data-test="start-trip"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="meetup"]').text()).toContain('GPS can’t confirm')
+    expect(wrapper.find('[data-test="meetup"]').text()).toContain('can’t confirm from your locations')
     await wrapper.find('[data-test="confirm-meetup"]').trigger('click')
     await flushPromises()
     expect(api.tripPresence).toHaveBeenLastCalledWith({ targetId: 7, meetup: true })
     expect(wrapper.find('[data-test="meetup"]').text()).toContain('Waiting for Igor')
+  })
+
+  it('never unlocks Start on time alone: no locations means confirming the meetup', async () => {
+    const api = fakeApi({
+      tripPresence: vi
+        .fn<Api['tripPresence']>()
+        .mockResolvedValue({ start_ready: false, needs_meetup: true, meetup: null }),
+    })
+    const wrapper = mountPanel(api, { ...confirmedBooking, meeting_at: utcIn(5) }, false)
+    await flushPromises()
+    expect(api.tripPresence).toHaveBeenCalledWith({ targetId: 7 })
+    expect(wrapper.find('[data-test="start-trip"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="confirm-meetup"]').exists()).toBe(true)
+  })
+
+  it('spells out the cancellation fee before the trip starts', async () => {
+    const api = fakeApi()
+    const wrapper = mountPanel(api, confirmedBooking, true)
+    expect(wrapper.find('[data-test="cancel-fee"]').text()).toContain(
+      '5% cancellation fee (£2.50). If Igor agrees, you’re refunded £47.50',
+    )
+    await button(wrapper, 'Request cancellation').trigger('click')
+    expect(wrapper.find('form').text()).toContain('5% cancellation fee (£2.50)')
   })
 
   it('lets the guest cancel a started trip, which the guide or our team decides', async () => {

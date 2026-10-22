@@ -182,7 +182,7 @@ try {
     [$s, $b] = api('tripPresence', ['targetId' => $guide, 'latitude' => 38.7100, 'longitude' => -9.1400, 'accuracy' => 8], $guest, 'guest');
     check('the guest’s position is noted', $s === 200 && $b['start_ready'] === null && row($trip)['guest_located_at'] !== null);
     [$s, $b] = api('tripPresence', ['targetId' => $guest, 'latitude' => 38.7110, 'longitude' => -9.1400, 'accuracy' => 8], $guide, 'guide');
-    check('110 m apart: Start stays locked', $s === 200 && $b['start_ready'] === false && $b['poor_gps'] === false);
+    check('110 m apart: Start stays locked', $s === 200 && $b['start_ready'] === false && $b['needs_meetup'] === false);
     [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip', 'latitude' => 38.7110, 'longitude' => -9.1400, 'accuracy' => 8], $guide, 'guide');
     check('starting 110 m apart refused', $s === 400 && str_contains((string) ($b['error'] ?? ''), 'meet up'), (string) ($b['error'] ?? ''));
     [, $b] = api('tripPresence', ['targetId' => $guest, 'latitude' => 38.71036, 'longitude' => -9.1400, 'accuracy' => 8], $guide, 'guide');
@@ -212,7 +212,7 @@ try {
     $vague = booking(['status' => 'confirmed', 'meeting_at' => utc(5 * 60), 'accepted_at' => utc(-86400), 'duration_hours' => '2.0']);
     api('tripPresence', ['targetId' => $guide, 'latitude' => 38.7100, 'longitude' => -9.1400, 'accuracy' => 120], $guest, 'guest');
     [, $b] = api('tripPresence', ['targetId' => $guest, 'latitude' => 38.7110, 'longitude' => -9.1400, 'accuracy' => 10], $guide, 'guide');
-    check('vague GPS: both asked to confirm the meetup', $b['poor_gps'] === true && $b['start_ready'] === false);
+    check('vague GPS: both asked to confirm the meetup', $b['needs_meetup'] === true && $b['start_ready'] === false);
     [, $b] = api('tripPresence', ['targetId' => $guest, 'meetup' => true], $guide, 'guide');
     check('the guide confirms', $b['meetup'] === 'me' && $b['start_ready'] === false);
     [, $b] = api('tripPresence', ['targetId' => $guide, 'meetup' => true], $guest, 'guest');
@@ -251,10 +251,16 @@ try {
     $bookings->sweep();
     check('…and finishes as usual', row($late)['trip_status'] === 'finished');
 
-    // 11. Location off: the time alone unlocks Start.
+    // 11. Location off: never the time alone — both confirm the meetup.
     $plain = booking(['status' => 'confirmed', 'payment_status' => 'none', 'amount' => '0.00', 'meeting_at' => utc(-5 * 60), 'accepted_at' => utc(-86400)]);
+    [, $b] = api('tripPresence', ['targetId' => $guest], $guide, 'guide');
+    check('no locations: both asked to confirm the meetup', $b['needs_meetup'] === true && $b['start_ready'] === false);
     [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip'], $guide, 'guide');
-    check('without positions the guide just starts it', $s === 200 && ($b['trip_status'] ?? '') === 'started');
+    check('…and Start refused until then', $s === 400 && str_contains((string) ($b['error'] ?? ''), 'confirm the meetup'), (string) ($b['error'] ?? ''));
+    api('tripPresence', ['targetId' => $guest, 'meetup' => true], $guide, 'guide');
+    api('tripPresence', ['targetId' => $guide, 'meetup' => true], $guest, 'guest');
+    [$s, $b] = api('bookingAction', ['targetId' => $guest, 'op' => 'startTrip'], $guide, 'guide');
+    check('both confirmed: the guide starts it', $s === 200 && ($b['trip_status'] ?? '') === 'started');
 } finally {
     if ($created) {
         $in = implode(',', $created);

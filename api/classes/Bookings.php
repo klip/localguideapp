@@ -1134,18 +1134,19 @@ BeLikeLocal",
      * its no-show time): the point and the device's accuracy, kept per side
      * and never shown to anyone. Answers with what both apps need:
      *
-     *   start_ready  (guide only) whether "Start the trip" may be pressed now
-     *   poor_gps     both positions are fresh but one is too vague to tell
-     *                they're together — both get "Confirm meetup" instead
-     *   meetup       who has confirmed the meetup: 'me' | 'them' | 'both' | null
+     *   start_ready   (guide only) whether "Start the trip" may be pressed now
+     *   needs_meetup  the locations can't tell they're together (one side's
+     *                 is missing or stale, or too vague) — both confirm the
+     *                 meetup instead; Start never unlocks on time alone
+     *   meetup        who has confirmed the meetup: 'me' | 'them' | 'both' | null
      *
-     * @return array{start_ready: bool|null, poor_gps: bool, meetup: string|null}
+     * @return array{start_ready: bool|null, needs_meetup: bool, meetup: string|null}
      */
     public function presence(int $actingUserId, int $guestId, int $guideId, $latitude, $longitude, $accuracy = null): array
     {
         $booking = $this->openFor($guestId, $guideId);
         if (!$booking || $booking['status'] !== 'confirmed' || $booking['trip_status'] !== 'pending') {
-            return ['start_ready' => null, 'poor_gps' => false, 'meetup' => null];
+            return ['start_ready' => null, 'needs_meetup' => false, 'meetup' => null];
         }
         $pin = self::parsePin($latitude, $longitude);
         $side = $actingUserId === $guestId ? 'guest' : 'guide';
@@ -1186,7 +1187,7 @@ BeLikeLocal",
 
         return [
             'start_ready' => $side === 'guide' ? $this->startBlocked($raw) === null : null,
-            'poor_gps' => $this->gpsState($raw) === 'poor',
+            'needs_meetup' => in_array($this->gpsState($raw), ['unknown', 'poor'], true),
             'meetup' => $mine && $theirs ? 'both' : ($mine ? 'me' : ($theirs ? 'them' : null)),
         ];
     }
@@ -1218,9 +1219,10 @@ BeLikeLocal",
 
     /**
      * Why the guide can't start the trip right now, or null when they can:
-     * not before `START_OPENS_SECONDS` ahead of the meeting; with both
-     * locations known, not while they're more than `START_RADIUS_M` apart —
-     * or, when GPS is too vague to tell, until both confirmed the meetup.
+     * not before `START_OPENS_SECONDS` ahead of the meeting; then only when
+     * both fresh, precise locations put them within `START_RADIUS_M` — or,
+     * when the locations can't tell (missing, stale or too vague), once both
+     * have confirmed the meetup.
      */
     private function startBlocked(array $raw): ?string
     {
@@ -1240,11 +1242,12 @@ BeLikeLocal",
                 $guestName = self::nameOf($this->user((int) $raw['guest_id']), 'your visitor');
 
                 return 'You’re about ' . self::roughMetres($apart) . " from {$guestName} — meet up first.";
-            case 'poor':
-                return $metUp ? null : 'Both of you confirm the meetup first.';
+            case 'together':
+                return null;
         }
 
-        return null;
+        // 'poor' or 'unknown': only the two of them can say they've met.
+        return $metUp ? null : 'Both of you confirm the meetup first.';
     }
 
     /**

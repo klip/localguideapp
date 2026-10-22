@@ -31,9 +31,9 @@ import { reportApiError } from '@/utils/reportApiError'
  *   confirmed       guest: Request cancellation (reason), or Cancel trip if free
  *                   guide: Cancel booking, or Approve / Refuse a guest's request
  *                   guide: Start the trip — enabled from 15 minutes before the
- *                   meeting while, when both phones report where they are,
- *                   they're within 50 m (or both confirmed the meetup when GPS
- *                   is too vague); both apps report it every 30 s meanwhile
+ *                   meeting once both phones put them within 50 m, or, when
+ *                   the locations can't tell (off, stale or too vague), once
+ *                   both confirmed the meetup; both apps report every 30 s
  *                   guest, once started: Cancel trip (a reason) — the guide
  *                   approves (full refund) or our team decides
  *                   both, once started: Mark trip finished → the other side
@@ -112,9 +112,10 @@ const meetingDate = computed(() => utcDate(props.row.meeting_at))
 const meetingPassed = computed(
   () => !!meetingDate.value && now.value >= meetingDate.value.getTime(),
 )
-/** From 15 minutes before the meeting until its no-show time (meeting + length). */
+/** From 15 minutes before the meeting until its no-show time (meeting + length); any time with no date. */
 const aroundStart = computed(() => {
-  if (!notStarted.value || !meetingDate.value) return false
+  if (!notStarted.value) return false
+  if (!meetingDate.value) return true
   const meeting = meetingDate.value.getTime()
   const hours = props.row.booking_duration_hours ?? NO_SHOW_DEFAULT_HOURS
   return now.value >= meeting - START_OPENS_MS && now.value < meeting + hours * 3_600_000
@@ -125,15 +126,17 @@ const showStart = computed(() => !props.isGuest && notStarted.value)
 const { locating, locate } = useCurrentPosition()
 /** The server's last word on starting (`tripPresence`); null until the first answer. */
 const presence = ref<TripPresence | null>(null)
+/** Only the server unlocks it — never the time alone. */
 const startEnabled = computed(
-  () =>
-    showStart.value &&
-    (aroundStart.value || !meetingDate.value) &&
-    presence.value?.start_ready !== false,
+  () => showStart.value && aroundStart.value && presence.value?.start_ready === true,
 )
-/** GPS can't tell they're together: both confirm the meetup instead. */
+/** The locations can't tell they're together: both confirm the meetup instead. */
 const askMeetup = computed(
-  () => aroundStart.value && !!presence.value?.poor_gps && presence.value.meetup !== 'both',
+  () => aroundStart.value && !!presence.value?.needs_meetup && presence.value.meetup !== 'both',
+)
+/** What cancelling before the start costs the guest (the fee minus their refund). */
+const cancelFee = computed(() =>
+  money(Math.max(0, (props.row.booking_amount ?? 0) - (props.row.refund_if_guest_cancels ?? 0))),
 )
 
 const positionFields = (p: DevicePosition | null) =>
@@ -596,15 +599,20 @@ function guideCancel() {
         >
           {{ t('common.booking_panel.keep_my_booking') }}
         </button>
-        <button
-          v-else-if="!started && !meetingPassed && openForm !== 'requestCancel'"
-          type="button"
-          class="soft-btn"
-          :disabled="busy"
-          @click="show('requestCancel')"
-        >
-          {{ t('common.booking_panel.request_cancellation') }}
-        </button>
+        <template v-else-if="!started && !meetingPassed && openForm !== 'requestCancel'">
+          <button type="button" class="soft-btn" :disabled="busy" @click="show('requestCancel')">
+            {{ t('common.booking_panel.request_cancellation') }}
+          </button>
+          <p class="tiny muted fee-note" data-test="cancel-fee">
+            {{
+              t('common.booking_panel.cancel_fee_note', {
+                fee: cancelFee,
+                name,
+                amount: money(row.refund_if_guest_cancels),
+              })
+            }}
+          </p>
+        </template>
         <button
           v-else-if="started && !disputed && openForm !== 'requestCancel'"
           type="button"
@@ -839,12 +847,16 @@ function guideCancel() {
     >
       <p>
         {{
-          t(
-            started
-              ? 'common.booking_panel.request_cancel_note_started'
-              : 'common.booking_panel.request_cancel_note',
-            { name, amount: money(row.refund_if_guest_cancels) },
-          )
+          started
+            ? t('common.booking_panel.request_cancel_note_started', {
+                name,
+                amount: money(row.refund_if_guest_cancels),
+              })
+            : t('common.booking_panel.cancel_fee_note', {
+                fee: cancelFee,
+                name,
+                amount: money(row.refund_if_guest_cancels),
+              })
         }}
       </p>
       <label>
@@ -949,6 +961,11 @@ function guideCancel() {
 </template>
 
 <style scoped lang="scss">
+
+.fee-note {
+  flex-basis: 100%;
+  margin: 0;
+}
 .booking {
   grid-column: 1 / -1;
   min-width: 0;
