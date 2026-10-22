@@ -720,8 +720,10 @@ Discover page's counter is in the header's top row instead — `PicksButton.vue`
   directly on the `nav`'s grid (`grid-template-areas: 'logo lang . role me
   account' / 'links …'`). Add a link once, inside `.drawer > ul.nav`.
 - **Mobile drawer, top to bottom**: logo + ✕, the language switch, the
-  profile (photo, "Profile", "Signed in as …"), the links, the role switch
-  (a little padding below the last link), and Log out at the foot.
+  links, the role switch (a little padding below the last link), then
+  "Signed in as …" just above Log out at the foot. The profile circle isn't
+  in the drawer on mobile: it sits in the bar beside the burger
+  (`.bar-end` > `.bar-profile`); the drawer's `.me` is the desktop one.
 - **Log out is always the drawer's last element** (`AppHeader.spec.ts`
   asserts it): the foot of the mobile drawer, the far right of the desktop
   bar. `.account` carries it — `margin-top: auto` plus `position: sticky;
@@ -766,7 +768,9 @@ sorts every pair into four tabs:
   the `/discover` deck stay consistent within the session.
 - **A pair whose latest booking is `confirmed` isn't on this page at all**
   (`isTrip()`) — upcoming, under way or finished, it's a trip and lives on
-  `/trips`; the toolbar shows "N confirmed trips · My trips". A free guide's
+  `/trips`; the toolbar shows "N trips · My trips", where N is the server's
+  `tripCount` (`Bookings::tripCountFor()`, the same rows My trips lists —
+  every trip, repeat and cancelled ones too), not the number of pairs. A free guide's
   match is confirmed the moment it forms, so it goes straight there. "Book
   again" after a finished trip is on the trip card; the new payment brings
   the pair back here as pending until the guide accepts.
@@ -3145,6 +3149,9 @@ API service (`api/classes/`):
   Not re-runnable. Test: `trip-start-e2e.php` now has 42 checks.
 - `api/sql/094_translations_cancel_fee_meetup.sql` — `cancel_fee_note`
   (replaces `request_cancel_note`) and the reworded meetup prompt. Applied
+  2026-10-22. Re-runnable.
+- `api/sql/095_translations_matches_trip_count.sql` — `matches.toolbar.
+  trips_*` ("{count} trips"), replacing `confirmed_trips_*`. Applied
   2026-10-22. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.

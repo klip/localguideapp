@@ -1355,7 +1355,9 @@ export const api = {
   revokeSelection: (payload: { targetId: number }) =>
     call<SelectionRow>('revokeSelection', payload),
   /** Every pair the caller is part of (matched, pending either way, passed) — see `MatchOverviewRow`. */
-  matchOverview: () => call<{ selections: MatchOverviewRow[] }>('matchOverview'),
+  /** Every pair on the acting side, plus how many trips My trips lists (`tripCount`). */
+  matchOverview: () =>
+    call<{ selections: MatchOverviewRow[]; tripCount?: number }>('matchOverview'),
 
   /** One guest or guide by id, never with contact details — both public profile pages. */
   /** One person's public face as `role` (their guide or traveller side — headline, picks and rating differ). */

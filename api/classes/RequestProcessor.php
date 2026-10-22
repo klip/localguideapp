@@ -161,7 +161,14 @@ class RequestProcessor
                 return [200, $this->actionRevokeSelection()];
 
             case 'matchOverview':
-                return [200, ['selections' => $this->selections->getOverview($this->requireUserId(), $this->actingRole())]];
+                $userId = $this->requireUserId();
+                $role = $this->actingRole();
+
+                return [200, [
+                    'selections' => $this->selections->getOverview($userId, $role),
+                    // The number of trips on My trips, so the link there agrees with it.
+                    'tripCount' => $this->bookings->tripCountFor($userId, $role),
+                ]];
 
             // Confirmed trips — scheduled, current and past (see `Bookings::tripsFor()`).
             case 'trips':

@@ -166,6 +166,7 @@ describe('MatchesPage', () => {
     const api = fakeApi({
       matchOverview: vi.fn<Api['matchOverview']>().mockResolvedValue({
         selections: [matched, unpaid, incoming, awaiting, passed],
+        tripCount: 1,
       }),
     })
     const wrapper = await mountPage(api, 'guide')
@@ -183,7 +184,7 @@ describe('MatchesPage', () => {
     expect(wrapper.text()).not.toContain('Igor')
     expect(wrapper.find('a[href^="mailto:"]').exists()).toBe(false)
     expect(wrapper.find('a[href="/trips"]').text()).toBe('My trips')
-    expect(wrapper.text()).toContain('1 confirmed trip')
+    expect(wrapper.text()).toContain('1 trip ·')
 
     await tab(wrapper, 'Likes you').trigger('click')
     expect(wrapper.text()).toContain('Ana')
@@ -311,14 +312,15 @@ describe('MatchesPage', () => {
     const api = fakeApi({
       matchOverview: vi
         .fn<Api['matchOverview']>()
-        .mockResolvedValue({ selections: [matched, finished] }),
+        // Two pairs, but three trips: the server counts trips as My trips lists them.
+        .mockResolvedValue({ selections: [matched, finished], tripCount: 3 }),
       paymentState: vi.fn<Api['paymentState']>().mockResolvedValue(paymentState(3)),
     })
     const wrapper = await mountPage(api, 'guest')
 
     expect(tab(wrapper, 'Matched').find('.tab-count').text()).toBe('0')
     expect(wrapper.find('.match-list').exists()).toBe(false)
-    expect(wrapper.text()).toContain('2 confirmed trips')
+    expect(wrapper.text()).toContain('3 trips ·')
     expect(wrapper.find('a[href="/trips"]').exists()).toBe(true)
   })
 
@@ -361,6 +363,7 @@ describe('MatchesPage', () => {
       .mockResolvedValueOnce({ selections: [pending] })
       .mockResolvedValueOnce({
         selections: [{ ...pending, booking_status: 'confirmed' }],
+        tripCount: 1,
       })
     const bookingAction = vi
       .fn<Api['bookingAction']>()

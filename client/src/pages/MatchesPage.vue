@@ -90,7 +90,8 @@ const activeTab = computed<Group>(() => {
   return 'matched'
 })
 const visibleRows = computed(() => grouped.value[activeTab.value])
-const tripCount = computed(() => rows.value.filter(isTrip).length)
+/** Every trip My trips lists (the server counts them the same way) — not pairs, which undercounts. */
+const tripCount = ref(0)
 
 /** Server-authoritative for guests (the local `matchesStore` count can drift) — null for guides, who never pay. */
 const selectionsLeft = computed(() => (isGuest.value ? (payment.value?.selectionsLeft ?? 0) : null))
@@ -106,6 +107,7 @@ async function load() {
       isGuest.value ? api.paymentState() : Promise.resolve(null),
     ])
     rows.value = overview.selections
+    tripCount.value = overview.tripCount ?? 0
     payment.value = paymentState
     if (paymentState) matchesStore.applyPaymentState(paymentState)
   } catch (err) {
@@ -253,7 +255,7 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
         </div>
 
         <p v-if="tripCount" class="tiny muted picks-left">
-          {{ tn('matches.toolbar.confirmed_trips', tripCount) }} ·
+          {{ tn('matches.toolbar.trips', tripCount) }} ·
           <RouterLink to="/trips">{{ t('matches.toolbar.my_trips') }}</RouterLink>
         </p>
         <p v-if="selectionsLeft !== null" class="tiny muted picks-left">

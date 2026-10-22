@@ -18,8 +18,7 @@ function testRouter() {
 async function mountHeader(signedIn: boolean, api: Api = fakeApi()) {
   const pinia = createPinia()
   setActivePinia(pinia)
-  if (signedIn)
-    useAuthStore().setUser({ id: 1, email: 'me@example.com', role: 'guide' })
+  if (signedIn) useAuthStore().setUser({ id: 1, email: 'me@example.com', role: 'guide' })
 
   const router = testRouter()
   router.push('/')
@@ -99,6 +98,19 @@ describe('AppHeader mobile menu', () => {
     // The language comes first in the drawer, right after its head.
     expect(signedIn.wrapper.find('.drawer-head + .language').exists()).toBe(true)
     signedIn.wrapper.unmount()
+  })
+
+  it('puts the profile circle in the bar beside the burger, and "Signed in as" just above Log out', async () => {
+    const { wrapper } = await mountHeader(true)
+    await flushPromises()
+    const barEnd = wrapper.get('.bar-end')
+    expect(barEnd.get('[data-test="bar-profile"]').attributes('href')).toBe('/profile')
+    expect(barEnd.find('.burger').exists()).toBe(true)
+    const account = wrapper.get('.drawer > .account')
+    // The column runs bottom-up on mobile, so the line after Log out shows above it.
+    expect(account.element.lastElementChild?.getAttribute('data-test')).toBe('signed-in-as')
+    expect(account.get('[data-test="signed-in-as"]').text()).toContain('Signed in as')
+    wrapper.unmount()
   })
 
   it('shows the profile circle with the photo, or the initial without one', async () => {

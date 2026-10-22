@@ -1510,6 +1510,21 @@ BeLikeLocal",
         return $rows;
     }
 
+    /** How many rows `tripsFor()` lists — every booking that was ever a trip, on the acting side. */
+    public function tripCountFor(int $userId, ?string $role): int
+    {
+        if ($role !== 'guest' && $role !== 'guide') {
+            return 0;
+        }
+
+        return (int) $this->db->db_GetFieldFromQuery(
+            'SELECT COUNT(*) AS `n` FROM `bookings`
+             WHERE `' . $role . '_id` = ' . $userId . '
+               AND `accepted_at` IS NOT NULL AND `status` IN ("confirmed", "cancelled")',
+            'n'
+        );
+    }
+
     // ---------------------------------------------------------------- money
 
     /**

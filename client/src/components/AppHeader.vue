@@ -193,32 +193,48 @@ onBeforeUnmount(() => {
         <!-- A traveller's picks counter on Discover, in the middle of the bar. -->
         <PicksButton class="picks" />
 
-        <button
-          ref="burgerRef"
-          type="button"
-          class="burger"
-          aria-controls="site-menu"
-          :aria-expanded="menuOpen"
-          :aria-label="t('common.app_header.open_menu')"
-          @click="openMenu"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="22"
-            height="22"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            aria-hidden="true"
+        <!-- Mobile: the profile circle sits in the bar, beside the burger. -->
+        <div class="bar-end">
+          <RouterLink
+            v-if="user"
+            to="/profile"
+            class="bar-profile"
+            :title="t('common.app_header.profile')"
+            :aria-label="t('common.app_header.profile')"
+            data-test="bar-profile"
           >
-            <line x1="4" y1="7" x2="20" y2="7" />
-            <line x1="4" y1="12" x2="20" y2="12" />
-            <line x1="4" y1="17" x2="20" y2="17" />
-          </svg>
-          <!-- The counters live inside the drawer; the dot says there's something to open it for. -->
-          <span v-if="hasNews" class="burger-dot" aria-hidden="true" />
-        </button>
+            <span class="avatar" aria-hidden="true">
+              <img v-if="avatarImage" :src="avatarImage" alt="" />
+              <template v-else>{{ initial }}</template>
+            </span>
+          </RouterLink>
+          <button
+            ref="burgerRef"
+            type="button"
+            class="burger"
+            aria-controls="site-menu"
+            :aria-expanded="menuOpen"
+            :aria-label="t('common.app_header.open_menu')"
+            @click="openMenu"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <line x1="4" y1="7" x2="20" y2="7" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="17" x2="20" y2="17" />
+            </svg>
+            <!-- The counters live inside the drawer; the dot says there's something to open it for. -->
+            <span v-if="hasNews" class="burger-dot" aria-hidden="true" />
+          </button>
+        </div>
 
         <!--
           Desktop: the drawer's parts are laid out on the header's grid —
@@ -260,22 +276,18 @@ onBeforeUnmount(() => {
 
           <div class="language"><LanguageSwitcher /></div>
 
+          <!-- Desktop only; on mobile the circle is in the bar (.bar-profile). -->
           <RouterLink
             v-if="user"
             to="/profile"
             class="me"
             :title="t('common.app_header.profile')"
+            :aria-label="t('common.app_header.profile')"
             data-test="nav-profile"
           >
             <span class="avatar" aria-hidden="true">
               <img v-if="avatarImage" :src="avatarImage" alt="" />
               <template v-else>{{ initial }}</template>
-            </span>
-            <span class="me-text">
-              <strong class="me-label">{{ t('common.app_header.profile') }}</strong>
-              <span class="me-name tiny muted">{{
-                t('common.app_header.signed_in_as', { name: user.name || user.email })
-              }}</span>
             </span>
           </RouterLink>
 
@@ -414,6 +426,10 @@ onBeforeUnmount(() => {
               </svg>
               {{ t('common.app_header.log_out') }}
             </button>
+            <!-- Mobile: just above Log out (the column runs bottom-up). -->
+            <p v-if="user" class="signed-in tiny muted" data-test="signed-in-as">
+              {{ t('common.app_header.signed_in_as', { name: user.name || user.email }) }}
+            </p>
             <template v-else>
               <RouterLink to="/login" class="login-link">{{
                 t('common.app_header.log_in')
@@ -567,13 +583,26 @@ nav .nav {
   box-shadow: 0 0 0 2px var(--rg-orange-300);
 }
 
-.me-text {
+.bar-end {
   display: flex;
-  flex-direction: column;
-  min-width: 0;
+  align-items: center;
+  gap: 0.6rem;
 }
 
-.me-name {
+.bar-profile {
+  display: inline-flex;
+  text-decoration: none;
+
+  &:hover .avatar,
+  &:focus-visible .avatar,
+  &.router-link-active .avatar {
+    box-shadow: 0 0 0 2px var(--rg-orange-300);
+  }
+}
+
+.signed-in {
+  margin: 0;
+  text-align: center;
   overflow-wrap: anywhere;
 }
 
@@ -748,9 +777,9 @@ nav .nav {
   }
 }
 
+// The drawer's profile circle is the desktop one; mobile has it in the bar.
 .me {
-  padding: 0.6rem 0.25rem;
-  border-bottom: 1px solid var(--rg-line);
+  display: none;
 }
 
 nav .nav {
@@ -857,9 +886,9 @@ nav .nav {
     justify-self: center;
   }
 
-  .burger,
+  .bar-end,
   .drawer-head,
-  .me-text,
+  .signed-in,
   .backdrop {
     display: none;
   }
@@ -889,6 +918,7 @@ nav .nav {
   }
 
   .me {
+    display: flex;
     grid-area: me;
     padding: 0;
     border: 0;
