@@ -167,7 +167,7 @@ Pico ships a fix (2.1.1 is the latest as of 2026-10-22).
 
 - `src/pages/` — one component per route (Home, Register, Login, Unlock,
   Discover, GuideProfile, VisitorProfile, GuideDiscover,
-  Matches, Trips, Planner, Calendar, Profile, ForgotPassword, ResetPassword, NotFound).
+  Matches, Trips, Planner, Calendar, Payments, Profile, ForgotPassword, ResetPassword, NotFound).
 - `src/router/` — **the routes come from the database, managed in the
   CMS** (see "Routes" under CMS): `appMap.ts` turns the `appMap` action's
   routes into router records (`installAppMap()`, done in `main.ts` before
@@ -265,12 +265,14 @@ path/name table) and the shared `src/components/` each is built from:
   there at one pill's height and fully transparent (no border, padding or
   background), so picking a filter never moves the page. The **picks
   counter** is in the header instead (`PicksButton.vue`, centred in the top
-  row on desktop, between logo and burger on mobile; `/discover`, signed-in
-  traveller only): Pico's secondary outline button with a check-box icon and
+  row on desktop, between logo and burger on mobile; **every page**, signed-in
+  traveller mode): Pico's secondary outline button with a check-box icon and
   "2/10 left" (`common.picks_button.*`; "Free picks on" during a bonus, its
-  end date as the tooltip; "Get picks" before the first pack). It sets
-  `matchesStore.addPicksOpen`, which opens the page's add-picks dialog (the
-  pay modal — a first pack or a top-up). The Filters heading on both decks
+  end date and the picks left after it as the tooltip; "Get picks" before the
+  first pack). On Discover it sets `matchesStore.addPicksOpen`, which opens
+  the page's add-picks dialog (the pay modal — a first pack or a top-up);
+  anywhere else it goes to `/payments`. Matches no longer has its own
+  "N selections left" line. The Filters heading on both decks
   has **"clear ×"** (`ClearFilters.vue`) while any filter is set — it replaced
   the panel's old full-width Clear filters button; the panel is white. The
   deck header is "Guides for you" with "Near {place}" right-aligned on the
@@ -320,6 +322,17 @@ path/name table) and the shared `src/components/` each is built from:
   editor (see "Self-service profile editing" below); `PanelCard` × 2,
   `AttributeCombobox` (the phone country-code field, and the whole dynamic
   category/option picker), `ImageCropper` (photo).
+- **`PaymentsPage.vue`** (`/payments`, either role, "Payments" in the menu
+  with a wallet icon) — `paymentHistory` (`Payments::historyFor()`, for the
+  acting role). Traveller: picks bought / used / left, the free-picks period
+  and how many picks it covered, Buy → `/unlock`; pack purchases and the
+  guide fees paid, with refunds and totals. Guide: fees travellers paid, the
+  platform fee and payout per booking, refunds. Both: every bonus of the
+  role's kind — ready (Start now → `claimBonus`), queued, running, ended or
+  withdrawn by the team. Bonus reasons come from `utils/bonusReason.ts`
+  (shared with `LevelPanel`; its own module so only these two pages need the
+  `profile.level` text). Dates here are ISO 8601 — parse with `new Date()`,
+  not `utcDate()`, which expects the bookings' `YYYY-MM-DD HH:MM:SS`.
 - **`NotFoundPage.vue`** (catch-all `/:pathMatch(.*)*`) — a single
   `PanelCard`.
 
@@ -698,8 +711,8 @@ is two rows.** Top: logo and language switch on the left; on the right the
 role switch, the **profile circle** (the user's photo, else their initial,
 linking to `/profile` — there's no "Profile" menu item) and Log out (signed
 out: Log in + Get started). Below: the menu links — How it works (signed out), Discover, Trip planner
-(traveller), Calendar (guide), Matches, My trips, Messages — each with a line icon
-(`NavIcon.vue`: bulb, compass, map, calendar, handshake, suitcase, speech bubble; give a
+(traveller), Calendar (guide), Matches, My trips, Payments, Messages — each with a line icon
+(`NavIcon.vue`: bulb, compass, map, calendar, handshake, suitcase, wallet, speech bubble; give a
 new link one too) — black, 0.9rem; the active one has
 a 4px underline and a 1px white text shadow (in the mobile drawer it's bold
 instead). There's no picks counter in the header any more (the
@@ -2607,6 +2620,7 @@ is a `503` from the gateway.
 | `changePassword` | **yes** | `api.changePassword(payload)` | `currentPassword, newPassword` | `{ ok: true }` | `actionChangePassword()` → `Users::verifyPasswordFor()`/`setPassword()` |
 | `unlockPack` | **yes** (guest only) | `api.unlockPack()` | — | `PaymentState` (`packsUnlocked, capacity, picksUsed, selectionsLeft, pickedIds, passedIds, freePickIds, packSize, freePicksUntil`) — the pack holds `Levels::picksPerPack()` picks | `actionUnlockPack()` → `Payments::recordPackPurchase()` |
 | `paymentState` | **yes** | `api.paymentState()` | — | `PaymentState` | `paymentStateFor()` |
+| `paymentHistory` | **yes** | `api.paymentHistory()` | — | `PaymentHistory` (`role`; `picks` — a traveller's `PaymentState` counts + `freePicksUsed`, null for a guide; `entries` — packs and bookings newest first, a guide's with `commissionAmount/Rate`, `payout`; `bonuses` — every grant of the role's kind with `state` incl. `revoked`) | `paymentStateFor()`, `Payments::historyFor()` |
 | `decide` | **yes** | `api.decide(payload)` | `targetId, decision` (`'interested' \| 'pass'`) | `SelectionRow` (`id, guest_id, guide_id, guest_decision, guide_decision, active, created_at, updated_at`) | `Selections::decide()` |
 | `revokeSelection` | **yes** | `api.revokeSelection(payload)` | `targetId` | `SelectionRow` | `Selections::revoke()` |
 | `matchOverview` | **yes** | `api.matchOverview()` | — | `{ selections: MatchOverviewRow[] }` (`id, counterpart_id, my_decision, their_decision, active, matched_at, updated_at, name, image, age, headline, price_label, party, duration_hours, fee_amount, booking_id, booking_status, payment_status, booking_amount, meeting_at, location, location_pin, refund_amount, trip_status, refund_if_cancelled` — a pass from the other side reads as `null`; `email`/`phone` are `null` unless active **and** booked) | `Selections::getOverview()` |
@@ -3152,6 +3166,10 @@ API service (`api/classes/`):
   2026-10-22. Re-runnable.
 - `api/sql/095_translations_matches_trip_count.sql` — `matches.toolbar.
   trips_*` ("{count} trips"), replacing `confirmed_trips_*`. Applied
+  2026-10-22. Re-runnable.
+- `api/sql/096_payments_page.sql` — the `payments` route (signed in) and its
+  text blocks, the page's text and the "Payments" menu link in 15 languages;
+  drops `matches.toolbar.selections_left_*` and `unlock_more`. Applied
   2026-10-22. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.

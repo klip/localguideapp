@@ -336,6 +336,11 @@ onBeforeUnmount(() => {
               </RouterLink>
             </li>
             <li v-if="isAuthenticated">
+              <RouterLink to="/payments" class="nav-link" data-test="nav-payments"
+                ><NavIcon name="wallet" />{{ t('common.app_header.payments') }}</RouterLink
+              >
+            </li>
+            <li v-if="isAuthenticated">
               <RouterLink to="/messages" class="nav-link nav-link--counted">
                 <NavIcon name="messages" />{{ t('common.app_header.messages')
                 }}<span v-if="unreadMessages" class="nav-count" data-test="messages-count"

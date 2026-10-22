@@ -95,7 +95,12 @@ const tripCount = ref(0)
 
 /** Server-authoritative for guests (the local `matchesStore` count can drift) — null for guides, who never pay. */
 const selectionsLeft = computed(() => (isGuest.value ? (payment.value?.selectionsLeft ?? 0) : null))
-const outOfPicks = computed(() => selectionsLeft.value === 0)
+/** No bought picks left and no free-picks period running — Accept/Reconsider become "Unlock…". */
+const outOfPicks = computed(() => {
+  if (selectionsLeft.value !== 0) return false
+  const until = payment.value?.freePicksUntil
+  return !(until && new Date(until).getTime() > Date.now())
+})
 
 async function load() {
   if (!auth.user) return
@@ -257,10 +262,6 @@ const deckLink = computed(() => (isGuest.value ? '/discover' : '/guide/discover'
         <p v-if="tripCount" class="tiny muted picks-left">
           {{ tn('matches.toolbar.trips', tripCount) }} ·
           <RouterLink to="/trips">{{ t('matches.toolbar.my_trips') }}</RouterLink>
-        </p>
-        <p v-if="selectionsLeft !== null" class="tiny muted picks-left">
-          {{ tn('matches.toolbar.selections_left', selectionsLeft) }} ·
-          <RouterLink to="/unlock">{{ t('matches.toolbar.unlock_more') }}</RouterLink>
         </p>
       </div>
 

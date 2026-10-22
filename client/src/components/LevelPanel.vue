@@ -4,6 +4,7 @@ import { t, tn } from '@/i18n'
 import { useApi, type BonusGrant, type LevelState } from '@/plugins/api'
 import { useMatchesStore } from '@/stores/matches'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
+import { bonusReason as reasonText } from '@/utils/bonusReason'
 import { levelLabel, percent } from '@/utils/levels'
 import { reportApiError } from '@/utils/reportApiError'
 
@@ -117,13 +118,7 @@ function bonusTitle(bonus: BonusGrant) {
 }
 
 function bonusReason(bonus: BonusGrant) {
-  // Level grants carry the role since 054 (`guide_level_4`).
-  const [kind, n] = bonus.reason.replace(/^(guest|guide)_/, '').split('_')
-  if (kind === 'level') return t('profile.level.reason_level', { level: levelLabel(Number(n)) })
-  if (kind === 'reviews') return t('profile.level.reason_reviews', { count: Number(n) })
-  // Granted by the team in the CMS (`staff_<id>`).
-  if (kind === 'staff') return t('profile.level.reason_staff')
-  return ''
+  return reasonText(bonus.reason)
 }
 
 onMounted(() => {

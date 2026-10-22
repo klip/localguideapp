@@ -262,9 +262,15 @@ describe('DiscoverPage', () => {
     await button.trigger('click')
     expect(useMatchesStore().addPicksOpen).toBe(true)
 
+    // Every page shows it now; off Discover it leads to Payments instead of the dialog.
+    useMatchesStore().addPicksOpen = false
     await router.push('/matches')
     await flushPromises()
-    expect(button.find('[data-test="picks-button"]').exists()).toBe(false)
+    expect(button.find('[data-test="picks-button"]').exists()).toBe(true)
+    const push = vi.spyOn(router, 'push').mockResolvedValue(undefined)
+    await button.trigger('click')
+    expect(useMatchesStore().addPicksOpen).toBe(false)
+    expect(push).toHaveBeenCalledWith('/payments')
   })
 
   it('goes straight to matching for a guest who already has a pack', async () => {

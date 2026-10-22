@@ -1,27 +1,32 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { t } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useMatchesStore } from '@/stores/matches'
 
 /**
- * The traveller's picks counter, in the middle of the header on the
- * Discover page: a check-box icon and "2/10 left" — "Free picks on" during
- * a free-picks bonus (its end date as the tooltip), "Get picks" before the
- * first pack. It opens the add-picks dialog (`matchesStore.addPicksOpen`,
- * which `DiscoverPage.vue` shows — a first pack or a top-up).
+ * The traveller's picks counter, in the middle of the header on every page
+ * in traveller mode: a check-box icon and "2/10 left" — "Free picks on"
+ * during a free-picks bonus (its end date and the picks left after it in
+ * the tooltip), "Get picks" before the first pack. On Discover it opens the
+ * add-picks dialog (`matchesStore.addPicksOpen`, which `DiscoverPage.vue`
+ * shows); anywhere else it goes to Payments, which has the whole picture.
  */
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const matchesStore = useMatchesStore()
 const { hasAccess, selectionsLeft, capacity, freePicksActive, freePicksUntil } =
   storeToRefs(matchesStore)
 
-const shown = computed(
-  () => auth.isAuthenticated && auth.activeRole === 'guest' && route.name === 'discover',
-)
+const shown = computed(() => auth.isAuthenticated && auth.activeRole === 'guest')
+
+function open() {
+  if (route.name === 'discover') matchesStore.addPicksOpen = true
+  else void router.push('/payments')
+}
 
 const text = computed(() => {
   if (freePicksActive.value) return t('common.picks_button.free_on')
@@ -32,14 +37,14 @@ const text = computed(() => {
 
 const title = computed(() =>
   freePicksActive.value && freePicksUntil.value
-    ? t('common.picks_button.free_until', {
+    ? `${t('common.picks_button.free_until', {
         date: new Intl.DateTimeFormat(undefined, {
           day: 'numeric',
           month: 'short',
           hour: '2-digit',
           minute: '2-digit',
         }).format(new Date(freePicksUntil.value)),
-      })
+      })} · ${t('common.picks_button.left', { left: selectionsLeft.value, capacity: capacity.value })}`
     : t('common.picks_button.add'),
 )
 </script>
@@ -52,7 +57,7 @@ const title = computed(() =>
     data-test="picks-button"
     :title="title"
     :aria-label="`${text} — ${t('common.picks_button.add')}`"
-    @click="matchesStore.addPicksOpen = true"
+    @click="open"
   >
     <svg
       viewBox="0 0 24 24"

@@ -154,6 +154,19 @@ class RequestProcessor
             case 'paymentState':
                 return [200, $this->actionPaymentState()];
 
+            // The Payments page: picks (travellers), money in and out, bonuses past and present.
+            case 'paymentHistory':
+                $userId = $this->requireUserId();
+                $role = $this->actingRole();
+                $picks = null;
+                if ($role === 'guest') {
+                    $picks = $this->paymentStateFor($userId);
+                    unset($picks['pickedIds'], $picks['passedIds'], $picks['freePickIds']);
+                    $picks['freePicksUsed'] = count($this->selections->getDecisionIdsFor($userId)['free']);
+                }
+
+                return [200, ['role' => $role, 'picks' => $picks] + $this->payments->historyFor($userId, $role)];
+
             case 'decide':
                 return [200, $this->actionDecide()];
 

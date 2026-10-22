@@ -255,7 +255,8 @@ describe('MatchesPage', () => {
     })
     const wrapper = await mountPage(api, 'guest')
 
-    expect(wrapper.text()).toContain('3 selections left')
+    // The picks count lives in the header's picks button now, not on this page.
+    expect(wrapper.text()).not.toContain('selections left')
     await button(wrapper, 'Accept').trigger('click')
     await flushPromises()
 

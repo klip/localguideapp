@@ -1,5 +1,5 @@
 {
-  "version": "86dfadbc973c",
+  "version": "2b576e1d795e",
   "routes": [
     {
       "name": "root",
@@ -164,6 +164,15 @@
       "role": null
     },
     {
+      "name": "payments",
+      "path": "/payments",
+      "component": "PaymentsPage",
+      "redirect": null,
+      "props": false,
+      "access": "signed_in",
+      "role": null
+    },
+    {
       "name": "profile",
       "path": "/profile",
       "component": "ProfilePage",
@@ -196,13 +205,7 @@
       "common.modal_dialog",
       "common.terms_dialog"
     ],
-    "home": [
-      "home.hero",
-      "home.how",
-      "home.pricing",
-      "common.phone_preview",
-      "common.price_box"
-    ],
+    "home": ["home.hero", "home.how", "home.pricing", "common.phone_preview", "common.price_box"],
     "register": [
       "register.header",
       "register.form",
@@ -210,13 +213,7 @@
       "register.toast",
       "common.form"
     ],
-    "login": [
-      "login.header",
-      "login.code",
-      "login.form",
-      "login.toast",
-      "common.form"
-    ],
+    "login": ["login.header", "login.code", "login.form", "login.toast", "common.form"],
     "forgot-password": [
       "forgot_password.header",
       "forgot_password.sent",
@@ -401,6 +398,15 @@
       "common.standing",
       "common.time_ago"
     ],
+    "payments": [
+      "payments.page",
+      "payments.picks",
+      "payments.bonuses",
+      "payments.history",
+      "profile.level",
+      "common.booking_time",
+      "common.level"
+    ],
     "profile": [
       "profile.header",
       "profile.add_role",
@@ -425,8 +431,6 @@
       "common.standing",
       "common.time_ago"
     ],
-    "not-found": [
-      "not_found.panel"
-    ]
+    "not-found": ["not_found.panel"]
   }
 }

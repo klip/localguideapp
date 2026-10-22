@@ -11,6 +11,7 @@ export type NavIconName =
   | 'matches'
   | 'trips'
   | 'messages'
+  | 'wallet'
 
 defineProps<{ name: NavIconName }>()
 </script>
@@ -47,6 +48,12 @@ defineProps<{ name: NavIconName }>()
       <path d="M2.5 6.5v14l6-3 7 3 6-3v-14l-6 3-7-3z" />
       <path d="M8.5 3.5v14" />
       <path d="M15.5 6.5v14" />
+    </template>
+    <!-- Payments: a wallet. -->
+    <template v-else-if="name === 'wallet'">
+      <path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v3" />
+      <path d="M3 6v12a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-3" />
+      <path d="M21 12v4h-4a2 2 0 0 1 0-4z" />
     </template>
     <!-- Calendar: a page of a calendar with a tick. -->
     <template v-else-if="name === 'calendar'">

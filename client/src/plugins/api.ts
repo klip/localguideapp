@@ -833,6 +833,50 @@ export interface SubmitReviewPayload {
  * already replaced by `[•••]`. Times are ISO 8601 UTC.
  */
 /** One bonus package (`bonus_grants`): earned, then claimed by the user. */
+/** One line of the Payments page (`paymentHistory`): a pack bought, or a guide's fee paid (guest) or received (guide). */
+export interface PaymentEntry {
+  type: 'pack' | 'booking'
+  id: number
+  /** When it was paid — ISO 8601 UTC. */
+  at: string | null
+  amount: number
+  /** pack: `paid | refunded | …`; booking: the booking's status. */
+  status: string
+  packSize?: number
+  tripStatus?: 'pending' | 'started' | 'finished'
+  meetingAt?: string | null
+  counterpart?: { id: number; name: string } | null
+  refundAmount?: number | null
+  refundedAt?: string | null
+  /** Guide side only: the platform fee and what they receive. */
+  commissionAmount?: number | null
+  commissionRate?: number | null
+  payout?: number | null
+}
+
+/** A bonus on the Payments page — like `BonusGrant`, plus withdrawn ones and when it was granted. */
+export interface BonusRecord {
+  id: number
+  kind: 'free_picks' | 'no_fee'
+  days: number
+  reason: string
+  state: 'available' | 'queued' | 'active' | 'used' | 'revoked'
+  grantedAt: string | null
+  startsAt: string | null
+  endsAt: string | null
+  revokedAt: string | null
+}
+
+/** `paymentHistory`: the acting side's picks (travellers), money in and out, and bonuses. */
+export interface PaymentHistory {
+  role: 'guest' | 'guide'
+  picks:
+    | (Omit<PaymentState, 'pickedIds' | 'passedIds' | 'freePickIds'> & { freePicksUsed: number })
+    | null
+  entries: PaymentEntry[]
+  bonuses: BonusRecord[]
+}
+
 export interface BonusGrant {
   id: number
   /** `free_picks` (guests): unlimited picks; `no_fee` (guides): no platform fee. */
@@ -1291,6 +1335,8 @@ export const api = {
 
   unlockPack: () => call<PaymentState>('unlockPack'),
   paymentState: () => call<PaymentState>('paymentState'),
+  /** The Payments page: picks, payments and refunds, bonuses past and present — for the acting role. */
+  paymentHistory: () => call<PaymentHistory>('paymentHistory'),
   /** Guest pays a matched guide's fee; `meetingAt` is an ISO date-time, `durationHours` and `location` optional. The booking then waits for the guide to accept. */
   /** The acting guide's calendar, and their bookings from `from` to `to` (local dates). */
   myCalendar: (range: { from?: string; to?: string } = {}) => call<MyCalendar>('myCalendar', range),
