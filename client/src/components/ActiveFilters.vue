@@ -115,7 +115,7 @@ const pills = computed<Pill[]>(() => {
   padding: 0.25rem 0.35rem 0.25rem 0.7rem;
   border: 1px solid var(--rg-orange-200);
   border-radius: 999px;
-  background: var(--rg-orange-50);
+  background: #fff;
   color: var(--rg-orange-ink);
   font-size: 0.8rem;
   font-weight: 600;

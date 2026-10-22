@@ -33,18 +33,23 @@ const { isPristine } = storeToRefs(filtersStore)
 .clear-filters {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  align-self: center;
+  gap: 0.3rem;
   width: auto;
   margin: 0 0 0 auto;
   padding: 0;
   border: 0;
   background: none;
-  color: var(--pico-primary);
-  font-size: 0.95rem;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  color: #000;
+  font-size: 0.9rem;
+  line-height: 1;
+  text-decoration: none;
   // The summary is inert on desktop (pointer-events: none); this isn't.
   pointer-events: auto;
   cursor: pointer;
+
+  svg {
+    color: var(--rg-red);
+  }
 }
 </style>
