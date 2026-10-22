@@ -536,6 +536,7 @@ export type BookingOp =
   | 'withdrawCancellation'
   | 'approveCancellation'
   | 'refuseCancellation'
+  | 'startTrip'
   | 'requestFinish'
   | 'confirmFinish'
   | 'dismissFinish'
@@ -665,8 +666,12 @@ export interface MatchOverviewRow {
   /** Who asked to mark the trip finished, from the caller's point of view. */
   finish_requested_by: 'me' | 'them' | null
   finished_at: string | null
-  /** The trip finishes on its own — meeting time and trip length are both known. */
+  /** The trip finishes on its own — it has started and its length is known. */
   auto_finish: boolean
+  /** When both sides confirmed the start (`startTrip`); null until then. */
+  started_at?: string | null
+  /** Before the start: who has confirmed it so far, from the caller's point of view. */
+  start_confirmed_by?: 'me' | 'them' | null
 }
 
 /**
@@ -693,6 +698,8 @@ export type BookingView = Pick<
   | 'cancel_request_reason'
   | 'finish_requested_by'
   | 'auto_finish'
+  | 'started_at'
+  | 'start_confirmed_by'
   | 'commission_rate'
   | 'guide_payout'
 >
@@ -1303,7 +1310,10 @@ export const api = {
     targetId: number
     op: BookingOp
     reason?: string
-    /** `setLocation` replaces the text and the pin together; send neither to clear both. */
+    /**
+     * `setLocation` replaces the text and the pin together; send neither to
+     * clear both. `startTrip` sends where the device is, when it can tell.
+     */
     location?: string
     latitude?: number
     longitude?: number

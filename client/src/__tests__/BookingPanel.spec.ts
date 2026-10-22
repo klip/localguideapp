@@ -103,6 +103,12 @@ const confirmedBooking: Partial<MatchOverviewRow> = {
   refund_if_guest_cancels: 47.5,
 }
 
+const startedTrip: Partial<MatchOverviewRow> = {
+  ...confirmedBooking,
+  trip_status: 'started',
+  started_at: '2030-01-02 10:00:00',
+}
+
 function mountPanel(api: Api, props: Partial<MatchOverviewRow>, isGuest: boolean) {
   setActivePinia(createPinia())
   return mount(BookingPanel, {
@@ -339,11 +345,89 @@ describe('BookingPanel — payout alongside other notes', () => {
   })
 })
 
+/** A UTC `YYYY-MM-DD HH:MM:SS` string `minutes` from now. */
+function utcIn(minutes: number) {
+  return new Date(Date.now() + minutes * 60_000).toISOString().slice(0, 19).replace('T', ' ')
+}
+
+describe('BookingPanel — starting the trip', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, 'geolocation')
+    vi.unstubAllGlobals()
+  })
+
+  it('says when "Start the trip" opens, and offers no button before then', () => {
+    const wrapper = mountPanel(fakeApi(), { ...confirmedBooking, meeting_at: utcIn(120) }, true)
+    expect(wrapper.find('[data-test="start-opens"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="start-trip"]').exists()).toBe(false)
+  })
+
+  it('sends where the device is when location is on', async () => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: vi.fn<Geolocation['getCurrentPosition']>((success) =>
+          success({
+            coords: { latitude: 36.1408, longitude: -5.3536, accuracy: 8 },
+          } as GeolocationPosition),
+        ),
+      },
+    })
+    vi.stubGlobal('isSecureContext', true)
+    const api = fakeApi()
+    const wrapper = mountPanel(api, { ...confirmedBooking, meeting_at: utcIn(20) }, true)
+
+    expect(wrapper.text()).toContain('within 20 m of each other')
+    await wrapper.find('[data-test="start-trip"]').trigger('click')
+    await flushPromises()
+    expect(api.bookingAction).toHaveBeenCalledWith({
+      targetId: 7,
+      op: 'startTrip',
+      latitude: 36.1408,
+      longitude: -5.3536,
+    })
+    expect(toasts()).toContain('Start confirmed. The trip begins as soon as Igor confirms too.')
+  })
+
+  it('confirms with the button alone when location is off', async () => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: vi.fn<Geolocation['getCurrentPosition']>((_ok, fail) =>
+          fail?.({ code: 1, PERMISSION_DENIED: 1 } as GeolocationPositionError),
+        ),
+      },
+    })
+    vi.stubGlobal('isSecureContext', true)
+    const api = fakeApi()
+    const wrapper = mountPanel(
+      api,
+      { ...confirmedBooking, meeting_at: utcIn(-5), start_confirmed_by: 'them' },
+      false,
+    )
+
+    expect(wrapper.find('[data-test="start-them"]').text()).toContain('Igor has confirmed the start')
+    await wrapper.find('[data-test="start-trip"]').trigger('click')
+    await flushPromises()
+    expect(api.bookingAction).toHaveBeenCalledWith({ targetId: 7, op: 'startTrip' })
+    expect(toasts()).toContain('Your trip has started — enjoy it!')
+  })
+
+  it('tells the side that confirmed it is waiting for the other', () => {
+    const wrapper = mountPanel(
+      fakeApi(),
+      { ...confirmedBooking, meeting_at: utcIn(-5), start_confirmed_by: 'me' },
+      true,
+    )
+    expect(wrapper.find('[data-test="start-waiting"]').text()).toContain('waiting for Igor')
+  })
+})
+
 describe('BookingPanel — finishing the trip', () => {
   it('says when a trip with a known length finishes by itself, and offers no finish button', () => {
     const wrapper = mountPanel(
       fakeApi(),
-      { ...confirmedBooking, booking_duration_hours: 3, auto_finish: true },
+      { ...startedTrip, booking_duration_hours: 3, auto_finish: true },
       true,
     )
 
@@ -353,7 +437,7 @@ describe('BookingPanel — finishing the trip', () => {
 
   it('lets either side ask to finish a trip without a known length', async () => {
     const api = fakeApi()
-    const wrapper = mountPanel(api, confirmedBooking, false)
+    const wrapper = mountPanel(api, startedTrip, false)
 
     await button(wrapper, 'Mark trip finished').trigger('click')
     await flushPromises()
@@ -363,7 +447,7 @@ describe('BookingPanel — finishing the trip', () => {
 
   it('shows a waiting note and Undo to the side that asked', async () => {
     const api = fakeApi()
-    const wrapper = mountPanel(api, { ...confirmedBooking, finish_requested_by: 'me' }, true)
+    const wrapper = mountPanel(api, { ...startedTrip, finish_requested_by: 'me' }, true)
 
     expect(wrapper.text()).toContain('Waiting for Igor to confirm the trip is finished.')
     await button(wrapper, 'Undo').trigger('click')
@@ -373,7 +457,7 @@ describe('BookingPanel — finishing the trip', () => {
 
   it('asks the other side to confirm or say "not yet"', async () => {
     const api = fakeApi()
-    const wrapper = mountPanel(api, { ...confirmedBooking, finish_requested_by: 'them' }, true)
+    const wrapper = mountPanel(api, { ...startedTrip, finish_requested_by: 'them' }, true)
 
     expect(wrapper.text()).toContain('Igor says the trip is finished.')
     await button(wrapper, 'Confirm finished').trigger('click')
@@ -383,6 +467,11 @@ describe('BookingPanel — finishing the trip', () => {
     await button(wrapper, 'Not yet').trigger('click')
     await flushPromises()
     expect(api.bookingAction).toHaveBeenLastCalledWith({ targetId: 7, op: 'dismissFinish' })
+  })
+
+  it('offers no finish button before the trip has started', () => {
+    const wrapper = mountPanel(fakeApi(), confirmedBooking, true)
+    expect(hasButton(wrapper, 'Mark trip finished')).toBe(false)
   })
 
   it('links to a review once the trip is finished, and lets the guest book again', () => {

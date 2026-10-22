@@ -54,9 +54,12 @@ the `SMTP_*` server params are set — see "Email" under Docker environment.
   descriptor limit) — run more `ws` replicas beyond that. See
   `docs/scaling.md` for this and the rest of the scaling plan.
 - **Clock-driven booking changes run every 30 s** (`Bookings::sweep()`, in
-  the scheduler service only), so a booking request expires, or a trip starts
-  or finishes, up to half a minute late — and a page loaded in that window
-  still shows the old state.
+  the scheduler service only), so a booking request expires, a reminder goes
+  out or a trip finishes up to half a minute late — and a page loaded in that
+  window still shows the old state.
+- **A trip nobody starts** (a no-show) stays Scheduled for good — there's no
+  no-show rule or dispute flow yet. GPS accuracy can also exceed the 20 m
+  start radius; turning location off falls back to the button.
 - **Services share one database** — `users` in particular is read and
   written by both auth and api. The plan for splitting it is in
   `docs/scaling.md`.
@@ -877,9 +880,9 @@ after each step so the page re-fetches.
 | Status | How it gets there | What each side can do |
 | --- | --- | --- |
 | *(none)* | matched, nothing booked | guest: **Pay £X** — meeting date-time + optional trip length (0.5–24 h) + optional meeting place → `payGuideFee` |
-| `pending` | guest paid | guide: **Accept** → `confirmed` (a trip) or **Decline** (optional reason) → `declined`, full refund. Guest: **Withdraw payment** → `withdrawn`, full refund. Nobody answers before the meeting time → `sweep()` declines it, full refund. The match survives all of these, so the guest can try another time. |
+| `pending` | guest paid | guide: **Accept** → `confirmed` (a trip) or **Decline** (optional reason) → `declined`, full refund. Guest: **Withdraw payment** → `withdrawn`, full refund. Still unanswered a day before (and waiting 3 h+) → the guide is reminded (`request_reminder`); 15 minutes before the meeting both are warned (`request_expiring`); at the meeting time `sweep()` declines it and refunds **the fee minus the platform fee** (`commission_amount`). The match survives all of these, so the guest can try another time. |
 | `confirmed` | guide accepted | guide: **Cancel booking** → `cancelled`, fee refunded **+5% if late**. Guest: **Request cancellation** (reason required, only before the trip starts) → guide **Approves** → `cancelled`, refund **fee − 5%**; or **Refuses** → booking stands. Guest can withdraw their request. Either cancel dissolves the match on both sides, which returns the guest's pick. |
-| trip `started` | meeting time passed (`sweep()`) | a guide on a started trip is **hidden from the visitor deck** until the trip's end (or 12 h, if no length). |
+| trip `started` | **both pressed "Start the trip"** (`bookingAction` op `startTrip`, from 30 min before the meeting time — any time with no time set) | each press sends the device's position when it can read one; if both did, they must be **within 20 m** of each other (`Bookings::START_RADIUS_M`) or the second press is refused ("You're about 110 m from …"). Location off or unreadable → the press alone counts. Positions are stored per side (`guest_start_lat/lng`, `guide_…`), never shown; pressing again refreshes yours. The clock no longer starts trips. A guide on a started trip is **hidden from the visitor deck** until `started_at` + its length (or 12 h). |
 | trip `finished` | see below | both can review each other; the guest can **Book again**. |
 
 - **Guide acceptance is the point**: the guide commits to a date, so a
@@ -891,12 +894,18 @@ after each step so the page re-fetches.
   (`selections.matched_at`). `getOverview()` pre-computes it for the guide
   as `refund_if_cancelled`; `refund_if_guest_cancels` is the guest-request
   figure (fee − 5%). The confirm steps show those exact amounts.
-- **Finishing a trip**: with both a meeting time and a trip length
-  (`auto_finish`), `sweep()` finishes it once `meeting_at + duration_hours`
-  has passed and tells both sides to leave a review. Otherwise — a free
-  booking, or no length given — either side presses **Mark trip finished**
-  and the other **Confirms** (or says **Not yet**, which clears it and tells
-  the asker; the asker can **Undo**). Both asking counts as confirming.
+- **Reminders** (`sweep()`, stamped once per booking — 092): both sides of
+  a confirmed trip a day ahead and two hours ahead (`trip_reminder`; skipped
+  when the trip was confirmed inside that window; the 2-hour one explains
+  "Start the trip").
+- **Finishing a trip** needs a started trip. With a trip length
+  (`auto_finish`), `sweep()` finishes it once `started_at + duration_hours`
+  has passed and tells both sides to leave a review. Otherwise either side
+  presses **Mark trip finished** and the other **Confirms** (or says **Not
+  yet**, which clears it and tells the asker; the asker can **Undo**). Both
+  asking counts as confirming. A trip nobody starts stays Scheduled; the
+  guide can still cancel it, the guest can't request cancellation once the
+  meeting time has passed.
 - **Free guide** (price 0 or unset — the default): a `confirmed` booking
   opens by itself when the match forms (`Selections::syncActive()` →
   `Bookings::onMatched()`), no payment, no acceptance, no meeting time, so
@@ -926,13 +935,16 @@ after each step so the page re-fetches.
 - **One endpoint for every step but paying and the guide's cancel**:
   `api.bookingAction({ targetId, op, reason?, location? })`, `op` one of
   `accept | decline | withdraw | requestCancellation | withdrawCancellation |
-  approveCancellation | refuseCancellation | requestFinish | confirmFinish |
-  dismissFinish | setLocation`. `RequestProcessor::actionBooking()` checks the caller's
+  approveCancellation | refuseCancellation | startTrip | requestFinish |
+  confirmFinish | dismissFinish | setLocation` (`startTrip` takes an optional
+  `latitude`/`longitude`). `RequestProcessor::actionBooking()` checks the caller's
   role per op; `Bookings` checks the booking's state.
 - **`Bookings::sweep()`** runs every 30 s in the scheduler service
   (`api/bin/scheduler.php`, behind a Redis lock so only one runs at a
-  time): expires unanswered pending bookings, starts trips, finishes trips.
-  Requests no longer sweep.
+  time): reminds guides of unanswered requests, warns both sides 15 minutes
+  before one expires, expires them, sends trip reminders, finishes started
+  trips. Requests no longer sweep. Rows carry `started_at` and
+  `start_confirmed_by` (`'me' | 'them' | null`) for `BookingPanel`.
 - **Nothing hands out contact details** — not deck cards
   (`Users::searchByRole()`, `ProfileAccount`), public profiles,
   `matchOverview`, `trips` nor any email or notification.
@@ -1142,6 +1154,8 @@ email) are what a user hears about while they weren't looking — currently
 `booking_withdrawn`, `booking_expired`, `booking_free`, `booking_cancelled`,
 `cancel_requested`, `cancel_request_withdrawn`, `cancel_approved`,
 `cancel_refused`, `finish_requested`, `finish_refused`, `trip_finished`,
+`request_reminder`, `request_expiring` (→ Matches), `trip_reminder`,
+`trip_start_confirmed`, `trip_started` (in-app only) (→ My trips),
 `trip_location` (confirmed trip) / `request_location` (pending request),
 plus `match` (a new match with a paid guide, sent to the
 side that *didn't* make the completing decision — `Bookings::onMatched()`;
@@ -3104,6 +3118,12 @@ API service (`api/classes/`):
 - `api/sql/087_calendar_page.sql` — the `calendar` route (guides, signed in)
   and its text blocks, and the Calendar page's and time picker's text in 15
   languages. Applied 2026-10-22. Re-runnable.
+- `api/sql/092_trip_start_reminders.sql` — `bookings` reminder stamps,
+  each side's start confirmation and position, `started_at` (backfilled from
+  `meeting_at` for trips the clock had started); the start-the-trip and
+  pending-note text in 15 languages. Applied 2026-10-22. Not re-runnable.
+  Test: `lib/tests/trip-start-e2e.php` (24 checks; mailer stopped,
+  `docker exec lemp-rg-api php /var/www/localguideapp/lib/tests/trip-start-e2e.php`).
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

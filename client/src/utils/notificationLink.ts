@@ -17,6 +17,8 @@ const BY_KIND: Record<string, string> = {
   booking_declined: '/matches',
   booking_withdrawn: '/matches',
   booking_expired: '/matches',
+  request_reminder: '/matches',
+  request_expiring: '/matches',
   request_location: '/matches',
   match: '/matches',
   profile_updated: '/matches',
@@ -31,6 +33,9 @@ const BY_KIND: Record<string, string> = {
   finish_refused: '/trips',
   trip_finished: '/trips',
   trip_location: '/trips',
+  trip_reminder: '/trips',
+  trip_start_confirmed: '/trips',
+  trip_started: '/trips',
   level_up: '/profile#level',
   bonus_granted: '/profile#level',
 }

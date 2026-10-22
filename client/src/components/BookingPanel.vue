@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import MapPinLinks from '@/components/MapPinLinks.vue'
 import SlotPicker from '@/components/SlotPicker.vue'
 import MeetingPinField from '@/components/MeetingPinField.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import ProtectedNotice from '@/components/ProtectedNotice.vue'
+import { useCurrentPosition } from '@/composables/useCurrentPosition'
 import { t } from '@/i18n'
 import { useApi, type BookingOp, type BookingView, type MapPin } from '@/plugins/api'
 import { anchorTo, useMessagesStore } from '@/stores/messages'
@@ -23,8 +24,11 @@ import { reportApiError } from '@/utils/reportApiError'
  *   pending         guest: Withdraw payment · guide: Accept / Decline
  *   confirmed       guest: Request cancellation (reason), or Cancel trip if free
  *                   guide: Cancel booking, or Approve / Refuse a guest's request
- *                   both: Mark trip finished → the other side confirms, unless
- *                   the trip finishes on its own (time + length known)
+ *                   both: Start the trip when they meet (from 30 minutes before
+ *                   the meeting time) — with location on, the server checks
+ *                   they're within 20 m of each other; once started, Mark trip
+ *                   finished → the other side confirms, unless the trip
+ *                   finishes on its own (its length is known)
  *   finished        Leave a review; the guest can book again (`allowBooking`)
  *
  * While a booking is open, either side can set or change the meeting place:
@@ -84,6 +88,30 @@ const finished = computed(
 const paid = computed(() => confirmed.value && props.row.payment_status === 'paid')
 const free = computed(() => confirmed.value && props.row.payment_status !== 'paid')
 const started = computed(() => confirmed.value && props.row.trip_status === 'started')
+const notStarted = computed(() => confirmed.value && props.row.trip_status === 'pending')
+
+/** Matches `Bookings::START_OPENS_SECONDS`. */
+const START_OPENS_MS = 30 * 60 * 1000
+/** Ticks so "Start the trip" appears on time and the meeting passing is noticed. */
+const now = ref(Date.now())
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  clock = setInterval(() => (now.value = Date.now()), 30_000)
+})
+onBeforeUnmount(() => clearInterval(clock))
+
+const meetingDate = computed(() => utcDate(props.row.meeting_at))
+const startOpensAt = computed(() =>
+  meetingDate.value ? new Date(meetingDate.value.getTime() - START_OPENS_MS) : null,
+)
+const canStart = computed(
+  () => notStarted.value && (!startOpensAt.value || now.value >= startOpensAt.value.getTime()),
+)
+const startOpensLabel = computed(() => formatWhen(startOpensAt.value))
+const meetingPassed = computed(
+  () => !!meetingDate.value && now.value >= meetingDate.value.getTime(),
+)
+const { locating, locate } = useCurrentPosition()
 /** A guide who charges, and nothing booked right now — a first booking, or the next trip. */
 const needsBooking = computed(
   () =>
@@ -109,7 +137,12 @@ const money = formatMoney
 const meetingLabel = computed(() => formatWhen(utcDate(props.row.meeting_at)))
 const durationLabel = computed(() => formatHours(props.row.booking_duration_hours))
 const endLabel = computed(() =>
-  formatWhen(tripEnd(utcDate(props.row.meeting_at), props.row.booking_duration_hours)),
+  formatWhen(
+    tripEnd(
+      utcDate(props.row.started_at ?? props.row.meeting_at),
+      props.row.booking_duration_hours,
+    ),
+  ),
 )
 
 /** `<input type="datetime-local">` wants local time without a zone. */
@@ -161,6 +194,29 @@ function op(name: BookingOp, success: string, withReason = false) {
       }),
     success,
     t('common.booking_panel.update_failed'),
+  )
+}
+
+/**
+ * Confirms the start. Where the device can tell its position, it goes along
+ * and the server checks the two of them are within 20 m; with location off
+ * (or unreadable) the press alone counts.
+ */
+async function startTrip() {
+  if (busy.value || locating.value) return
+  const result = await locate()
+  if (result === null) return
+  const position = result.ok
+    ? { latitude: result.position.latitude, longitude: result.position.longitude }
+    : {}
+  const completes = props.row.start_confirmed_by === 'them'
+  return run(
+    () =>
+      api.bookingAction({ targetId: props.row.counterpart_id, op: 'startTrip', ...position }),
+    completes
+      ? t('common.booking_panel.trip_started')
+      : t('common.booking_panel.start_confirmed', { name: props.name }),
+    t('common.booking_panel.start_failed'),
   )
 }
 
@@ -376,7 +432,21 @@ function guideCancel() {
       </p>
     </div>
 
-    <template v-if="confirmed">
+    <template v-if="notStarted">
+      <p v-if="row.start_confirmed_by === 'me'" class="tiny muted note" data-test="start-waiting">
+        {{ t('common.booking_panel.start_waiting', { name }) }}
+      </p>
+      <p v-else-if="row.start_confirmed_by === 'them'" class="note" data-test="start-them">
+        {{ t('common.booking_panel.start_them', { name }) }}
+      </p>
+      <p v-else-if="canStart" class="tiny muted note">
+        {{ t('common.booking_panel.start_hint') }}
+      </p>
+      <p v-else-if="startOpensLabel" class="tiny muted note" data-test="start-opens">
+        {{ t('common.booking_panel.start_opens', { when: startOpensLabel }) }}
+      </p>
+    </template>
+    <template v-else-if="started">
       <p v-if="row.auto_finish && endLabel" class="tiny muted note">
         {{ t('common.booking_panel.auto_finish_note', { when: endLabel }) }}
       </p>
@@ -447,7 +517,7 @@ function guideCancel() {
           {{ t('common.booking_panel.keep_my_booking') }}
         </button>
         <button
-          v-else-if="!started && openForm !== 'requestCancel'"
+          v-else-if="!started && !meetingPassed && openForm !== 'requestCancel'"
           type="button"
           class="soft-btn"
           :disabled="busy"
@@ -504,7 +574,23 @@ function guideCancel() {
         </button>
       </template>
 
-      <template v-if="confirmed && !row.auto_finish">
+      <button
+        v-if="canStart"
+        type="button"
+        :class="row.start_confirmed_by === 'me' ? 'soft-btn' : 'accept'"
+        :aria-busy="busy || locating"
+        :disabled="busy || locating"
+        data-test="start-trip"
+        @click="startTrip"
+      >
+        {{
+          locating
+            ? t('common.booking_panel.start_locating')
+            : t('common.booking_panel.start_trip')
+        }}
+      </button>
+
+      <template v-if="started && !row.auto_finish">
         <button
           v-if="row.finish_requested_by === null"
           type="button"

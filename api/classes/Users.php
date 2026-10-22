@@ -138,7 +138,7 @@ class Users
             $where[] = 'NOT EXISTS (
                 SELECT 1 FROM `bookings` tb
                 WHERE tb.`guide_id` = u.`id` AND tb.`status` = "confirmed" AND tb.`trip_status` = "started"
-                  AND tb.`meeting_at` + INTERVAL ROUND(COALESCE(tb.`duration_hours`, 12) * 60) MINUTE > UTC_TIMESTAMP()
+                  AND COALESCE(tb.`started_at`, tb.`meeting_at`) + INTERVAL ROUND(COALESCE(tb.`duration_hours`, 12) * 60) MINUTE > UTC_TIMESTAMP()
             )';
         }
 

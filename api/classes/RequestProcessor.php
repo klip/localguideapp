@@ -650,7 +650,7 @@ class RequestProcessor
 
         $guestOps = ['withdraw', 'requestCancellation', 'withdrawCancellation'];
         $guideOps = ['accept', 'decline', 'approveCancellation', 'refuseCancellation'];
-        $eitherOps = ['requestFinish', 'confirmFinish', 'dismissFinish', 'setLocation'];
+        $eitherOps = ['startTrip', 'requestFinish', 'confirmFinish', 'dismissFinish', 'setLocation'];
         if (in_array($op, $guestOps, true) && $role !== 'guest') {
             throw new RuntimeException('Only the visitor can do that.');
         }
@@ -673,6 +673,14 @@ class RequestProcessor
                 return $this->bookings->approveCancellation($guideId, $guestId);
             case 'refuseCancellation':
                 return $this->bookings->refuseCancellation($guideId, $guestId, $reason);
+            case 'startTrip':
+                return $this->bookings->confirmStart(
+                    $userId,
+                    $guestId,
+                    $guideId,
+                    $input['latitude'] ?? null,
+                    $input['longitude'] ?? null
+                );
             case 'requestFinish':
                 return $this->bookings->requestFinish($userId, $guestId, $guideId);
             case 'confirmFinish':
