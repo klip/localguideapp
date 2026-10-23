@@ -1,30 +1,26 @@
-// v2 mark: crossed fingers (K-pop finger gesture) with a small bee, no heart.
-// Fist and index finger are ONE outline, so the finger grows out of the fist;
-// the thumb is a second shape laid across the index near its tip.
-function gesture({ ink = '#2A1F17', skin = '#F4A62A', nail = '#FFF7EC', gap = '#FFF7EC', withBee = true, sw = 4, beeWing = '#fff' } = {}) {
-  // Fist + index finger as one outline: the index leans left out of the
-  // right half of the fist.
-  const hand = `
-    <path d="M34 97 C27 95 25 88 26 80 L27 68 C27 61 31 58 37 58 L49.6 58
-             L33.6 19 A8 8 0 0 1 48.4 13 L66.4 57
-             C70.5 58 75 63 75 70 L74 84 C73 92 67 97 59 97 Z"
+// v3 mark: the finger heart (🫰) with a small bee, no heart.
+// Anatomy, palm side: the THUMB is the big finger pointing up; only the tip
+// of the INDEX peeks out behind it to the left; the other fingers curl into
+// a fist whose top edge slopes down to the right, with creases between them.
+// (`nail`/`gap` are accepted for compatibility with older callers.)
+function gesture({ ink = '#2A1F17', skin = '#F4A62A', nail, gap, withBee = true, sw = 4, beeWing = '#fff', creases = true } = {}) {
+  // Index fingertip, behind the hand (its right end hides under the thumb).
+  const index = `
+    <path d="M44 17 C35 12 25 9 18 12 C12.5 15 13 22 18 27.5 C24 34 30 39 37 44 Z"
       fill="${skin}" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>
-    <path d="M45 72 Q59 70 73 74 M43 84 Q57 82 72 86" fill="none" stroke="${ink}" stroke-width="${sw * 0.7}" stroke-linecap="round"/>
-    <path d="M36.5 20 Q40.5 16.5 45 17.5" fill="none" stroke="${ink}" stroke-width="${sw * 0.55}" stroke-linecap="round"/>`
-  // Thumb: from the left side of the fist, leaning right, crossing the index near its tip.
-  const thumbPath = `M26.5 76 L30.4 58.7 L52.4 20.7 A6.5 6.5 0 0 1 63.6 27.3 L45 59.5 C42 65 41 72 42 78 C36 80 30 79 26.5 76 Z`
-  // The cream separating outline only where the thumb lies over the index
-  // (above the fist), so the hand itself stays in one piece.
-  const clipId = 'gc' + Math.random().toString(36).slice(2, 8)
-  const thumb = `
-    <clipPath id="${clipId}"><rect x="0" y="0" width="100" height="52"/></clipPath>
-    <path d="${thumbPath}" fill="${skin}" stroke="${gap}" stroke-width="${sw * 2.4}" stroke-linejoin="round" clip-path="url(#${clipId})"/>
-    <path d="${thumbPath}" fill="${skin}" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>
-    <ellipse cx="58.2" cy="23.8" rx="3.6" ry="2.6" transform="rotate(-60 58.2 23.8)" fill="${nail}" stroke="${ink}" stroke-width="${sw * 0.55}"/>`
+    ${creases ? `<path d="M31 14.5 Q27.5 22 28 31" fill="none" stroke="${ink}" stroke-width="${sw * 0.6}" stroke-linecap="round"/>` : ''}`
+  // Thumb + palm + curled fingers as one silhouette.
+  const hand = `
+    <path d="M47 7.5 C50 3 58 3 60.5 8 C62.5 12 61.5 15.5 59.5 19.5 L51 37
+             L82 49 C88 51.5 91 56 91 62 L90 84 C89 93 82 98 73 98 L52 97
+             C40 96 31 92 27 84 C22 74 21 60 24 46 C27 34 36 20 47 7.5 Z"
+      fill="${skin}" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>
+    ${creases ? `<path d="M51 37 C47 44 45.5 51 45.5 59 M65 42.5 C65 50 64 56 63 63 M79 48 C79 55 78 61 77 67"
+      fill="none" stroke="${ink}" stroke-width="${sw * 0.75}" stroke-linecap="round"/>` : ''}`
   const b = withBee ? `
-    <path d="M66 19 C69 12 73 10 76 11" fill="none" stroke="${ink}" stroke-width="${sw * 0.6}" stroke-dasharray="0.1 ${sw * 1.4}" stroke-linecap="round"/>
-    ${bee(83, 11, 0.62, { ink, rot: -12, wing: beeWing })}` : ''
-  return hand + thumb + b
+    <path d="M63 11 C66 6 70 5 73 6" fill="none" stroke="${ink}" stroke-width="${sw * 0.6}" stroke-dasharray="0.1 ${sw * 1.4}" stroke-linecap="round"/>
+    ${bee(81, 8, 0.62, { ink, rot: -12, wing: beeWing })}` : ''
+  return index + hand + b
 }
 
 // A loose, hand-drawn honeycomb used behind the logo.

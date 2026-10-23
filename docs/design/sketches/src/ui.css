@@ -76,3 +76,4 @@ textarea.input { height: 88px; padding: 10px 12px; align-items: start; }
 .photo { background: linear-gradient(140deg, #E8B98E, #A78872 50%, #D9C5B4); }
 .note { position: absolute; background: #FFF06A; color: #3a3300; font: 700 18px/1.2 'Caveat', 'Comic Sans MS', cursive; padding: 8px 10px; border-radius: 4px; box-shadow: 2px 3px 8px rgba(0,0,0,.15); transform: rotate(-1.5deg); max-width: 220px; z-index: 5; }
 .note::before { content: '✎ '; }
+.plink { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong); text-decoration-thickness: 2px; text-underline-offset: 4px; }
