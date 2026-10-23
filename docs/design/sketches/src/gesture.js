@@ -6,16 +6,17 @@
 function gesture({ ink = '#2A1F17', skin = '#F4A62A', nail, gap, withBee = true, sw = 4, beeWing = '#fff', creases = true } = {}) {
   // Index fingertip, behind the hand (its right end hides under the thumb).
   const index = `
-    <path d="M44 17 C35 12 25 9 18 12 C12.5 15 13 22 18 27.5 C24 34 30 39 37 44 Z"
+    <path d="M44 17 C35 11.5 25 8.5 18 11.5 C11.5 14.5 11.8 22.5 17.5 28 C23.5 34 30 39 37 44 Z"
       fill="${skin}" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>
     ${creases ? `<path d="M31 14.5 Q27.5 22 28 31" fill="none" stroke="${ink}" stroke-width="${sw * 0.6}" stroke-linecap="round"/>` : ''}`
   // Thumb + palm + curled fingers as one silhouette.
   const hand = `
-    <path d="M47 7.5 C50 3 58 3 60.5 8 C62.5 12 61.5 15.5 59.5 19.5 L51 37
-             L82 49 C88 51.5 91 56 91 62 L90 84 C89 93 82 98 73 98 L52 97
-             C40 96 31 92 27 84 C22 74 21 60 24 46 C27 34 36 20 47 7.5 Z"
+    <path d="M46.5 8 C50.5 2 59.5 2 61.5 8.5 C63 13 61.5 16.5 59.5 20.5 L53.5 33.5
+             C52.3 36.3 53.6 38.6 56.5 39.6 L80 48.2 C87.5 51 92 56.5 92 63.5 L91.5 81
+             C91 91.5 83.5 98.5 73 98.5 L54 98.2 C42 97.8 31.5 93.5 26.5 84.5
+             C21 74 20.5 60 23.8 46.5 C27 33.5 35.5 20.5 46.5 8 Z"
       fill="${skin}" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>
-    ${creases ? `<path d="M51 37 C47 44 45.5 51 45.5 59 M65 42.5 C65 50 64 56 63 63 M79 48 C79 55 78 61 77 67"
+    ${creases ? `<path d="M54.5 39.8 C49 45.5 46.8 52 46.8 59.5 M66 43.5 C66 50.5 65 56.5 64 62.5 M79.5 48.5 C79.5 55 78.7 60.5 77.8 66"
       fill="none" stroke="${ink}" stroke-width="${sw * 0.75}" stroke-linecap="round"/>` : ''}`
   const b = withBee ? `
     <path d="M63 11 C66 6 70 5 73 6" fill="none" stroke="${ink}" stroke-width="${sw * 0.6}" stroke-dasharray="0.1 ${sw * 1.4}" stroke-linecap="round"/>
