@@ -7,6 +7,9 @@ import { api, apiPlugin } from './plugins/api'
 import { ensureScopes, scopesForRoute, setLanguage, setScopeMap } from './i18n'
 import { fetchAppMap, installAppMap } from './router/appMap'
 
+// Nunito (OFL) for headings and the wordmark — self-hosted, so no request
+// leaves for a font CDN.
+import '@fontsource-variable/nunito'
 import './assets/styles/App.scss'
 
 const BOOT_WAIT_MS = 1500

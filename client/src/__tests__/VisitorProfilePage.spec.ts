@@ -162,7 +162,8 @@ describe('GuideDiscoverPage', () => {
     })
     await flushPromises()
 
-    const link = wrapper.findAll('a').find((anchor) => anchor.text() === 'Full profile →')
-    expect(link?.attributes('href')).toBe('/visitors/5')
+    // The name (and the photo) open the full profile — there's no separate link.
+    expect(wrapper.get('[data-test="card-name"]').attributes('href')).toBe('/visitors/5')
+    expect(wrapper.get('[data-test="card-photo"]').attributes('href')).toBe('/visitors/5')
   })
 })

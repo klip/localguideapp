@@ -6,7 +6,11 @@
 // Component-specific rules deliberately do NOT live here — they sit in each
 // component's scoped <style lang="scss"> block and read the --rg-* tokens.
 
-@use 'pico';
+// A fixed 16 px root: Pico's responsive typography grew the whole UI to 131%
+// on wide screens, which is what made text and controls so big.
+@use 'pico' with (
+  $enable-responsive-typography: false
+);
 @use 'tokens';
 @use 'base';
 @use 'layout';

@@ -56,8 +56,21 @@
   gap: 1rem;
 
   @include bp.lg {
-    grid-template-columns: 250px 1fr 290px;
+    grid-template-columns: 250px minmax(0, 1fr) 280px;
     align-items: start;
+  }
+
+  @include bp.xl {
+    gap: 1.5rem;
+  }
+}
+
+// The decks run as wide as the header, so the card can go landscape.
+.shell.shell--deck {
+  max-width: var(--rg-header-width);
+
+  @include bp.md {
+    padding-inline: 1.75rem;
   }
 }
 
@@ -67,5 +80,15 @@
   @include bp.lg {
     position: sticky;
     top: 5rem;
+  }
+}
+
+// Below `xl` the header's tab bar is fixed to the foot of the screen
+// (AppHeader.vue); keep the page's end clear of it.
+$tabbar-clearance: calc(4rem + env(safe-area-inset-bottom));
+
+@media (max-width: 1279.98px) {
+  .app-shell {
+    padding-bottom: $tabbar-clearance;
   }
 }

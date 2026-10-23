@@ -12,6 +12,8 @@ export type NavIconName =
   | 'trips'
   | 'messages'
   | 'wallet'
+  | 'menu'
+  | 'login'
 
 defineProps<{ name: NavIconName }>()
 </script>
@@ -79,6 +81,18 @@ defineProps<{ name: NavIconName }>()
       <path d="M8.5 7V5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2" />
       <path d="M8 7v13" />
       <path d="M16 7v13" />
+    </template>
+    <!-- Menu (the mobile tab bar): three lines. -->
+    <template v-else-if="name === 'menu'">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </template>
+    <!-- Log in: an arrow into a door. -->
+    <template v-else-if="name === 'login'">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+      <path d="m10 17 5-5-5-5" />
+      <path d="M15 12H3" />
     </template>
     <!-- Messages: a speech bubble. -->
     <template v-else>

@@ -7,12 +7,13 @@ import LanguageSwitcher from './LanguageSwitcher.vue'
 import CurrencySwitcher from './CurrencySwitcher.vue'
 import PicksButton from './PicksButton.vue'
 import NavIcon from './NavIcon.vue'
-import { t, tn } from '@/i18n'
+import { currentLanguage, t, tn } from '@/i18n'
 import { useApi, type Role } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useAvatarStore } from '@/stores/avatar'
 import { useBadgesStore } from '@/stores/badges'
 import { useMessagesStore } from '@/stores/messages'
+import { activeCurrency } from '@/utils/money'
 
 const api = useApi()
 const auth = useAuthStore()
@@ -29,11 +30,8 @@ const {
   messages: unreadMessages,
   otherRoleNews,
 } = storeToRefs(badges)
-const hasNews = computed(
-  () =>
-    isAuthenticated.value &&
-    (newMatches.value + newTrips.value + unreadMessages.value > 0 || otherRoleNews.value),
-)
+/** News that's only reachable through the menu: the counted links are tabs of their own. */
+const hasMenuNews = computed(() => isAuthenticated.value && otherRoleNews.value)
 
 function badgeText(count: number) {
   return count > 99 ? '99+' : String(count)
@@ -58,8 +56,8 @@ watch(
 )
 
 /**
- * The role switch: a dual-role account gets "Travel [switch] Guide" (on =
- * guiding); a one-role account is offered the other role ("Start
+ * The role switch: a dual-role account gets "Travel | Guide" as a segmented
+ * control; a one-role account is offered the other role ("Start
  * travelling" / "Become a guide", through the profile page).
  */
 const { roles, activeRole } = storeToRefs(auth)
@@ -97,11 +95,43 @@ async function logout() {
 }
 
 /**
+ * Language and currency: on desktop one small "🌐 EN · €" button opening
+ * both pickers; in the mobile menu the two pickers sit side by side.
+ */
+const localeOpen = ref(false)
+const localeRef = ref<HTMLElement | null>(null)
+const currencySymbol = computed(() => {
+  try {
+    const part = new Intl.NumberFormat('en', { style: 'currency', currency: activeCurrency.value })
+      .formatToParts(0)
+      .find((p) => p.type === 'currency')
+    return part?.value ?? activeCurrency.value
+  } catch {
+    return activeCurrency.value
+  }
+})
+const localeLabel = computed(
+  () => `${currentLanguage.value.toUpperCase()} · ${currencySymbol.value}`,
+)
+
+function onDocumentPointer(event: PointerEvent) {
+  if (localeOpen.value && !localeRef.value?.contains(event.target as Node)) localeOpen.value = false
+}
+
+function onLocaleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && localeOpen.value) {
+    event.stopPropagation()
+    localeOpen.value = false
+  }
+}
+
+/**
  * Mobile menu. Below `xl` the same `.drawer` whose parts sit in the desktop
- * header's two rows becomes an off-canvas panel sliding in from the right
- * (pure CSS — see the styles below), so everything is only written once.
- * While open: page scroll is locked, Tab cycles within the drawer, Escape /
- * the backdrop / the close button / following any link closes it.
+ * header becomes an off-canvas panel sliding in from the right (pure CSS —
+ * see the styles below), opened by the tab bar's Menu button, so everything
+ * is only written once. While open: page scroll is locked, Tab cycles
+ * within the drawer, Escape / the backdrop / the close button / following
+ * any link closes it.
  */
 const DESKTOP_QUERY = '(min-width: 1280px)' // keep in sync with `bp.$xl`
 
@@ -114,7 +144,7 @@ function focusables(): HTMLElement[] {
     drawerRef.value?.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), select:not([disabled])',
     ) ?? [],
-  )
+  ).filter((el) => !el.closest('.locale-toggle-wrap'))
 }
 
 async function openMenu() {
@@ -160,7 +190,10 @@ function onDrawerClick(event: MouseEvent) {
 
 watch(
   () => route.fullPath,
-  () => closeMenu(),
+  () => {
+    closeMenu()
+    localeOpen.value = false
+  },
 )
 
 watch(menuOpen, (open) => {
@@ -173,6 +206,7 @@ function onViewportChange(event: MediaQueryListEvent) {
 }
 
 onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointer)
   // Absent in jsdom (unit tests) — nothing to react to there anyway.
   if (typeof window.matchMedia !== 'function') return
   desktopQuery = window.matchMedia(DESKTOP_QUERY)
@@ -180,6 +214,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointer)
   desktopQuery?.removeEventListener('change', onViewportChange)
   document.body.style.overflow = ''
 })
@@ -187,14 +222,14 @@ onBeforeUnmount(() => {
 
 <template>
   <header class="topbar">
-    <div class="shell">
+    <div class="topbar-inner">
       <nav :aria-label="t('common.app_header.nav_label')">
-        <BrandMark class="logo" />
+        <BrandMark class="logo" comb />
 
-        <!-- A traveller's picks counter on Discover, in the middle of the bar. -->
+        <!-- A traveller's picks counter, right of the links on desktop. -->
         <PicksButton class="picks" />
 
-        <!-- Mobile: the profile circle sits in the bar, beside the burger. -->
+        <!-- Mobile: the profile circle sits in the bar; the menu is a tab. -->
         <div class="bar-end">
           <RouterLink
             v-if="user"
@@ -209,39 +244,13 @@ onBeforeUnmount(() => {
               <template v-else>{{ initial }}</template>
             </span>
           </RouterLink>
-          <button
-            ref="burgerRef"
-            type="button"
-            class="burger"
-            aria-controls="site-menu"
-            :aria-expanded="menuOpen"
-            :aria-label="t('common.app_header.open_menu')"
-            @click="openMenu"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="22"
-              height="22"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              aria-hidden="true"
-            >
-              <line x1="4" y1="7" x2="20" y2="7" />
-              <line x1="4" y1="12" x2="20" y2="12" />
-              <line x1="4" y1="17" x2="20" y2="17" />
-            </svg>
-            <!-- The counters live inside the drawer; the dot says there's something to open it for. -->
-            <span v-if="hasNews" class="burger-dot" aria-hidden="true" />
-          </button>
         </div>
 
         <!--
           Desktop: the drawer's parts are laid out on the header's grid —
-          logo + language on the left and role switch, profile circle and
-          Log out on the right of the top row, the links in a row below.
-          Mobile: the same parts, top to bottom, in a slide-in panel.
+          logo and links on the left; picks, language, role, profile circle
+          and Log out on the right. Mobile: the same parts, top to bottom, in
+          a slide-in panel.
         -->
         <div
           id="site-menu"
@@ -275,7 +284,42 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div class="language"><LanguageSwitcher /><CurrencySwitcher /></div>
+          <div ref="localeRef" class="language" @keydown="onLocaleKeydown">
+            <span class="locale-toggle-wrap">
+              <button
+                type="button"
+                class="locale-toggle"
+                aria-controls="locale-panel"
+                :aria-expanded="localeOpen"
+                :title="t('common.app_header.locale')"
+                data-test="locale-toggle"
+                @click="localeOpen = !localeOpen"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" />
+                </svg>
+                <span class="visually-hidden">{{ t('common.app_header.locale') }}: </span
+                >{{ localeLabel }}
+              </button>
+            </span>
+            <div
+              id="locale-panel"
+              class="locale-panel"
+              :class="{ 'locale-panel--open': localeOpen }"
+            >
+              <LanguageSwitcher /><CurrencySwitcher />
+            </div>
+          </div>
 
           <!-- Desktop only; on mobile the circle is in the bar (.bar-profile). -->
           <RouterLink
@@ -315,7 +359,7 @@ onBeforeUnmount(() => {
               >
             </li>
             <li v-if="isAuthenticated">
-              <RouterLink to="/matches" class="nav-link nav-link--counted">
+              <RouterLink to="/matches" class="nav-link">
                 <NavIcon name="matches" />{{ t('common.app_header.matches')
                 }}<span v-if="newMatches" class="nav-count" data-test="matches-count"
                   ><span aria-hidden="true">{{ badgeText(newMatches) }}</span
@@ -326,7 +370,7 @@ onBeforeUnmount(() => {
               </RouterLink>
             </li>
             <li v-if="isAuthenticated">
-              <RouterLink to="/trips" class="nav-link nav-link--counted">
+              <RouterLink to="/trips" class="nav-link">
                 <NavIcon name="trips" />{{ t('common.app_header.my_trips')
                 }}<span v-if="newTrips" class="nav-count" data-test="trips-count"
                   ><span aria-hidden="true">{{ badgeText(newTrips) }}</span
@@ -342,7 +386,7 @@ onBeforeUnmount(() => {
               >
             </li>
             <li v-if="isAuthenticated">
-              <RouterLink to="/messages" class="nav-link nav-link--counted">
+              <RouterLink to="/messages" class="nav-link">
                 <NavIcon name="messages" />{{ t('common.app_header.messages')
                 }}<span v-if="unreadMessages" class="nav-count" data-test="messages-count"
                   ><span aria-hidden="true">{{ badgeText(unreadMessages) }}</span
@@ -355,44 +399,44 @@ onBeforeUnmount(() => {
           </ul>
 
           <div v-if="canSwitch || missingRole" class="role-switch">
-            <div v-if="canSwitch" class="role-toggle">
-              <!-- The words switch too (mouse/touch); the switch itself is the control. -->
-              <span
-                class="role-word"
-                :class="{ 'role-word--on': activeRole === 'guest' }"
-                aria-hidden="true"
+            <div
+              v-if="canSwitch"
+              class="role-toggle"
+              role="group"
+              :aria-label="t('common.app_header.role_label')"
+              :aria-describedby="otherRoleNews ? 'other-role-news' : undefined"
+              data-test="role-switch"
+            >
+              <button
+                type="button"
+                class="role-seg"
+                :aria-pressed="activeRole === 'guest'"
+                data-test="role-guest"
                 @click="switchRole('guest')"
-                >{{ t('common.app_header.switch_travel')
+              >
+                {{ t('common.app_header.switch_travel')
                 }}<span
                   v-if="otherRoleNews && activeRole !== 'guest'"
                   class="role-dot"
                   data-test="mode-news"
                   :title="t('common.app_header.other_role_news')"
-              /></span>
-              <input
-                type="checkbox"
-                role="switch"
-                class="role-switch-input"
-                :checked="activeRole === 'guide'"
-                :aria-label="t('common.app_header.mode_guide')"
-                :aria-describedby="otherRoleNews ? 'other-role-news' : undefined"
-                data-test="role-switch"
-                @change="
-                  switchRole(($event.target as HTMLInputElement).checked ? 'guide' : 'guest')
-                "
-              />
-              <span
-                class="role-word"
-                :class="{ 'role-word--on': activeRole === 'guide' }"
-                aria-hidden="true"
+                />
+              </button>
+              <button
+                type="button"
+                class="role-seg"
+                :aria-pressed="activeRole === 'guide'"
+                data-test="role-guide"
                 @click="switchRole('guide')"
-                >{{ t('common.app_header.mode_guide')
+              >
+                {{ t('common.app_header.mode_guide')
                 }}<span
                   v-if="otherRoleNews && activeRole !== 'guide'"
                   class="role-dot"
                   data-test="mode-news"
                   :title="t('common.app_header.other_role_news')"
-              /></span>
+                />
+              </button>
               <span v-if="otherRoleNews" id="other-role-news" class="visually-hidden">{{
                 t('common.app_header.other_role_news')
               }}</span>
@@ -413,7 +457,13 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="account">
-            <button v-if="isAuthenticated" type="button" class="outline logout-btn" @click="logout">
+            <button
+              v-if="isAuthenticated"
+              type="button"
+              class="secondary logout-btn"
+              :title="t('common.app_header.log_out')"
+              @click="logout"
+            >
               <svg
                 class="logout-icon"
                 viewBox="0 0 24 24"
@@ -430,7 +480,7 @@ onBeforeUnmount(() => {
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
-              {{ t('common.app_header.log_out') }}
+              <span class="logout-label">{{ t('common.app_header.log_out') }}</span>
             </button>
             <!-- Mobile: just above Log out (the column runs bottom-up). -->
             <p v-if="user" class="signed-in tiny muted" data-test="signed-in-as">
@@ -455,6 +505,77 @@ onBeforeUnmount(() => {
       aria-hidden="true"
       @click="closeMenu()"
     />
+
+    <!-- Mobile: the main sections as a tab bar at the foot of the screen; Menu opens the drawer. -->
+    <nav class="tabbar" :aria-label="t('common.app_header.nav_label')" data-test="tabbar">
+      <RouterLink :to="discoverTo" class="tab"
+        ><NavIcon name="discover" /><span class="tab-label">{{
+          t('common.app_header.discover')
+        }}</span></RouterLink
+      >
+      <template v-if="isAuthenticated">
+        <RouterLink to="/matches" class="tab"
+          ><NavIcon name="matches" /><span class="tab-label">{{
+            t('common.app_header.matches')
+          }}</span
+          ><span v-if="newMatches" class="tab-count" data-test="tab-matches-count"
+            ><span aria-hidden="true">{{ badgeText(newMatches) }}</span
+            ><span class="visually-hidden">{{
+              t('common.app_header.new_count', { count: newMatches })
+            }}</span></span
+          ></RouterLink
+        >
+        <RouterLink to="/trips" class="tab"
+          ><NavIcon name="trips" /><span class="tab-label">{{
+            t('common.app_header.my_trips')
+          }}</span
+          ><span v-if="newTrips" class="tab-count" data-test="tab-trips-count"
+            ><span aria-hidden="true">{{ badgeText(newTrips) }}</span
+            ><span class="visually-hidden">{{
+              t('common.app_header.new_count', { count: newTrips })
+            }}</span></span
+          ></RouterLink
+        >
+        <RouterLink to="/messages" class="tab"
+          ><NavIcon name="messages" /><span class="tab-label">{{
+            t('common.app_header.messages')
+          }}</span
+          ><span v-if="unreadMessages" class="tab-count" data-test="tab-messages-count"
+            ><span aria-hidden="true">{{ badgeText(unreadMessages) }}</span
+            ><span class="visually-hidden">{{
+              tn('common.app_header.unread_count', unreadMessages)
+            }}</span></span
+          ></RouterLink
+        >
+      </template>
+      <template v-else>
+        <RouterLink to="/about#how" class="tab"
+          ><NavIcon name="how" /><span class="tab-label">{{
+            t('common.app_header.how_it_works')
+          }}</span></RouterLink
+        >
+        <RouterLink to="/login" class="tab"
+          ><NavIcon name="login" /><span class="tab-label">{{
+            t('common.app_header.log_in')
+          }}</span></RouterLink
+        >
+      </template>
+      <button
+        ref="burgerRef"
+        type="button"
+        class="tab burger"
+        aria-controls="site-menu"
+        :aria-expanded="menuOpen"
+        :aria-label="t('common.app_header.open_menu')"
+        @click="openMenu"
+      >
+        <NavIcon name="menu" /><span class="tab-label" aria-hidden="true">{{
+          t('common.app_header.menu')
+        }}</span>
+        <!-- Things only the menu leads to (the other role's news). -->
+        <span v-if="hasMenuNews" class="burger-dot" aria-hidden="true" />
+      </button>
+    </nav>
   </header>
 </template>
 
@@ -462,94 +583,104 @@ onBeforeUnmount(() => {
 @use 'breakpoints' as bp;
 
 $drawer-speed: 0.28s;
-$link-color: #000;
+$tabbar-height: 4rem;
 
 .topbar {
   position: sticky;
   top: 0;
   z-index: 30;
-  border-bottom: 1px solid rgba(234, 223, 216, 0.8);
+  border-bottom: 1px solid var(--rg-line);
 
   // The blur lives on a pseudo-element, not .topbar itself: `backdrop-filter`
   // makes an element the containing block for its `position: fixed`
-  // descendants, which would trap the mobile drawer inside the header
-  // instead of the viewport.
+  // descendants, which would trap the mobile drawer and the tab bar inside
+  // the header instead of the viewport.
   &::before {
     content: '';
     position: absolute;
     inset: 0;
     z-index: -1;
     backdrop-filter: blur(14px);
-    background: rgba(255, 250, 246, 0.82);
+    background: rgba(255, 255, 255, 0.86);
+  }
+}
+
+.topbar-inner {
+  max-width: var(--rg-header-width);
+  margin-inline: auto;
+  padding-inline: 1rem;
+
+  @include bp.md {
+    padding-inline: 1.75rem;
   }
 }
 
 nav {
-  padding-block: 0.6rem;
+  display: flex;
   align-items: center;
+  gap: 0.75rem;
+  min-height: 3.5rem;
 }
 
 .logo {
-  font-size: 1.1rem;
+  font-size: 1.4rem;
+  margin-inline-end: auto;
 }
 
 // --- Menu links ------------------------------------------------------------
 
 nav .nav {
   margin: 0;
+  padding: 0;
 
   li {
     padding: 0;
+    list-style: none;
   }
 }
 
 .nav-link {
-  color: $link-color;
-  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--rg-ink);
+  font-size: 0.9375rem;
+  font-weight: 500;
   text-decoration: none;
+
+  :deep(.nav-icon) {
+    margin: 0;
+  }
 
   &:hover,
   &:focus-visible {
-    color: $link-color;
-    text-decoration: underline;
-    text-underline-offset: 0.55em;
+    color: var(--rg-ink);
+    text-decoration: none;
+    background: var(--rg-sunken);
   }
 
   &.router-link-active {
-    color: $link-color;
+    color: var(--rg-ink);
     font-weight: 600;
+    background: var(--rg-orange-50);
   }
 }
 
-// The red unseen-count bubble: beside the label in the mobile drawer, over
-// the item's top-right corner in the desktop row.
-.nav-link--counted {
-  position: relative;
-}
-
-.nav-count {
-  display: inline-block;
-  margin-inline-start: 0.5rem;
-  vertical-align: 0.1em;
+// The coral unseen-count bubble, after the label.
+.nav-count,
+.tab-count {
+  display: inline-grid;
+  place-items: center;
   min-width: 1.15rem;
   height: 1.15rem;
   padding: 0 0.3rem;
   border-radius: 999px;
-  background: #e5332a;
+  background: var(--rg-coral);
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
   font-weight: 700;
-  line-height: 1.15rem;
-  text-align: center;
-  text-shadow: none;
+  line-height: 1;
   pointer-events: none;
-
-  @include bp.xl {
-    position: absolute;
-    top: -0.55rem;
-    inset-inline-end: -0.95rem;
-    margin: 0;
-  }
 }
 
 // --- Profile circle, role switch, account ------------------------------------
@@ -557,7 +688,6 @@ nav .nav {
 .me {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
   color: var(--rg-ink);
   text-decoration: none;
 }
@@ -566,14 +696,14 @@ nav .nav {
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 2.25rem;
+  height: 2.25rem;
   overflow: hidden;
   border-radius: 50%;
   border: 2px solid #fff;
-  box-shadow: 0 0 0 1px var(--rg-line);
+  box-shadow: 0 0 0 1px var(--rg-line-strong);
   background: var(--rg-orange-100);
-  color: var(--rg-orange-500);
+  color: var(--rg-orange-ink);
   font-weight: 800;
 
   img {
@@ -585,25 +715,21 @@ nav .nav {
 
 .me:hover .avatar,
 .me:focus-visible .avatar,
-.me.router-link-active .avatar {
-  box-shadow: 0 0 0 2px var(--rg-orange-300);
+.me.router-link-active .avatar,
+.bar-profile:hover .avatar,
+.bar-profile:focus-visible .avatar,
+.bar-profile.router-link-active .avatar {
+  box-shadow: 0 0 0 2px var(--rg-orange-500);
 }
 
 .bar-end {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
 }
 
 .bar-profile {
   display: inline-flex;
   text-decoration: none;
-
-  &:hover .avatar,
-  &:focus-visible .avatar,
-  &.router-link-active .avatar {
-    box-shadow: 0 0 0 2px var(--rg-orange-300);
-  }
 }
 
 .signed-in {
@@ -613,76 +739,93 @@ nav .nav {
 }
 
 .role-btn {
-  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: auto;
-  margin: 0;
-  padding: 0.4rem 1rem;
-  border: 1px solid var(--rg-ink);
-  border-radius: 999px;
+  height: var(--rg-control-height-sm);
+  padding: 0 0.85rem;
+  border: 1px solid var(--rg-line-strong);
+  border-radius: var(--rg-radius-control);
   background: #fff;
   color: var(--rg-ink);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  line-height: 1.3;
   text-decoration: none;
+  white-space: nowrap;
 
   &:hover,
   &:focus-visible {
-    background: var(--rg-ink);
-    border-color: var(--rg-ink);
-    color: #fff;
+    background: var(--rg-orange-50);
+    border-color: var(--rg-orange-300);
+    color: var(--rg-ink);
   }
 }
 
-// "Travel [switch] Guide" — Pico's switch, the current role's word in bold.
+// "Travel | Guide": a segmented control, the current role raised.
 .role-toggle {
   display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  white-space: nowrap;
-
-  .role-switch-input {
-    margin: 0;
-  }
+  align-items: stretch;
+  gap: 2px;
+  height: var(--rg-control-height-sm);
+  padding: 3px;
+  border: 1px solid var(--rg-line-strong);
+  border-radius: var(--rg-radius-control);
+  background: var(--rg-sunken);
 }
 
-.role-word {
+.role-seg {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
   color: var(--rg-muted);
-  cursor: pointer;
-}
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: none;
 
-.role-word--on {
-  color: var(--rg-ink);
-  font-weight: 600;
-  cursor: default;
+  &:hover,
+  &:focus-visible {
+    background: transparent;
+    color: var(--rg-ink);
+  }
+
+  &[aria-pressed='true'] {
+    background: #fff;
+    color: var(--rg-ink);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(42, 31, 23, 0.14);
+  }
 }
 
 .role-dot {
   position: absolute;
-  top: -0.3rem;
-  inset-inline-end: -0.55rem;
-  width: 0.6rem;
-  height: 0.6rem;
+  top: 0.15rem;
+  inset-inline-end: 0.15rem;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
-  background: #e5332a;
-  box-shadow: 0 0 0 2px #fff;
+  background: var(--rg-coral);
 }
 
 .account {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .logout-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
+  margin: 0;
 }
 
 .logout-icon {
@@ -690,36 +833,58 @@ nav .nav {
 }
 
 .login-link {
-  color: $link-color;
-  font-size: 0.9rem;
+  color: var(--rg-ink);
+  font-size: 0.9375rem;
+  font-weight: 500;
 }
 
-// --- Burger and close buttons ----------------------------------------------
+// --- Language & currency ------------------------------------------------------
 
-.burger {
-  position: relative;
+.locale-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: auto;
+  height: var(--rg-control-height-sm);
+  margin: 0;
+  padding: 0 0.6rem;
+  border: 1px solid transparent;
+  border-radius: var(--rg-radius-control);
+  background: transparent;
+  color: var(--rg-ink);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+
+  &:hover,
+  &:focus-visible,
+  &[aria-expanded='true'] {
+    background: var(--rg-sunken);
+    border-color: var(--rg-line);
+    color: var(--rg-ink);
+  }
 }
 
-.burger-dot {
-  position: absolute;
-  top: 0.35rem;
-  inset-inline-end: 0.35rem;
-  width: 0.6rem;
-  height: 0.6rem;
-  border-radius: 50%;
-  background: #e5332a;
-  box-shadow: 0 0 0 2px #fff;
+.locale-panel {
+  display: flex;
+  gap: 0.5rem;
+
+  :deep(select) {
+    height: var(--rg-control-height);
+    margin: 0;
+  }
 }
 
-.burger,
+// --- Close button --------------------------------------------------------------
+
 .drawer-close {
   display: inline-grid;
   place-items: center;
-  width: 2.6rem;
-  height: 2.6rem;
+  width: 2.5rem;
+  height: 2.5rem;
   padding: 0;
   margin: 0;
-  border-radius: 0.8rem;
+  border-radius: var(--rg-radius-control);
   border: 1px solid var(--rg-line);
   background: #fff;
   color: var(--rg-ink);
@@ -732,15 +897,99 @@ nav .nav {
   }
 }
 
+// --- Mobile: tab bar ------------------------------------------------------------
+
+.tabbar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1;
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 0;
+  min-height: $tabbar-height;
+  padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1px solid var(--rg-line);
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.25rem 0.1rem;
+  border: 0;
+  border-radius: var(--rg-radius-control);
+  background: transparent;
+  color: var(--rg-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.1;
+  text-decoration: none;
+  box-shadow: none;
+
+  :deep(.nav-icon) {
+    width: 22px;
+    height: 22px;
+    margin: 0;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: transparent;
+    color: var(--rg-ink);
+  }
+
+  &.router-link-active {
+    color: var(--rg-ink);
+    font-weight: 700;
+
+    :deep(.nav-icon) {
+      color: var(--rg-orange-500);
+    }
+  }
+}
+
+.tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-count {
+  position: absolute;
+  top: 0.05rem;
+  left: calc(50% + 0.35rem);
+}
+
+.burger-dot {
+  position: absolute;
+  top: 0.3rem;
+  left: calc(50% + 0.5rem);
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--rg-coral);
+  box-shadow: 0 0 0 2px #fff;
+}
+
 // --- Mobile: off-canvas drawer (default) -------------------------------------
-// Top to bottom: logo + close, language, profile, links, role switch, and
-// Log out pinned to the foot.
+// Top to bottom: logo + close, language, links, role switch, and Log out
+// pinned to the foot.
 
 .drawer {
   position: fixed;
   top: 0;
   right: 0;
-  z-index: 2;
+  z-index: 3;
   width: min(20rem, 85vw);
   height: 100vh;
   height: 100dvh;
@@ -772,17 +1021,19 @@ nav .nav {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.75rem;
-  font-size: 1.05rem;
+  font-size: 1.3rem;
 }
 
 .language {
-  display: flex;
-  gap: 0.5rem;
   margin-bottom: 0.75rem;
 
-  :deep(.language-switcher) {
-    flex: 1 1 auto;
-    width: 100%;
+  .locale-toggle-wrap {
+    display: none;
+  }
+
+  .locale-panel :deep(select) {
+    flex: 1 1 0;
+    min-width: 0;
   }
 }
 
@@ -792,6 +1043,7 @@ nav .nav {
 }
 
 nav .nav {
+  display: flex;
   flex-direction: column;
   align-items: stretch;
 
@@ -800,11 +1052,10 @@ nav .nav {
   }
 
   .nav-link {
-    display: block;
+    min-height: 2.75rem;
     margin: 0;
-    padding: 0.8rem 0.25rem;
-    border-radius: 0;
-    border-bottom: 1px solid var(--rg-line);
+    padding: 0 0.6rem;
+    border-radius: var(--rg-radius-control);
   }
 }
 
@@ -817,8 +1068,11 @@ nav .nav {
 
   .role-toggle {
     display: flex;
-    justify-content: center;
-    padding-block: 0.25rem;
+
+    .role-seg {
+      flex: 1;
+      justify-content: center;
+    }
   }
 }
 
@@ -841,7 +1095,6 @@ nav .nav {
     width: 100%;
     margin: 0;
     justify-content: center;
-    padding-block: 0.7rem;
   }
 
   .login-link {
@@ -852,7 +1105,7 @@ nav .nav {
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   background: rgba(41, 30, 24, 0.38);
   opacity: 0;
   pointer-events: none;
@@ -872,33 +1125,36 @@ nav .nav {
   }
 }
 
-// --- Desktop: two rows ---------------------------------------------------------
-// Top: logo, language … role switch, profile circle, Log out. Below: links.
+// --- Desktop ---------------------------------------------------------------------
+// 1280–1439: logo … picks, language, role, profile, Log out on top; links
+// below. From 1440: all of it on one row (docs/design/sketches/04-…png).
 
 @include bp.xl {
   nav {
     display: grid;
-    grid-template-columns: auto auto 1fr auto auto auto;
+    grid-template-columns: auto 1fr auto auto auto auto auto;
     grid-template-areas:
-      'logo lang picks role me account'
-      'links links links links links links';
-    column-gap: 1rem;
-    padding-block: 0.6rem 0;
+      'logo . picks lang role me account'
+      'links links links links links links links';
+    column-gap: 0.75rem;
+    min-height: 0;
+    padding-block: 0.5rem 0;
   }
 
   .logo {
     grid-area: logo;
+    margin: 0;
   }
 
   .picks {
     grid-area: picks;
-    justify-self: center;
   }
 
   .bar-end,
   .drawer-head,
   .signed-in,
-  .backdrop {
+  .backdrop,
+  .tabbar {
     display: none;
   }
 
@@ -910,12 +1166,31 @@ nav .nav {
 
   .language {
     grid-area: lang;
+    position: relative;
     margin: 0;
 
-    :deep(.language-switcher) {
-      flex: 0 0 auto;
-      width: auto;
+    .locale-toggle-wrap {
+      display: inline-flex;
     }
+  }
+
+  .locale-panel {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    right: 0;
+    z-index: 5;
+    display: none;
+    flex-direction: column;
+    width: 14rem;
+    padding: 0.75rem;
+    background: #fff;
+    border: 1px solid var(--rg-line);
+    border-radius: var(--rg-radius-soft);
+    box-shadow: var(--rg-shadow);
+  }
+
+  .locale-panel--open {
+    display: flex;
   }
 
   .role-switch {
@@ -925,13 +1200,19 @@ nav .nav {
     .role-btn {
       width: auto;
     }
+
+    .role-toggle {
+      display: inline-flex;
+
+      .role-seg {
+        flex: 0 0 auto;
+      }
+    }
   }
 
   .me {
     display: flex;
     grid-area: me;
-    padding: 0;
-    border: 0;
   }
 
   .account {
@@ -939,16 +1220,32 @@ nav .nav {
     position: static;
     flex-direction: row;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
     margin: 0;
     padding: 0;
     background: none;
 
-    .logout-btn,
     [role='button'] {
       width: auto;
-      padding: 0.4rem 0.9rem;
-      font-size: 0.85rem;
+      height: var(--rg-control-height-sm);
+      padding: 0 0.9rem;
+      font-size: 0.875rem;
+    }
+
+    // Icon only on desktop; the label stays for screen readers.
+    .logout-btn {
+      width: var(--rg-control-height-sm);
+      height: var(--rg-control-height-sm);
+      padding: 0;
+    }
+
+    .logout-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
     }
   }
 
@@ -957,25 +1254,37 @@ nav .nav {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0 1.75rem;
-    margin-top: 0.6rem;
-    padding: 0.55rem 0 2px;
+    gap: 0.25rem;
+    padding: 0.4rem 0 0.5rem;
 
     li {
       display: inline-block;
     }
 
     .nav-link {
-      display: inline-block;
-      padding: 0.15rem 0 0;
-      border-bottom: 0;
-
-      &.router-link-active {
-        font-weight: inherit;
-        text-decoration: underline 4px;
-        text-underline-offset: 0.35em;
-      }
+      min-height: 2.25rem;
+      padding: 0 0.7rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
     }
+  }
+}
+
+@include bp.xxl {
+  nav {
+    grid-template-columns: auto auto 1fr auto auto auto auto auto;
+    grid-template-areas: 'logo links . picks lang role me account';
+    min-height: 3.75rem;
+    padding-block: 0;
+  }
+
+  .logo {
+    margin-inline-end: 1rem;
+  }
+
+  nav .nav {
+    padding: 0;
+    flex-wrap: nowrap;
   }
 }
 </style>

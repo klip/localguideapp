@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import ClearFilters from '@/components/ClearFilters.vue'
 import DeckBar from '@/components/DeckBar.vue'
+import DeckFilters from '@/components/DeckFilters.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
-import FilterPanel from '@/components/FilterPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import MatchesRail from '@/components/MatchesRail.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
-import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
-import { t } from '@/i18n'
+import { t, tn } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
 import { useDeckLocation } from '@/composables/useDeckLocation'
@@ -40,19 +38,6 @@ const categoriesStore = useCategoriesStore()
 const filtersStore = useFiltersStore()
 const { filters } = storeToRefs(filtersStore)
 
-// The filters rail can't be collapsed on desktop (its summary is a plain
-// heading there — see `.filters-disclosure`), so it's open from `lg` up and
-// starts closed below. The user's own toggle on mobile sticks until the
-// viewport crosses the breakpoint.
-const isDesktop = useMediaQuery(LG_QUERY)
-const filtersOpen = ref(isDesktop.value)
-watch(isDesktop, (desktop) => {
-  filtersOpen.value = desktop
-})
-function onFiltersToggle(event: Event) {
-  filtersOpen.value = (event.target as HTMLDetailsElement).open
-}
-
 const visitorsStore = useVisitorsStore()
 const { items: visitors, loading: visitorsLoading } = storeToRefs(visitorsStore)
 
@@ -69,8 +54,8 @@ onMounted(async () => {
 
 watch(filters, (next) => debouncedLoad(next), { deep: true })
 
-// "2 adults · Visiting Lisbon, 3–5 May · 3 km away" (a planned stop), or
-// "… · Looking in Lisbon, Portugal · …" (where they're searching) — each part when there is one.
+// "2 adults · Visiting Lisbon, 3–5 May" (a planned stop), or
+// "… · Looking in Lisbon, Portugal" (where they're searching) — each part when there is one.
 const currentMeta = computed(() => {
   const visitor = current.value
   if (!visitor) return undefined
@@ -85,10 +70,14 @@ const currentMeta = computed(() => {
       : visitor.areaLabel
         ? t('guide_discover.deck.looking_in', { place: visitor.areaLabel })
         : null,
-    visitor.distanceKm !== null ? formatDistance(visitor.distanceKm) : null,
   ]
     .filter((part): part is string => !!part)
     .join(' · ')
+})
+/** "3 km away", on the photo. */
+const currentDistance = computed(() => {
+  const visitor = current.value
+  return visitor && visitor.distanceKm !== null ? formatDistance(visitor.distanceKm) : undefined
 })
 
 const interested = ref<string[]>([])
@@ -144,36 +133,32 @@ function reject(id: string) {
 </script>
 
 <template>
-  <section class="section shell">
-    <!-- The filters in force, right under the menu (as on DiscoverPage.vue). -->
-    <DeckBar />
-
+  <section class="section shell shell--deck">
     <div class="discovery-layout">
-      <aside class="rail">
-        <details class="filters-disclosure" :open="filtersOpen" @toggle="onFiltersToggle">
-          <summary>
-            <strong>{{ t('guide_discover.filters.title') }}</strong>
-            <ClearFilters />
-          </summary>
-          <p class="tiny muted">{{ t('guide_discover.filters.hint') }}</p>
-          <FilterPanel compact target-role="guest" />
-        </details>
-      </aside>
+      <!-- Filters: a side rail on desktop, a bottom sheet on mobile. -->
+      <DeckFilters
+        :title="t('guide_discover.filters.title')"
+        :hint="t('guide_discover.filters.hint')"
+        target-role="guest"
+        compact
+        :show-label="tn('guide_discover.filters.show', deck.length)"
+      />
 
-      <PanelCard>
-        <template #header>
-          <!-- The title with where, on one line. -->
-          <div class="deck-head">
-            <strong>{{ t('guide_discover.deck.title') }}</strong>
-            <span class="tiny muted" data-test="deck-subtitle">
-              {{
-                filters.near
-                  ? t('guide_discover.deck.subtitle_near', { place: filters.near.label })
-                  : t('guide_discover.deck.subtitle')
-              }}
-            </span>
-          </div>
-        </template>
+      <div class="deck">
+        <!-- The title with where, on one line. -->
+        <div class="deck-head">
+          <h1>{{ t('guide_discover.deck.title') }}</h1>
+          <span class="muted" data-test="deck-subtitle">
+            {{
+              filters.near
+                ? t('guide_discover.deck.subtitle_near', { place: filters.near.label })
+                : t('guide_discover.deck.subtitle')
+            }}
+          </span>
+        </div>
+
+        <!-- The filters in force, right above the card (as on DiscoverPage.vue). -->
+        <DeckBar />
 
         <LocationPrompt />
 
@@ -184,6 +169,7 @@ function reject(id: string) {
           :age="current.age"
           :photo="current.photo"
           :meta="currentMeta"
+          :photo-note="currentDistance"
           :bio="current.bio"
           :tags="categoriesStore.tagsFor(current.attributes)"
           :profile-link="{ name: 'visitor-profile', params: { id: current.id } }"
@@ -234,7 +220,7 @@ function reject(id: string) {
             {{ t('guide_discover.empty.clear_filters') }}
           </button>
         </div>
-      </PanelCard>
+      </div>
 
       <aside class="rail">
         <!-- Matches and trips, as on the traveller's deck. -->
@@ -249,45 +235,41 @@ function reject(id: string) {
 <style scoped lang="scss">
 @use 'breakpoints' as bp;
 
-.filters-disclosure {
-  // "Filters", then "clear ×" (while any are set) just before the chevron.
-  summary {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+.deck {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
 
-    // The title takes the room, so "clear" and the chevron sit at the end.
-    strong {
-      flex: 1;
+.deck-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  flex-wrap: wrap;
+
+  h1 {
+    margin: 0;
+    font-size: 1.5rem;
+
+    @include bp.lg {
+      font-size: 1.75rem;
     }
   }
 
-  border: 1px solid var(--rg-line);
-  border-radius: var(--rg-radius-panel);
-  background: #fff;
-  padding: 0.85rem 1rem;
-  margin-bottom: 0;
-
-  p {
-    margin: 0.25rem 0 0.75rem;
-  }
-
-  @include bp.lg {
-    summary {
-      list-style: none;
-      cursor: default;
-      pointer-events: none;
-
-      &::-webkit-details-marker {
-        display: none;
-      }
-    }
+  span {
+    font-size: 0.875rem;
+    text-align: end;
   }
 }
 
 .empty {
   text-align: center;
   padding: 2rem 1rem;
+  border: 1px solid var(--rg-line);
+  border-radius: var(--rg-radius-card);
+  background: #fff;
 
   h3 {
     margin-bottom: 0.5rem;
@@ -298,24 +280,12 @@ function reject(id: string) {
   }
 }
 
-// The filters bar sits right under the menu, as on the traveller's deck.
+// Discovery pages run wider than the default shell (see _layout.scss).
 .section.shell {
-  padding-top: 1.25rem;
+  padding-top: 1rem;
 
   @include bp.lg {
     padding-top: 1.5rem;
-  }
-}
-
-.deck-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25rem 1rem;
-  flex-wrap: wrap;
-
-  span {
-    text-align: end;
   }
 }
 </style>

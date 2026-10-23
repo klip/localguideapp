@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import ActiveFilters from '../components/ActiveFilters.vue'
 import ClearFilters from '../components/ClearFilters.vue'
+import DeckFilters from '../components/DeckFilters.vue'
 import FilterPanel from '../components/FilterPanel.vue'
 import { API_KEY, type Api, type AttributeCategory } from '@/plugins/api'
 import { useFiltersStore } from '@/stores/filters'
@@ -320,21 +321,69 @@ describe('FilterPanel', () => {
     expect(store.filters.ranges).not.toHaveProperty('age')
   })
 
-  it('keeps gender a dropdown, since it is a constant rather than a tag list', async () => {
+  it('makes gender a three-way switch, since it is a constant rather than a tag list', async () => {
     const wrapper = await mountPanel()
     const store = useFiltersStore()
 
-    const select = wrapper.find('select')
-    expect(select.findAll('option').map((option) => option.text())).toEqual([
-      'No preference',
+    const group = wrapper.get('[data-test="gender-filter"]')
+    expect(group.get('legend').text()).toBe('Gender')
+    const radios = group.findAll<HTMLInputElement>('input[type="radio"]')
+    expect(group.findAll('.segment').map((segment) => segment.text())).toEqual([
       'Male',
       'Female',
+      'Any',
     ])
+    // No filter = "Any".
+    expect(radios[2]!.element.checked).toBe(true)
 
-    await select.setValue('female')
+    await radios[1]!.setValue(true)
     expect(store.filters.gender).toBe('female')
 
-    await select.setValue('')
+    await radios[2]!.setValue(true)
     expect(store.filters.gender).toBe(null)
+  })
+})
+
+describe('DeckFilters', () => {
+  // jsdom has no matchMedia, so this is the mobile layout: a button and a bottom sheet.
+  async function mountDeckFilters() {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const wrapper = mount(DeckFilters, {
+      attachTo: document.body,
+      props: {
+        title: 'Filters',
+        hint: 'Keep them light.',
+        targetRole: 'guide',
+        showLabel: 'Show 3 guides',
+      },
+      global: { plugins: [pinia], provide: { [API_KEY]: fakeApi() } },
+    })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('counts the filters in force on its button and opens as a sheet that “Show N” closes', async () => {
+    const wrapper = await mountDeckFilters()
+    const details = wrapper.get<HTMLDetailsElement>('details')
+    expect(details.element.open).toBe(false)
+    expect(wrapper.find('[data-test="filters-count"]').exists()).toBe(false)
+
+    useFiltersStore().setGender('female')
+    await flushPromises()
+    expect(wrapper.get('[data-test="filters-count"]').text()).toBe('1')
+
+    details.element.open = true
+    await details.trigger('toggle')
+    expect(wrapper.find('[data-test="filters-backdrop"]').exists()).toBe(true)
+    expect(document.body.style.overflow).toBe('hidden')
+
+    const show = wrapper.get('[data-test="filters-show"]')
+    expect(show.text()).toBe('Show 3 guides')
+    await show.trigger('click')
+    expect(details.element.open).toBe(false)
+    expect(wrapper.find('[data-test="filters-backdrop"]').exists()).toBe(false)
+    expect(document.body.style.overflow).toBe('')
+    wrapper.unmount()
   })
 })

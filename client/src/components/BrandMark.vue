@@ -1,73 +1,88 @@
 <script setup lang="ts">
 /**
- * The logo: "Be [thumbs up] Local" — read as "Be Like Local", the domain
- * (belikelocal.club). The thumb is our own drawing, not a third-party icon;
- * it reads as "Like" to screen readers. A link home (`AppHeader`) or plain
- * text (`AppFooter`, the mobile drawer's head). Never translated, and it
- * stays left-to-right in Arabic.
+ * The logo: "Be [finger heart] Local" — read as "Be Like Local", the domain
+ * (belikelocal.club). The hand (FingerHeart.vue, with its bee) is our own
+ * drawing and reads as "Like" to screen readers. A link home (`AppHeader`)
+ * or plain text (`AppFooter`, the mobile drawer's head). Never translated,
+ * and it stays left-to-right in Arabic.
+ *
+ * `comb` lays the hand-drawn honeycomb mesh behind it, fading out — the
+ * header's background texture.
  */
-withDefaults(defineProps<{ as?: 'link' | 'text' }>(), { as: 'link' })
+import FingerHeart from './FingerHeart.vue'
+import { honeycombPath } from '@/utils/honeycomb'
+
+withDefaults(defineProps<{ as?: 'link' | 'text'; comb?: boolean }>(), {
+  as: 'link',
+  comb: false,
+})
+
+// Same drawing on every load (fixed seed); built once per module.
+const COMB = honeycombPath(320, 120, 15)
 </script>
 
 <template>
   <component
     :is="as === 'link' ? 'RouterLink' : 'span'"
     class="brand"
+    :class="{ 'brand--comb': comb }"
     translate="no"
     dir="ltr"
     v-bind="as === 'link' ? { to: '/' } : {}"
   >
-    <span class="brand-word">Be</span>
-    <svg class="brand-thumb" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-      <rect class="brand-thumb-cuff" x="2" y="10" width="4.2" height="11.5" rx="1.2" />
-      <path
-        class="brand-thumb-hand"
-        d="M7.3 10.4 10.7 4.3c.6-1.1 2.2-1.2 2.9-.1.4.7.5 1.5.3 2.3l-.8 3.3h5.8c1.5 0 2.6 1.4 2.3 2.8l-1.4 7.1c-.2 1.1-1.2 1.8-2.3 1.8H7.3z"
-      />
-      <path class="brand-thumb-fingers" d="M13.4 13.2h6.9M13.4 16.6h6.3" />
+    <svg v-if="comb" class="brand-comb" viewBox="0 0 320 120" aria-hidden="true" focusable="false">
+      <path :d="COMB" />
     </svg>
+    <span class="brand-word">Be</span>
+    <FingerHeart class="brand-hand" :weight="5.5" />
     <span class="visually-hidden">Like</span>
-    <span class="brand-word brand-accent">Local</span>
+    <span class="brand-word">Local</span>
   </component>
 </template>
 
 <style scoped lang="scss">
 .brand {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-family: var(--rg-font-display);
+  font-weight: 900;
+  letter-spacing: -0.035em;
   line-height: 1;
   color: var(--rg-ink);
   text-decoration: none;
   white-space: nowrap;
 }
 
-.brand-thumb {
+.brand-word {
+  position: relative;
+}
+
+// Tight, like the logo slide: the hand tucks in between the words and sits
+// a little above the baseline, its bee flying higher still.
+.brand-hand {
+  position: relative;
   flex-shrink: 0;
-  width: 1.3em;
-  height: 1.3em;
-  // Sits on the text's baseline like a letter, lifted a touch.
-  margin-block-end: 0.12em;
+  width: 1.45em;
+  height: 1.45em;
+  margin-inline: -0.1em -0.12em;
+  transform: translateY(-0.12em);
 }
 
-.brand-thumb-hand {
-  fill: var(--rg-orange-500);
-}
-
-.brand-thumb-cuff {
-  fill: var(--rg-ink);
-}
-
-.brand-thumb-fingers {
+.brand-comb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 13em;
+  height: 4.9em;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
   fill: none;
-  stroke: #fff;
+  stroke: #e2ae5c;
   stroke-width: 1.3;
-  stroke-linecap: round;
-}
-
-.brand-accent {
-  color: var(--rg-orange-500);
+  stroke-linejoin: round;
+  opacity: 0.75;
+  // Strongest behind the mark, gone by the edges.
+  mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 30%, transparent 100%);
 }
 </style>

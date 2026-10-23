@@ -59,8 +59,13 @@ function dismiss() {
 .cookie-notice {
   position: fixed;
   inset-inline: 1rem;
-  bottom: 1rem;
+  // Above the mobile tab bar (AppHeader.vue); at the foot from `xl`.
+  bottom: calc(4.75rem + env(safe-area-inset-bottom));
   z-index: 50;
+
+  @include bp.xl {
+    bottom: 1rem;
+  }
   margin-inline: auto;
   max-width: 40rem;
   padding: 1rem 1.25rem;

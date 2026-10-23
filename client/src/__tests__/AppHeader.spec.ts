@@ -100,12 +100,20 @@ describe('AppHeader mobile menu', () => {
     signedIn.wrapper.unmount()
   })
 
-  it('puts the profile circle in the bar beside the burger, and "Signed in as" just above Log out', async () => {
+  it('puts the profile circle in the bar, the menu button in the tab bar, and "Signed in as" just above Log out', async () => {
     const { wrapper } = await mountHeader(true)
     await flushPromises()
     const barEnd = wrapper.get('.bar-end')
     expect(barEnd.get('[data-test="bar-profile"]').attributes('href')).toBe('/profile')
-    expect(barEnd.find('.burger').exists()).toBe(true)
+    const tabbar = wrapper.get('[data-test="tabbar"]')
+    expect(tabbar.find('.burger').exists()).toBe(true)
+    // Signed in, the tabs are the main sections; signed out, Discover / How it works / Log in.
+    expect(tabbar.findAll('a').map((a) => a.attributes('href'))).toEqual([
+      '/guide/discover',
+      '/matches',
+      '/trips',
+      '/messages',
+    ])
     const account = wrapper.get('.drawer > .account')
     // The column runs bottom-up on mobile, so the line after Log out shows above it.
     expect(account.element.lastElementChild?.getAttribute('data-test')).toBe('signed-in-as')
@@ -132,7 +140,7 @@ describe('AppHeader mobile menu', () => {
     withPhoto.wrapper.unmount()
   })
 
-  it('puts red counters on Matches and My trips for unseen ones, and a dot on the burger', async () => {
+  it('puts counters on Matches and My trips for unseen ones, in the menu and on their tabs', async () => {
     const { wrapper } = await mountHeader(true)
     expect(wrapper.find('[data-test="matches-count"]').exists()).toBe(false)
     expect(wrapper.find('.burger-dot').exists()).toBe(false)
@@ -144,7 +152,10 @@ describe('AppHeader mobile menu', () => {
     expect(matches.text()).toContain('3')
     expect(matches.find('.visually-hidden').text()).toBe('3 new')
     expect(wrapper.find('a[href="/trips"] [data-test="trips-count"]').text()).toContain('99+')
-    expect(wrapper.find('.burger-dot').exists()).toBe(true)
+    expect(wrapper.get('[data-test="tab-matches-count"]').text()).toContain('3')
+    expect(wrapper.get('[data-test="tab-trips-count"]').text()).toContain('99+')
+    // Each has a tab of its own, so the menu button gets no dot for them.
+    expect(wrapper.find('.burger-dot').exists()).toBe(false)
 
     useBadgesStore().set({ matches: 0, trips: 0 })
     await flushPromises()
@@ -152,7 +163,7 @@ describe('AppHeader mobile menu', () => {
     wrapper.unmount()
   })
 
-  it('counts unread chat messages on Messages, with a plural label, and lights the burger dot', async () => {
+  it('counts unread chat messages on Messages, with a plural label, on its tab too', async () => {
     const { wrapper } = await mountHeader(true)
     expect(wrapper.find('a[href="/messages"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="messages-count"]').exists()).toBe(false)
@@ -161,7 +172,8 @@ describe('AppHeader mobile menu', () => {
     await flushPromises()
     const count = wrapper.find('a[href="/messages"] [data-test="messages-count"]')
     expect(count.find('.visually-hidden').text()).toBe('1 unread')
-    expect(wrapper.find('.burger-dot').exists()).toBe(true)
+    expect(wrapper.get('[data-test="tab-messages-count"] .visually-hidden').text()).toBe('1 unread')
+    expect(wrapper.find('.burger-dot').exists()).toBe(false)
 
     useBadgesStore().set({ messages: 0 })
     await flushPromises()
@@ -182,7 +194,7 @@ describe('AppHeader roles', () => {
     wrapper.unmount()
   })
 
-  it('switches a dual-role account with Travel [switch] Guide, swapping the deck', async () => {
+  it('switches a dual-role account with the Travel | Guide segmented control, swapping the deck', async () => {
     const { wrapper, router } = await mountHeader(true)
     const auth = useAuthStore()
     auth.setUser({ ...auth.user!, roles: ['guide', 'guest'] })
@@ -190,21 +202,39 @@ describe('AppHeader roles', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="add-role-link"]').exists()).toBe(false)
-    // "Travel [switch] Guide": on means guiding.
-    const toggle = wrapper.get<HTMLInputElement>('[data-test="role-switch"]')
-    expect(toggle.attributes('role')).toBe('switch')
-    expect(toggle.element.checked).toBe(true)
-    expect(wrapper.get('.role-toggle').text()).toBe('TravelGuide')
+    const group = wrapper.get('[data-test="role-switch"]')
+    expect(group.attributes('role')).toBe('group')
+    expect(group.attributes('aria-label')).toBe('Use the app as')
+    expect(group.text()).toBe('TravelGuide')
+    expect(wrapper.get('[data-test="role-guide"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('[data-test="role-guest"]').attributes('aria-pressed')).toBe('false')
     expect(wrapper.find('a[href="/guide/discover"]').exists()).toBe(true)
 
-    await toggle.setValue(false)
+    await wrapper.get('[data-test="role-guest"]').trigger('click')
     await flushPromises()
 
     expect(auth.activeRole).toBe('guest')
     expect(router.currentRoute.value.path).toBe('/discover')
     expect(wrapper.find('a[href="/discover"]').exists()).toBe(true)
-    expect(toggle.element.checked).toBe(false)
-    expect(wrapper.get('.role-word--on').text()).toBe('Travel')
+    expect(wrapper.get('[data-test="role-guest"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('[data-test="role-guide"]').attributes('aria-pressed')).toBe('false')
+    wrapper.unmount()
+  })
+
+  it('dots the menu button and the other role when that role has news', async () => {
+    const { wrapper } = await mountHeader(true)
+    const auth = useAuthStore()
+    auth.setUser({ ...auth.user!, roles: ['guide', 'guest'] })
+    useBadgesStore().set({
+      byRole: {
+        guide: { matches: 0, trips: 0, messages: 0 },
+        guest: { matches: 2, trips: 0, messages: 0 },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('.burger-dot').exists()).toBe(true)
+    expect(wrapper.find('[data-test="role-guest"] [data-test="mode-news"]').exists()).toBe(true)
     wrapper.unmount()
   })
 })

@@ -3,11 +3,10 @@ import { formatMoney, guidePriceLabel, PACK_PRICE } from '@/utils/money'
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import ClearFilters from '@/components/ClearFilters.vue'
 import DeckBar from '@/components/DeckBar.vue'
+import DeckFilters from '@/components/DeckFilters.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
 import MatchesRail from '@/components/MatchesRail.vue'
-import FilterPanel from '@/components/FilterPanel.vue'
 import ModalDialog from '@/components/ModalDialog.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PillBadge from '@/components/PillBadge.vue'
@@ -15,7 +14,6 @@ import PriceBox from '@/components/PriceBox.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
 import ProtectedNotice from '@/components/ProtectedNotice.vue'
 import SelectionCounter from '@/components/SelectionCounter.vue'
-import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
 import { t, tn } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
@@ -46,18 +44,6 @@ const guidesStore = useGuidesStore()
 
 const { filters } = storeToRefs(filtersStore)
 
-// The filters rail can't be collapsed on desktop (its summary is a plain
-// heading there — see `.filters-disclosure`), so it's open from `lg` up and
-// starts closed below. The user's own toggle on mobile sticks until the
-// viewport crosses the breakpoint.
-const isDesktop = useMediaQuery(LG_QUERY)
-const filtersOpen = ref(isDesktop.value)
-watch(isDesktop, (desktop) => {
-  filtersOpen.value = desktop
-})
-function onFiltersToggle(event: Event) {
-  filtersOpen.value = (event.target as HTMLDetailsElement).open
-}
 const { hasAccess, canPick, packSize } = storeToRefs(matchesStore)
 const { items: guides, loading: guidesLoading } = storeToRefs(guidesStore)
 
@@ -100,15 +86,16 @@ const deck = computed(() => guides.value.filter((guide) => !matchesStore.isDecid
 const current = computed(() => deck.value[0])
 
 /** From real reviews — omitted until a guide has at least one, rather than showing "★ 0 · 0 reviews". */
-// "★ 4.8 (12) · 3 km away" — each part only when there is one.
 const currentMeta = computed(() => {
   const guide = current.value
-  if (!guide) return undefined
-  const parts = [
-    guide.reviewCount > 0 ? formatRating(guide.ratingAverage, guide.reviewCount) : null,
-    guide.distanceKm !== null ? formatDistance(guide.distanceKm) : null,
-  ].filter((part): part is string => part !== null)
-  return parts.length ? parts.join(' · ') : undefined
+  return guide && guide.reviewCount > 0
+    ? formatRating(guide.ratingAverage, guide.reviewCount)
+    : undefined
+})
+/** "3 km away", on the photo. */
+const currentDistance = computed(() => {
+  const guide = current.value
+  return guide && guide.distanceKm !== null ? formatDistance(guide.distanceKm) : undefined
 })
 
 /**
@@ -215,37 +202,31 @@ function reject(id: string) {
 </script>
 
 <template>
-  <section class="section shell">
-    <!-- The filters in force (the picks counter is in the header, PicksButton). -->
-    <DeckBar />
-
+  <section class="section shell shell--deck">
     <div class="discovery-layout">
-      <!-- Filters: a side rail on desktop, a collapsed disclosure on mobile. -->
-      <aside class="rail">
-        <details class="filters-disclosure" :open="filtersOpen" @toggle="onFiltersToggle">
-          <summary>
-            <strong>{{ t('discover.filters.title') }}</strong>
-            <ClearFilters />
-          </summary>
-          <p class="tiny muted">{{ t('discover.filters.hint') }}</p>
-          <FilterPanel target-role="guide" />
-        </details>
-      </aside>
+      <!-- Filters: a side rail on desktop, a bottom sheet on mobile. -->
+      <DeckFilters
+        :title="t('discover.filters.title')"
+        :hint="t('discover.filters.hint')"
+        target-role="guide"
+        :show-label="tn('discover.filters.show', deck.length)"
+      />
 
-      <PanelCard>
-        <template #header>
-          <!-- "Guides for you" with where, on one line. -->
-          <div class="deck-head">
-            <strong>{{ t('discover.deck.title') }}</strong>
-            <span class="tiny muted" data-test="deck-subtitle">
-              {{
-                filters.near
-                  ? t('discover.deck.subtitle_near', { place: filters.near.label })
-                  : t('discover.deck.subtitle')
-              }}
-            </span>
-          </div>
-        </template>
+      <div class="deck">
+        <!-- "Guides for you" with where, on one line. -->
+        <div class="deck-head">
+          <h1>{{ t('discover.deck.title') }}</h1>
+          <span class="muted" data-test="deck-subtitle">
+            {{
+              filters.near
+                ? t('discover.deck.subtitle_near', { place: filters.near.label })
+                : t('discover.deck.subtitle')
+            }}
+          </span>
+        </div>
+
+        <!-- The filters in force, right above the card (the picks counter is in the header). -->
+        <DeckBar />
 
         <!--
           The deck is open to everyone; "Interested" is what's gated — by an
@@ -268,6 +249,7 @@ function reject(id: string) {
           :age="current.age"
           :photo="current.photo"
           :meta="currentMeta"
+          :photo-note="currentDistance"
           :price-label="
             guidePriceLabel(
               current.priceAmount ?? null,
@@ -346,7 +328,7 @@ function reject(id: string) {
         <p v-if="cardDisabled && current" class="tiny muted">
           {{ t('discover.deck.pack_used', { count: packSize }) }}
         </p>
-      </PanelCard>
+      </div>
 
       <!-- Matches rail. -->
       <aside class="rail">
@@ -443,55 +425,28 @@ function reject(id: string) {
 <style scoped lang="scss">
 @use 'breakpoints' as bp;
 
-// The bar of filters and picks sits right under the menu.
+// Discovery pages run wider than the default shell (see _layout.scss).
 .section.shell {
-  padding-top: 1.25rem;
+  padding-top: 1rem;
 
   @include bp.lg {
     padding-top: 1.5rem;
   }
 }
 
-.filters-disclosure {
-  // "Filters", then "clear ×" (while any are set) just before the chevron.
-  summary {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-
-    // The title takes the room, so "clear" and the chevron sit at the end.
-    strong {
-      flex: 1;
-    }
-  }
-
-  border: 1px solid var(--rg-line);
-  border-radius: var(--rg-radius-panel);
-  background: #fff;
-  padding: 0.85rem 1rem;
-  margin-bottom: 0;
-
-  p {
-    margin: 0.25rem 0 0.75rem;
-  }
-
-  // On desktop the rail is always expanded, so the summary is a plain heading.
-  @include bp.lg {
-    summary {
-      list-style: none;
-      cursor: default;
-      pointer-events: none;
-
-      &::-webkit-details-marker {
-        display: none;
-      }
-    }
-  }
+.deck {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .empty {
   text-align: center;
   padding: 2rem 1rem;
+  border: 1px solid var(--rg-line);
+  border-radius: var(--rg-radius-card);
+  background: #fff;
 
   h3 {
     margin-bottom: 0.5rem;
@@ -522,7 +477,17 @@ a[role='button'] {
   gap: 0.25rem 1rem;
   flex-wrap: wrap;
 
+  h1 {
+    margin: 0;
+    font-size: 1.5rem;
+
+    @include bp.lg {
+      font-size: 1.75rem;
+    }
+  }
+
   span {
+    font-size: 0.875rem;
     text-align: end;
   }
 }

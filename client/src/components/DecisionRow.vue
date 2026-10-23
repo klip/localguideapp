@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import NavIcon from './NavIcon.vue'
+import FingerHeart from './FingerHeart.vue'
 import { t } from '@/i18n'
-/** The two-up pass / interested control at the foot of every discovery card. */
+/**
+ * The pass / interested pair at the foot of every discovery card: a plain
+ * white Pass and the honey primary Interested, marked with the brand's
+ * finger heart (no bee at this size).
+ */
 withDefaults(
   defineProps<{
     rejectLabel?: string
@@ -19,11 +23,13 @@ const emit = defineEmits<{
 
 <template>
   <div class="decision-row">
-    <button type="button" class="reject" :disabled="disabled" @click="emit('reject')">
+    <button type="button" class="secondary reject" :disabled="disabled" @click="emit('reject')">
       <span aria-hidden="true">✕</span> {{ rejectLabel ?? t('common.decision_row.reject') }}
     </button>
     <button type="button" class="accept" :disabled="disabled" @click="emit('accept')">
-      <NavIcon name="matches" />{{ acceptLabel ?? t('common.decision_row.interested') }}
+      <FingerHeart class="accept-mark" :bee="false" :weight="7" />{{
+        acceptLabel ?? t('common.decision_row.interested')
+      }}
     </button>
   </div>
 </template>
@@ -31,37 +37,27 @@ const emit = defineEmits<{
 <style scoped lang="scss">
 .decision-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.65rem;
-  margin-top: 0.85rem;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 0.625rem;
 }
 
 button {
-  margin-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 3rem;
+  margin: 0;
+  border-radius: 0.75rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
-.reject {
-  background: var(--rg-red-soft);
-  border-color: var(--rg-red-border);
-  color: var(--rg-red);
-
-  &:hover:not(:disabled) {
-    background: #ffe4e0;
-    border-color: var(--rg-red);
-    color: var(--rg-red);
-  }
-}
-
-.accept {
-  background: var(--rg-green-soft);
-  border-color: var(--rg-green-border);
-  color: var(--rg-green);
-
-  &:hover:not(:disabled) {
-    background: #dcefe4;
-    border-color: var(--rg-green);
-    color: var(--rg-green);
-  }
+// The hand on the honey button: cream fill, ink outline.
+.accept-mark {
+  --fh-skin: var(--rg-cream);
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-block: -0.25rem;
 }
 </style>

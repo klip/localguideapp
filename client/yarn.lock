@@ -565,6 +565,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fontsource-variable/nunito@npm:^5.3.0":
+  version: 5.3.0
+  resolution: "@fontsource-variable/nunito@npm:5.3.0"
+  checksum: 10c0/eecff4d740ce2e19c549c1701cb457ff7d0893dda11f65ac8120330806f95073ddc37339c47699a3232b03c9c366d820b2c5d1ab64611cdad997aa3a82148418
+  languageName: node
+  linkType: hard
+
 "@hapi/address@npm:^5.1.1":
   version: 5.1.1
   resolution: "@hapi/address@npm:5.1.1"
@@ -4134,6 +4141,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "localguideapp@workspace:."
   dependencies:
+    "@fontsource-variable/nunito": "npm:^5.3.0"
     "@picocss/pico": "patch:@picocss/pico@npm%3A2.1.1#~/.yarn/patches/@picocss-pico-npm-2.1.1-adea4c2424.patch"
     "@tsconfig/node24": "npm:^24.0.4"
     "@types/jsdom": "npm:^28.0.3"

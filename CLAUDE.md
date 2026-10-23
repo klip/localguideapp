@@ -132,9 +132,11 @@ otherwise harmless-looking mocks fail lint.
 
 `src/__tests__/` holds Vitest + `@vue/test-utils` component tests
 (`App.spec.ts`, `AppHeader.spec.ts` — the mobile drawer's open/close/focus
-behavior, `RegisterPage.spec.ts`, `ProfilePage.spec.ts`,
-`MatchesPage.spec.ts`, `TripsPage.spec.ts`, `BookingPanel.spec.ts`, `FilterPanel.spec.ts` — the generic filter store and
-the category-then-values bar built on it, `Reviews.spec.ts` — the review
+behavior, the tab bar and its counters, the role segments,
+`RegisterPage.spec.ts`, `ProfilePage.spec.ts`,
+`MatchesPage.spec.ts`, `TripsPage.spec.ts`, `BookingPanel.spec.ts`, `FilterPanel.spec.ts` — the generic filter store,
+the category-then-values bar built on it, the gender segments and the
+`DeckFilters` sheet, `Reviews.spec.ts` — the review
 section, its "Show all" modal and the write/edit form,
 `VisitorProfilePage.spec.ts`, `AccountSecurity.spec.ts` — the login code
 step and the forgot/reset password pages, `DiscoverPage.spec.ts` — the
@@ -166,6 +168,32 @@ Pico is **patched** (`client/.yarn/patches/@picocss-pico-npm-2.1.1-*.patch`,
 via `yarn patch`): its `_modal.scss` used Sass's deprecated `if()` function,
 now an `@if` block. Our own SCSS uses `@if`/`@else` only. Drop the patch when
 Pico ships a fix (2.1.1 is the latest as of 2026-10-22).
+
+### Design system (`assets/styles/_tokens.scss`, `_base.scss`)
+
+Built from the approved sketches in `docs/design/sketches/` (03 the system,
+04 desktop Discover, 05 mobile, 09 the logo):
+
+- **One fixed 16 px base.** Pico's responsive typography (which grew the
+  whole UI to 131% on wide screens) is off — `@use 'pico' with
+  ($enable-responsive-typography: false)` in `App.scss`. Type scale: h1 28,
+  h2 22, h3 18 in **Nunito** (`--rg-font-display`, self-hosted from
+  `@fontsource-variable/nunito`, OFL — imported in `main.ts`, no font CDN),
+  body 16, labels/controls 14–15, hints 12 in the system/Inter stack.
+- **Controls**: every field, select and button 40 px tall
+  (`--pico-form-element-spacing-vertical: 0.5rem` + 15 px text), radius
+  10 px (`--rg-radius-control`); cards 16 px; full pills only for chips.
+  Small choice sets are `SegmentedControl.vue`, not selects.
+- **Colour**: honey `--rg-honey` (#F4A62A) is the one primary — buttons are
+  honey with ink text; text links use the darker `--rg-orange-700`. Coral
+  (`--rg-coral`) for counters and alerts, leaf green for success. The older
+  `--rg-orange-*` names were repointed at the honey ramp rather than renamed.
+  **Pico's colour variables must be overridden on `:root:not([data-theme=dark]),
+  [data-theme=light]`** (its own selector) — a plain `:root` loses, which is
+  why the buttons used to stay Pico-blue.
+- `_base.scss` also fixes two Pico leftovers globally: a `<small>` hint right
+  under a field gets a 6 px gap (Pico's negative pull-up overlapped wherever
+  the field's margin had been removed), and search fields aren't pills.
 
 ### Structure
 
@@ -256,21 +284,23 @@ path/name table) and the shared `src/components/` each is built from:
 - **`DiscoverPage.vue`** (`/discover`, visitor browsing guides) /
   **`GuideDiscoverPage.vue`** (`/guide/discover`, guide browsing visitors)
   — the two discovery decks, deliberately built from the same pieces:
-  `PanelCard`, `FilterPanel` (the category-then-values filter form, in a
-  `<details>` rail, open on desktop and collapsed on mobile — see "Discovery
-  filters"), `ProfileCard` (the
-  swipeable card, which itself renders a `TagList` and a `DecisionRow` for
-  its accept/reject buttons), `PillBadge` (the header counter/pill).
+  `DeckFilters` (the filters: a side rail on desktop, a bottom sheet on
+  mobile, wrapping `FilterPanel` — see "Discovery filters"), `ProfileCard`
+  (the card, which itself renders a `TagList` and a `DecisionRow` for its
+  accept/reject buttons), `PanelCard` (the matches rail).
   `SelectionCounter` is now only the signed-out "Browse freely" intro on
   `DiscoverPage.vue`. Both pages pull their deck from
-  `stores/guides.ts`/`stores/visitors.ts`.
-  **`DeckBar.vue`** sits between the menu and both decks (first thing on the
-  page): only the filters in force as pills (`ActiveFilters`). It's always
+  `stores/guides.ts`/`stores/visitors.ts`. Both run in a wider shell
+  (`.shell--deck`, the header's 1400 px) so the card can go landscape; the
+  deck column is its `h1` title ("Guides for you" / "Visitors") with "Near
+  {place}" on the same line, then the `DeckBar`, then the card.
+  **`DeckBar.vue`** sits right above the card in the deck column: only the
+  filters in force as pills (`ActiveFilters`). It's always
   there at one pill's height and fully transparent (no border, padding or
   background), so picking a filter never moves the page. The **picks
-  counter** is in the header instead (`PicksButton.vue`, centred in the top
-  row on desktop, between logo and burger on mobile; **every page**, signed-in
-  traveller mode): Pico's secondary outline button with a check-box icon and
+  counter** is in the header instead (`PicksButton.vue`, right of the links on
+  desktop, beside the avatar on mobile; **every page**, signed-in
+  traveller mode): a soft honey pill with a check-box icon and
   "2/10 left" (`common.picks_button.*`; "Free picks on" during a bonus, its
   end date and the picks left after it as the tooltip; "Get picks" before the
   first pack). On Discover it sets `matchesStore.addPicksOpen`, which opens
@@ -362,29 +392,52 @@ own — every one just takes props/emits):
 - `SectionTitle.vue` — eyebrow (rendered as a `PillBadge`) + heading +
   optional lead, at the top of every page section.
 - `PillBadge.vue` — small rounded label; `tone="warm" | "neutral"`.
-- `BrandMark.vue` — the logo: "Be [thumbs up] Local", read "Be Like Local"
-  after the domain `belikelocal.club` (the thumb is our own SVG drawing and
-  is announced as "Like"),
-  as a link (default, `AppHeader.vue`) or bare text (`as="text"`,
-  `AppFooter.vue`, the mobile drawer).
+- `BrandMark.vue` — the logo: "Be [finger heart] Local", read "Be Like
+  Local" after the domain `belikelocal.club` (the hand, `FingerHeart.vue`, is
+  our own drawing and is announced as "Like"), wordmark in Nunito Black,
+  tight spacing (docs/design/sketches/09-logo-inline-tilted.png). As a link
+  (default, `AppHeader.vue`) or bare text (`as="text"`, `AppFooter.vue`, the
+  mobile drawer). `comb` lays the hand-drawn honeycomb mesh behind it,
+  fading out (`utils/honeycomb.ts`, fixed seed) — the header's.
+- `FingerHeart.vue` — the brand mark: a finger heart (🫰) turned 10°
+  clockwise, palm side (thumb up, index tip peeking out behind it), with a
+  small bee off the thumb (`:bee="false"` drops it). Recolour with
+  `--fh-ink` / `--fh-skin` / `--fh-wing`; `weight` thickens the outline
+  for small sizes. No hearts anywhere in the brand: it's a friendly trip
+  service, not dating.
+- `SegmentedControl.vue` — two or three options as one row of segments
+  (real radios underneath, `v-model`, a legend): gender in the filters.
 - `TagList.vue` — a wrapping row of soft tag chips.
-- `DecisionRow.vue` — the reject/accept button pair every card's footer
-  uses; default labels "✕ Reject"/"🤝 Interested" (the handshake is
-  `NavIcon`) — `DiscoverPage.vue`,
-  `GuideDiscoverPage.vue` and `GuideProfilePage.vue` all use the defaults,
-  no page currently overrides them.
-- `ProfileCard.vue` — the swipeable card itself: photo, name/age, a meta
-  line, price (guide side only), bio, `TagList`, optional `includes`
-  prose, a slot, then its own `DecisionRow`. Deliberately domain-agnostic
-  (plain scalar props, not a `Guide`/`Visitor` object) since both decks
-  render it with different emphasis.
+- `DecisionRow.vue` — the reject/accept pair every card's footer uses: a
+  white "✕ Reject" and the honey primary "Interested" with the finger
+  heart (no bee) — no cost text on it (the picks counter is in the header).
+  `DiscoverPage.vue`, `GuideDiscoverPage.vue` and `GuideProfilePage.vue`
+  all use the default labels.
+- `ProfileCard.vue` — the discovery card: photo, badges, name/age (a link
+  to the full profile, as is the photo — there's no separate "Full profile"
+  link), a meta line, price (guide side only), bio (clamped), `TagList`,
+  optional `includes`, a slot, then its own `DecisionRow`. A container
+  query makes it **landscape from 600 px wide** (photo left at full height,
+  everything else right, buttons pinned to the bottom — the desktop deck)
+  and **one wide 16:9 photo on top** below that (phones). `photoNote` puts
+  "3 km away" on the photo. One photo: a gallery waits for multi-photo
+  upload. Deliberately domain-agnostic (plain scalar props, not a
+  `Guide`/`Visitor` object) since both decks render it with different
+  emphasis.
+- `DeckFilters.vue` — both decks' filters: from `lg` an always-open side
+  rail (its heading a plain title, "clear ×" still clickable); below, a
+  "Filters · N" button whose `<details>` content becomes a fixed bottom
+  sheet over a backdrop (body scroll locked, Escape closes) ending in
+  "Clear filters" and "Show 24 guides" (`showLabel`, counted by the page).
+  Don't give its body `role="group"`: Pico styles that as a button group
+  and it broke the sliders' absolute positioning.
 - `RangePicker.vue` — one slider with two handles (`DualRangeSlider`), the
   chosen span above it ("09:00–13:00"), an Add button and the spans collected
   so far as removable chips: the input for a `range` category with several
   spans (a guide's hours on `ProfilePage.vue`). Adding is explicit
   because a category holds *several* spans. (`FilterChips.vue`, the old
   hardcoded quick-filter row, is gone — the filter bar covers it.)
-- `FilterPanel.vue` — the filter form: gender + age on top, then an
+- `FilterPanel.vue` — the filter form: gender (a `SegmentedControl`) + age on top, then an
   accordion of categories (see "Discovery filters" below). Built from
   `stores/categories.ts`, so it names no category itself; writes straight
   to `stores/filters.ts`.
@@ -762,37 +815,52 @@ longer behind a paywall — what's gated is "Interested":
 
 ### Header & mobile menu (`AppHeader.vue`)
 
-**Desktop (from `xl`, 1280px — `DESKTOP_QUERY` must match `breakpoints.$xl`)
-is two rows.** Top: logo and language switch on the left; on the right the
-role switch, the **profile circle** (the user's photo, else their initial,
-linking to `/profile` — there's no "Profile" menu item) and Log out (signed
-out: Log in + Get started). Below: the menu links — How it works (signed out), Discover, Trip planner
-(traveller), Calendar (guide), Matches, My trips, Payments, Messages — each with a line icon
-(`NavIcon.vue`: bulb, compass, map, calendar, handshake, suitcase, wallet, speech bubble; give a
-new link one too) — black, 0.9rem; the active one has
-a 4px underline and a 1px white text shadow (in the mobile drawer it's bold
-instead). There's no picks counter in the header any more (the
-Discover page's counter is in the header's top row instead — `PicksButton.vue`).
+**Desktop (from `xl`, 1280px — `DESKTOP_QUERY` must match `breakpoints.$xl`).**
+From 1440 (`$xxl`) it's **one row** (docs/design/sketches/04): the logo with
+the honeycomb behind it, the menu links, then on the right the picks pill,
+"🌐 EN · €" (language and currency in one small popover — `locale-toggle`,
+closed by a click outside, Escape or navigation), the role switch, the
+**profile circle** (the user's photo, else their initial, linking to
+`/profile` — there's no "Profile" menu item) and an icon-only Log out (its
+label stays for screen readers; signed out: Log in + Get started). From
+1280 to 1439 the links drop to a second row. The links — How it works
+(signed out), Discover, Trip planner (traveller), Calendar (guide),
+Matches, My trips, Payments, Messages — each have a line icon (`NavIcon.vue`:
+bulb, compass, map, calendar, **handshake** for Matches, suitcase, wallet,
+speech bubble; give a new link one too), 14 px, the active one on a soft
+honey pill; counters are coral bubbles after the label. The header is
+inside `.topbar-inner` (1400 px, `--rg-header-width`), wider than `.shell`.
 
-- **The role switch**: a dual-role account gets "Travel [switch] Guide" —
-  Pico's iOS-style switch (`<input type="checkbox" role="switch">`,
-  `data-test="role-switch"`, on = guiding; the words switch too, the current
-  one in bold) — switching in place (see "Acting role"). A one-role account
-  gets "Start travelling" / "Become a guide" (`add-role-link`, to
-  `/profile?addRole=…`). A red dot by the other role's word is news there.
+**Mobile (below `xl`) is a bottom tab bar** (`.tabbar`, `data-test="tabbar"`,
+fixed to the foot; `.app-shell` gets matching bottom padding and the cookie
+notice sits above it): signed in Discover · Matches · My trips · Messages ·
+Menu, signed out Discover · How it works · Log in · Menu, with the same
+counters (`tab-*-count`). **Menu is the `.burger`** that opens the drawer,
+which still holds everything (planner, calendar, payments, language,
+currency, role, log out). Its dot now means only the other role's news —
+the counted sections have tabs of their own. The top bar is the logo, the
+picks pill and the profile circle.
+
+- **The role switch**: a dual-role account gets "Travel | Guide" — a
+  segmented control (`role="group"`, `data-test="role-switch"`, two buttons
+  with `aria-pressed`, `role-guest` / `role-guide`) — switching in place
+  (see "Acting role"). A one-role account gets "Start travelling" /
+  "Become a guide" (`add-role-link`, to `/profile?addRole=…`). A coral dot
+  on the other role's segment is news there.
 - **The photo** isn't in `AuthResult` (too big for `localStorage`):
   `stores/avatar.ts` fetches `myProfile` once per signed-in user, and
   `ProfilePage` calls `avatar.set()` after saving a new photo.
 - **It's one `.drawer` element styled two ways, not two copies of the
-  menu.** Below `xl` it's a `position: fixed` off-canvas panel (logo +
-  burger in the bar); from `xl` it's `display: contents`, so its parts sit
-  directly on the `nav`'s grid (`grid-template-areas: 'logo lang . role me
-  account' / 'links …'`). Add a link once, inside `.drawer > ul.nav`.
-- **Mobile drawer, top to bottom**: logo + ✕, the language switch, the
-  links, the role switch (a little padding below the last link), then
-  "Signed in as …" just above Log out at the foot. The profile circle isn't
-  in the drawer on mobile: it sits in the bar beside the burger
-  (`.bar-end` > `.bar-profile`); the drawer's `.me` is the desktop one.
+  menu.** Below `xl` it's a `position: fixed` off-canvas panel (opened by
+  the tab bar's Menu); from `xl` it's `display: contents`, so its parts sit
+  directly on the `nav`'s grid (`'logo links . picks lang role me account'`
+  from `xxl`). Add a link once, inside `.drawer > ul.nav` — and to the tab
+  bar only if it's a main section.
+- **Mobile drawer, top to bottom**: logo + ✕, the language and currency
+  selects side by side, the links, the role switch, then "Signed in as …"
+  just above Log out at the foot. The profile circle isn't in the drawer on
+  mobile: it sits in the bar (`.bar-end` > `.bar-profile`); the drawer's
+  `.me` is the desktop one.
 - **Log out is always the drawer's last element** (`AppHeader.spec.ts`
   asserts it): the foot of the mobile drawer, the far right of the desktop
   bar. `.account` carries it — `margin-top: auto` plus `position: sticky;
@@ -1743,7 +1811,7 @@ a later feature and would get their own table.
 ### Discovery filters
 
 The filter bar (`FilterPanel.vue`) has two parts. At the top, **the
-person**: gender (a dropdown) and age (one `DualRangeSlider`, two handles,
+person**: gender (Male · Female · Any, a `SegmentedControl`) and age (one `DualRangeSlider`, two handles,
 16–99), always visible. Below, under "Add a filter", **every category as an
 accordion row** — a native `<details>` with Pico's own chevron and a count of
 picks; open it and the remaining options are full-width link-style rows
@@ -1760,18 +1828,21 @@ see "Location". **There's
 no apply button** — both decks already refetch (debounced) on every filter
 change. "clear ×" (`ClearFilters.vue`) shows in the Filters heading once anything is set.
 Accordion state is the browser's own (uncontrolled `<details>`); every value
-lives in `stores/filters.ts`, so collapsing never loses one. The bar sits in a `<details>`
-on both decks, open from `lg` (1024px) up — where its summary is a plain,
-unclickable heading — and closed by default below, where it's a normal
-toggle; crossing the breakpoint resets it (`useMediaQuery(LG_QUERY)` in
+lives in `stores/filters.ts`, so collapsing never loses one. The bar sits in
+`DeckFilters.vue`'s `<details>` on both decks, open from `lg` (1024px) up —
+where its summary is a plain, unclickable heading — and below that a
+"Filters · N" button opening a **bottom sheet** ending in "Clear filters" /
+"Show 24 guides" (`discover.filters.show_*`, `guide_discover.filters.show_*`
+— the deck already refetched, so the count is the answer); crossing the
+breakpoint resets it (`useMediaQuery(LG_QUERY)` in
 `src/composables/useMediaQuery.ts`, bound to `:open`). It's built entirely from
 `stores/categories.ts`, so it offers whatever the server has, including a
 category a user invented on their profile page five minutes ago.
 
 - **Multi-select options everywhere, with one deliberate exception.** Gender
-  is a dropdown (Male / Female / No preference) because it's a human
-  constant, not a tag list. There are no other `<select>`s, radios or
-  checkboxes in the bar.
+  is a three-way switch (Male / Female / Any — `common.filter_panel.any`;
+  "Any" is no filter) because it's a human constant, not a tag list. There
+  are no `<select>`s or checkboxes in the bar.
 - **`range` categories in the bar are a single span** (`filtersStore.
   setRange()`); the store and the server still accept several. `hour_of_day`
   runs 00:00–23:00. `utils/formatRange.ts` prints them ("09:00–13:00") —
@@ -3241,6 +3312,11 @@ API service (`api/classes/`):
 - `api/sql/102_currency.sql` — the currency switcher's text, the "charged in
   pounds" line, and the switcher's block on every page. Applied 2026-10-22.
   Re-runnable.
+- `api/sql/103_translations_ui_refresh.sql` — the UI refresh's text (tab
+  bar "Menu", "Language & currency", the role switch's label, gender "Any",
+  "Show N guides / travellers"), 15 languages. Applied 2026-10-23.
+  Re-runnable. (`common.filter_panel.no_preference` is unused since; left in
+  place.)
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

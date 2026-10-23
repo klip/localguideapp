@@ -3,6 +3,7 @@ import { computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import DualRangeSlider from './DualRangeSlider.vue'
 import LocationFilter from './LocationFilter.vue'
+import SegmentedControl from './SegmentedControl.vue'
 import { t } from '@/i18n'
 import { AGE_CATEGORY, AGE_CATEGORY_KEY, useCategoriesStore } from '@/stores/categories'
 import { useFiltersStore } from '@/stores/filters'
@@ -14,7 +15,7 @@ import type { Gender, NumericRange } from '@/types'
  * The discovery filter form: where to search (`LocationFilter` — the search
  * point and the distance limit), then two parts:
  *
- * - **The person** — gender (a dropdown) and age (one slider, two handles).
+ * - **The person** — gender (a three-way switch) and age (one slider, two handles).
  *   Both are human constants rather than tag lists, so they sit together at
  *   the top and are always visible.
  * - **"Add a filter"** — every attribute category as an accordion row (a
@@ -50,7 +51,7 @@ const props = withDefaults(
 
 const categoriesStore = useCategoriesStore()
 const filtersStore = useFiltersStore()
-const { filters, isPristine } = storeToRefs(filtersStore)
+const { filters } = storeToRefs(filtersStore)
 
 onMounted(() => categoriesStore.load())
 
@@ -113,10 +114,16 @@ function selectedCount(key: string) {
   return filtersStore.valuesFor(key).length + filtersStore.rangesFor(key).length
 }
 
-function onGenderChange(event: Event) {
-  const value = (event.target as HTMLSelectElement).value
-  filtersStore.setGender(value ? (value as Gender) : null)
-}
+/** Gender as a three-way switch; "Any" is no filter. */
+const genderOptions = computed(() => [
+  { value: 'male' as const, label: t('common.gender.male') },
+  { value: 'female' as const, label: t('common.gender.female') },
+  { value: 'any' as const, label: t('common.filter_panel.any') },
+])
+const gender = computed<Gender | 'any'>({
+  get: () => filters.value.gender ?? 'any',
+  set: (value) => filtersStore.setGender(value === 'any' ? null : value),
+})
 </script>
 
 <template>
@@ -124,14 +131,14 @@ function onGenderChange(event: Event) {
     <LocationFilter />
 
     <fieldset class="person">
-      <label class="tiny">
-        {{ t('common.filter_panel.gender') }}
-        <select :value="filters.gender ?? ''" @change="onGenderChange">
-          <option value="">{{ t('common.filter_panel.no_preference') }}</option>
-          <option value="male">{{ t('common.gender.male') }}</option>
-          <option value="female">{{ t('common.gender.female') }}</option>
-        </select>
-      </label>
+      <SegmentedControl
+        v-model="gender"
+        class="gender"
+        name="filter-gender"
+        :legend="t('common.filter_panel.gender')"
+        :options="genderOptions"
+        data-test="gender-filter"
+      />
 
       <div class="age">
         <div class="age-head tiny">
@@ -205,17 +212,11 @@ function onGenderChange(event: Event) {
 }
 
 .person {
+  display: grid;
+  gap: 0.9rem;
   margin: 0 0 0.75rem;
   padding: 0;
   border: 0;
-
-  label {
-    margin-bottom: 0.6rem;
-  }
-
-  select {
-    margin-bottom: 0;
-  }
 }
 
 .age-head {

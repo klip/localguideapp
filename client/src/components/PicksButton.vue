@@ -78,16 +78,33 @@ const title = computed(() =>
 </template>
 
 <style scoped lang="scss">
+// A soft honey pill (docs/design/sketches/04-…png), 32 px like the
+// header's other controls.
 .picks-button {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   width: auto;
+  height: var(--rg-control-height-sm);
   margin: 0;
-  padding: 0.4rem 1rem;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 700;
+  padding: 0 0.75rem;
+  border: 1px solid var(--rg-orange-100);
+  border-radius: var(--rg-radius-control);
+  background: var(--rg-orange-50);
+  color: var(--rg-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
   white-space: nowrap;
+
+  svg {
+    color: var(--rg-orange-500);
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: var(--rg-orange-100);
+    border-color: var(--rg-orange-300);
+    color: var(--rg-ink);
+  }
 }
 </style>

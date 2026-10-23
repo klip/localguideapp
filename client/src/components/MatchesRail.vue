@@ -27,6 +27,8 @@ interface RailItem {
   /** The other person — a guide for a traveller, a traveller for a guide. */
   personId: number
   name: string
+  /** Their photo (a data URL), or null for the initial. */
+  image: string | null
   caption: string
   /** A trip under way: "In progress" stands in for the date. */
   inProgress?: boolean
@@ -58,6 +60,7 @@ const matchedItems = computed<RailItem[]>(() =>
       key: `m${row.id}`,
       personId: row.counterpart_id,
       name: row.name || t('discover.rail.unnamed'),
+      image: row.image || null,
       // A pending booking already has a time (and maybe a place); otherwise
       // where the guide works.
       caption: caption(
@@ -82,6 +85,7 @@ const upcomingItems = computed<RailItem[]>(() =>
         key: `t${trip.id}`,
         personId: trip.counterpart_id,
         name: trip.name || t('discover.rail.unnamed'),
+        image: trip.image || null,
         // Under way: the place only — the "In progress" label says when.
         caption: inProgress ? (place ?? '') : caption(place, trip.meeting_at),
         inProgress,
@@ -179,14 +183,20 @@ defineExpose({ reload })
     <div id="rail-panel" role="tabpanel" :aria-labelledby="`rail-tab-${activeTab}`">
       <ul v-if="items[activeTab].length" class="rail-list">
         <li v-for="item in items[activeTab]" :key="item.key">
-          <RouterLink :to="{ name: profileRoute, params: { id: item.personId } }">{{
-            item.name
-          }}</RouterLink>
-          <span class="tiny muted rail-caption">
-            <span v-if="item.inProgress" class="rail-live" data-test="rail-in-progress">{{
-              t('discover.rail.in_progress')
-            }}</span>
-            <template v-if="item.caption">{{ item.caption }}</template>
+          <span class="rail-avatar" aria-hidden="true">
+            <img v-if="item.image" :src="item.image" alt="" />
+            <template v-else>{{ Array.from(item.name)[0] }}</template>
+          </span>
+          <span class="rail-who">
+            <RouterLink :to="{ name: profileRoute, params: { id: item.personId } }">{{
+              item.name
+            }}</RouterLink>
+            <span class="tiny muted rail-caption">
+              <span v-if="item.inProgress" class="rail-live" data-test="rail-in-progress">{{
+                t('discover.rail.in_progress')
+              }}</span>
+              <template v-if="item.caption">{{ item.caption }}</template>
+            </span>
           </span>
         </li>
       </ul>
@@ -200,33 +210,38 @@ defineExpose({ reload })
 </template>
 
 <style scoped lang="scss">
+// A segmented control: the open tab raised (docs/design/sketches/04-…png).
 .rail-tabs {
   display: flex;
-  gap: 0.3rem;
+  gap: 2px;
   margin-bottom: 0.6rem;
+  padding: 3px;
+  border-radius: var(--rg-radius-control);
+  background: var(--rg-sunken);
+  border: 1px solid var(--rg-line);
 }
 
-// Small versions of the Matches / My trips page tabs.
 .rail-tab {
   flex: 1;
   width: auto;
+  height: 2rem;
   margin: 0;
-  padding: 0.35rem 0.5rem;
-  border-radius: 999px;
-  border: 1px solid var(--rg-line);
-  background: #fff;
-  color: var(--rg-ink);
-  font-size: 0.8rem;
+  padding: 0 0.5rem;
+  border-radius: 0.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--rg-muted);
+  font-size: 0.8125rem;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.3rem;
+  box-shadow: none;
 
   &:hover,
   &:focus-visible {
-    border-color: var(--rg-orange-300);
-    background: var(--rg-orange-50);
+    background: transparent;
     color: var(--rg-ink);
   }
 
@@ -240,9 +255,9 @@ defineExpose({ reload })
 .rail-tab--active,
 .rail-tab--active:hover,
 .rail-tab--active:focus-visible {
-  background: var(--rg-orange-500);
-  border-color: var(--rg-orange-500);
-  color: #fff;
+  background: #fff;
+  color: var(--rg-ink);
+  box-shadow: 0 1px 3px rgba(42, 31, 23, 0.14);
 }
 
 .rail-count {
@@ -255,7 +270,7 @@ defineExpose({ reload })
   text-align: center;
 
   .rail-tab--active & {
-    background: rgba(255, 255, 255, 0.25);
+    background: var(--rg-orange-100);
   }
 }
 
@@ -285,8 +300,9 @@ defineExpose({ reload })
   li {
     list-style: none;
     display: flex;
-    flex-direction: column;
-    padding: 0.4rem 0;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0;
     border-bottom: 1px solid var(--rg-line);
 
     &:last-child {
@@ -298,6 +314,31 @@ defineExpose({ reload })
     font-weight: 600;
     overflow-wrap: anywhere;
   }
+}
+
+.rail-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--rg-orange-100);
+  color: var(--rg-orange-ink);
+  font-weight: 800;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.rail-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .rail-link {

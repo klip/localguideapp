@@ -1,53 +1,75 @@
-// Design tokens for the BeLikeLocal UI.
+// Design tokens for the BeLikeLocal UI (docs/design/sketches/03-ui-system.png).
 //
 // Two groups live here:
-//   --pico-*  overrides Pico's own theme variables (font, primary colour, radius)
+//   --pico-*  overrides Pico's own theme variables (font, colours, controls)
 //   --rg-*    BeLikeLocal-specific tokens consumed by our own components
 //
-// They are plain custom properties on :root, so scoped component styles can read
-// them without importing anything.
+// The system: one fixed 16 px base (Pico's responsive typography is switched
+// off in App.scss), every field/select/button 40 px tall with a 10 px radius,
+// cards 16 px, pills only for chips. Honey is the one primary colour, with
+// ink text on it.
 
 :root {
-  // --- Pico theme overrides -------------------------------------------------
-  --pico-font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --pico-primary: #d97745;
-  --pico-primary-hover: #c86432;
-  --pico-primary-focus: rgba(217, 119, 69, 0.18);
-  --pico-primary-background: #d97745;
-  --pico-primary-border: #d97745;
-  --pico-border-radius: 1rem;
+  --pico-font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --pico-font-size: 100%;
+  --pico-line-height: 1.5;
+  --pico-border-radius: 0.625rem;
+  // Controls: 0.5rem + 15 px text × 1.5 + 0.5rem + 2 px border ≈ 40 px.
+  --pico-form-element-spacing-vertical: 0.5rem;
+  --pico-form-element-spacing-horizontal: 0.75rem;
+  --pico-spacing: 1rem;
+  --pico-typography-spacing-vertical: 0.75rem;
+
+  // Headings and the wordmark (self-hosted, see main.ts).
+  --rg-font-display: 'Nunito Variable', Nunito, var(--pico-font-family);
 
   // --- Ink & surfaces -------------------------------------------------------
-  --rg-ink: #332720;
+  --rg-ink: #2a1f17;
   --rg-muted: #7c6b61;
-  --rg-cream: #fffaf6;
-  --rg-surface: #fffdfb;
-  --rg-line: #eadfd8;
+  --rg-cream: #fff8ef;
+  --rg-surface: #ffffff;
+  --rg-sunken: #fbf6f0;
+  --rg-line: #e8ddd2;
+  --rg-line-strong: #d6c7b8;
 
-  // --- Warm accent ramp -----------------------------------------------------
-  --rg-orange-50: #fff5ed;
-  --rg-orange-100: #ffe6d4;
-  --rg-orange-200: #ffd1b3;
-  --rg-orange-300: #f4ae7f;
-  --rg-orange-500: #d97745;
-  --rg-orange-ink: #8d4d27;
+  // --- Honey (the brand colour) ---------------------------------------------
+  // `--rg-honey` is for fills (buttons, the logo's hand); text and thin
+  // strokes use the darker steps, which keep their contrast on cream.
+  --rg-honey: #f4a62a;
+  --rg-honey-hover: #e8971a;
+  // Older names, kept so components didn't all need touching.
+  --rg-orange-50: #fff4e0;
+  --rg-orange-100: #fde6bc;
+  --rg-orange-200: #fbd58f;
+  --rg-orange-300: #f2b65a;
+  --rg-orange-500: #e08a12;
+  --rg-orange-700: #a85c08;
+  --rg-orange-ink: #8a5a10;
+
+  // --- Coral: alerts and counters -------------------------------------------
+  --rg-coral: #ee6a4d;
 
   // --- Decision colours (pass / interested) ---------------------------------
-  --rg-green-soft: #eaf5ef;
-  --rg-green: #31785a;
-  --rg-red-soft: #fff0ee;
-  --rg-red: #b45b50;
-  --rg-green-border: #cae6d8;
-  --rg-red-border: #f2ccc6;
+  --rg-green-soft: #e7f3ec;
+  --rg-green: #3e8e6a;
+  --rg-red-soft: #fdede8;
+  --rg-red: #b4452c;
+  --rg-green-border: #c6e3d3;
+  --rg-red-border: #f3c3b8;
 
   // --- Elevation & shape ----------------------------------------------------
-  --rg-shadow: 0 18px 50px rgba(100, 63, 39, 0.1);
-  --rg-radius-card: 1.35rem;
-  --rg-radius-panel: 1.25rem;
-  --rg-radius-soft: 1.2rem;
+  --rg-shadow: 0 1px 2px rgba(42, 31, 23, 0.06), 0 8px 24px rgba(42, 31, 23, 0.06);
+  --rg-radius-card: 1rem;
+  --rg-radius-panel: 1rem;
+  --rg-radius-soft: 0.75rem;
+  --rg-radius-control: 0.625rem;
+  --rg-control-height: 2.5rem;
+  --rg-control-height-sm: 2rem;
 
   // --- Layout ---------------------------------------------------------------
   --rg-shell-width: 1180px;
+  --rg-header-width: 1400px;
 
   // --- Photo placeholders ---------------------------------------------------
   // The prototype has no imagery yet; these gradients stand in for guide and
@@ -55,4 +77,66 @@
   --rg-photo-scrim: linear-gradient(to top, rgba(41, 30, 24, 0.7), rgba(41, 30, 24, 0) 52%);
   --rg-photo-guide: linear-gradient(135deg, #f0c19e, #ad9381 48%, #d7c8bd);
   --rg-photo-visitor: linear-gradient(135deg, #d9c7b9, #8ba3a8 48%, #d9d6ce);
+}
+
+// Pico declares its colour scheme on `:root:not([data-theme=dark]),
+// [data-theme=light]`, which outranks a plain `:root` — so its own blue
+// buttons used to win over our overrides. Same selector here, later in the
+// cascade.
+:root:not([data-theme='dark']),
+[data-theme='light'] {
+  --pico-background-color: var(--rg-cream);
+  --pico-color: var(--rg-ink);
+  --pico-h1-color: var(--rg-ink);
+  --pico-h2-color: var(--rg-ink);
+  --pico-h3-color: var(--rg-ink);
+  --pico-h4-color: var(--rg-ink);
+  --pico-h5-color: var(--rg-ink);
+  --pico-h6-color: var(--rg-ink);
+  --pico-muted-color: var(--rg-muted);
+  --pico-muted-border-color: var(--rg-line);
+
+  --pico-primary: var(--rg-orange-700);
+  --pico-primary-underline: rgba(168, 92, 8, 0.45);
+  --pico-primary-hover: #8a4a05;
+  --pico-primary-hover-underline: var(--pico-primary-hover);
+  --pico-primary-focus: rgba(244, 166, 42, 0.35);
+  --pico-primary-background: var(--rg-honey);
+  --pico-primary-border: var(--rg-honey);
+  --pico-primary-hover-background: var(--rg-honey-hover);
+  --pico-primary-hover-border: var(--rg-honey-hover);
+  --pico-primary-inverse: var(--rg-ink);
+
+  // "secondary" = the white outlined button.
+  --pico-secondary: var(--rg-ink);
+  --pico-secondary-background: #fff;
+  --pico-secondary-border: var(--rg-line-strong);
+  --pico-secondary-hover: var(--rg-ink);
+  --pico-secondary-hover-background: var(--rg-orange-50);
+  --pico-secondary-hover-border: var(--rg-orange-300);
+  --pico-secondary-focus: rgba(244, 166, 42, 0.25);
+  --pico-secondary-inverse: var(--rg-ink);
+
+  --pico-contrast: var(--rg-ink);
+  --pico-contrast-background: var(--rg-ink);
+  --pico-contrast-border: var(--rg-ink);
+  --pico-contrast-inverse: #fff;
+  --pico-contrast-hover-background: #000;
+  --pico-contrast-hover-border: #000;
+
+  --pico-form-element-background-color: #fff;
+  --pico-form-element-border-color: var(--rg-line-strong);
+  --pico-form-element-focus-color: var(--rg-orange-500);
+  --pico-form-element-active-border-color: var(--rg-orange-500);
+  --pico-form-element-placeholder-color: var(--rg-muted);
+
+  --pico-switch-background-color: var(--rg-line-strong);
+  --pico-switch-checked-background-color: var(--rg-orange-500);
+  --pico-range-thumb-color: #fff;
+  --pico-range-thumb-active-color: var(--rg-orange-500);
+  --pico-range-active-border-color: var(--rg-orange-500);
+
+  --pico-card-background-color: var(--rg-surface);
+  --pico-card-sectioning-background-color: var(--rg-sunken);
+  --pico-card-box-shadow: var(--rg-shadow);
 }
