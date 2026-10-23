@@ -13,6 +13,7 @@ export type NavIconName =
   | 'messages'
   | 'wallet'
   | 'menu'
+  | 'chat'
   | 'login'
 
 defineProps<{ name: NavIconName }>()
@@ -87,6 +88,10 @@ defineProps<{ name: NavIconName }>()
       <path d="M4 7h16" />
       <path d="M4 12h16" />
       <path d="M4 17h16" />
+    </template>
+    <!-- Chat (the mobile tab bar): a plain speech bubble, as in the design. -->
+    <template v-else-if="name === 'chat'">
+      <path d="M4 5h16v11H8l-4 4z" />
     </template>
     <!-- Log in: an arrow into a door. -->
     <template v-else-if="name === 'login'">

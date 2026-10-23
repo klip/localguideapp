@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import DeckBar from '@/components/DeckBar.vue'
 import DeckFilters from '@/components/DeckFilters.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
 import PanelCard from '@/components/PanelCard.vue'
@@ -134,8 +133,20 @@ function reject(id: string) {
 
 <template>
   <section class="section shell shell--deck">
+    <!-- The title and where, above the rails and the card (which line up). -->
+    <div class="deck-head page-head">
+      <h1>{{ t('guide_discover.deck.title') }}</h1>
+      <span class="muted" data-test="deck-subtitle">
+        {{
+          filters.near
+            ? t('guide_discover.deck.subtitle_near', { place: filters.near.label })
+            : t('guide_discover.deck.subtitle')
+        }}
+      </span>
+    </div>
+
     <div class="discovery-layout">
-      <!-- Filters: a side rail on desktop, a bottom sheet on mobile. -->
+      <!-- Filters: a side rail on desktop, a row with a drop-down pane on mobile. -->
       <DeckFilters
         :title="t('guide_discover.filters.title')"
         :hint="t('guide_discover.filters.hint')"
@@ -145,21 +156,6 @@ function reject(id: string) {
       />
 
       <div class="deck">
-        <!-- The title with where, on one line. -->
-        <div class="deck-head">
-          <h1>{{ t('guide_discover.deck.title') }}</h1>
-          <span class="muted" data-test="deck-subtitle">
-            {{
-              filters.near
-                ? t('guide_discover.deck.subtitle_near', { place: filters.near.label })
-                : t('guide_discover.deck.subtitle')
-            }}
-          </span>
-        </div>
-
-        <!-- The filters in force, right above the card (as on DiscoverPage.vue). -->
-        <DeckBar />
-
         <LocationPrompt />
 
         <ProfileCard
@@ -249,15 +245,6 @@ function reject(id: string) {
   gap: 0.25rem 1rem;
   flex-wrap: wrap;
 
-  h1 {
-    margin: 0;
-    font-size: 1.5rem;
-
-    @include bp.lg {
-      font-size: 1.75rem;
-    }
-  }
-
   span {
     font-size: 0.875rem;
     text-align: end;
@@ -281,12 +268,4 @@ function reject(id: string) {
   }
 }
 
-// Discovery pages run wider than the default shell (see _layout.scss).
-.section.shell {
-  padding-top: 1rem;
-
-  @include bp.lg {
-    padding-top: 1.5rem;
-  }
-}
 </style>

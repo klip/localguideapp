@@ -100,20 +100,22 @@ describe('AppHeader mobile menu', () => {
     signedIn.wrapper.unmount()
   })
 
-  it('puts the profile circle in the bar, the menu button in the tab bar, and "Signed in as" just above Log out', async () => {
+  it('puts the menu button in the bar, the profile as the tab bar\'s "Me", and "Signed in as" just above Log out', async () => {
     const { wrapper } = await mountHeader(true)
     await flushPromises()
-    const barEnd = wrapper.get('.bar-end')
-    expect(barEnd.get('[data-test="bar-profile"]').attributes('href')).toBe('/profile')
+    expect(wrapper.get('.bar-end').find('.burger').exists()).toBe(true)
     const tabbar = wrapper.get('[data-test="tabbar"]')
-    expect(tabbar.find('.burger').exists()).toBe(true)
-    // Signed in, the tabs are the main sections; signed out, Discover / How it works / Log in.
+    expect(tabbar.find('.burger').exists()).toBe(false)
+    // Signed in, the tabs are the main sections and "Me"; signed out, Discover / How it works / Log in.
     expect(tabbar.findAll('a').map((a) => a.attributes('href'))).toEqual([
       '/guide/discover',
       '/matches',
       '/trips',
       '/messages',
+      '/profile',
     ])
+    expect(tabbar.get('a[href="/messages"]').text()).toBe('Chat')
+    expect(tabbar.get('[data-test="tab-me"]').text()).toContain('Me')
     const account = wrapper.get('.drawer > .account')
     // The column runs bottom-up on mobile, so the line after Log out shows above it.
     expect(account.element.lastElementChild?.getAttribute('data-test')).toBe('signed-in-as')

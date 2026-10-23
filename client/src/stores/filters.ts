@@ -41,8 +41,11 @@ function writeNear(role: string | null, near: PlacePoint | null) {
   }
 }
 
+/** The distance limit until someone moves the slider (km from `near`). */
+export const DEFAULT_MAX_KM = 10
+
 function emptyFilters(): DiscoveryFilters {
-  return { gender: null, attributes: {}, ranges: {}, near: null, maxKm: null }
+  return { gender: null, attributes: {}, ranges: {}, near: null, maxKm: DEFAULT_MAX_KM }
 }
 
 /** Two spans are the same span — used to keep a category's list free of exact duplicates. */
@@ -73,7 +76,7 @@ export const useFiltersStore = defineStore('filters', () => {
     () => auth.activeRole,
     (role) => {
       filters.near = readNear(role)
-      filters.maxKm = null
+      filters.maxKm = DEFAULT_MAX_KM
     },
   )
   watch(
@@ -91,7 +94,8 @@ export const useFiltersStore = defineStore('filters', () => {
     let count = filters.gender ? 1 : 0
     for (const values of Object.values(filters.attributes)) count += values.length
     for (const ranges of Object.values(filters.ranges)) count += ranges.length
-    if (filters.near && filters.maxKm) count++
+    // The default distance isn't a choice the user made; moving it is.
+    if (filters.near && filters.maxKm !== DEFAULT_MAX_KM) count++
     return count
   })
 
@@ -162,10 +166,9 @@ export const useFiltersStore = defineStore('filters', () => {
     filters.gender = gender
   }
 
-  /** The search point; clearing it clears the distance filter too. */
+  /** The search point. The distance limit stays as set — it applies to whatever point there is. */
   function setNear(point: PlacePoint | null) {
     filters.near = point
-    if (!point) filters.maxKm = null
   }
 
   /** At most this many km from `near`; `null` = unlimited. */
@@ -176,7 +179,7 @@ export const useFiltersStore = defineStore('filters', () => {
   /** Every filter off — the search point stays (it's where, not what). */
   function reset() {
     filters.gender = null
-    filters.maxKm = null
+    filters.maxKm = DEFAULT_MAX_KM
     for (const key of Object.keys(filters.attributes)) delete filters.attributes[key]
     for (const key of Object.keys(filters.ranges)) delete filters.ranges[key]
   }

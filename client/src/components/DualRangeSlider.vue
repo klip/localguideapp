@@ -104,7 +104,7 @@ $thumb: 1.1rem;
   top: 0;
   bottom: 0;
   border-radius: inherit;
-  background: var(--pico-primary);
+  background: var(--rg-orange-500);
 }
 
 // Both inputs cover the whole track; only the thumbs are interactive, so
@@ -138,7 +138,7 @@ $thumb: 1.1rem;
     width: $thumb;
     height: $thumb;
     margin-top: 0;
-    border: 2px solid var(--pico-primary);
+    border: 2px solid var(--rg-orange-500);
     border-radius: 50%;
     background: #fff;
     cursor: grab;
@@ -149,7 +149,7 @@ $thumb: 1.1rem;
     width: $thumb;
     height: $thumb;
     box-sizing: border-box;
-    border: 2px solid var(--pico-primary);
+    border: 2px solid var(--rg-orange-500);
     border-radius: 50%;
     background: #fff;
     cursor: grab;

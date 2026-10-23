@@ -3,7 +3,6 @@ import { formatMoney, guidePriceLabel, PACK_PRICE } from '@/utils/money'
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import DeckBar from '@/components/DeckBar.vue'
 import DeckFilters from '@/components/DeckFilters.vue'
 import LocationPrompt from '@/components/LocationPrompt.vue'
 import MatchesRail from '@/components/MatchesRail.vue'
@@ -203,8 +202,20 @@ function reject(id: string) {
 
 <template>
   <section class="section shell shell--deck">
+    <!-- The title and where, above the rails and the card (which line up). -->
+    <div class="deck-head page-head">
+      <h1>{{ t('discover.deck.title') }}</h1>
+      <span class="muted" data-test="deck-subtitle">
+        {{
+          filters.near
+            ? t('discover.deck.subtitle_near', { place: filters.near.label })
+            : t('discover.deck.subtitle')
+        }}
+      </span>
+    </div>
+
     <div class="discovery-layout">
-      <!-- Filters: a side rail on desktop, a bottom sheet on mobile. -->
+      <!-- Filters: a side rail on desktop, a row with a drop-down pane on mobile. -->
       <DeckFilters
         :title="t('discover.filters.title')"
         :hint="t('discover.filters.hint')"
@@ -213,21 +224,6 @@ function reject(id: string) {
       />
 
       <div class="deck">
-        <!-- "Guides for you" with where, on one line. -->
-        <div class="deck-head">
-          <h1>{{ t('discover.deck.title') }}</h1>
-          <span class="muted" data-test="deck-subtitle">
-            {{
-              filters.near
-                ? t('discover.deck.subtitle_near', { place: filters.near.label })
-                : t('discover.deck.subtitle')
-            }}
-          </span>
-        </div>
-
-        <!-- The filters in force, right above the card (the picks counter is in the header). -->
-        <DeckBar />
-
         <!--
           The deck is open to everyone; "Interested" is what's gated — by an
           account for a signed-out visitor, by a pack for a guest without one.
@@ -425,15 +421,6 @@ function reject(id: string) {
 <style scoped lang="scss">
 @use 'breakpoints' as bp;
 
-// Discovery pages run wider than the default shell (see _layout.scss).
-.section.shell {
-  padding-top: 1rem;
-
-  @include bp.lg {
-    padding-top: 1.5rem;
-  }
-}
-
 .deck {
   display: flex;
   flex-direction: column;
@@ -477,15 +464,6 @@ a[role='button'] {
   justify-content: space-between;
   gap: 0.25rem 1rem;
   flex-wrap: wrap;
-
-  h1 {
-    margin: 0;
-    font-size: 1.5rem;
-
-    @include bp.lg {
-      font-size: 1.75rem;
-    }
-  }
 
   span {
     font-size: 0.875rem;

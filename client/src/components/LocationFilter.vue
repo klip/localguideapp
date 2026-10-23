@@ -8,31 +8,35 @@ import type { PlacePoint } from '@/types'
 /**
  * Where the deck searches, at the top of the filter bar: the search point
  * (`filters.near` — closer people rank first, cards show the distance) with
- * Change / Set a location, and the distance limit — an "Unlimited" switch,
- * on by default, and a slider it wakes up. Both live in `stores/filters.ts`.
+ * Change / Set a location, and the distance limit: one slider, always on,
+ * 10 km by default (`DEFAULT_MAX_KM`); dragged to 0 it reads "Unlimited" and
+ * the limit is off. The limit applies once there's a search point. Both
+ * live in `stores/filters.ts`.
  */
 const filtersStore = useFiltersStore()
 
-/** Where the slider starts when the switch goes off. */
-const DEFAULT_KM = 25
 const MAX_KM = 200
 
 const editing = ref(false)
 const near = computed(() => filtersStore.filters.near)
-const unlimited = computed(() => filtersStore.filters.maxKm === null)
-const km = computed(() => filtersStore.filters.maxKm ?? DEFAULT_KM)
+/** 0 on the slider = no limit. */
+const km = computed(() => filtersStore.filters.maxKm ?? 0)
+const distanceLabel = computed(() =>
+  km.value === 0
+    ? t('common.filter_panel.unlimited')
+    : t('common.filter_panel.within', { km: km.value }),
+)
+/** How far along the track the handle is, for the orange fill. */
+const fill = computed(() => `${(km.value / MAX_KM) * 100}%`)
 
 function choose(place: PlacePoint) {
   filtersStore.setNear(place)
   editing.value = false
 }
 
-function onUnlimitedChange(event: Event) {
-  filtersStore.setMaxKm((event.target as HTMLInputElement).checked ? null : DEFAULT_KM)
-}
-
 function onKmInput(event: Event) {
-  filtersStore.setMaxKm(Number((event.target as HTMLInputElement).value))
+  const value = Number((event.target as HTMLInputElement).value)
+  filtersStore.setMaxKm(value === 0 ? null : value)
 }
 </script>
 
@@ -57,36 +61,24 @@ function onKmInput(event: Event) {
     </div>
 
     <div class="distance">
-      <div class="distance-head tiny">
+      <div class="distance-head">
         <span>{{ t('common.filter_panel.distance') }}</span>
-        <label class="unlimited">
-          <input
-            type="checkbox"
-            role="switch"
-            :checked="unlimited"
-            :disabled="!near"
-            data-test="distance-unlimited"
-            @change="onUnlimitedChange"
-          />
-          {{ t('common.filter_panel.unlimited') }}
-        </label>
+        <strong data-test="distance-value">{{ distanceLabel }}</strong>
       </div>
       <input
         type="range"
-        :min="1"
+        class="distance-slider"
+        :min="0"
         :max="MAX_KM"
         step="1"
         :value="km"
-        :disabled="!near || unlimited"
+        :style="{ '--fill': fill }"
         :aria-label="t('common.filter_panel.distance')"
-        :aria-valuetext="t('common.filter_panel.within', { km })"
+        :aria-valuetext="distanceLabel"
         data-test="distance-slider"
         @input="onKmInput"
       />
-      <strong v-if="near && !unlimited" class="tiny" data-test="distance-value">{{
-        t('common.filter_panel.within', { km })
-      }}</strong>
-      <small v-else-if="!near" class="tiny muted">{{
+      <small v-if="!near" class="tiny muted">{{
         t('common.filter_panel.distance_needs_location')
       }}</small>
     </div>
@@ -126,23 +118,82 @@ function onKmInput(event: Event) {
 .distance-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-}
+  align-items: baseline;
+  font-size: 0.875rem;
 
-.unlimited {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin: 0;
-  cursor: pointer;
-
-  input {
-    margin: 0;
+  span {
+    font-weight: 600;
   }
 }
 
-.distance input[type='range'] {
-  margin: 0.4rem 0 0.2rem;
+// One handle on an orange-filled track (docs/design/sketches/04/05) — the
+// same look as the age slider beside it.
+.distance-slider {
+  --thumb: 1.1rem;
+  width: 100%;
+  height: var(--thumb);
+  margin: 0.45rem 0 0.2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+
+  &::-webkit-slider-runnable-track {
+    height: 0.3rem;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--rg-orange-500) var(--fill),
+      var(--rg-line) var(--fill)
+    );
+  }
+
+  &::-moz-range-track {
+    height: 0.3rem;
+    border-radius: 999px;
+    background: var(--rg-line);
+  }
+
+  &::-moz-range-progress {
+    height: 0.3rem;
+    border-radius: 999px;
+    background: var(--rg-orange-500);
+  }
+
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: var(--thumb);
+    height: var(--thumb);
+    margin-top: calc((0.3rem - var(--thumb)) / 2);
+    border: 2px solid var(--rg-orange-500);
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(42, 31, 23, 0.18);
+    transition: transform 0.12s ease;
+  }
+
+  &::-moz-range-thumb {
+    width: var(--thumb);
+    height: var(--thumb);
+    border: 2px solid var(--rg-orange-500);
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(42, 31, 23, 0.18);
+  }
+
+  &:active::-webkit-slider-thumb {
+    transform: scale(1.12);
+  }
+
+  &:focus-visible {
+    outline: none;
+
+    &::-webkit-slider-thumb {
+      box-shadow: 0 0 0 4px var(--pico-primary-focus);
+    }
+  }
 }
 
 .link-btn {

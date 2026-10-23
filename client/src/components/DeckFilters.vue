@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import ActiveFilters from './ActiveFilters.vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import ClearFilters from './ClearFilters.vue'
 import FilterPanel from './FilterPanel.vue'
 import { LG_QUERY, useMediaQuery } from '@/composables/useMediaQuery'
@@ -10,12 +10,12 @@ import { useFiltersStore } from '@/stores/filters'
 
 /**
  * Both decks' filters (docs/design/sketches/04/05). From `lg` up a side rail
- * that's always open, its heading a plain title. Below, a white bar —
- * "Filters", the filters in force as one horizontally scrolling line of
- * pills, "clear ×" and the chevron — that drops a pane down from itself
- * (same place as the button, never from the other end of the screen): the
- * same panel, then "Clear filters" and "Show 24 guides". The deck refetches
- * as filters change, so the count is already the answer.
+ * that's always open, its heading a plain title. Below, the design's row —
+ * "📍 Lisbon ⌄" on the left, an outlined "Filters · 3" button on the right —
+ * which drops a pane down from itself (same place as the button): the same
+ * panel, then "Clear filters" and "Show 24 guides". The deck refetches as
+ * filters change, so the count is already the answer. What's picked shows
+ * inside the panel (under each category's name); on the row, only the count.
  */
 defineProps<{
   title: string
@@ -27,6 +27,12 @@ defineProps<{
 }>()
 
 const filtersStore = useFiltersStore()
+const { filters, activeCount } = storeToRefs(filtersStore)
+
+/** The row's place: the search point's town ("Lisbon" of "Lisbon, Portugal"), else "Anywhere". */
+const placeLabel = computed(
+  () => filters.value.near?.label.split(',')[0]?.trim() || t('common.filter_panel.anywhere'),
+)
 
 const isDesktop = useMediaQuery(LG_QUERY)
 const open = ref(isDesktop.value)
@@ -35,14 +41,13 @@ watch(isDesktop, (desktop) => {
 })
 
 const summaryRef = ref<HTMLElement | null>(null)
-/** How tall the pane may be: from under the bar to just above the tab bar. */
+/** How tall the pane may be: from under the row to just above the tab bar. */
 const paneMaxHeight = ref<string | undefined>(undefined)
 
 function measurePane() {
   const bar = summaryRef.value?.getBoundingClientRect()
   if (!bar) return
-  // 4.5rem ≈ the tab bar plus a little air.
-  const tabBar = 72
+  const tabBar = 72 // the tab bar plus a little air
   paneMaxHeight.value = `${Math.max(240, window.innerHeight - bar.bottom - 8 - tabBar)}px`
 }
 
@@ -60,11 +65,6 @@ function onKeydown(event: KeyboardEvent) {
     event.preventDefault()
     close()
   }
-}
-
-/** A pill's × (or "clear") inside the bar mustn't open or close the pane. */
-function onStripClick(event: MouseEvent) {
-  if ((event.target as Element | null)?.closest('button')) event.preventDefault()
 }
 
 // The pane covers the page: lock its scroll while it's open.
@@ -98,12 +98,32 @@ defineExpose({ close })
     </Transition>
     <details class="filters-disclosure" :open="open" @toggle="onToggle">
       <summary ref="summaryRef" data-test="filters-summary">
-        <strong>{{ title }}</strong>
-        <!-- Mobile: what's set, one scrolling line, fading out under "clear" and the chevron. -->
-        <span class="summary-pills" data-test="filters-pills" @click="onStripClick">
-          <ActiveFilters class="summary-pills-list" />
+        <!-- Mobile: where, then the Filters button with what's set counted. -->
+        <span class="row-place" data-test="filters-place">
+          <span aria-hidden="true">📍</span> {{ placeLabel }}
+          <span class="row-place-caret" aria-hidden="true">⌄</span>
         </span>
-        <ClearFilters />
+        <span class="row-button">
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            aria-hidden="true"
+          >
+            <path d="M4 6h16M7 12h10M10 18h4" />
+          </svg>
+          {{ title
+          }}<span v-if="activeCount" class="row-count" data-test="filters-count">
+            · {{ activeCount }}</span
+          >
+        </span>
+        <!-- Desktop: a plain heading, "clear ×" while anything is set. -->
+        <strong class="rail-title">{{ title }}</strong>
+        <ClearFilters class="rail-clear" />
       </summary>
       <div class="filters-body" :style="{ '--pane-max-height': paneMaxHeight }">
         <p class="tiny muted hint">{{ hint }}</p>
@@ -136,19 +156,12 @@ defineExpose({ close })
   position: relative;
   min-width: 0;
   margin: 0;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--rg-line);
-  border-radius: var(--rg-radius-panel);
-  background: #fff;
 
-  // "Filters", the pills, then "clear ×" (while any are set) before the chevron.
   > summary {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
-    font-family: var(--rg-font-display);
-    font-size: 1rem;
     // It opens a pane rather than collapsing in place, so no chevron.
     list-style: none;
 
@@ -158,37 +171,6 @@ defineExpose({ close })
 
     &::after {
       display: none;
-    }
-
-    strong {
-      flex: 0 0 auto;
-    }
-  }
-}
-
-// One line of pills that scrolls sideways; its end fades out where "clear"
-// and the chevron sit over it.
-.summary-pills {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  font-family: var(--pico-font-family);
-  mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  // Beats ActiveFilters' own wrapping and margin.
-  .summary-pills-list {
-    flex-wrap: nowrap;
-    margin: 0;
-    padding-inline-end: 1.5rem;
-
-    :deep(.filter-pill) {
-      flex: 0 0 auto;
-      white-space: nowrap;
     }
   }
 }
@@ -221,12 +203,71 @@ defineExpose({ close })
   }
 }
 
-// --- Mobile: a pane dropping down from the bar ------------------------------
+// --- Mobile: the design's row, and a pane dropping down from it -------------
 
 @media (max-width: 1023.98px) {
-  // Open, the bar and its pane sit over the dimmed page.
+  .filters-disclosure > summary {
+    justify-content: space-between;
+    padding: 0;
+  }
+
+  .rail-title,
+  .rail-clear {
+    display: none;
+  }
+
+  .row-place {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--rg-ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .row-place-caret {
+    color: var(--rg-muted);
+  }
+
+  // Pico's secondary small button: outlined, 32 px.
+  .row-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.4rem;
+    height: var(--rg-control-height-sm);
+    padding: 0 0.75rem;
+    border: 1px solid var(--rg-line-strong);
+    border-radius: 0.5rem;
+    background: #fff;
+    color: var(--rg-ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .deck-filters--open .row-button {
+    background: var(--rg-orange-50);
+    border-color: var(--rg-orange-300);
+  }
+
+  // Open, the row and its pane sit over the dimmed page.
   .deck-filters--open {
     z-index: 46;
+  }
+
+  .filters-disclosure {
+    z-index: 2;
+  }
+
+  .filters-disclosure[open] > summary {
+    margin-bottom: 0;
   }
 
   .filters-disclosure[open] > .filters-body {
@@ -251,15 +292,6 @@ defineExpose({ close })
     z-index: 1;
     background: rgba(41, 30, 24, 0.45);
   }
-
-  .filters-disclosure {
-    z-index: 2;
-  }
-
-  // The bar keeps its height when its pane opens (Pico spaces an open summary).
-  .filters-disclosure[open] > summary {
-    margin-bottom: 0;
-  }
 }
 
 @keyframes pane-down {
@@ -279,47 +311,36 @@ defineExpose({ close })
   opacity: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .filters-disclosure[open] > .filters-body {
-    animation: none;
-  }
-
-  .fade-enter-active,
-  .fade-leave-active {
-    transition: none;
-  }
-}
-
 // --- Desktop: an always-open rail ---------------------------------------------
 
 @include bp.lg {
-  .filters-disclosure > summary {
-    list-style: none;
-    cursor: default;
-    pointer-events: none;
+  .filters-disclosure {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--rg-line);
+    border-radius: var(--rg-radius-panel);
+    background: #fff;
 
-    &::-webkit-details-marker {
-      display: none;
-    }
+    > summary {
+      cursor: default;
+      pointer-events: none;
+      font-family: var(--rg-font-display);
+      font-size: 1rem;
 
-    &::after {
-      display: none;
-    }
-
-    strong {
-      flex: 1;
-    }
-
-    // "clear ×" still works there.
-    :deep(.clear-filters) {
-      pointer-events: auto;
+      // "clear ×" still works there.
+      :deep(.clear-filters) {
+        pointer-events: auto;
+      }
     }
   }
 
-  // The pills are above the card (DeckBar) on desktop.
-  .summary-pills,
+  .row-place,
+  .row-button,
   .pane-actions {
     display: none;
+  }
+
+  .rail-title {
+    flex: 1;
   }
 }
 </style>

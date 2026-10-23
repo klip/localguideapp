@@ -61,21 +61,19 @@ const emit = defineEmits<{
         data-test="card-photo"
       >
         <span v-if="photoNote" class="photo-note">{{ photoNote }}</span>
+        <!-- Level, name and rating over the photo's bottom edge, as on the profile page. -->
+        <span class="photo-copy">
+          <StandingBadges v-if="standing" :standing="standing" on-photo class="card-badges" />
+          <strong class="photo-name">{{ name }}, {{ age }}</strong>
+          <span v-if="meta" class="photo-meta">{{ meta }}</span>
+        </span>
       </component>
 
       <div class="profile-body">
-        <StandingBadges v-if="standing" :standing="standing" class="card-badges" />
-
-        <div class="title-row">
-          <h2 class="card-name">
-            <RouterLink v-if="profileLink" :to="profileLink" data-test="card-name"
-              >{{ name }}, {{ age }}</RouterLink
-            >
-            <template v-else>{{ name }}, {{ age }}</template>
-          </h2>
-          <p v-if="meta" class="card-meta">{{ meta }}</p>
-        </div>
-
+        <h2 class="card-name visually-hidden">{{ name }}, {{ age }}</h2>
+        <RouterLink v-if="profileLink" :to="profileLink" class="card-profile-link visually-hidden" data-test="card-name"
+          >{{ name }}, {{ age }}</RouterLink
+        >
         <div v-if="priceLabel" class="card-price">
           <strong>{{ priceLabel }}</strong>
           <span v-if="priceNote">{{ priceNote }}</span>
@@ -129,16 +127,49 @@ const emit = defineEmits<{
 .profile-photo {
   position: relative;
   display: block;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 4 / 3.4;
   background-color: var(--rg-sunken);
   background-size: cover;
   background-position: center 30%;
 }
 
+.profile-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--rg-photo-scrim);
+  pointer-events: none;
+}
+
+.photo-copy {
+  position: absolute;
+  inset: auto 1rem 1rem;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: #fff;
+}
+
+.photo-name {
+  font-family: var(--rg-font-display);
+  font-size: 1.625rem;
+  line-height: 1.1;
+}
+
+.photo-meta {
+  font-size: 0.875rem;
+}
+
+.card-profile-link {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 .photo-note {
   position: absolute;
   inset-inline-start: 0.75rem;
-  bottom: 0.75rem;
+  top: 0.75rem;
   padding: 0.2rem 0.5rem;
   border-radius: 0.375rem;
   background: rgba(42, 31, 23, 0.72);
@@ -231,7 +262,7 @@ const emit = defineEmits<{
 @container (min-width: 600px) {
   .card-grid {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    min-height: 30rem;
+    min-height: 34rem;
   }
 
   .profile-photo {

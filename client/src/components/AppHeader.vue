@@ -281,21 +281,21 @@ onBeforeUnmount(() => {
         <!-- A traveller's picks counter, right of the links on desktop. -->
         <PicksButton class="picks" />
 
-        <!-- Mobile: the profile circle sits in the bar; the menu is a tab. -->
+        <!-- Mobile: the menu button in the bar's top-right corner; the profile is the tab bar's "Me". -->
         <div class="bar-end">
-          <RouterLink
-            v-if="user"
-            to="/profile"
-            class="bar-profile"
-            :title="t('common.app_header.profile')"
-            :aria-label="t('common.app_header.profile')"
-            data-test="bar-profile"
+          <button
+            ref="burgerRef"
+            type="button"
+            class="burger"
+            aria-controls="site-menu"
+            :aria-expanded="menuOpen"
+            :aria-label="t('common.app_header.open_menu')"
+            @click="openMenu"
           >
-            <span class="avatar" aria-hidden="true">
-              <img v-if="avatarImage" :src="avatarImage" alt="" />
-              <template v-else>{{ initial }}</template>
-            </span>
-          </RouterLink>
+            <NavIcon name="menu" />
+            <!-- Things only the menu leads to (the other role's news). -->
+            <span v-if="hasMenuNews" class="burger-dot" aria-hidden="true" />
+          </button>
         </div>
 
         <!--
@@ -373,7 +373,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <!-- Desktop only; on mobile the circle is in the bar (.bar-profile). -->
+          <!-- Desktop only; on mobile the profile is the tab bar's "Me". -->
           <RouterLink
             v-if="user"
             to="/profile"
@@ -589,8 +589,8 @@ onBeforeUnmount(() => {
           ></RouterLink
         >
         <RouterLink to="/messages" class="tab"
-          ><NavIcon name="messages" /><span class="tab-label">{{
-            t('common.app_header.messages')
+          ><NavIcon name="chat" /><span class="tab-label">{{
+            t('common.app_header.chat')
           }}</span
           ><span v-if="unreadMessages" class="tab-count" data-test="tab-messages-count"
             ><span aria-hidden="true">{{ badgeText(unreadMessages) }}</span
@@ -599,6 +599,19 @@ onBeforeUnmount(() => {
             }}</span></span
           ></RouterLink
         >
+        <!-- "Me": the profile, with the user's photo (else their initial) as the icon. -->
+        <RouterLink
+          to="/profile"
+          class="tab tab-me"
+          :title="t('common.app_header.profile')"
+          data-test="tab-me"
+        >
+          <span class="tab-avatar" aria-hidden="true">
+            <img v-if="avatarImage" :src="avatarImage" alt="" />
+            <template v-else>{{ initial }}</template>
+          </span>
+          <span class="tab-label">{{ t('common.app_header.me') }}</span>
+        </RouterLink>
       </template>
       <template v-else>
         <RouterLink to="/about#how" class="tab"
@@ -612,21 +625,6 @@ onBeforeUnmount(() => {
           }}</span></RouterLink
         >
       </template>
-      <button
-        ref="burgerRef"
-        type="button"
-        class="tab burger"
-        aria-controls="site-menu"
-        :aria-expanded="menuOpen"
-        :aria-label="t('common.app_header.open_menu')"
-        @click="openMenu"
-      >
-        <NavIcon name="menu" /><span class="tab-label" aria-hidden="true">{{
-          t('common.app_header.menu')
-        }}</span>
-        <!-- Things only the menu leads to (the other role's news). -->
-        <span v-if="hasMenuNews" class="burger-dot" aria-hidden="true" />
-      </button>
     </nav>
   </header>
 </template>
@@ -815,10 +813,7 @@ nav .nav {
 
 .me:hover .avatar,
 .me:focus-visible .avatar,
-.me.router-link-active .avatar,
-.bar-profile:hover .avatar,
-.bar-profile:focus-visible .avatar,
-.bar-profile.router-link-active .avatar {
+.me.router-link-active .avatar {
   box-shadow: 0 0 0 2px var(--rg-orange-500);
 }
 
@@ -827,9 +822,61 @@ nav .nav {
   align-items: center;
 }
 
-.bar-profile {
-  display: inline-flex;
-  text-decoration: none;
+// The menu button: the bar's top-right corner on mobile.
+.burger {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--rg-line);
+  border-radius: var(--rg-radius-control);
+  background: #fff;
+  color: var(--rg-ink);
+
+  :deep(.nav-icon) {
+    width: 22px;
+    height: 22px;
+    margin: 0;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: var(--rg-sunken);
+    border-color: var(--rg-line-strong);
+    color: var(--rg-ink);
+  }
+}
+
+// "Me" in the tab bar: the photo in place of an icon.
+.tab-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--rg-orange-100);
+  color: var(--rg-orange-ink);
+  font-size: 0.75rem;
+  font-weight: 800;
+  box-shadow: 0 0 0 1px var(--rg-line-strong);
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.2s ease;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.tab-me.router-link-active .tab-avatar {
+  box-shadow: 0 0 0 2px var(--rg-orange-500);
+  transform: translateY(-2px);
 }
 
 .signed-in {
@@ -1080,7 +1127,7 @@ nav .nav {
 .burger-dot {
   position: absolute;
   top: 0.3rem;
-  left: calc(50% + 0.5rem);
+  right: 0.3rem;
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;

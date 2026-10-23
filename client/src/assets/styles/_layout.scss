@@ -9,11 +9,28 @@
   width: 100%;
 }
 
+// Every page: the same distance from the header to its title (1.25 rem,
+// 1.5 rem from `lg`), and from the title to the content (1.5 rem — the
+// page title's own bottom margin: `SectionTitle`, the decks' `.page-head`).
 .section {
-  padding-block: 3rem;
+  padding-block: 1.25rem 3rem;
 
   @include bp.lg {
-    padding-block: 4.5rem;
+    padding-block: 1.5rem 4.5rem;
+  }
+}
+
+// A page's title row: the decks' (title + where); SectionTitle matches it.
+.page-head {
+  margin-bottom: 1.5rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.375rem;
+
+    @include bp.lg {
+      font-size: 1.75rem;
+    }
   }
 }
 

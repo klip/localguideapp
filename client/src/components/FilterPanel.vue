@@ -21,7 +21,7 @@ import type { Gender, NumericRange } from '@/types'
  * - **"Add a filter"** — every attribute category as an accordion row (a
  *   native `<details>` with Pico's own chevron). Opening one lists its
  *   options as full-width link rows; picking one moves it out of the list and
- *   into a pill above the deck (`ActiveFilters.vue`), whose × puts it back. A
+ *   into a chip under its category's name, whose × puts it back. A
  *   `range` category (hours of the day) gets one two-handle slider, like age —
  *   a single span, applied as it's dragged, shown as a pill too.
  *
@@ -110,6 +110,27 @@ function remainingOptions(category: AttributeCategory) {
   return category.options.filter((option) => !filtersStore.hasValue(category.key, option.value))
 }
 
+/** What's picked in a category, as chips under its name: each × takes one back out. */
+function chipsFor(category: AttributeCategory) {
+  if (category.kind === 'range') {
+    return filtersStore.rangesFor(category.key).map((range, index) => ({
+      id: `range-${index}`,
+      label: formatRange(range, rangeFormatFor(category.key)),
+      remove: () => filtersStore.clearCategory(category.key),
+    }))
+  }
+  return filtersStore.valuesFor(category.key).map((value) => ({
+    id: value,
+    label: category.options.find((option) => option.value === value)?.label ?? value,
+    remove: () => filtersStore.toggleValue(category.key, value),
+  }))
+}
+
+/** A chip's × sits inside the row's <summary>: it mustn't open or close the row. */
+function onChipsClick(event: MouseEvent) {
+  if ((event.target as Element | null)?.closest('button')) event.preventDefault()
+}
+
 function selectedCount(key: string) {
   return filtersStore.valuesFor(key).length + filtersStore.rangesFor(key).length
 }
@@ -160,10 +181,38 @@ const gender = computed<Gender | 'any'>({
 
       <details v-for="category in accordionCategories" :key="category.key" class="filter-cat">
         <summary>
-          <span class="cat-label">{{ category.label }}</span>
-          <span v-if="selectedCount(category.key)" class="count">{{
-            selectedCount(category.key)
-          }}</span>
+          <span class="cat-head">
+            <span class="cat-label">{{ category.label }}</span>
+            <span v-if="selectedCount(category.key)" class="count">{{
+              selectedCount(category.key)
+            }}</span>
+          </span>
+          <!-- What's picked here, under the name; each × takes it back out. -->
+          <ul
+            v-if="chipsFor(category).length"
+            class="cat-chips"
+            :data-test="`chips-${category.key}`"
+            @click="onChipsClick"
+          >
+            <li v-for="chip in chipsFor(category)" :key="chip.id" class="cat-chip">
+              <span>{{ chip.label }}</span>
+              <button
+                type="button"
+                class="cat-chip-remove"
+                :aria-label="t('common.active_filters.remove', { value: chip.label })"
+                @click="chip.remove()"
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path
+                    d="M4 4l8 8M12 4l-8 8"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </button>
+            </li>
+          </ul>
         </summary>
 
         <div v-if="category.kind === 'range'" class="cat-body span">
@@ -246,8 +295,10 @@ const gender = computed<Gender | 'any'>({
     border-bottom: 0;
   }
 
+  // Name and count, the chevron, then the chips on a line of their own.
   > summary {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.4rem;
     padding: 0.4rem 0;
@@ -258,6 +309,7 @@ const gender = computed<Gender | 'any'>({
 
     // Pico floats its chevron right; in a flex row it needs pushing instead.
     &::after {
+      order: 1;
       margin-left: auto;
     }
   }
@@ -268,6 +320,59 @@ const gender = computed<Gender | 'any'>({
 
   &[open] > :not(summary) {
     animation: rg-drop 0.18s ease;
+  }
+}
+
+.cat-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cat-chips {
+  order: 2;
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.15rem 0 0.1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0.15rem 0.2rem 0.15rem 0.55rem;
+  border: 1px solid var(--rg-orange-200);
+  border-radius: 999px;
+  background: var(--rg-orange-50);
+  color: var(--rg-orange-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+  list-style: none;
+  animation: rg-pop 0.2s ease;
+}
+
+.cat-chip-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--rg-orange-200);
+    color: var(--rg-red);
   }
 }
 
