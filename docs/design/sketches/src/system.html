@@ -1,0 +1,122 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>UI system</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Inter:wght@400;500;600;700&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui.css">
+<script src="marks.js"></script><script src="fingerheart.js"></script>
+<style>
+  body { width: 1600px; padding: 44px; }
+  .head h1 { font-size: 34px; } .head p { color: var(--ink-2); margin: 6px 0 26px; max-width: 1000px; }
+  .wrap { display: grid; grid-template-columns: 560px 1fr; gap: 28px; align-items: start; }
+  .panel { background: #fff; border-radius: 18px; padding: 24px 26px; box-shadow: var(--shadow); }
+  .panel h2 { font-size: 20px; margin-bottom: 14px; }
+  .shot { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+  .shot img { width: 100%; display: block; }
+  .pin { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: var(--coral); color: #fff; font: 700 13px Inter; display: grid; place-items: center; box-shadow: 0 0 0 3px #fff; }
+  ol.issues { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+  ol.issues li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+  ol.issues li span { width: 22px; height: 22px; border-radius: 50%; background: var(--coral); color: #fff; font: 700 12px Inter; display: grid; place-items: center; }
+  ol.issues b { color: var(--ink); }
+  .scale { display: grid; gap: 8px; }
+  .scale div { display: grid; grid-template-columns: 110px 1fr; align-items: baseline; border-bottom: 1px dashed var(--line); padding-bottom: 8px; }
+  .scale code { font-size: 12px; color: var(--muted); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .stack { display: grid; gap: 14px; }
+  .sw { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .sw div { border-radius: 10px; height: 64px; padding: 8px; font-size: 11px; display: flex; flex-direction: column; justify-content: end; }
+  .cmp { display: flex; align-items: end; gap: 22px; }
+  .cmp .old { height: 62px; border: 1px solid #ccc; border-radius: 16px; padding: 0 20px; font-size: 20px; display: flex; align-items: center; justify-content: space-between; width: 210px; color: #333; }
+  .rule { font-size: 13px; color: var(--ink-2); margin-top: 10px; line-height: 1.5; }
+</style></head>
+<body>
+<div class="head"><h1>UI — what’s off today, and a tighter system</h1>
+<p>One base size, one control height, one radius family, and one brand colour used everywhere (today Pico’s default blue still runs the buttons).</p></div>
+<div class="wrap">
+  <div class="panel">
+    <h2>Today (Discover, 1440 px wide)</h2>
+    <div class="shot"><img src="current-discover.png">
+      <span class="pin" style="left:76%;top:2%">1</span>
+      <span class="pin" style="left:14%;top:58%">2</span>
+      <span class="pin" style="left:3%;top:21%">3</span>
+      <span class="pin" style="left:22%;top:1%">4</span>
+      <span class="pin" style="left:44%;top:85%">5</span>
+      <span class="pin" style="left:30%;top:42%">6</span>
+    </div>
+    <ol class="issues">
+      <li><span>1</span><div><b>Two brand colours.</b> Buttons are Pico’s default blue, links/accents are orange, the switch is light blue. Pick one primary.</div></li>
+      <li><span>2</span><div><b>Huge select.</b> Gender is ~62 px tall with 20 px text, while the location line next to it is 16 px. Pico grows the root font to 131% on wide screens.</div></li>
+      <li><span>3</span><div><b>Mixed type sizes.</b> Six or more sizes in one rail (Filters 20, Anywhere 20, labels 16, links 17, list items 18).</div></li>
+      <li><span>4</span><div><b>Header selects look like inputs.</b> Language and currency take prime space as full pills; they belong in one small menu.</div></li>
+      <li><span>5</span><div><b>Cookie bar covers the card</b> on the landing page — first thing a visitor sees.</div></li>
+      <li><span>6</span><div><b>Radii everywhere:</b> 16, 20, 22 px cards, pill buttons, square slider. Too much padding inside cards pushes the photo below the fold.</div></li>
+    </ol>
+  </div>
+
+  <div class="stack">
+    <div class="panel cols">
+      <div>
+        <h2>Type scale (fixed 16 px base)</h2>
+        <div class="scale">
+          <div><code>28 · Nunito 800</code><span class="display" style="font-size:28px">Guides for you</span></div>
+          <div><code>22 · Nunito 800</code><span class="display" style="font-size:22px">Ana Ribeiro, 34</span></div>
+          <div><code>18 · Nunito 800</code><span class="display" style="font-size:18px">Your matches</span></div>
+          <div><code>16 · Inter 400</code><span>Body text and card bios</span></div>
+          <div><code>14 · Inter 500</code><span class="sm">Labels, buttons, inputs, menu</span></div>
+          <div><code>12 · Inter 500</code><span class="xs muted">Hints, captions, badges</span></div>
+        </div>
+        <p class="rule">Headings in the rounded face that matches the wordmark; everything you read or type in Inter. Never above 28 px inside the app (the marketing page may go bigger).</p>
+      </div>
+      <div>
+        <h2>Controls: one height, one radius</h2>
+        <div class="cmp" style="margin-bottom:16px">
+          <div><div class="xs muted" style="margin-bottom:4px">today</div><div class="old">No preference <span>⌄</span></div></div>
+          <div style="flex:1"><div class="xs muted" style="margin-bottom:4px">proposed · 40 px · 10 px radius · 14 px text</div><div class="select">No preference</div></div>
+        </div>
+        <div class="grid3" style="grid-template-columns:1fr 1fr">
+          <div class="field"><span class="label">Email</span><div class="input">ana@mail.com</div></div>
+          <div class="field"><span class="label">Phone</span><div class="input"><span style="border-right:1px solid var(--line);padding-right:8px">🇵🇹 +351</span>912 345 678</div></div>
+          <div class="field"><span class="label">Headline</span><div class="input focus">Food walks in Alfama|</div><span class="hint">Focus: honey ring</span></div>
+          <div class="field"><span class="label">Bio</span><div class="input err">Call me on 912…</div><span class="hint" style="color:#B4452C">No contact details — chat instead</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Buttons, choices, chips</h2>
+      <div class="row" style="gap:10px;flex-wrap:wrap">
+        <span class="btn primary"><span id="fh"></span>Interested</span>
+        <span class="btn secondary">✕ Pass</span>
+        <span class="btn dark">Create account</span>
+        <span class="btn ghost">Not now</span>
+        <span class="btn danger">Cancel trip</span>
+        <span class="btn primary lg">Pay £50.00</span>
+        <span class="btn secondary sm">Edit</span>
+        <span class="seg"><span class="on">Traveller</span><span>Guide</span></span>
+        <span class="seg"><span>Male</span><span>Female</span><span class="on">Any</span></span>
+      </div>
+      <div class="row" style="gap:8px;margin-top:16px;flex-wrap:wrap">
+        <span class="chip on">Food ✕</span><span class="chip on">Spanish ✕</span><span class="chip on"><b>Age</b> 25–40 ✕</span>
+        <span class="chip">+ History</span><span class="chip">+ Nature</span><span class="chip">+ Photography</span>
+        <span class="badge ok">✓ Verified</span><span class="badge honey">◆ Level 3 · Pathfinder</span><span class="badge honey">★ 4.8 · 37</span>
+        <span class="row" style="margin-left:12px"><span class="switch on"></span><span class="sm">Unlimited distance</span></span>
+        <span style="width:200px;margin-left:12px" class="range"><i></i><b style="left:15%;right:40%"></b><u style="left:15%"></u><u style="left:60%"></u></span>
+      </div>
+      <p class="rule"><b>Rules:</b> primary = honey with ink text (contrast 9:1). Max one primary per view. Pills (full round) only for chips; buttons and fields share the 10 px radius; cards 16 px. Small choice sets (gender, role, sort) are segmented controls, not selects. Selects only for long lists (country, language), and those get type-ahead.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Colour</h2>
+      <div class="sw">
+        <div style="background:var(--honey)">Honey · primary</div>
+        <div style="background:var(--honey-50);border:1px solid var(--line)">Honey 50 · selected</div>
+        <div style="background:var(--coral);color:#fff">Coral · likes, alerts</div>
+        <div style="background:var(--leaf);color:#fff">Leaf · success, verified</div>
+        <div style="background:var(--ink);color:#fff">Ink · text, dark buttons</div>
+        <div style="background:var(--cream);border:1px solid var(--line)">Cream · page</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>document.getElementById('fh').innerHTML = svg(fh2({ skin: '#FFF8EF', gap: '#F4A62A', sw: 6 }), 20)</script>
+</body></html>

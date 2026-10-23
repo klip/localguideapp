@@ -1,0 +1,70 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Finger heart study</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="marks.js"></script>
+<script src="fingerheart.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 48px; background: #f3ede6; font-family: Inter, sans-serif; color: #2A1F17; width: 1600px; }
+  h1 { font: 800 34px Nunito, sans-serif; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .lead { margin: 0 0 28px; color: #6f5f54; font-size: 16px; max-width: 1000px; line-height: 1.5; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .card { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 6px 24px rgba(60,40,20,.08); }
+  .hero { height: 220px; display: grid; place-items: center; background: #FFF7EC; }
+  .meta { padding: 14px 18px 18px; }
+  .meta h2 { font: 800 18px Nunito, sans-serif; margin: 0 0 4px; }
+  .meta p { margin: 0; font-size: 13.5px; line-height: 1.5; color: #5d4f45; }
+  .row { display: flex; gap: 20px; margin-top: 20px; }
+  .lock { flex: 1; background: #fff; border-radius: 18px; padding: 28px; display: flex; align-items: center; justify-content: center; gap: 4px; box-shadow: 0 6px 24px rgba(60,40,20,.08); }
+  .lock.dark { background: #2A1F17; }
+  .word { font: 900 54px Nunito, sans-serif; letter-spacing: -0.03em; line-height: 1; color: #2A1F17; }
+  .dark .word { color: #FFF7EC; }
+  .sizes { display: flex; align-items: end; gap: 22px; }
+  .ic { border-radius: 22%; background: #F4A62A; display: grid; place-items: center; }
+  .cap { font-size: 12px; color: #7c6b61; text-align: center; margin-top: 6px; }
+  .uses { margin-top: 20px; background: #fff; border-radius: 18px; padding: 22px 28px; display: flex; gap: 36px; align-items: center; box-shadow: 0 6px 24px rgba(60,40,20,.08); }
+  .btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; font: 600 15px Inter; border: 1.5px solid; }
+  .btn.yes { background: #F4A62A; border-color: #F4A62A; color: #2A1F17; }
+  .btn.no { background: #fff; border-color: #e3d6ca; color: #5d4f45; }
+  .toast { display: flex; align-items: center; gap: 12px; background: #2A1F17; color: #FFF7EC; padding: 10px 16px 10px 10px; border-radius: 14px; font-size: 14px; }
+  .toast b { color: #F4A62A; }
+</style></head>
+<body>
+<h1>Finger heart — closer look</h1>
+<p class="lead">The 🫰 gesture as the “like”: thumb crossed over the index finger with a little heart popping out. It reads as affection rather than approval, it’s
+popular across Korea/East Asia and spreading globally through K-pop, and it isn’t owned by any big platform. Variants mix in the bee/hive idea.</p>
+<div class="grid" id="grid"></div>
+
+<div class="row">
+  <div class="lock" id="lock1"></div>
+  <div class="lock dark" id="lock2"></div>
+</div>
+
+<div class="uses">
+  <div><div class="sizes" id="sizes"></div><div class="cap">app icon · 64 / 40 / 24 / 16 px</div></div>
+  <div style="display:flex;gap:10px">
+    <span class="btn no">✕ Pass</span>
+    <span class="btn yes" id="likebtn">Interested</span>
+  </div>
+  <div class="toast" id="toast">It’s a match! <b>Ana</b> likes you too — say hello.</div>
+</div>
+
+<script>
+const g = (o, size = 150) => svg(fh2(o), size)
+const variants = [
+  ['Classic', 'Coral heart pops out of the crossed fingers. The most literal and warm; clear at every size.', {}],
+  ['Honey cell', 'The heart sits inside a honeycomb cell — ties the gesture back to the hive and the “be/bee” name.', { heartShape: 'hex' }],
+  ['Bee friend', 'A tiny bee lands where the heart would be: “be like” in one picture. Cute; maybe a mascot rather than the logo.', { heartShape: 'bee' }],
+  ['Mono line', 'One-colour version for stamps, receipts, the favicon and dark mode — no fill, just ink.', { skin: '#FFF7EC', nail: '#FFF7EC', heart: '#2A1F17' }],
+]
+document.getElementById('grid').innerHTML = variants.map(([t, d, o]) => `
+  <div class="card"><div class="hero">${g(o, 170)}</div><div class="meta"><h2>${t}</h2><p>${d}</p></div></div>`).join('')
+document.getElementById('lock1').innerHTML = `<span class="word">be</span>${g({}, 96)}<span class="word">local</span>`
+document.getElementById('lock2').innerHTML = `<span class="word">be</span>${g({ ink: '#FFF7EC', gap: '#2A1F17', nail: '#2A1F17' }, 96)}<span class="word">local</span>`
+document.getElementById('sizes').innerHTML = [64, 40, 24, 16].map((s) =>
+  `<div class="ic" style="width:${s}px;height:${s}px">${svg(fh2({ skin: '#FFF7EC', gap: '#F4A62A', sw: s < 30 ? 6 : 4, heartShape: s < 30 ? 'none' : 'heart' }), s * 0.86)}</div>`).join('')
+document.getElementById('likebtn').insertAdjacentHTML('afterbegin', svg(fh2({ skin: '#FFF7EC', gap: '#F4A62A', sw: 6 }), 22))
+document.getElementById('toast').insertAdjacentHTML('afterbegin', `<span class="ic" style="width:34px;height:34px">${svg(fh2({ skin: '#FFF7EC', gap: '#F4A62A' }), 28)}</span>`)
+</script>
+</body></html>

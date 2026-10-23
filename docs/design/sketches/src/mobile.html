@@ -1,0 +1,152 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Mobile redesign</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Inter:wght@400;500;600;700&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui.css">
+<script src="marks.js"></script><script src="fingerheart.js"></script>
+<style>
+  body { width: 1440px; padding: 40px 48px; }
+  h1.t { font-size: 30px; } p.t { color: var(--ink-2); margin: 6px 0 24px; }
+  .phones { display: grid; grid-template-columns: repeat(3, 375px); gap: 64px; justify-content: center; }
+  .cap { text-align: center; font: 800 16px Nunito; margin-bottom: 10px; }
+  .phone { width: 375px; height: 780px; border-radius: 44px; border: 10px solid #1c1511; background: var(--cream); overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(42,31,23,.18); }
+  .status { height: 40px; display: flex; justify-content: space-between; align-items: center; padding: 0 24px; font: 600 14px Inter; flex: none; }
+  .mtop { height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 16px; flex: none; }
+  .mtop .brand { font-size: 19px; }
+  .scroll { flex: 1; overflow: hidden; padding: 0 16px; display: flex; flex-direction: column; gap: 12px; }
+  .tabbar { height: 74px; background: #fff; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, 1fr); padding: 8px 4px 18px; flex: none; }
+  .tabbar span { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); font-weight: 500; position: relative; }
+  .tabbar span.on { color: var(--ink); font-weight: 700; }
+  .tabbar span.on .ico { stroke: var(--honey-deep); }
+  .tabbar .ico { width: 22px; height: 22px; }
+  .tabbar i { position: absolute; top: -2px; left: 56%; width: 8px; height: 8px; background: var(--coral); border-radius: 50%; border: 2px solid #fff; }
+  .pc { position: relative; border-radius: 20px; overflow: hidden; height: 470px; flex: none; box-shadow: var(--shadow); }
+  .pc .shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(30,20,14,.85), rgba(30,20,14,0) 55%); }
+  .pc .info { position: absolute; left: 16px; right: 16px; bottom: 16px; color: #fff; display: grid; gap: 6px; }
+  .pc h2 { font-size: 24px; color: #fff; }
+  .pc .meta { font-size: 13px; opacity: .9; }
+  .pc .dots { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 4px; }
+  .pc .dots i { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.5); } .pc .dots i:first-child { background: #fff; }
+  .pc .top-badges { position: absolute; top: 22px; left: 12px; display: flex; gap: 6px; }
+  .glass { background: rgba(255,255,255,.92); }
+  .dec { display: flex; justify-content: center; gap: 18px; align-items: center; margin-top: 2px; }
+  .round { width: 60px; height: 60px; border-radius: 50%; background: #fff; border: 1px solid var(--line-strong); display: grid; place-items: center; font-size: 22px; color: var(--ink-2); box-shadow: var(--shadow); }
+  .round.big { width: 72px; height: 72px; background: var(--honey); border: none; }
+  .round.sm { width: 46px; height: 46px; font-size: 16px; }
+  .chiprow { display: flex; gap: 6px; overflow: hidden; flex: none; }
+  .scrim { position: absolute; inset: 0; background: rgba(30,20,14,.45); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 600px; background: #fff; border-radius: 22px 22px 0 0; padding: 10px 18px 18px; display: flex; flex-direction: column; gap: 16px; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line-strong); margin: 0 auto 2px; }
+  .sheet h3 { font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+  .sheet h3 a { font: 500 14px Inter; color: var(--honey-deep); }
+  .group { display: grid; gap: 8px; }
+  .wrapchips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sticky { margin-top: auto; display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+  .sec { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 12px; }
+  .sec h3 { font-size: 16px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .avrow { display: flex; align-items: center; gap: 12px; }
+  .avrow .av { width: 56px; height: 56px; border-radius: 50%; }
+  .note { font-size: 19px; position: static; max-width: none !important; margin: 18px 12px 0; transform: rotate(-1deg); }
+  .pc { height: 420px; }
+</style></head>
+<body>
+<h1 class="t">Mobile — the deck first, everything else one tap away</h1>
+<p class="t">Bottom tab bar instead of a burger, a full-bleed swipe card, filters in a bottom sheet, and short grouped forms with 40 px fields.</p>
+<div class="phones">
+  <div>
+    <div class="cap">Discover</div>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+      <div class="mtop"><span class="brand"><span class="logo"></span>be<span class="l">like</span>local</span><span class="spacer"></span>
+        <span class="picks-m chip on" style="font-weight:600">3 picks left</span></div>
+      <div class="scroll">
+        <div class="row" style="justify-content:space-between">
+          <span class="loc" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:15px">📍 Lisbon <span class="muted">⌄</span></span>
+          <span class="btn secondary sm"><svg class="ico" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filters · 4</span>
+        </div>
+        <div class="pc photo">
+          <div class="dots"><i></i><i></i><i></i></div>
+          <div class="top-badges"><span class="badge ok glass">✓ Verified</span><span class="badge honey glass">◆ Level 3</span></div>
+          <div class="shade"></div>
+          <div class="info">
+            <h2>Ana, 34 <span style="font:500 14px Inter;opacity:.85">· 3 km</span></h2>
+            <div class="meta">★ 4.8 (37) · €58 / half day</div>
+            <div style="font-size:14px">Food walks &amp; hidden tascas in Alfama</div>
+            <div class="row" style="gap:6px"><span class="chip glass">Food</span><span class="chip glass">History</span><span class="chip glass">+3</span></div>
+          </div>
+        </div>
+        <div class="dec">
+          <span class="round">✕</span>
+          <span class="round big"><span class="fh"></span></span>
+          <span class="round sm">ⓘ</span>
+        </div>
+      </div>
+      <div class="tabbar">
+        <span class="on"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>Discover</span>
+        <span><svg class="ico" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>Matches<i></i></span>
+        <span><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V5h6v2"/></svg>Trips</span>
+        <span><svg class="ico" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Chat<i></i></span>
+        <span><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>Me</span>
+      </div>
+    </div>
+    <div class="note">Full-bleed card, facts on the photo. Swipe or tap three big buttons: Pass, finger-heart Interested, details. Tab bar replaces the burger.</div>
+  </div>
+
+  <div>
+    <div class="cap">Filters (bottom sheet)</div>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+      <div class="mtop"><span class="brand"><span class="logo"></span>be<span class="l">like</span>local</span></div>
+      <div class="scroll"><div class="pc photo" style="height:300px"></div></div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="grab"></div>
+        <h3>Filters <a>Clear all</a></h3>
+        <div class="group"><span class="label">Gender</span><span class="seg" style="width:100%"><span style="flex:1">Male</span><span style="flex:1">Female</span><span class="on" style="flex:1">Any</span></span></div>
+        <div class="group"><div class="row" style="justify-content:space-between"><span class="label">Age</span><span class="sm" style="font-weight:600">25–40</span></div><div class="range"><i></i><b style="left:11%;right:70%"></b><u style="left:11%"></u><u style="left:30%"></u></div></div>
+        <div class="group"><div class="row" style="justify-content:space-between"><span class="label">Distance</span><span class="sm" style="font-weight:600">25 km</span></div><div class="range"><i></i><b style="left:0;right:62%"></b><u style="left:38%"></u></div></div>
+        <div class="group"><span class="label">Languages</span><div class="wrapchips"><span class="chip on">Spanish ✓</span><span class="chip">English</span><span class="chip">German</span><span class="chip">Arabic</span></div></div>
+        <div class="group"><span class="label">Interests</span><div class="wrapchips"><span class="chip on">Food ✓</span><span class="chip">History</span><span class="chip">Nature</span><span class="chip">Photography</span><span class="chip">Bars</span><span class="chip">Family</span></div></div>
+        <div class="group"><span class="label">More</span><div class="wrapchips"><span class="chip">Hours ›</span><span class="chip">Services ›</span><span class="chip">Transport ›</span></div></div>
+        <div class="sticky"><span class="btn secondary lg">Reset</span><span class="btn primary lg">Show 24 guides</span></div>
+      </div>
+    </div>
+    <div class="note" style="transform:rotate(1deg)">Filters slide up over the deck. Tap chips (no dropdowns) and see how many guides match before closing.</div>
+  </div>
+
+  <div>
+    <div class="cap">Profile — short grouped form</div>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+      <div class="mtop"><span style="font-size:20px">‹</span><h3 style="font-size:18px">Your profile</h3><span class="spacer"></span><span class="badge honey">◆ Level 3 ?</span></div>
+      <div class="scroll" style="gap:10px">
+        <span class="seg" style="width:100%;flex:none"><span class="on" style="flex:1">As a traveller</span><span style="flex:1">As a guide</span></span>
+        <div class="sec">
+          <div class="avrow"><span class="av photo"></span><div><b style="font-size:15px">Ana Ribeiro</b><div class="xs muted">Tap photo to change · 72% complete</div></div></div>
+          <div class="two">
+            <div class="field"><span class="label">Birth date</span><div class="input">12 / 03 / 1991</div></div>
+            <div class="field"><span class="label">Gender</span><span class="seg"><span class="on" style="flex:1">F</span><span style="flex:1">M</span><span style="flex:1">–</span></span></div>
+          </div>
+          <div class="field"><span class="label">Headline</span><div class="input">Food walks &amp; hidden tascas</div></div>
+          <div class="field"><span class="label">About you</span><textarea class="input" style="height:72px;font:inherit;font-size:14px;resize:none">Born in Graça, cooked in three Lisbon kitchens…</textarea><span class="hint">No phone numbers or links — people chat in the app.</span></div>
+        </div>
+        <div class="sec">
+          <h3>Interests &amp; languages</h3>
+          <div class="wrapchips"><span class="chip on">Food ✕</span><span class="chip on">History ✕</span><span class="chip on">Portuguese ✕</span><span class="chip on">English ✕</span><span class="chip">+ Add</span></div>
+        </div>
+        <div class="sec" style="padding:0">
+          <div class="row" style="justify-content:space-between;height:46px;padding:0 14px;border-bottom:1px solid var(--line)"><span class="sm" style="font-weight:600">Contact &amp; sign-in</span><span class="muted">›</span></div>
+          <div class="row" style="justify-content:space-between;height:46px;padding:0 14px"><span class="sm" style="font-weight:600">Password &amp; devices</span><span class="muted">›</span></div>
+        </div>
+      </div>
+      <div style="padding:10px 16px 22px;background:#fff;border-top:1px solid var(--line)"><span class="btn primary lg block">Save changes</span></div>
+    </div>
+    <div class="note" style="transform:rotate(-0.5deg)">One role at a time, short sections, one Save pinned at the bottom. Contact, password and devices move to their own screens.</div>
+  </div>
+</div>
+<script>
+document.querySelectorAll('.logo').forEach((e) => e.innerHTML = svg(honeyHeart(50, 50, 8.2, { stroke: 3 }), 26))
+document.querySelectorAll('.fh').forEach((e) => e.innerHTML = svg(fh2({ skin: '#FFF8EF', gap: '#F4A62A', sw: 5 }), 40))
+</script>
+</body></html>

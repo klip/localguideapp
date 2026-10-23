@@ -1,0 +1,152 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Discover redesign</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Inter:wght@400;500;600;700&family=Caveat:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui.css">
+<script src="marks.js"></script><script src="fingerheart.js"></script>
+<style>
+  body { width: 1440px; padding: 0; position: relative; }
+  .app { min-height: 960px; }
+  .page { display: grid; grid-template-columns: 248px 1fr 280px; gap: 24px; padding: 20px 28px; max-width: 1440px; }
+  .titlebar { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; }
+  .titlebar h1 { font-size: 28px; }
+  .loc { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 8px; background: #fff; border: 1px solid var(--line-strong); font-size: 14px; font-weight: 500; }
+  .rail { padding: 16px; display: grid; gap: 16px; align-content: start; }
+  .rail h3 { font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .rail h3 a { font: 500 13px Inter; color: var(--honey-deep); }
+  .acc { border-top: 1px solid var(--line); }
+  .acc div { display: flex; justify-content: space-between; align-items: center; height: 40px; font-size: 14px; font-weight: 500; border-bottom: 1px solid var(--line); }
+  .acc div .c { font-size: 12px; color: var(--muted); font-weight: 500; }
+  .acc div .c b { background: var(--honey); color: var(--ink); border-radius: 9px; padding: 1px 7px; font-size: 11px; margin-right: 6px; }
+  .deck { display: grid; gap: 14px; align-content: start; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; min-height: 28px; }
+  .gcard { display: grid; grid-template-columns: 360px 1fr; overflow: hidden; }
+  .gphoto { position: relative; height: 520px; }
+  .gphoto .dots { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; gap: 4px; }
+  .gphoto .dots i { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.5); }
+  .gphoto .dots i:first-child { background: #fff; }
+  .gphoto .dist { position: absolute; left: 12px; bottom: 12px; background: rgba(42,31,23,.7); color: #fff; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 6px; }
+  .gbody { padding: 22px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .gbody h2 { font-size: 26px; }
+  .gbody .sub { color: var(--ink-2); font-size: 14px; margin-top: -6px; }
+  .price { display: flex; align-items: baseline; gap: 6px; padding: 10px 12px; background: var(--sunken); border-radius: 10px; }
+  .price b { font: 800 20px Nunito; } .price span { font-size: 13px; color: var(--muted); }
+  .kv { display: grid; grid-template-columns: 90px 1fr; gap: 6px 10px; font-size: 14px; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; }
+  .actions { margin-top: auto; display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; }
+  .side { padding: 16px; display: grid; gap: 12px; align-content: start; }
+  .tabs { display: flex; gap: 4px; background: var(--sunken); padding: 3px; border-radius: 10px; }
+  .tabs span { flex: 1; height: 32px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 7px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
+  .tabs span.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(42,31,23,.1); }
+  .m { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; }
+  .m .av { width: 40px; height: 40px; border-radius: 50%; }
+  .m b { font-size: 14px; display: block; } .m span { font-size: 12px; color: var(--muted); }
+  .picks { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 8px; background: var(--honey-50); border: 1px solid var(--honey-100); font-size: 13px; font-weight: 600; }
+  .picks .bar { width: 54px; height: 6px; border-radius: 3px; background: #fff; overflow: hidden; } .picks .bar i { display: block; height: 100%; width: 30%; background: var(--honey-deep); }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; }
+  .mk { position: absolute; width: 24px; height: 24px; border-radius: 50%; background: #FFF06A; border: 2px solid #3a3300; font: 700 12px Inter; display: grid; place-items: center; color: #3a3300; z-index: 6; }
+  .legend { position: absolute; left: 28px; right: 28px; top: 740px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .legend .note { position: static; max-width: none; }
+  .legend .note::before { content: ''; }
+  .legend .note b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #3a3300; font: 700 12px Inter; margin-right: 4px; }
+  .app { min-height: 880px; }
+  .iconbtn { height: 34px; padding: 0 10px; display: flex; align-items: center; gap: 6px; border-radius: 8px; color: var(--ink-2); font-size: 13px; font-weight: 500; }
+</style></head>
+<body>
+<div class="app">
+  <header class="top">
+    <span class="brand"><span id="logo"></span>be<span class="l">like</span>local</span>
+    <nav class="nav">
+      <a class="on"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg>Discover</a>
+      <a><svg class="ico" viewBox="0 0 24 24"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Trip planner</a>
+      <a><svg class="ico" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>Matches<span class="n">2</span></a>
+      <a><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V5h6v2"/></svg>Trips</a>
+      <a><svg class="ico" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Messages<span class="n">1</span></a>
+    </nav>
+    <span class="spacer"></span>
+    <span class="picks">3 of 10 picks left <span class="bar"><i></i></span></span>
+    <span class="iconbtn"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>EN · €</span>
+    <span class="seg" style="height:34px"><span class="on">Traveller</span><span>Guide</span></span>
+    <span class="avatar photo"></span>
+  </header>
+
+  <div class="page">
+    <div class="titlebar">
+      <h1>Guides near</h1>
+      <span class="loc"><svg class="ico" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M12 21s-6-6-6-11a6 6 0 0 1 12 0c0 5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></svg>Lisbon, Portugal ⌄</span>
+      <span class="muted sm">· 24 guides match</span>
+    </div>
+
+    <aside class="card rail">
+      <h3>Filters <a>Clear all</a></h3>
+      <div class="field"><span class="label">Distance</span>
+        <div class="row" style="justify-content:space-between"><span class="sm">Within 25 km</span><span class="switch"></span></div>
+        <div class="range"><i></i><b style="left:0;right:62%"></b><u style="left:38%"></u></div>
+      </div>
+      <div class="field"><span class="label">Gender</span><span class="seg" style="width:100%"><span style="flex:1">Male</span><span style="flex:1">Female</span><span class="on" style="flex:1">Any</span></span></div>
+      <div class="field"><div class="row" style="justify-content:space-between"><span class="label">Age</span><span class="sm" style="font-weight:600">25–40</span></div>
+        <div class="range"><i></i><b style="left:11%;right:70%"></b><u style="left:11%"></u><u style="left:30%"></u></div></div>
+      <div class="acc">
+        <div>Languages <span class="c"><b>1</b>›</span></div>
+        <div>Interests <span class="c"><b>1</b>›</span></div>
+        <div>Hours <span class="c">›</span></div>
+        <div>Services <span class="c">›</span></div>
+        <div>Transport <span class="c">›</span></div>
+      </div>
+    </aside>
+
+    <main class="deck">
+      <div class="chips">
+        <span class="chip on">Spanish ✕</span><span class="chip on">Food ✕</span><span class="chip on"><b>Age</b> 25–40 ✕</span><span class="chip on"><b>≤</b> 25 km ✕</span>
+      </div>
+      <article class="card gcard">
+        <div class="gphoto photo"><div class="dots"><i></i><i></i><i></i></div><span class="dist">3 km away</span></div>
+        <div class="gbody">
+          <div class="row" style="gap:6px"><span class="badge ok">✓ Verified</span><span class="badge honey">★ 4.8 · 37 reviews</span><span class="badge honey">◆ Level 3</span></div>
+          <h2>Ana Ribeiro, 34</h2>
+          <div class="sub">Food walks &amp; hidden tascas in Alfama</div>
+          <div class="price"><b>€58</b><span>/ half day · food and drinks extra</span></div>
+          <p style="margin:0;font-size:15px;color:var(--ink-2)">Born in Graça, cooked in three Lisbon kitchens. I’ll take you where my grandmother shops, then up to a miradouro nobody posts about.</p>
+          <dl class="kv">
+            <dt>Speaks</dt><dd>Portuguese, English, Spanish</dd>
+            <dt>Best at</dt><dd><span class="row" style="gap:6px;flex-wrap:wrap"><span class="chip">Food</span><span class="chip">History</span><span class="chip">Photography</span></span></dd>
+            <dt>Hours</dt><dd>09:00–13:00 · 16:00–20:00</dd>
+          </dl>
+          <a class="sm" style="color:var(--honey-deep);font-weight:600">Full profile and reviews →</a>
+          <div class="actions">
+            <span class="btn secondary lg">✕ Pass</span>
+            <span class="btn primary lg"><span id="fh"></span>Interested · uses 1 pick</span>
+          </div>
+        </div>
+      </article>
+    </main>
+
+    <aside class="card side">
+      <h3 style="font-size:16px">Your matches</h3>
+      <div class="tabs"><span class="on">Matched <b>2</b></span><span>Trips <b>1</b></span></div>
+      <div class="m"><span class="av photo"></span><div><b>Miguel</b><span>Porto · No date yet</span></div><span class="btn secondary sm">Chat</span></div>
+      <div class="m"><span class="av photo" style="filter:hue-rotate(40deg)"></span><div><b>Leonor</b><span>Sintra · Sat 3 May, 10:00</span></div><span class="btn secondary sm">Chat</span></div>
+      <a class="sm" style="color:var(--honey-deep);font-weight:600">All matches →</a>
+    </aside>
+  </div>
+</div>
+
+<span class="mk" style="left:1094px;top:10px">1</span>
+<span class="mk" style="left:868px;top:10px">2</span>
+<span class="mk" style="left:180px;top:68px">3</span>
+<span class="mk" style="left:16px;top:312px">4</span>
+<span class="mk" style="left:640px;top:200px">5</span>
+<span class="mk" style="left:1240px;top:154px">6</span>
+<div class="legend">
+  <div class="note"><b>1</b> Language + currency in one small menu; the role is a segmented switch</div>
+  <div class="note" style="transform:rotate(1deg)"><b>2</b> Picks left as a progress pill — honey, not blue</div>
+  <div class="note" style="transform:rotate(-1deg)"><b>3</b> The title says where; active filters sit as chips right above the card</div>
+  <div class="note" style="transform:rotate(1.5deg)"><b>4</b> Gender is a 3-way switch, not a 60 px select. Nothing taller than 40 px</div>
+  <div class="note"><b>5</b> Landscape card on desktop: photo, every fact and both buttons above the fold</div>
+  <div class="note" style="transform:rotate(-1.5deg)"><b>6</b> Matches rail: avatar, one line each, quick Chat</div>
+</div>
+<script>
+document.getElementById('logo').innerHTML = svg(honeyHeart(50, 50, 8.2, { stroke: 3 }), 30)
+document.getElementById('fh').innerHTML = svg(fh2({ skin: '#FFF8EF', gap: '#F4A62A', sw: 6 }), 22)
+</script>
+</body></html>

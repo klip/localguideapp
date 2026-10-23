@@ -1,0 +1,117 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Logo sketches</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="marks.js"></script>
+<script src="fingerheart.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 48px; background: #f3ede6; font-family: Inter, sans-serif; color: #2A1F17; width: 1600px; }
+  h1 { font: 800 34px Nunito, sans-serif; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .lead { margin: 0 0 32px; color: #6f5f54; font-size: 16px; max-width: 980px; line-height: 1.5; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .card { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 6px 24px rgba(60,40,20,.08); }
+  .hero { height: 230px; display: flex; align-items: center; justify-content: center; gap: 14px; background: #FFF7EC; }
+  .word { font: 900 40px Nunito, sans-serif; letter-spacing: -0.03em; line-height: 1; }
+  .word .be { color: #2A1F17; } .word .like { color: #E08A12; } .word .loc { color: #2A1F17; }
+  .strip { display: flex; align-items: center; gap: 18px; padding: 16px 20px; background: #2A1F17; }
+  .strip .word { font-size: 24px; color: #FFF7EC; }
+  .strip .word .be, .strip .word .loc { color: #FFF7EC; }
+  .strip .word .like { color: #F4A62A; }
+  .icon { width: 64px; height: 64px; border-radius: 16px; background: #F4A62A; display: grid; place-items: center; flex: none; }
+  .icon.cream { background: #FFF7EC; }
+  .tiny { display: flex; gap: 10px; align-items: center; margin-left: auto; }
+  .fav { width: 20px; height: 20px; border-radius: 5px; background: #F4A62A; display: grid; place-items: center; }
+  .meta { padding: 16px 20px 20px; }
+  .meta h2 { font: 800 19px Nunito, sans-serif; margin: 0 0 6px; }
+  .meta p { margin: 0; font-size: 14px; line-height: 1.5; color: #5d4f45; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8a5a10; background: #FDEBC8; padding: 3px 8px; border-radius: 99px; margin-bottom: 8px; }
+  .palette { display: flex; gap: 12px; margin-top: 28px; align-items: center; }
+  .sw { display: flex; align-items: center; gap: 8px; font-size: 13px; background: #fff; padding: 8px 12px 8px 8px; border-radius: 12px; }
+  .sw i { width: 28px; height: 28px; border-radius: 8px; display: block; }
+</style></head>
+<body>
+<h1>BeLikeLocal — logo directions</h1>
+<p class="lead">Six sketches around <b>be → bee</b> (bees, hives, a network of cells) and <b>like → a heart</b>, dropping the Facebook-style thumb.
+Each card shows the main lock-up, a dark strip, the app icon and a 20&nbsp;px favicon to check it still reads small. Wordmark in a rounded geometric face (Nunito Black here as a stand-in).</p>
+<div class="grid" id="grid"></div>
+<div class="palette">
+  <b style="font-size:14px;margin-right:6px">Proposed palette</b>
+  <span class="sw"><i style="background:#F4A62A"></i>Honey #F4A62A</span>
+  <span class="sw"><i style="background:#E08A12"></i>Honey deep #E08A12</span>
+  <span class="sw"><i style="background:#EE6A4D"></i>Coral heart #EE6A4D</span>
+  <span class="sw"><i style="background:#2A1F17"></i>Ink #2A1F17</span>
+  <span class="sw"><i style="background:#FFF7EC;border:1px solid #e5d8c8"></i>Cream #FFF7EC</span>
+  <span class="sw"><i style="background:#3E8E6A"></i>Leaf #3E8E6A</span>
+</div>
+<script>
+const W = (be, like, loc) => `<span class="word"><span class="be">${be}</span><span class="like">${like}</span><span class="loc">${loc}</span></span>`
+const dark = { ink: '#FFF7EC', gap: '#2A1F17', inner: '#2A1F17', bg: 'none' }
+const concepts = [
+  {
+    n: 'A', name: 'Honeycomb heart', tag: 'recommended',
+    text: 'A heart built from hive cells: “like” and “hive” in one shape, every cell a local, one coral cell is you. Friendly, ownable, scales down to a simple heart silhouette.',
+    hero: svg(honeyHeart(50, 50, 8.2), 120) + W('be', 'like', 'local'),
+    strip: svg(honeyHeart(50, 50, 8.2, { ink: '#2A1F17', fill: '#F4A62A' }), 40) + W('be', 'like', 'local'),
+    icon: svg(honeyHeart(50, 52, 9.5, { ink: '#2A1F17', fill: '#FFF7EC' }), 54),
+    fav: svg(honeyHeart(50, 52, 10, { ink: '#2A1F17', fill: '#FFF7EC', stroke: 4, accentCell: null }), 18),
+  },
+  {
+    n: 'B', name: 'Finger heart', tag: 'replaces the thumb',
+    text: 'The Korean finger heart replaces the thumbs-up between the words: still a gesture, still “like”, but warm and not Facebook. Works as a sticker/reaction inside the app too.',
+    hero: W('be', '', '') + svg(fh2(), 104) + W('', '', 'local'),
+    strip: W('be', '', '') + svg(fh2({ ink: '#FFF7EC', gap: '#2A1F17', nail: '#2A1F17' }), 46) + W('', '', 'local'),
+    icon: svg(fh2({ gap: '#F4A62A', skin: '#FFF7EC' }), 58),
+    fav: svg(fh2({ gap: '#F4A62A', skin: '#FFF7EC', heartShape: 'none', sw: 6 }), 18),
+  },
+  {
+    n: 'C', name: 'Bee trail', tag: 'be → bee',
+    text: 'A bee whose dotted flight path draws a heart — “be like” told as a little story: a local buzzing around and leaving a trail of places you’ll love. Playful; best for the mascot and loading states.',
+    hero: svg(beeTrail(), 120) + W('be', 'like', 'local'),
+    strip: svg(beeTrail({ ink: '#FFF7EC', trail: '#F4A62A' }), 44) + W('be', 'like', 'local'),
+    icon: svg(bee(50, 52, 2.2, { rot: -12 }), 58),
+    fav: svg(bee(50, 52, 2.6, { rot: -12, wing: '#FFF7EC' }), 18),
+  },
+  {
+    n: 'D', name: 'Hive network', tag: 'network',
+    text: 'Seven cells joined by threads: guides, travellers and places connected, a heart at the centre where they match. Says “network/community”; more corporate, less cute.',
+    hero: svg(hiveNetwork(), 120) + W('Be', 'Like', 'Local'),
+    strip: svg(hiveNetwork({ ink: '#FFF7EC', line: '#F4A62A' }), 44) + W('Be', 'Like', 'Local'),
+    icon: svg(hiveNetwork({ fill: '#FFF7EC', line: '#2A1F17' }), 58),
+    fav: svg(`<path d="${hexPath(50, 50, 44)}" fill="#FFF7EC" stroke="#2A1F17" stroke-width="8"/><path d="${heartPath(50, 52, 44)}" fill="#EE6A4D"/>`, 18),
+  },
+  {
+    n: 'E', name: 'Hex pin', tag: 'local / maps',
+    text: 'A map pin whose head is a honeycomb cell with a heart inside — “a place locals love”. Very clear for a travel app and great as a map marker, but pins are common in the category.',
+    hero: svg(hexPin(), 116) + W('be', 'like', 'local'),
+    strip: svg(hexPin({ inner: '#2A1F17', ink: '#FFF7EC' }), 44) + W('be', 'like', 'local'),
+    icon: svg(hexPin({ fill: '#FFF7EC' }), 56),
+    fav: svg(hexPin({ fill: '#FFF7EC' }), 18),
+  },
+  {
+    n: 'F', name: 'Bee in the “b”', tag: 'monogram',
+    text: 'A lowercase “b” with bee wings and stripes: the brand reads “bee like local”, and the monogram makes a crisp app icon. Pair with the coral heart as the in-app “like”.',
+    hero: monoB(120) + W('be', 'like', 'local'),
+    strip: monoB(44, true) + W('be', 'like', 'local'),
+    icon: monoB(56, false, '#FFF7EC'),
+    fav: monoB(18, false, '#FFF7EC'),
+  },
+]
+function monoB(size, onDark = false, body = '#F4A62A') {
+  const ink = onDark ? '#FFF7EC' : '#2A1F17'
+  return svg(`
+    <ellipse cx="40" cy="26" rx="13" ry="9" transform="rotate(-35 40 26)" fill="#fff" stroke="${ink}" stroke-width="4"/>
+    <ellipse cx="62" cy="28" rx="11" ry="8" transform="rotate(25 62 28)" fill="#fff" stroke="${ink}" stroke-width="4"/>
+    <path d="M24 12 L24 86" stroke="${ink}" stroke-width="13" stroke-linecap="round"/>
+    <circle cx="52" cy="64" r="22" fill="${body}" stroke="${ink}" stroke-width="10"/>
+    <path d="M47 43 Q41 64 47 85 M60 44 Q54 64 60 84" stroke="${ink}" stroke-width="5" fill="none"/>
+    <path d="${heartPath(78, 22, 16)}" fill="#EE6A4D"/>`, size)
+}
+document.getElementById('grid').innerHTML = concepts.map((c) => `
+  <div class="card">
+    <div class="hero">${c.hero}</div>
+    <div class="strip">${c.strip}<div class="tiny"><div class="icon">${c.icon}</div><div class="fav">${c.fav}</div></div></div>
+    <div class="meta"><span class="tag">${c.n} · ${c.tag}</span><h2>${c.name}</h2><p>${c.text}</p></div>
+  </div>`).join('')
+</script>
+</body></html>
