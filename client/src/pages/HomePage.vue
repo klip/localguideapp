@@ -72,7 +72,11 @@ const steps = computed(() =>
     </section>
 
     <section id="how" class="section shell">
-      <SectionTitle :eyebrow="t('home.how.eyebrow')" :heading="t('home.how.heading')" />
+      <SectionTitle
+        :eyebrow="t('home.how.eyebrow')"
+        :heading="t('home.how.heading')"
+        show-eyebrow
+      />
       <div class="grid-3">
         <FeatureCard v-for="step in steps" :key="step.title" v-bind="step" />
       </div>

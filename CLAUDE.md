@@ -191,6 +191,11 @@ Built from the approved sketches in `docs/design/sketches/` (03 the system,
   **Pico's colour variables must be overridden on `:root:not([data-theme=dark]),
   [data-theme=light]`** (its own selector) — a plain `:root` loses, which is
   why the buttons used to stay Pico-blue.
+- **Page spacing** (`_layout.scss`): every page is a `.section` — 1.25 rem
+  from the header to the title (1.5 rem from `lg`) — and its title
+  (`SectionTitle`, or `.page-head` on the decks and the profile) keeps
+  1.5 rem to the content; titles are 22 px, 28 px from `lg`. Don't give a
+  page its own top padding.
 - **Motion** (`_base.scss`): short fades with a few pixels of travel in
   the direction a thing comes from — `rg-rise`, `rg-drop`, `rg-fade`,
   `rg-pop` keyframes, animating `translate` (not `transform`, so they never
@@ -300,13 +305,12 @@ path/name table) and the shared `src/components/` each is built from:
   `SelectionCounter` is now only the signed-out "Browse freely" intro on
   `DiscoverPage.vue`. Both pages pull their deck from
   `stores/guides.ts`/`stores/visitors.ts`. Both run in a wider shell
-  (`.shell--deck`, the header's 1400 px) so the card can go landscape; the
-  deck column is its `h1` title ("Guides for you" / "Visitors") with "Near
-  {place}" on the same line, then the `DeckBar`, then the card.
-  **`DeckBar.vue`** sits right above the card in the deck column: only the
-  filters in force as pills (`ActiveFilters`). It's always
-  there at one pill's height and fully transparent (no border, padding or
-  background), so picking a filter never moves the page. The **picks
+  (`.shell--deck`, the header's 1400 px) so the card can go landscape. The
+  page's `h1` title ("Guides for you" / "Visitors") with "Near {place}" on
+  the same line (`.deck-head.page-head`) sits **above the three columns**,
+  so the card's top lines up with both rails. **What's filtered is shown
+  only inside the filters** (chips under each category's name); nothing
+  sits above the card (`DeckBar` / `ActiveFilters` are gone). The **picks
   counter** is in the header instead (`PicksButton.vue`, right of the links on
   desktop, beside the avatar on mobile; **every page**, signed-in
   traveller mode): a soft honey pill with a check-box icon and
@@ -422,29 +426,30 @@ own — every one just takes props/emits):
   heart (no bee) — no cost text on it (the picks counter is in the header).
   `DiscoverPage.vue`, `GuideDiscoverPage.vue` and `GuideProfilePage.vue`
   all use the default labels.
-- `ProfileCard.vue` — the discovery card: photo, badges, name/age (a link
-  to the full profile, as is the photo — there's no separate "Full profile"
-  link), a meta line, price (guide side only), bio (clamped), `TagList`,
-  optional `includes`, a slot, then its own `DecisionRow`. A container
-  query makes it **landscape from 600 px wide** (photo left at full height,
-  everything else right, buttons pinned to the bottom — the desktop deck)
-  and **one wide 16:9 photo on top** below that (phones). `photoNote` puts
-  "3 km away" on the photo. One photo: a gallery waits for multi-photo
-  upload. Deliberately domain-agnostic (plain scalar props, not a
-  `Guide`/`Visitor` object) since both decks render it with different
-  emphasis.
+- `ProfileCard.vue` — the discovery card: a tall photo with **the badges
+  (level, verified, trips), name/age and rating floating over its bottom
+  edge** on a scrim, like the profile page's hero (`photoNote` — "3 km
+  away" — at its top left); then price (guide side only), bio (clamped),
+  `TagList`, optional `includes`, a slot, and its own `DecisionRow`. The
+  photo links to the full profile (plus a visually hidden name link,
+  `data-test="card-name"`, for keyboards — there's no visible "Full
+  profile" link). A container query makes it **landscape from 600 px wide**
+  (photo left at full height, ≥ 34 rem, everything else right, buttons
+  pinned to the bottom — the desktop deck) and a 4:3.4 photo on top below
+  that (phones). One photo: a gallery waits for multi-photo upload.
+  Deliberately domain-agnostic (plain scalar props, not a `Guide`/`Visitor`
+  object) since both decks render it with different emphasis.
 - `DeckFilters.vue` — both decks' filters: from `lg` an always-open side
-  rail (its heading a plain title, "clear ×" still clickable); below, a
-  white bar — "Filters", **the filters in force as one horizontally
-  scrolling line of pills** (`ActiveFilters` inside the `<summary>`, its end
-  faded out under "clear ×"; a pill's × doesn't open the pane), no chevron —
-  that **drops a pane down from itself** (the page's side padding keeps it
-  off the screen edges; height up to the tab bar; over a backdrop; body
-  scroll locked, Escape closes) ending in "Clear filters" and "Show 24
-  guides" (`showLabel`, counted by the page). On mobile `DeckBar` is hidden
-  — the pills live in this bar.
-  Don't give its body `role="group"`: Pico styles that as a button group
-  and it broke the sliders' absolute positioning.
+  rail (its heading a plain title, "clear ×" still clickable); below, the
+  design's row (docs/design/sketches/05) — **"📍 Lisbon ⌄"** (the search
+  point's town, else "Anywhere") on the left and an outlined **"≡ Filters ·
+  3"** button on the right (only the count says something is set), no
+  chevron — that **drops a pane down from itself** (the page's side padding
+  keeps it off the screen edges; height up to the tab bar; over a backdrop;
+  body scroll locked, Escape closes) ending in "Clear filters" and "Show 24
+  guides" (`showLabel`, counted by the page). Don't give its body
+  `role="group"`: Pico styles that as a button group and it broke the
+  sliders' absolute positioning.
 - `RangePicker.vue` — one slider with two handles (`DualRangeSlider`), the
   chosen span above it ("09:00–13:00"), an Add button and the spans collected
   so far as removable chips: the input for a `range` category with several
@@ -452,11 +457,11 @@ own — every one just takes props/emits):
   because a category holds *several* spans. (`FilterChips.vue`, the old
   hardcoded quick-filter row, is gone — the filter bar covers it.)
 - `FilterPanel.vue` — the filter form: gender (a `SegmentedControl`) + age on top, then an
-  accordion of categories (see "Discovery filters" below). Built from
+  accordion of categories, each showing what's picked in it as removable
+  chips under its name and count, inside its `<summary>` (a chip's × doesn't
+  open or close the row — see "Discovery filters" below). Built from
   `stores/categories.ts`, so it names no category itself; writes straight
   to `stores/filters.ts`.
-- `ActiveFilters.vue` — the filters in force as × pills above the deck
-  (both Discover pages); reads/writes `stores/filters.ts` only.
 - `DualRangeSlider.vue` — one track, two handles (two stacked native range
   inputs), `v-model` a single span; the filter bar's age.
 - `BookingPanel.vue` — **not** purely presentational (calls the API
@@ -856,13 +861,15 @@ it never spills onto the page.
 
 **Mobile (below `lg`) is a bottom tab bar** (`.tabbar`, `data-test="tabbar"`,
 fixed to the foot; `.app-shell` gets matching bottom padding and the cookie
-notice sits above it): signed in Discover · Matches · My trips · Messages ·
-Menu, signed out Discover · How it works · Log in · Menu, with the same
-counters (`tab-*-count`). **Menu is the `.burger`** that opens the drawer,
-which still holds everything (planner, calendar, payments, language,
-currency, role, log out). Its dot now means only the other role's news —
-the counted sections have tabs of their own. The top bar is the logo, the
-picks pill and the profile circle.
+notice sits above it): signed in Discover · Matches · My trips · **Chat**
+(`common.app_header.chat`, the design's plain bubble — `NavIcon` `chat`;
+the desktop link still says Messages) · **Me** (the user's photo, else
+their initial, → `/profile`, `data-test="tab-me"`); signed out Discover ·
+How it works · Log in — with the same counters (`tab-*-count`). The top bar
+is the logo, the picks pill and **the menu button (`.burger`) in the
+top-right corner**, which opens the drawer holding everything (planner,
+calendar, payments, language, currency, role, log out); its dot means only
+the other role's news — the counted sections have tabs of their own.
 
 - **The role switch**: a dual-role account gets "Travel | Guide" — a
   segmented control (`role="group"`, `data-test="role-switch"`, two buttons
@@ -875,15 +882,14 @@ picks pill and the profile circle.
   `ProfilePage` calls `avatar.set()` after saving a new photo.
 - **It's one `.drawer` element styled two ways, not two copies of the
   menu.** Below `lg` it's a `position: fixed` off-canvas panel (opened by
-  the tab bar's Menu); from `lg` it's `display: contents`, so its parts sit
+  the top bar's menu button); from `lg` it's `display: contents`, so its parts sit
   directly on the `nav`'s grid (`'logo links picks lang role me account'`,
   the links column `minmax(0, 1fr)` so `fitLinks()` can see it overflow). Add a link once, inside `.drawer > ul.nav` — and to the tab
   bar only if it's a main section.
 - **Mobile drawer, top to bottom**: logo + ✕, the language and currency
   selects side by side, the links, the role switch, then "Signed in as …"
-  just above Log out at the foot. The profile circle isn't in the drawer on
-  mobile: it sits in the bar (`.bar-end` > `.bar-profile`); the drawer's
-  `.me` is the desktop one.
+  just above Log out at the foot. The profile isn't in the drawer on mobile:
+  it's the tab bar's "Me"; the drawer's `.me` is the desktop one.
 - **Log out is always the drawer's last element** (`AppHeader.spec.ts`
   asserts it): the foot of the mobile drawer, the far right of the desktop
   bar. `.account` carries it — `margin-top: auto` plus `position: sticky;
@@ -1561,39 +1567,34 @@ exists" gap used to point at — a guide or visitor can now fill in their
 own contact info, security settings and interests through the app itself,
 not just via a seeded API call.
 
-- Three independent sections, each its own save action, mirroring three
-  separate backend concerns:
-  - **Change password** → `api.changePassword()` → `Users::
-    verifyPasswordFor()` + `setPassword()` (`creds`), gated on the current
-    password and a client-side "do the two new-password fields match"
-    check before the request is even sent. **Nested inside the "Personal &
-    contact info" panel, at the very top, behind a collapsed native
-    `<details>`** (`<summary>Change password</summary>`, closed by
-    default) rather than its own top-level panel — it's still a fully
-    independent `<form>`/save action, just visually tucked away since it's
-    reached far less often than the fields below it.
-  - **Personal & contact info** (name, email, phone + country code, 2FA
-    delivery channel, photo) → `api.updateAccount()` → `Users::
-    updateAccount()` (the `users` table).
-  - **Profile details** (date of birth, gender, headline/bio, guide
-    pricing or visitor party/duration, the dynamic category/option picker
-    below, and — for guides — the hours they work, via `RangePicker`) → `api.updateProfile()` → `Profiles::
-    setProfile()` / `setAttributeValues()` / `setRanges()`
-    (`user_profiles` and friends).
-  - **DOM order of the three `<form>`s is password → account → profile
-    details**, matching `ProfilePage.spec.ts`'s `forms(wrapper)` helper
-    (`findAll('form')[0/1/2]`) — the two must stay in sync if either
-    changes. This has already broken silently once (a different edit
-    briefly reordered the *panels* to account → password → details, before
-    password moved inside the account panel entirely) — 8 unrelated-
-    looking tests failed (wrong panel's inputs/buttons resolving under
-    `forms().details`/`.password`) with no change to the test file itself;
-    caught by noticing the failures persisted after reverting an unrelated
-    CSS change, then diffing the template against the expected order. The
-    `<details>` being closed doesn't hide its `<form>` from
-    `@vue/test-utils` queries (jsdom doesn't apply the browser's
-    collapsed-`<details>` layout, so the tests can still `setValue`/
-    `trigger('submit.prevent')` on it directly, same as before the move).
+- **Three views of one page, by `?section=`** (docs/design/sketches/05; no
+  extra routes — links within the page, each sub-view with a "‹ Your
+  profile" back link), in one 46 rem column on every screen:
+  - **The profile** (default, `data-test="form-details"`): the title with
+    the level badge; "As a traveller | As a guide" segments for a two-role
+    account (`profile-role`, switches the acting role) or the add-role
+    banner; a card with the photo (tap it to open `ImageCropper`), the name
+    and "Tap photo to change · N% complete" (`completeness`: photo, name,
+    birth date, gender, headline, bio, a category pick, and a guide's fee or
+    base / a traveller's party), birth date and gender (F / M / – segments)
+    side by side, headline and bio — **both roles**; a card with the role's
+    own fields (a guide's base and radius, fee, label, note, includes; a
+    traveller's party and trip length); "Interests & languages" (the
+    category picker below, and a guide's hours via `RangePicker`); two list
+    rows to the sub-views; and **one "Save changes" pinned to the foot**
+    (above the tab bar on mobile) → `api.updateProfile()` → `Profiles::
+    setProfile()` / `setAttributeValues()` / `setRanges()`, plus
+    `api.updateAccount({ image })` alone when a new photo was cropped (every
+    `updateAccount` field is optional).
+  - **Contact & sign-in** (`?section=contact`, `form-account`): name,
+    email, phone + country code, the 2FA channel, verification →
+    `api.updateAccount()` → `Users::updateAccount()`.
+  - **Password & devices** (`?section=security`, `form-password`): change
+    password → `api.changePassword()` (gated on the current password and a
+    client-side "do the two match" check), then remembered and signed-in
+    devices and sign out everywhere.
+  - Tests find each form by its `data-test` and open a sub-view with
+    `mountProfilePageAt('contact' | 'security', api)`.
 - On mount, loads `api.myProfile()` (the full self-view — see
   `Users::getFullAccount()` under Backend) and `api.attributeCategories()`
   in parallel, then prefills every form field, the `localCategories` copy,
@@ -1839,10 +1840,11 @@ person**: gender (Male · Female · Any, a `SegmentedControl`) and age (one `Dua
 accordion row** — a native `<details>` with Pico's own chevron and a count of
 picks; open it and the remaining options are full-width link-style rows
 (indented, `+` on the right). **Picking an option moves it out of the list
-and into a pill above the deck's cards** (`ActiveFilters.vue`, on both
-Discover pages, just before the `ProfileCard`); the pill's × removes the
-filter and the option reappears in its category. Gender, age and hour spans
-show as pills too. **Every `range` category (hours of the day) is one
+and into a chip under its category's name**, inside the row's `<summary>`
+(`chips-<key>`); the chip's × removes the filter and the option reappears
+in its list. An hours span shows as a chip in its row too; gender and age
+show in their own controls. Nothing about filters sits above the deck's
+card; on mobile only the Filters button's count says something is set. **Every `range` category (hours of the day) is one
 `DualRangeSlider`** inside its accordion row, like age: a single span,
 applied as it's dragged, and dragging back to the full extent clears it — no
 Add button. (`RangePicker`, with its several spans, is the profile page's.)
@@ -2177,13 +2179,15 @@ the plumbing, is in:
   beyond, plus +15 fading over 1,000 km — it outweighs everything else on
   purpose, so moving the point reorders the deck.
 - `near` ranks, it doesn't filter: it isn't counted by `isPristine`/
-  `activeCount`, and Clear filters (`reset()`) keeps it; `setNear(null)` also
-  drops `maxKm`. `LocationFilter.vue` tops the filter bar on the traveller's
-  deck ("📍 Lisbon · Change" / "Anywhere · Set a location", then Distance:
-  an "Unlimited" switch, on by default, waking a 1–200 km slider at 25);
-  `ActiveFilters` shows a "Within 25 km" pill — the place itself gets none
-  (the location filter and the deck header already show it). The card's
-  meta line reads "★ 4.8 · 1 review · 3 km away" (`utils/distance.ts`).
+  `activeCount`, and Clear filters (`reset()`) keeps it. `LocationFilter.vue`
+  tops the filter bar ("📍 Lisbon · Change" / "Anywhere · Set a location",
+  then **Distance: one slider, always on — no switch** — orange track,
+  orange-ringed handle, 0–200 km, **10 km by default** (`DEFAULT_MAX_KM` in
+  `stores/filters.ts`, also what `reset()` and a role switch go back to);
+  dragged to 0 it reads "Unlimited" and `maxKm` is `null`). The limit is
+  sent only with a search point and stays as set when the point changes;
+  only a non-default distance counts in `activeCount`. "3 km away" sits on
+  the card's photo (`utils/distance.ts`).
 - **The search point per role, per session** (phase A3): `stores/filters.ts`
   keeps `near` in `sessionStorage` (`belikelocal.near.<role>`) and swaps it
   when the acting role changes — a traveller searches where they're going, a
@@ -3340,6 +3344,10 @@ API service (`api/classes/`):
   "Show N guides / travellers"), 15 languages. Applied 2026-10-23.
   Re-runnable. (`common.filter_panel.no_preference` is unused since; left in
   place.)
+- `api/sql/104_translations_profile_tabs.sql` — the tab bar's "Chat" and
+  "Me", and the redesigned profile page's text (role segments, the photo
+  line, section titles, the sub-view links, "Save changes"), 15 languages.
+  Applied 2026-10-24. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

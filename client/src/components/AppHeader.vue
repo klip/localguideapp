@@ -589,9 +589,7 @@ onBeforeUnmount(() => {
           ></RouterLink
         >
         <RouterLink to="/messages" class="tab"
-          ><NavIcon name="chat" /><span class="tab-label">{{
-            t('common.app_header.chat')
-          }}</span
+          ><NavIcon name="chat" /><span class="tab-label">{{ t('common.app_header.chat') }}</span
           ><span v-if="unreadMessages" class="tab-count" data-test="tab-messages-count"
             ><span aria-hidden="true">{{ badgeText(unreadMessages) }}</span
             ><span class="visually-hidden">{{

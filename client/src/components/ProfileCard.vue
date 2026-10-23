@@ -71,7 +71,11 @@ const emit = defineEmits<{
 
       <div class="profile-body">
         <h2 class="card-name visually-hidden">{{ name }}, {{ age }}</h2>
-        <RouterLink v-if="profileLink" :to="profileLink" class="card-profile-link visually-hidden" data-test="card-name"
+        <RouterLink
+          v-if="profileLink"
+          :to="profileLink"
+          class="card-profile-link visually-hidden"
+          data-test="card-name"
           >{{ name }}, {{ age }}</RouterLink
         >
         <div v-if="priceLabel" class="card-price">

@@ -72,8 +72,11 @@ legend {
 
 // Pico gives form controls generous bottom margins; inside our compact panels
 // the label wrapper already provides the rhythm.
-label > input,
-label > select {
+// (`:not(...)` lifts these over Pico's own `input:not([type=checkbox], …)`,
+// which otherwise kept a 16 px margin under every field inside a label.)
+label > input:not([type='checkbox'], [type='radio']),
+label > select:not([multiple]),
+label > textarea:not([hidden]) {
   margin-bottom: 0;
 }
 

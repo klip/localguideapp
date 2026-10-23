@@ -7,7 +7,7 @@ import ImageCropper from '@/components/ImageCropper.vue'
 import LevelPanel from '@/components/LevelPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PlaceSearch from '@/components/PlaceSearch.vue'
-import SectionTitle from '@/components/SectionTitle.vue'
+import SegmentedControl from '@/components/SegmentedControl.vue'
 import TermsDialog from '@/components/TermsDialog.vue'
 import { t, tn } from '@/i18n'
 import { COUNTRY_CODES, countryForDialCode } from '@/data/countryCodes'
@@ -34,16 +34,20 @@ import { forgetTrustedDevice } from '@/utils/trustedDevice'
 import type { Gender, NumericRange, RangeMap } from '@/types'
 
 /**
- * Self-service account/profile editor. Three independent sections, each its
- * own save action, mirroring the three backend concerns:
- *   - Change password                                  → api.changePassword()
- *     (nested inside the personal-info panel below, at the very top, behind
- *     a collapsed <details> — see the template)
- *   - Personal & contact info + photo + 2FA channel  → api.updateAccount()
- *   - Profile details (bio/price/etc.) plus every category → api.updateProfile()
- *     (option categories and `range` ones alike, from
- *     api.attributeCategories(); a guide sees a category under its
- *     provider-side label, so `interests` reads as "Specialities")
+ * Self-service account/profile editor (docs/design/sketches/05-mobile.png).
+ * Three views of one page, by `?section=`:
+ *   - the profile (default): the photo, birth date, gender, headline, about,
+ *     the role's own fields and every category (option categories and
+ *     `range` ones alike; a guide sees a category under its provider-side
+ *     label, so `interests` reads as "Specialities"), with one pinned
+ *     "Save changes"                → api.updateProfile() (+ updateAccount()
+ *     for a new photo)
+ *   - `contact`: name, email, phone, the two-factor channel, verification
+ *                                   → api.updateAccount()
+ *   - `security`: change password, remembered and signed-in devices, sign
+ *     out everywhere                → api.changePassword() & co.
+ * The views are links within the page (no extra routes), each with a back
+ * link to the profile.
  */
 
 const api = useApi()
@@ -60,6 +64,33 @@ const isGuide = computed(() => auth.activeRole === 'guide')
 
 const route = useRoute()
 const router = useRouter()
+
+/** Which view: the profile, or one of the two linked from it. */
+type Section = 'main' | 'contact' | 'security'
+const section = computed<Section>(() =>
+  route.query.section === 'contact' || route.query.section === 'security'
+    ? route.query.section
+    : 'main',
+)
+
+/**
+ * "As a traveller | As a guide" for an account holding both: switches the
+ * role being edited (App.vue re-renders the page as that role).
+ */
+const roleChoice = computed<Role>({
+  get: () => (auth.activeRole === 'guide' ? 'guide' : 'guest'),
+  set: (role) => {
+    if (role === auth.activeRole) return
+    auth.setActiveRole(role)
+    messages.info(
+      t(role === 'guide' ? 'common.app_header.switched_guide' : 'common.app_header.switched_guest'),
+    )
+  },
+})
+const roleOptions = computed(() => [
+  { value: 'guest' as const, label: t('profile.header.as_traveller') },
+  { value: 'guide' as const, label: t('profile.header.as_guide') },
+])
 
 /**
  * "Become a guide" / "I want to travel" (the header link, `?addRole=`, or the
@@ -167,6 +198,39 @@ function selectCountryCode(suggestion: ComboboxSuggestion) {
 const dateOfBirth = ref('')
 const todayIso = computed(() => new Date().toISOString().slice(0, 10))
 const gender = ref<'' | Gender>('')
+/** Gender as F / M / – segments ("–" = not saying). */
+const genderChoice = computed<Gender | 'none'>({
+  get: () => gender.value || 'none',
+  set: (value) => {
+    gender.value = value === 'none' ? '' : value
+  },
+})
+const genderOptions = computed(() => [
+  { value: 'female' as const, label: t('common.gender.female') },
+  { value: 'male' as const, label: t('common.gender.male') },
+  { value: 'none' as const, label: '–' },
+])
+
+/** The photo: tapping it opens the cropper; a new one is saved with the profile. */
+const editingPhoto = ref(false)
+
+/**
+ * How complete the profile is, as shown under the name: the things a
+ * visitor or guide looks at first, each counted once.
+ */
+const completeness = computed(() => {
+  const checks = [
+    Boolean(profile.value?.image),
+    Boolean(name.value.trim()),
+    Boolean(dateOfBirth.value),
+    Boolean(gender.value),
+    Boolean(headline.value.trim()),
+    Boolean(bio.value.trim()),
+    Object.values(selectedAttributes).some((values) => values.length > 0),
+    isGuide.value ? priceAmount.value !== null || Boolean(guideBase.value) : Boolean(party.value),
+  ]
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100)
+})
 const headline = ref('')
 const bio = ref('')
 const priceAmount = ref<number | null>(null)
@@ -534,7 +598,6 @@ async function saveAccount() {
   savingAccount.value = true
 
   try {
-    const image = cropperRef.value?.getCroppedDataUrl() ?? undefined
     const phone = phoneCountryCode.value
       ? `${phoneCountryCode.value} ${phoneNumber.value.trim()}`.trim()
       : phoneNumber.value.trim()
@@ -544,7 +607,6 @@ async function saveAccount() {
       email: email.value.trim(),
       phone,
       twoFactorMethod: twoFactorMethod.value,
-      ...(image ? { image } : {}),
     })
     auth.setUser({
       id: auth.user.id,
@@ -553,7 +615,6 @@ async function saveAccount() {
       role: auth.user.role,
       roles: auth.user.roles,
     })
-    if (image) avatar.set(image)
     messages.success(t('profile.toast.contact_saved'), anchorTo('element', accountPanelRef.value))
   } catch (err) {
     reportSaveError(err, t('profile.toast.contact_failed'), accountPanelRef.value)
@@ -588,6 +649,15 @@ async function saveProfile() {
           }
         : {}),
     })
+    // A new photo from the cropper goes with it (only the photo — the
+    // contact fields are the contact view's).
+    const image = cropperRef.value?.getCroppedDataUrl() ?? undefined
+    if (image) {
+      await api.updateAccount({ image })
+      avatar.set(image)
+      if (profile.value) profile.value = { ...profile.value, image }
+      editingPhoto.value = false
+    }
     messages.success(t('profile.toast.profile_saved'), anchorTo('element', profilePanelRef.value))
   } catch (err) {
     reportSaveError(err, t('profile.toast.profile_failed'), profilePanelRef.value)
@@ -633,44 +703,72 @@ async function changePassword() {
 </script>
 
 <template>
-  <section class="section shell">
-    <div class="profile-head">
-      <SectionTitle
-        :eyebrow="t('profile.header.eyebrow')"
-        :heading="t('profile.header.heading')"
-        :lead="t('profile.header.lead')"
+  <section class="section shell profile-page">
+    <!-- The title (with the level badge), or a sub-view's title under a way back. -->
+    <div class="profile-head page-head">
+      <div class="profile-title">
+        <RouterLink
+          v-if="section !== 'main'"
+          to="/profile"
+          class="back-link"
+          data-test="profile-back"
+          ><span class="rtl-flip" aria-hidden="true">‹</span>
+          {{ t('profile.header.heading') }}</RouterLink
+        >
+        <h1>
+          {{
+            section === 'contact'
+              ? t('profile.header.contact_link')
+              : section === 'security'
+                ? t('profile.header.security_link')
+                : t('profile.header.heading')
+          }}
+        </h1>
+      </div>
+      <LevelPanel
+        v-if="profile && auth.activeRole && section === 'main'"
+        class="profile-level"
+        :role="auth.activeRole"
       />
-      <LevelPanel v-if="profile && auth.activeRole" class="profile-level" :role="auth.activeRole" />
     </div>
 
-    <div
-      v-if="auth.user && !loading && missingRole"
-      class="add-role-banner"
-      data-test="add-role-banner"
-    >
-      <p class="tiny muted">
-        {{
-          t(missingRole === 'guide' ? 'profile.add_role.hint_guide' : 'profile.add_role.hint_guest')
-        }}
-      </p>
-      <button
-        type="button"
-        class="secondary"
-        data-test="add-role-button"
-        @click="startAddingRole(missingRole)"
-      >
-        {{
-          t(
-            missingRole === 'guide'
-              ? 'profile.add_role.become_guide'
-              : 'profile.add_role.want_to_travel',
-          )
-        }}
-      </button>
-    </div>
-    <p v-else-if="auth.user && !loading && auth.roles.length > 1" class="tiny muted editing-role">
-      {{ t(isGuide ? 'profile.add_role.editing_guide' : 'profile.add_role.editing_guest') }}
-    </p>
+    <template v-if="auth.user && !loading && section === 'main'">
+      <!-- Both roles: which one is being edited, as segments. -->
+      <SegmentedControl
+        v-if="auth.roles.length > 1"
+        v-model="roleChoice"
+        class="role-segments"
+        name="profile-role"
+        :legend="t('common.app_header.role_label')"
+        :options="roleOptions"
+        data-test="profile-role"
+      />
+      <div v-else-if="missingRole" class="add-role-banner" data-test="add-role-banner">
+        <p class="tiny muted">
+          {{
+            t(
+              missingRole === 'guide'
+                ? 'profile.add_role.hint_guide'
+                : 'profile.add_role.hint_guest',
+            )
+          }}
+        </p>
+        <button
+          type="button"
+          class="secondary"
+          data-test="add-role-button"
+          @click="startAddingRole(missingRole)"
+        >
+          {{
+            t(
+              missingRole === 'guide'
+                ? 'profile.add_role.become_guide'
+                : 'profile.add_role.want_to_travel',
+            )
+          }}
+        </button>
+      </div>
+    </template>
 
     <TermsDialog :open="addingRole !== null" :slugs="agreementSlugs" @close="cancelAddingRole">
       <template #intro>
@@ -716,409 +814,445 @@ async function changePassword() {
       <p class="muted">{{ loadError }}</p>
     </PanelCard>
 
-    <div v-else class="profile-grid">
-      <div ref="accountPanelRef">
-        <PanelCard :title="t('profile.contact.title')" :subtitle="t('profile.contact.subtitle')">
-          <details ref="passwordPanelRef" class="password-disclosure">
-            <summary>{{ t('profile.password.title') }}</summary>
-            <form @submit.prevent="changePassword">
-              <label>
-                {{ t('profile.password.current') }}
-                <input
-                  v-model="currentPassword"
-                  type="password"
-                  autocomplete="current-password"
-                  required
-                />
-              </label>
-              <label>
-                {{ t('profile.password.new') }}
-                <input v-model="newPassword" type="password" autocomplete="new-password" required />
-              </label>
-              <label>
-                {{ t('profile.password.confirm') }}
-                <input
-                  v-model="confirmPassword"
-                  type="password"
-                  autocomplete="new-password"
-                  required
-                />
-              </label>
-
-              <button
-                type="submit"
-                class="full"
-                :aria-busy="changingPassword"
-                :disabled="changingPassword"
-              >
-                {{
-                  changingPassword ? t('profile.password.changing') : t('profile.password.submit')
-                }}
-              </button>
-            </form>
-          </details>
-
-          <form @submit.prevent="saveAccount">
-            <label>
-              {{ t('profile.contact.name') }}
-              <input
-                v-model="name"
-                type="text"
-                autocomplete="name"
-                data-field="name"
-                :aria-invalid="invalidField === 'name' || undefined"
-                @input="clearInvalid('name')"
-              />
-            </label>
-            <label>
-              {{ t('common.contact.email') }}
-              <input v-model="email" type="email" autocomplete="email" required />
-            </label>
-
-            <div class="phone-row">
-              <label class="phone-code">
-                {{ t('profile.contact.country_code') }}
-                <AttributeCombobox
-                  v-model="phoneCountryQuery"
-                  :suggestions="countryCodeSuggestions"
-                  :allow-create="false"
-                  :placeholder="t('profile.contact.country_placeholder')"
-                  @select="selectCountryCode"
-                />
-              </label>
-              <label class="phone-number">
-                {{ t('common.contact.phone') }}
-                <input v-model="phoneNumber" type="tel" autocomplete="tel" placeholder="56002731" />
-              </label>
-            </div>
-
-            <label>
-              {{ t('profile.contact.two_factor') }}
-              <select v-model="twoFactorMethod" required>
-                <option value="" disabled>{{ t('profile.contact.two_factor_choose') }}</option>
-                <option value="email">{{ t('common.contact.email') }}</option>
-                <!-- Not wired to a provider yet — AccountSecurity.php only sends by email. -->
-                <option value="sms" disabled>{{ t('profile.contact.two_factor_sms') }}</option>
-                <option value="whatsapp" disabled>
-                  {{ t('profile.contact.two_factor_whatsapp') }}
-                </option>
-              </select>
-              <small class="tiny muted">
-                {{ t('profile.contact.two_factor_hint') }}
-              </small>
-            </label>
-            <p v-if="trustedDeviceCount > 0" class="tiny muted trusted-devices">
-              {{ tn('profile.contact.trusted_devices', trustedDeviceCount) }}
-              <button
-                type="button"
-                class="link-btn"
-                :aria-busy="forgettingDevices"
-                :disabled="forgettingDevices"
-                @click="forgetDevices"
-              >
-                {{ t('profile.contact.forget_devices') }}
-              </button>
-            </p>
-            <div v-if="devices.length" class="devices" data-test="devices">
-              <p class="tiny muted devices-title">{{ t('profile.devices.title') }}</p>
-              <ul>
-                <li v-for="device in devices" :key="device.id">
-                  <span class="device-text">
-                    <span class="device-name">{{
-                      device.label || t('profile.devices.unknown')
-                    }}</span>
-                    <span class="tiny muted">{{ deviceMeta(device) }}</span>
-                  </span>
-                  <span v-if="device.current" class="tiny this-device">
-                    {{ t('profile.devices.this_device') }}
-                  </span>
-                  <button
-                    v-else
-                    type="button"
-                    class="link-btn tiny"
-                    data-test="sign-out-device"
-                    :aria-busy="signingOutDevice === device.id"
-                    :disabled="signingOutDevice !== null"
-                    @click="signOutDevice(device, $event)"
-                  >
-                    {{ t('profile.devices.sign_out') }}
-                  </button>
-                </li>
-              </ul>
-            </div>
-            <p class="tiny muted sign-out-everywhere">
-              <button
-                type="button"
-                class="link-btn"
-                data-test="sign-out-everywhere"
-                :aria-busy="signingOutEverywhere"
-                :disabled="signingOutEverywhere"
-                @click="signOutEverywhere"
-              >
-                {{ t('profile.contact.sign_out_everywhere') }}
-              </button>
-              {{ t('profile.contact.sign_out_everywhere_hint') }}
-            </p>
-
-            <div v-if="profile?.image" class="current-photo">
-              <img :src="profile.image" :alt="t('profile.contact.photo_alt')" />
-              <span class="tiny muted">{{ t('profile.contact.current_photo') }}</span>
-            </div>
-            <ImageCropper ref="cropperRef" />
-
-            <!-- Set by the identity check, not editable here (see Ranking.php). -->
-            <p
-              v-if="profile"
-              class="verification tiny"
-              :class="{ 'verification--done': profile.verified }"
-              data-test="verification"
+    <!-- ===== The profile ===== -->
+    <form
+      v-else-if="section === 'main'"
+      ref="profilePanelRef"
+      class="profile-form"
+      data-test="form-details"
+      @submit.prevent="saveProfile"
+    >
+      <div class="profile-card">
+        <div class="me-row">
+          <button
+            type="button"
+            class="me-photo"
+            :aria-expanded="editingPhoto"
+            :aria-label="t('profile.details.photo_change')"
+            data-test="photo-toggle"
+            @click="editingPhoto = !editingPhoto"
+          >
+            <img v-if="profile?.image" :src="profile.image" :alt="t('profile.contact.photo_alt')" />
+            <span v-else aria-hidden="true">{{
+              Array.from(name || profile?.email || '?')[0]?.toUpperCase()
+            }}</span>
+          </button>
+          <div class="me-text">
+            <strong>{{ name || profile?.email }}</strong>
+            <span class="tiny muted" data-test="profile-complete"
+              >{{ t('profile.details.photo_change') }} ·
+              {{ t('profile.details.complete', { percent: completeness }) }}</span
             >
-              <template v-if="profile.verified">
-                <strong
-                  ><span aria-hidden="true">✓</span>
-                  {{ t('profile.verification.verified') }}</strong
-                >
-                <template v-if="profile.verification_method">
-                  · {{ t(`profile.verification.method_${profile.verification_method}`) }}</template
-                >
-              </template>
-              <template v-else>
-                <strong>{{ t('profile.verification.not_yet') }}</strong>
-                {{ t('profile.verification.coming_soon') }}
-              </template>
-            </p>
+          </div>
+        </div>
+        <ImageCropper v-if="editingPhoto" ref="cropperRef" class="me-cropper" />
 
-            <button type="submit" class="full" :aria-busy="savingAccount" :disabled="savingAccount">
-              {{ savingAccount ? t('profile.contact.saving') : t('profile.contact.submit') }}
-            </button>
-          </form>
-        </PanelCard>
+        <div class="two-up">
+          <label>
+            {{ t('profile.details.date_of_birth') }}
+            <input v-model="dateOfBirth" type="date" :max="todayIso" />
+          </label>
+          <SegmentedControl
+            v-model="genderChoice"
+            name="profile-gender"
+            :legend="t('profile.details.gender')"
+            :options="genderOptions"
+            data-test="profile-gender"
+          />
+        </div>
+
+        <label>
+          {{ t('profile.details.headline') }}
+          <input
+            v-model="headline"
+            type="text"
+            :placeholder="t('profile.details.headline_placeholder')"
+            data-field="headline"
+            :aria-invalid="invalidField === 'headline' || undefined"
+            @input="clearInvalid('headline')"
+          />
+        </label>
+
+        <label class="last">
+          {{ t('profile.details.bio') }}
+          <textarea
+            v-model="bio"
+            rows="3"
+            data-field="bio"
+            aria-describedby="contact-hint"
+            :aria-invalid="invalidField === 'bio' || undefined"
+            @input="clearInvalid('bio')"
+          />
+          <small id="contact-hint" class="muted">{{ t('profile.details.contact_hint') }}</small>
+        </label>
       </div>
 
-      <div ref="profilePanelRef">
-        <PanelCard :title="t('profile.details.title')" :subtitle="t('profile.details.subtitle')">
-          <form @submit.prevent="saveProfile">
-            <label>
-              {{ t('profile.details.date_of_birth') }}
-              <input v-model="dateOfBirth" type="date" :max="todayIso" />
-            </label>
-
-            <label v-if="isGuide">
-              {{ t('profile.details.gender') }}
-              <select v-model="gender">
-                <option value="">{{ t('profile.details.gender_unset') }}</option>
-                <option value="male">{{ t('common.gender.male') }}</option>
-                <option value="female">{{ t('common.gender.female') }}</option>
-              </select>
-            </label>
-
-            <label v-if="isGuide">
-              {{ t('profile.details.headline') }}
-              <input
-                v-model="headline"
-                type="text"
-                :placeholder="t('profile.details.headline_placeholder')"
-                data-field="headline"
-                :aria-invalid="invalidField === 'headline' || undefined"
-                @input="clearInvalid('headline')"
-              />
-            </label>
-
-            <label v-if="!isGuide">
-              {{ t('profile.details.party') }}
-              <input
-                v-model="party"
-                type="text"
-                :placeholder="t('profile.details.party_placeholder')"
-                data-field="party"
-                :aria-invalid="invalidField === 'party' || undefined"
-                @input="clearInvalid('party')"
-              />
-            </label>
-
-            <label>
-              {{ t('profile.details.bio') }}
-              <textarea
-                v-model="bio"
-                rows="3"
-                data-field="bio"
-                aria-describedby="contact-hint"
-                :aria-invalid="invalidField === 'bio' || undefined"
-                @input="clearInvalid('bio')"
-              />
-              <small id="contact-hint" class="muted">{{ t('profile.details.contact_hint') }}</small>
-            </label>
-
-            <template v-if="isGuide">
-              <fieldset class="guide-base" data-test="guide-base">
-                <legend>{{ t('profile.details.base_title') }}</legend>
-                <label for="guide-base-place" class="tiny muted">{{
-                  t('profile.details.base_hint')
-                }}</label>
-                <PlaceSearch v-model="guideBase" input-id="guide-base-place" />
-                <p v-if="guideBase" class="tiny base-chosen">
-                  📍 {{ guideBase.label }}
-                  <button
-                    type="button"
-                    class="link-btn"
-                    data-test="guide-base-remove"
-                    @click="guideBase = null"
-                  >
-                    {{ t('profile.details.base_remove') }}
-                  </button>
-                </p>
-                <label>
-                  {{ t('profile.details.radius_label') }}
-                  <input
-                    v-model.number="radiusKm"
-                    type="number"
-                    min="1"
-                    max="1000"
-                    step="1"
-                    :disabled="!guideBase"
-                    aria-describedby="radius-hint"
-                    data-test="guide-radius"
-                  />
-                  <small id="radius-hint" class="muted">{{
-                    t('profile.details.radius_hint')
-                  }}</small>
-                </label>
-              </fieldset>
-              <label>
-                {{ t('profile.details.price_amount') }}
-                <input
-                  v-model.number="priceAmount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  aria-describedby="price-amount-hint"
-                />
-                <small id="price-amount-hint" class="muted">
-                  {{ t('profile.details.price_amount_hint') }}
-                </small>
-              </label>
-              <label>
-                {{ t('profile.details.price_label') }}
-                <input
-                  v-model="priceLabel"
-                  type="text"
-                  :placeholder="t('profile.details.price_label_placeholder')"
-                  data-field="priceLabel"
-                  :aria-invalid="invalidField === 'priceLabel' || undefined"
-                  @input="clearInvalid('priceLabel')"
-                />
-              </label>
-              <label>
-                {{ t('profile.details.price_note') }}
-                <input
-                  v-model="priceNote"
-                  type="text"
-                  data-field="priceNote"
-                  :aria-invalid="invalidField === 'priceNote' || undefined"
-                  @input="clearInvalid('priceNote')"
-                />
-              </label>
-              <label>
-                {{ t('profile.details.includes') }}
-                <textarea
-                  v-model="includes"
-                  rows="2"
-                  data-field="includes"
-                  :aria-invalid="invalidField === 'includes' || undefined"
-                  @input="clearInvalid('includes')"
-                />
-              </label>
-            </template>
-
-            <label v-else>
-              {{ t('profile.details.duration') }}
-              <input v-model.number="durationHours" type="number" min="1" max="24" />
-            </label>
-
-            <div class="attributes-editor" data-field="attribute" tabindex="-1">
-              <strong class="tiny">{{ t('profile.details.about') }}</strong>
-
-              <div
-                v-for="category in visibleCategories"
-                :key="category.key"
-                class="attribute-group"
+      <!-- The role's own fields: a guide's area and fee, a traveller's group and trip. -->
+      <div class="profile-card">
+        <h2 class="card-title">
+          {{ isGuide ? t('profile.details.guide_section') : t('profile.details.trip_section') }}
+        </h2>
+        <template v-if="isGuide">
+          <fieldset class="guide-base" data-test="guide-base">
+            <legend>{{ t('profile.details.base_title') }}</legend>
+            <label for="guide-base-place" class="tiny muted">{{
+              t('profile.details.base_hint')
+            }}</label>
+            <PlaceSearch v-model="guideBase" input-id="guide-base-place" />
+            <p v-if="guideBase" class="tiny base-chosen">
+              📍 {{ guideBase.label }}
+              <button
+                type="button"
+                class="link-btn"
+                data-test="guide-base-remove"
+                @click="guideBase = null"
               >
-                <span class="tiny muted">{{
-                  (isGuide && category.providerLabel) || category.label
-                }}</span>
-                <div class="chips">
-                  <span
-                    v-for="value in selectedAttributes[category.key] ?? []"
-                    :key="value"
-                    class="chip"
-                  >
-                    {{ optionLabelFor(category.key, value) }}
-                    <button
-                      type="button"
-                      class="chip-remove"
-                      :aria-label="t('profile.details.remove_option')"
-                      @click="removeAttribute(category.key, value)"
-                    >
-                      ×
-                    </button>
-                  </span>
-                  <button
-                    v-if="!manuallyExpandedCategories.has(category.key)"
-                    type="button"
-                    class="chip-add"
-                    :aria-label="t('profile.details.add_option', { category: category.label })"
-                    @click="expandCategory(category.key)"
-                  >
-                    +
-                  </button>
-                </div>
+                {{ t('profile.details.base_remove') }}
+              </button>
+            </p>
+            <label>
+              {{ t('profile.details.radius_label') }}
+              <input
+                v-model.number="radiusKm"
+                type="number"
+                min="1"
+                max="1000"
+                step="1"
+                :disabled="!guideBase"
+                aria-describedby="radius-hint"
+                data-test="guide-radius"
+              />
+              <small id="radius-hint" class="muted">{{ t('profile.details.radius_hint') }}</small>
+            </label>
+          </fieldset>
+          <div class="two-up">
+            <label>
+              {{ t('profile.details.price_amount') }}
+              <input
+                v-model.number="priceAmount"
+                type="number"
+                min="0"
+                step="0.01"
+                aria-describedby="price-amount-hint"
+              />
+              <small id="price-amount-hint" class="muted">
+                {{ t('profile.details.price_amount_hint') }}
+              </small>
+            </label>
+            <label>
+              {{ t('profile.details.price_label') }}
+              <input
+                v-model="priceLabel"
+                type="text"
+                :placeholder="t('profile.details.price_label_placeholder')"
+                data-field="priceLabel"
+                :aria-invalid="invalidField === 'priceLabel' || undefined"
+                @input="clearInvalid('priceLabel')"
+              />
+            </label>
+          </div>
+          <label>
+            {{ t('profile.details.price_note') }}
+            <input
+              v-model="priceNote"
+              type="text"
+              data-field="priceNote"
+              :aria-invalid="invalidField === 'priceNote' || undefined"
+              @input="clearInvalid('priceNote')"
+            />
+          </label>
+          <label class="last">
+            {{ t('profile.details.includes') }}
+            <textarea
+              v-model="includes"
+              rows="2"
+              data-field="includes"
+              :aria-invalid="invalidField === 'includes' || undefined"
+              @input="clearInvalid('includes')"
+            />
+          </label>
+        </template>
+        <div v-else class="two-up last">
+          <label>
+            {{ t('profile.details.party') }}
+            <input
+              v-model="party"
+              type="text"
+              :placeholder="t('profile.details.party_placeholder')"
+              data-field="party"
+              :aria-invalid="invalidField === 'party' || undefined"
+              @input="clearInvalid('party')"
+            />
+          </label>
+          <label>
+            {{ t('profile.details.duration') }}
+            <input v-model.number="durationHours" type="number" min="1" max="24" />
+          </label>
+        </div>
+      </div>
 
-                <AttributeCombobox
-                  v-if="manuallyExpandedCategories.has(category.key)"
-                  :model-value="optionQueries[category.key] ?? ''"
-                  :suggestions="optionSuggestionsFor(category.key)"
-                  :placeholder="t('profile.details.option_placeholder')"
-                  autofocus
-                  class="option-combobox"
-                  @update:model-value="(value) => (optionQueries[category.key] = value)"
-                  @select="(suggestion) => selectOptionFor(category.key, suggestion)"
-                  @blur="collapseCategory(category.key)"
-                />
-              </div>
+      <div class="profile-card attributes-editor" data-field="attribute" tabindex="-1">
+        <h2 class="card-title">{{ t('profile.details.interests_title') }}</h2>
 
-              <div v-for="category in rangeCategories" :key="category.key" class="attribute-group">
-                <span class="tiny muted">
-                  {{ (isGuide && category.providerLabel) || category.label }}
-                  <em v-if="!(selectedRanges[category.key] ?? []).length">{{
-                    t('profile.details.range_empty_hint')
-                  }}</em>
-                </span>
-                <RangePicker
-                  :ranges="selectedRanges[category.key] ?? []"
-                  :min="category.rangeMin ?? 0"
-                  :max="category.rangeMax ?? 23"
-                  :format="rangeFormatFor(category.key)"
-                  @add="(range) => addRange(category.key, range)"
-                  @remove="(index) => removeRange(category.key, index)"
-                />
-              </div>
-
-              <label class="tiny add-category">
-                {{ t('profile.details.add_category') }}
-                <AttributeCombobox
-                  v-model="categoryQuery"
-                  :suggestions="categorySuggestions"
-                  :placeholder="t('profile.details.category_placeholder')"
-                  @select="selectCategory"
-                />
-              </label>
-            </div>
-
-            <button type="submit" class="full" :aria-busy="savingProfile" :disabled="savingProfile">
-              {{ savingProfile ? t('profile.details.saving') : t('profile.details.submit') }}
+        <div v-for="category in visibleCategories" :key="category.key" class="attribute-group">
+          <span class="tiny muted">{{
+            (isGuide && category.providerLabel) || category.label
+          }}</span>
+          <div class="chips">
+            <span v-for="value in selectedAttributes[category.key] ?? []" :key="value" class="chip">
+              {{ optionLabelFor(category.key, value) }}
+              <button
+                type="button"
+                class="chip-remove"
+                :aria-label="t('profile.details.remove_option')"
+                @click="removeAttribute(category.key, value)"
+              >
+                ×
+              </button>
+            </span>
+            <button
+              v-if="!manuallyExpandedCategories.has(category.key)"
+              type="button"
+              class="chip-add"
+              :aria-label="t('profile.details.add_option', { category: category.label })"
+              @click="expandCategory(category.key)"
+            >
+              +
             </button>
-          </form>
-        </PanelCard>
+          </div>
+
+          <AttributeCombobox
+            v-if="manuallyExpandedCategories.has(category.key)"
+            :model-value="optionQueries[category.key] ?? ''"
+            :suggestions="optionSuggestionsFor(category.key)"
+            :placeholder="t('profile.details.option_placeholder')"
+            autofocus
+            class="option-combobox"
+            @update:model-value="(value) => (optionQueries[category.key] = value)"
+            @select="(suggestion) => selectOptionFor(category.key, suggestion)"
+            @blur="collapseCategory(category.key)"
+          />
+        </div>
+
+        <div v-for="category in rangeCategories" :key="category.key" class="attribute-group">
+          <span class="tiny muted">
+            {{ (isGuide && category.providerLabel) || category.label }}
+            <em v-if="!(selectedRanges[category.key] ?? []).length">{{
+              t('profile.details.range_empty_hint')
+            }}</em>
+          </span>
+          <RangePicker
+            :ranges="selectedRanges[category.key] ?? []"
+            :min="category.rangeMin ?? 0"
+            :max="category.rangeMax ?? 23"
+            :format="rangeFormatFor(category.key)"
+            @add="(range) => addRange(category.key, range)"
+            @remove="(index) => removeRange(category.key, index)"
+          />
+        </div>
+
+        <label class="tiny add-category">
+          {{ t('profile.details.add_category') }}
+          <AttributeCombobox
+            v-model="categoryQuery"
+            :suggestions="categorySuggestions"
+            :placeholder="t('profile.details.category_placeholder')"
+            @select="selectCategory"
+          />
+        </label>
+      </div>
+
+      <!-- Their own screens: contact & sign-in, password & devices. -->
+      <nav class="profile-card profile-links" :aria-label="t('profile.header.heading')">
+        <RouterLink
+          :to="{ path: '/profile', query: { section: 'contact' } }"
+          data-test="link-contact"
+        >
+          <span>{{ t('profile.header.contact_link') }}</span>
+          <span class="rtl-flip" aria-hidden="true">›</span>
+        </RouterLink>
+        <RouterLink
+          :to="{ path: '/profile', query: { section: 'security' } }"
+          data-test="link-security"
+        >
+          <span>{{ t('profile.header.security_link') }}</span>
+          <span class="rtl-flip" aria-hidden="true">›</span>
+        </RouterLink>
+      </nav>
+
+      <div class="save-bar">
+        <button type="submit" :aria-busy="savingProfile" :disabled="savingProfile">
+          {{ savingProfile ? t('profile.details.saving') : t('profile.details.save_all') }}
+        </button>
+      </div>
+    </form>
+
+    <!-- ===== Contact & sign-in ===== -->
+    <div v-else-if="section === 'contact'" ref="accountPanelRef" class="profile-form">
+      <form class="profile-card" data-test="form-account" @submit.prevent="saveAccount">
+        <label>
+          {{ t('profile.contact.name') }}
+          <input
+            v-model="name"
+            type="text"
+            autocomplete="name"
+            data-field="name"
+            :aria-invalid="invalidField === 'name' || undefined"
+            @input="clearInvalid('name')"
+          />
+        </label>
+        <label>
+          {{ t('common.contact.email') }}
+          <input v-model="email" type="email" autocomplete="email" required />
+        </label>
+
+        <div class="phone-row">
+          <label class="phone-code">
+            {{ t('profile.contact.country_code') }}
+            <AttributeCombobox
+              v-model="phoneCountryQuery"
+              :suggestions="countryCodeSuggestions"
+              :allow-create="false"
+              :placeholder="t('profile.contact.country_placeholder')"
+              @select="selectCountryCode"
+            />
+          </label>
+          <label class="phone-number">
+            {{ t('common.contact.phone') }}
+            <input v-model="phoneNumber" type="tel" autocomplete="tel" placeholder="56002731" />
+          </label>
+        </div>
+
+        <label>
+          {{ t('profile.contact.two_factor') }}
+          <select v-model="twoFactorMethod" required>
+            <option value="" disabled>{{ t('profile.contact.two_factor_choose') }}</option>
+            <option value="email">{{ t('common.contact.email') }}</option>
+            <!-- Not wired to a provider yet — AccountSecurity.php only sends by email. -->
+            <option value="sms" disabled>{{ t('profile.contact.two_factor_sms') }}</option>
+            <option value="whatsapp" disabled>
+              {{ t('profile.contact.two_factor_whatsapp') }}
+            </option>
+          </select>
+          <small class="tiny muted">
+            {{ t('profile.contact.two_factor_hint') }}
+          </small>
+        </label>
+
+        <!-- Set by the identity check, not editable here (see Ranking.php). -->
+        <p
+          v-if="profile"
+          class="verification tiny"
+          :class="{ 'verification--done': profile.verified }"
+          data-test="verification"
+        >
+          <template v-if="profile.verified">
+            <strong
+              ><span aria-hidden="true">✓</span> {{ t('profile.verification.verified') }}</strong
+            >
+            <template v-if="profile.verification_method">
+              · {{ t(`profile.verification.method_${profile.verification_method}`) }}</template
+            >
+          </template>
+          <template v-else>
+            <strong>{{ t('profile.verification.not_yet') }}</strong>
+            {{ t('profile.verification.coming_soon') }}
+          </template>
+        </p>
+
+        <button type="submit" class="full" :aria-busy="savingAccount" :disabled="savingAccount">
+          {{ savingAccount ? t('profile.contact.saving') : t('profile.contact.submit') }}
+        </button>
+      </form>
+    </div>
+
+    <!-- ===== Password & devices ===== -->
+    <div v-else class="profile-form">
+      <form
+        ref="passwordPanelRef"
+        class="profile-card"
+        data-test="form-password"
+        @submit.prevent="changePassword"
+      >
+        <h2 class="card-title">{{ t('profile.password.title') }}</h2>
+        <label>
+          {{ t('profile.password.current') }}
+          <input
+            v-model="currentPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+        </label>
+        <label>
+          {{ t('profile.password.new') }}
+          <input v-model="newPassword" type="password" autocomplete="new-password" required />
+        </label>
+        <label>
+          {{ t('profile.password.confirm') }}
+          <input v-model="confirmPassword" type="password" autocomplete="new-password" required />
+        </label>
+        <button
+          type="submit"
+          class="full"
+          :aria-busy="changingPassword"
+          :disabled="changingPassword"
+        >
+          {{ changingPassword ? t('profile.password.changing') : t('profile.password.submit') }}
+        </button>
+      </form>
+
+      <div class="profile-card">
+        <h2 class="card-title">{{ t('profile.devices.title') }}</h2>
+        <p v-if="trustedDeviceCount > 0" class="tiny muted trusted-devices">
+          {{ tn('profile.contact.trusted_devices', trustedDeviceCount) }}
+          <button
+            type="button"
+            class="link-btn"
+            :aria-busy="forgettingDevices"
+            :disabled="forgettingDevices"
+            @click="forgetDevices"
+          >
+            {{ t('profile.contact.forget_devices') }}
+          </button>
+        </p>
+        <div v-if="devices.length" class="devices" data-test="devices">
+          <ul>
+            <li v-for="device in devices" :key="device.id">
+              <span class="device-text">
+                <span class="device-name">{{ device.label || t('profile.devices.unknown') }}</span>
+                <span class="tiny muted">{{ deviceMeta(device) }}</span>
+              </span>
+              <span v-if="device.current" class="tiny this-device">
+                {{ t('profile.devices.this_device') }}
+              </span>
+              <button
+                v-else
+                type="button"
+                class="link-btn tiny"
+                data-test="sign-out-device"
+                :aria-busy="signingOutDevice === device.id"
+                :disabled="signingOutDevice !== null"
+                @click="signOutDevice(device, $event)"
+              >
+                {{ t('profile.devices.sign_out') }}
+              </button>
+            </li>
+          </ul>
+        </div>
+        <p class="tiny muted sign-out-everywhere">
+          <button
+            type="button"
+            class="link-btn"
+            data-test="sign-out-everywhere"
+            :aria-busy="signingOutEverywhere"
+            :disabled="signingOutEverywhere"
+            @click="signOutEverywhere"
+          >
+            {{ t('profile.contact.sign_out_everywhere') }}
+          </button>
+          {{ t('profile.contact.sign_out_everywhere_hint') }}
+        </p>
       </div>
     </div>
   </section>
@@ -1127,10 +1261,15 @@ async function changePassword() {
 <style scoped lang="scss">
 @use 'breakpoints' as bp;
 
-// The level badge sits at the top right, level with the eyebrow.
+// One column, the design's width on every screen.
+.profile-page {
+  max-width: 46rem;
+}
+
+// The title, with the level badge at the right.
 .profile-head {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 0.75rem;
 
@@ -1139,8 +1278,151 @@ async function changePassword() {
   }
 }
 
+.profile-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.back-link {
+  color: var(--rg-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--rg-ink);
+  }
+}
+
+.role-segments {
+  margin-bottom: 1rem;
+
+  :deep(legend) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+// The design's short sections: white cards, 16 px corners.
+.profile-card {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--rg-line);
+  border-radius: var(--rg-radius-card);
+  background: #fff;
+  animation: rg-rise 0.24s ease;
+
+  @include bp.md {
+    padding: 1.25rem 1.5rem;
+  }
+}
+
+.card-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.875rem;
+}
+
+.last {
+  margin-bottom: 0;
+
+  label {
+    margin-bottom: 0;
+  }
+}
+
+// Two fields side by side, from a small phone's width up.
+.two-up {
+  display: grid;
+  gap: 0.875rem 0.75rem;
+  margin-bottom: 0.875rem;
+
+  @media (min-width: 22rem) {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+
+  label {
+    margin-bottom: 0;
+  }
+
+  &.last {
+    margin-bottom: 0;
+  }
+}
+
+// Photo, name, how complete.
+.me-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.me-photo {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--rg-orange-100);
+  box-shadow: 0 0 0 1px var(--rg-line-strong);
+  color: var(--rg-orange-ink);
+  font-size: 1.25rem;
+  font-weight: 800;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &:hover,
+  &:focus-visible,
+  &[aria-expanded='true'] {
+    background: var(--rg-orange-100);
+    box-shadow: 0 0 0 2px var(--rg-orange-500);
+  }
+}
+
+.me-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  strong {
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+}
+
+.me-cropper {
+  margin-bottom: 1rem;
+  animation: rg-drop 0.2s ease;
+}
+
 .guide-base {
-  margin: 0 0 1rem;
+  margin: 0 0 0.875rem;
   padding: 0.75rem 1rem 0.25rem;
   border: 1px solid var(--rg-line);
   border-radius: var(--rg-radius-soft);
@@ -1155,12 +1437,73 @@ async function changePassword() {
   margin: 0 0 0.75rem;
 }
 
+// The two sub-views, as list rows.
+.profile-links {
+  // Pico lays every <nav> out as a row; these are stacked list rows.
+  display: block;
+  padding: 0;
+
+  a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 3rem;
+    padding: 0 1rem;
+    color: var(--rg-ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+
+    & + a {
+      border-top: 1px solid var(--rg-line);
+    }
+
+    &:hover,
+    &:focus-visible {
+      background: var(--rg-sunken);
+    }
+
+    span:last-child {
+      color: var(--rg-muted);
+      font-size: 1.25rem;
+    }
+
+    @include bp.md {
+      padding: 0 1.5rem;
+    }
+  }
+}
+
+// One Save, pinned to the foot: above the tab bar on mobile.
+.save-bar {
+  position: sticky;
+  bottom: calc(4rem + env(safe-area-inset-bottom));
+  z-index: 5;
+  margin: 0.25rem -1rem 0;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(to top, var(--rg-cream) 70%, rgba(255, 248, 239, 0));
+
+  button {
+    width: 100%;
+    height: 3rem;
+    margin: 0;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  @include bp.lg {
+    bottom: 0;
+  }
+}
+
 .trusted-devices {
-  margin: -0.5rem 0 1rem;
+  margin: 0 0 0.75rem;
 }
 
 .devices {
-  margin: 1rem 0 0.75rem;
+  margin: 0 0 0.75rem;
 
   ul {
     margin: 0;
@@ -1172,14 +1515,10 @@ async function changePassword() {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.4rem 0;
+    padding: 0.5rem 0;
     border-bottom: 1px solid var(--pico-muted-border-color);
     list-style: none;
   }
-}
-
-.devices-title {
-  margin-bottom: 0.25rem;
 }
 
 .device-text {
@@ -1197,6 +1536,10 @@ async function changePassword() {
   font-weight: 600;
 }
 
+.sign-out-everywhere {
+  margin: 0;
+}
+
 .link-btn {
   display: inline;
   width: auto;
@@ -1210,50 +1553,14 @@ async function changePassword() {
   cursor: pointer;
 }
 
-.profile-grid {
-  display: grid;
-  gap: 1.25rem;
-
-  @include bp.lg {
-    grid-template-columns: repeat(2, 1fr);
-    align-items: start;
-  }
-}
-
-label {
-  display: block;
-  margin-bottom: 1rem;
-}
-
-.password-disclosure {
-  border: 1px solid var(--rg-line);
-  border-radius: var(--rg-radius-panel);
-  background: rgba(255, 255, 255, 0.6);
-  padding: 0.75rem 1rem;
-  margin-bottom: 1.25rem;
-
-  summary {
-    cursor: pointer;
-    font-weight: 600;
-  }
-
-  form {
-    margin-top: 1rem;
-  }
-}
-
 .phone-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
-
-  label {
-    margin-bottom: 1rem;
-  }
 }
 
 .verification {
-  margin: 0.75rem 0;
+  margin: 0 0 1rem;
   padding: 0.5rem 0.75rem;
   border-radius: var(--rg-radius-soft);
   background: var(--rg-orange-50);
@@ -1264,26 +1571,6 @@ label {
   background: var(--rg-green-soft);
   border-color: var(--rg-green-border);
   color: var(--rg-green);
-}
-
-.current-photo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  margin-bottom: 0.75rem;
-
-  img {
-    width: 96px;
-    height: 96px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 1px solid var(--rg-line);
-  }
-}
-
-.attributes-editor {
-  margin-bottom: 1rem;
 }
 
 .attribute-group {
@@ -1299,39 +1586,50 @@ label {
 
 .chip {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.3rem;
-  padding: 0.2rem 0.5rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.65rem;
   border-radius: 999px;
-  background: var(--rg-cream, #f5f0ea);
-  border: 1px solid var(--rg-line);
-  font-size: 0.85rem;
+  background: var(--rg-orange-50);
+  border: 1px solid var(--rg-orange-100);
+  color: var(--rg-ink);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  animation: rg-pop 0.2s ease;
 }
 
 .chip-remove {
   width: auto;
-  padding: 0;
+  margin: 0;
+  padding: 0 0.2rem;
   border: 0;
   background: none;
+  color: var(--rg-muted);
+  font-size: 1rem;
   line-height: 1;
   cursor: pointer;
-  font-size: 1rem;
-  margin: 0;
-  color: var(--pico-secondary);
+
+  &:hover,
+  &:focus-visible {
+    background: none;
+    color: var(--rg-red);
+  }
 }
 
 .chip-add {
-  width: 1.6rem;
-  height: 1.6rem;
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: 0;
   padding: 0;
-  border: 1px dashed var(--rg-line);
+  border: 1px dashed var(--rg-line-strong);
   border-radius: 50%;
-  background: none;
+  background: #fff;
+  color: var(--rg-ink);
+  font-size: 1rem;
   line-height: 1;
   cursor: pointer;
-  font-size: 1rem;
-  color: var(--rg-ink, inherit);
-  margin: 0;
 }
 
 .option-combobox {
@@ -1339,14 +1637,11 @@ label {
 }
 
 .add-category {
-  margin-top: 1rem;
+  margin: 1rem 0 0;
   padding-top: 0.75rem;
   border-top: 1px dashed var(--rg-line);
 }
 
-button {
-  margin-top: 0.25rem;
-}
 .add-role-banner {
   display: flex;
   flex-wrap: wrap;
@@ -1367,9 +1662,5 @@ button {
     width: auto;
     margin: 0;
   }
-}
-
-.editing-role {
-  margin: 0 0 1rem;
 }
 </style>

@@ -109,6 +109,11 @@ async function mountProfilePage(api: Api, authenticated = true, path = '/profile
   return wrapper
 }
 
+/** The page opened on one of its sub-views: `contact` (contact & sign-in) or `security` (password & devices). */
+function mountProfilePageAt(section: 'contact' | 'security', api: Api) {
+  return mountProfilePage(api, true, `/profile?section=${section}`)
+}
+
 /** jsdom's <dialog> is partial: stand in for showModal()/close() for a test that opens one. */
 function stubDialog() {
   const { showModal, close } = HTMLDialogElement.prototype
@@ -126,14 +131,13 @@ function stubDialog() {
   }
 }
 
-/**
- * Password, account, and profile-details forms render in this fixed template
- * order — the password form is nested at the very top of the personal-info
- * panel (inside a collapsed `<details>`), ahead of the account form itself.
- */
+/** The page's three forms — each on its own view (profile, `contact`, `security`). */
 function forms(wrapper: ReturnType<typeof mount>) {
-  const all = wrapper.findAll('form')
-  return { password: all[0]!, account: all[1]!, details: all[2]! }
+  return {
+    password: wrapper.find('[data-test="form-password"]'),
+    account: wrapper.find('[data-test="form-account"]'),
+    details: wrapper.find('[data-test="form-details"]'),
+  }
 }
 
 function labelled(wrapper: ReturnType<typeof mount>, text: string) {
@@ -156,33 +160,64 @@ describe('ProfilePage', () => {
     const wrapper = await mountProfilePage(fakeApi({ myProfile, attributeCategories }))
 
     expect(myProfile).toHaveBeenCalledWith()
-    expect((wrapper.find('input[type="email"]').element as HTMLInputElement).value).toBe(
-      'sofia@example.com',
-    )
-    expect(wrapper.find('[data-test="verification"]').text()).toMatch(/Not verified yet/)
     expect((labelled(wrapper, 'Headline').find('input').element as HTMLInputElement).value).toBe(
       'Rock scrambles',
     )
     expect(
       (labelled(wrapper, 'Date of birth').find('input').element as HTMLInputElement).value,
     ).toBe('1996-05-20')
+    // Gender as segments: the saved one is chosen.
     expect(
-      (labelled(wrapper, 'Country code').find('input').element as HTMLInputElement).value,
-    ).toBe('United Kingdom (+44)')
-    expect((labelled(wrapper, 'Phone').find('input').element as HTMLInputElement).value).toBe(
-      '7700900123',
-    )
-    expect(
-      (labelled(wrapper, 'Two-factor').find('select').element as HTMLSelectElement).value,
-    ).toBe('email')
-
+      wrapper.get<HTMLInputElement>('[data-test="profile-gender"] input[value="male"]').element
+        .checked,
+    ).toBe(true)
     expect(wrapper.text()).toContain('English')
     expect(wrapper.text()).toContain('Nature')
     expect(wrapper.text()).not.toContain('History')
+
+    // The contact fields are on their own view.
+    const contact = await mountProfilePageAt('contact', fakeApi({ myProfile, attributeCategories }))
+    expect((contact.find('input[type="email"]').element as HTMLInputElement).value).toBe(
+      'sofia@example.com',
+    )
+    expect(contact.find('[data-test="verification"]').text()).toMatch(/Not verified yet/)
+    expect(
+      (labelled(contact, 'Country code').find('input').element as HTMLInputElement).value,
+    ).toBe('United Kingdom (+44)')
+    expect((labelled(contact, 'Phone').find('input').element as HTMLInputElement).value).toBe(
+      '7700900123',
+    )
+    expect(
+      (labelled(contact, 'Two-factor').find('select').element as HTMLSelectElement).value,
+    ).toBe('email')
+  })
+
+  it('links to contact & sign-in and password & devices, each with a way back', async () => {
+    const api = fakeApi({
+      myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
+      attributeCategories: vi
+        .fn<Api['attributeCategories']>()
+        .mockResolvedValue({ categories: sampleCategories }),
+    })
+    const wrapper = await mountProfilePage(api)
+    expect(wrapper.get('[data-test="link-contact"]').attributes('href')).toBe(
+      '/profile?section=contact',
+    )
+    expect(wrapper.get('[data-test="link-security"]').attributes('href')).toBe(
+      '/profile?section=security',
+    )
+    expect(wrapper.find('[data-test="profile-back"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Tap photo to change')
+
+    const security = await mountProfilePageAt('security', api)
+    expect(security.get('h1').text()).toBe('Password & devices')
+    expect(security.get('[data-test="profile-back"]').attributes('href')).toBe('/profile')
+    expect(security.find('[data-test="form-details"]').exists()).toBe(false)
   })
 
   it('shows a verified identity and the document it was checked with', async () => {
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'contact',
       fakeApi({
         myProfile: vi
           .fn<Api['myProfile']>()
@@ -200,7 +235,8 @@ describe('ProfilePage', () => {
   })
 
   it('leaves the two-factor select unselected for a legacy "none" account instead of offering it as a choice', async () => {
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'contact',
       fakeApi({
         myProfile: vi
           .fn<Api['myProfile']>()
@@ -227,7 +263,8 @@ describe('ProfilePage', () => {
         [sampleProfile.email]: { token: 'd'.repeat(64), until: '2099-01-01T00:00:00Z' },
       }),
     )
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'security',
       fakeApi({
         myProfile: vi
           .fn<Api['myProfile']>()
@@ -259,7 +296,8 @@ describe('ProfilePage', () => {
     const signOutDevice = vi
       .fn<Api['signOutDevice']>()
       .mockResolvedValue({ ok: true, current: false })
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'security',
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
         attributeCategories: vi
@@ -313,7 +351,8 @@ describe('ProfilePage', () => {
 
   it('signs out on all devices and goes to the login page', async () => {
     const logoutEverywhere = vi.fn<Api['logoutEverywhere']>().mockResolvedValue({ ok: true })
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'security',
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
         attributeCategories: vi
@@ -336,7 +375,8 @@ describe('ProfilePage', () => {
   })
 
   it('offers only email for two-factor codes, and leaves a legacy SMS choice unselected', async () => {
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'contact',
       fakeApi({
         myProfile: vi
           .fn<Api['myProfile']>()
@@ -357,7 +397,8 @@ describe('ProfilePage', () => {
 
   it('saves personal & contact info, concatenating country code + number into one phone string', async () => {
     const updateAccount = vi.fn<Api['updateAccount']>().mockResolvedValue({ ok: true })
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'contact',
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
         attributeCategories: vi
@@ -693,7 +734,8 @@ describe('ProfilePage', () => {
 
   it('rejects a password change when confirmation does not match, without calling the API', async () => {
     const changePassword = vi.fn<Api['changePassword']>()
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'security',
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
         attributeCategories: vi
@@ -717,7 +759,8 @@ describe('ProfilePage', () => {
 
   it('changes the password and clears the form on success', async () => {
     const changePassword = vi.fn<Api['changePassword']>().mockResolvedValue({ ok: true })
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'security',
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
         attributeCategories: vi
@@ -747,7 +790,8 @@ describe('ProfilePage', () => {
     const changePassword = vi
       .fn<Api['changePassword']>()
       .mockRejectedValue(new ApiError('Current password is incorrect.', 400))
-    const wrapper = await mountProfilePage(
+    const wrapper = await mountProfilePageAt(
+      'security',
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
         attributeCategories: vi
@@ -813,7 +857,7 @@ describe('ProfilePage', () => {
     restore()
   })
 
-  it('shows which role is being edited for an account holding both', async () => {
+  it('shows which role is being edited for an account holding both, as segments that switch it', async () => {
     const wrapper = await mountProfilePage(
       fakeApi({
         myProfile: vi.fn<Api['myProfile']>().mockResolvedValue(sampleProfile),
@@ -827,6 +871,12 @@ describe('ProfilePage', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="add-role-banner"]').exists()).toBe(false)
-    expect(wrapper.find('.editing-role').text()).toContain('guide profile')
+    // "As a traveller | As a guide", the one being edited chosen; picking the other switches.
+    const segments = wrapper.get('[data-test="profile-role"]')
+    expect(segments.text()).toContain('As a traveller')
+    const guide = segments.get<HTMLInputElement>('input[value="guide"]')
+    expect(guide.element.checked).toBe(true)
+    await segments.get<HTMLInputElement>('input[value="guest"]').setValue(true)
+    expect(auth.activeRole).toBe('guest')
   })
 })

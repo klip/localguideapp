@@ -1,12 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
-import ActiveFilters from '../components/ActiveFilters.vue'
 import ClearFilters from '../components/ClearFilters.vue'
 import DeckFilters from '../components/DeckFilters.vue'
 import FilterPanel from '../components/FilterPanel.vue'
 import { API_KEY, type Api, type AttributeCategory } from '@/plugins/api'
-import { useFiltersStore } from '@/stores/filters'
+import { DEFAULT_MAX_KM, useFiltersStore } from '@/stores/filters'
 import { fakeApi as baseFakeApi } from './fakeApi'
 
 /**
@@ -139,49 +138,43 @@ describe('FilterPanel', () => {
     expect(wrapper.find('.tag').exists()).toBe(false)
   })
 
-  it('moves a picked option out of its category into a pill above the deck, and back on ×', async () => {
+  it('moves a picked option out of its list into a chip under the category name, and back on ×', async () => {
     const wrapper = await mountPanel()
-    const pills = mount(ActiveFilters, {
-      global: { plugins: [getActivePinia()!], provide: { [API_KEY]: fakeApi() } },
-    })
     const store = useFiltersStore()
 
     const languages = category(wrapper, 'Languages')
     expect(option(wrapper, 'English').find('.option-mark').text()).toBe('+')
-    expect(pills.find('.filter-pill').exists()).toBe(false)
+    expect(languages.find('[data-test="chips-languages"]').exists()).toBe(false)
 
     await option(wrapper, 'English').trigger('click')
     expect(store.valuesFor('languages')).toEqual(['English'])
     expect(languages.findAll('.option').map((row) => row.text())).toEqual(['Spanish+'])
     expect(languages.find('.count').text()).toBe('1')
-    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual(['English'])
+    // The chip sits in the row's <summary>, under the name and count.
+    const chips = languages.get('summary [data-test="chips-languages"]')
+    expect(chips.findAll('.cat-chip').map((chip) => chip.text())).toEqual(['English'])
 
-    await pills.find('.filter-pill-remove').trigger('click')
+    // Its × takes the filter out without opening or closing the row.
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+    chips.get('.cat-chip-remove').element.dispatchEvent(click)
+    await flushPromises()
+    expect(click.defaultPrevented).toBe(true)
     expect(store.valuesFor('languages')).toEqual([])
     expect(languages.findAll('.option')).toHaveLength(2)
     expect(languages.find('.count').exists()).toBe(false)
-    expect(pills.find('.filter-pill').exists()).toBe(false)
+    expect(languages.find('[data-test="chips-languages"]').exists()).toBe(false)
   })
 
-  it('shows gender, age and hour spans as pills too, each removable', async () => {
-    setActivePinia(createPinia())
+  it('shows an hours span as a chip in its row too, removable', async () => {
+    const wrapper = await mountPanel()
     const store = useFiltersStore()
-    const pills = mount(ActiveFilters, {
-      global: { plugins: [getActivePinia()!], provide: { [API_KEY]: fakeApi() } },
-    })
-
-    store.setGender('female')
-    store.setRange('age', [25, 40])
     store.addRange('hour_of_day', [9, 13])
     await flushPromises()
-    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual([
-      'Female',
-      'Age 25–40',
-      'hour_of_day 09:00–13:00',
-    ])
 
-    for (const _ of [1, 2, 3]) await pills.find('.filter-pill-remove').trigger('click')
-    expect(store.isPristine).toBe(true)
+    const chips = category(wrapper, 'Hour of the day').get('[data-test="chips-hour_of_day"]')
+    expect(chips.text()).toBe('09:00–13:00')
+    await chips.get('.cat-chip-remove').trigger('click')
+    expect(store.filters.ranges).not.toHaveProperty('hour_of_day')
   })
 
   it('has no apply button — picking a filter is the query — and “clear ×” in the heading only while one is set', async () => {
@@ -224,20 +217,20 @@ describe('FilterPanel', () => {
     expect(store.filters.ranges).not.toHaveProperty('hour_of_day')
   })
 
-  it('searches near a place, with an Unlimited switch that wakes the distance slider', async () => {
+  it('searches near a place, with one distance slider: 10 km by default, 0 is Unlimited', async () => {
     const wrapper = await mountPanel()
-    const pills = mount(ActiveFilters, {
-      global: { plugins: [getActivePinia()!], provide: { [API_KEY]: fakeApi() } },
-    })
     const store = useFiltersStore()
     const location = wrapper.find('[data-test="location-filter"]')
-    const toggle = location.find<HTMLInputElement>('[data-test="distance-unlimited"]')
     const slider = location.find<HTMLInputElement>('[data-test="distance-slider"]')
+    const value = () => location.find('[data-test="distance-value"]').text()
 
-    // No place yet: anywhere, and nothing to measure distance from.
+    // No switch: the slider is always live, at the default.
+    expect(location.find('[data-test="distance-unlimited"]').exists()).toBe(false)
     expect(location.text()).toContain('Anywhere')
-    expect(toggle.element.disabled).toBe(true)
-    expect(slider.element.disabled).toBe(true)
+    expect(slider.element.disabled).toBe(false)
+    expect(slider.element.value).toBe('10')
+    expect(store.filters.maxKm).toBe(DEFAULT_MAX_KM)
+    expect(value()).toBe('Within 10 km')
 
     store.setNear({
       label: 'Lisbon, Portugal',
@@ -247,39 +240,29 @@ describe('FilterPanel', () => {
     })
     await flushPromises()
     expect(location.find('[data-test="near-label"]').text()).toContain('Lisbon, Portugal')
-    expect(toggle.element.checked).toBe(true)
-    expect(slider.element.disabled).toBe(true)
-    // A place ranks, it doesn't filter.
+    // A place ranks, it doesn't filter — and the default distance isn't a choice either.
     expect(store.isPristine).toBe(true)
-    // …and it gets no pill: the location filter and the deck's header show it.
-    expect(pills.findAll('.filter-pill')).toHaveLength(0)
 
-    await toggle.setValue(false)
-    expect(store.filters.maxKm).toBe(25)
-    expect(slider.element.disabled).toBe(false)
     await slider.setValue(60)
     expect(store.filters.maxKm).toBe(60)
-    expect(location.find('[data-test="distance-value"]').text()).toBe('Within 60 km')
-    expect(pills.findAll('.filter-pill').map((pill) => pill.text())).toEqual(['Within 60 km'])
+    expect(value()).toBe('Within 60 km')
+    expect(store.activeCount).toBe(1)
 
-    // Clear filters drops the limit but keeps where.
+    // All the way down is no limit.
+    await slider.setValue(0)
+    expect(store.filters.maxKm).toBeNull()
+    expect(value()).toBe('Unlimited')
+
+    // Clear filters goes back to the default and keeps where.
     store.reset()
     await flushPromises()
-    expect(store.filters.maxKm).toBeNull()
-    expect(store.filters.near?.label).toBe('Lisbon, Portugal')
-    expect(toggle.element.checked).toBe(true)
-
-    // The distance pill's × drops the limit, not the place…
-    store.setMaxKm(10)
-    await flushPromises()
-    await pills.find('.filter-pill-remove').trigger('click')
-    expect(store.filters.maxKm).toBeNull()
+    expect(store.filters.maxKm).toBe(DEFAULT_MAX_KM)
     expect(store.filters.near?.label).toBe('Lisbon, Portugal')
 
-    // …and removing the place takes a limit with it.
-    store.setMaxKm(10)
+    // The limit stays as set when the place goes — it applies to whatever point there is.
+    store.setMaxKm(30)
     store.setNear(null)
-    expect(store.filters.maxKm).toBeNull()
+    expect(store.filters.maxKm).toBe(30)
   })
 
   it('offers location on the guide’s deck too — travellers say where they’re looking', async () => {
@@ -363,15 +346,25 @@ describe('DeckFilters', () => {
     return wrapper
   }
 
-  it('shows the filters in force in its bar, and drops a pane down that “Show N” closes', async () => {
+  it('is the design’s row — where, and Filters with a count — and drops a pane down that “Show N” closes', async () => {
     const wrapper = await mountDeckFilters()
     const details = wrapper.get<HTMLDetailsElement>('details')
     expect(details.element.open).toBe(false)
-    expect(wrapper.find('[data-test="filters-pills"] li').exists()).toBe(false)
+    expect(wrapper.get('[data-test="filters-place"]').text()).toContain('Anywhere')
+    expect(wrapper.find('[data-test="filters-count"]').exists()).toBe(false)
 
+    useFiltersStore().setNear({
+      label: 'Lisbon, Portugal',
+      countryCode: 'PT',
+      latitude: 38.72,
+      longitude: -9.14,
+    })
     useFiltersStore().setGender('female')
     await flushPromises()
-    expect(wrapper.get('[data-test="filters-pills"]').text()).toContain('Female')
+    // The town alone, and only a count of what's set — the filters themselves are in the pane.
+    expect(wrapper.get('[data-test="filters-place"]').text()).toContain('Lisbon')
+    expect(wrapper.get('[data-test="filters-place"]').text()).not.toContain('Portugal')
+    expect(wrapper.get('[data-test="filters-count"]').text()).toContain('1')
 
     details.element.open = true
     await details.trigger('toggle')
@@ -385,12 +378,6 @@ describe('DeckFilters', () => {
     expect(wrapper.find('[data-test="filters-backdrop"]').exists()).toBe(false)
     expect(document.body.style.overflow).toBe('')
 
-    // A pill's × in the bar removes that filter without opening the pane.
-    const click = new MouseEvent('click', { bubbles: true, cancelable: true })
-    wrapper.get('[data-test="filters-pills"] .filter-pill-remove').element.dispatchEvent(click)
-    await flushPromises()
-    expect(click.defaultPrevented).toBe(true)
-    expect(useFiltersStore().filters.gender).toBe(null)
     wrapper.unmount()
   })
 })

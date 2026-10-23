@@ -267,5 +267,4 @@ function reject(id: string) {
     width: auto;
   }
 }
-
 </style>

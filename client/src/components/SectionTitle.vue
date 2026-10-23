@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import PillBadge from './PillBadge.vue'
 
-/** Eyebrow + heading + optional lead, used at the top of every page section. */
+/**
+ * Heading + optional lead, at the top of every page. The eyebrow pill shows
+ * only with `showEyebrow` (the marketing page): inside the app every title
+ * sits at the same height as the decks' and the profile's (sketches 04/05
+ * have no eyebrow). Pages still pass `eyebrow`; it's kept for that page.
+ */
 defineProps<{
   eyebrow?: string
   heading: string
   lead?: string
+  showEyebrow?: boolean
 }>()
 </script>
 
 <template>
   <div class="section-title">
-    <PillBadge v-if="eyebrow">{{ eyebrow }}</PillBadge>
+    <PillBadge v-if="eyebrow && showEyebrow">{{ eyebrow }}</PillBadge>
     <h2>{{ heading }}</h2>
     <p v-if="lead" class="muted">{{ lead }}</p>
     <slot />
