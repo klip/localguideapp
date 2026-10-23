@@ -3,7 +3,7 @@
 // of the INDEX peeks out behind it to the left; the other fingers curl into
 // a fist whose top edge slopes down to the right, with creases between them.
 // (`nail`/`gap` are accepted for compatibility with older callers.)
-function gesture({ ink = '#2A1F17', skin = '#F4A62A', nail, gap, withBee = true, sw = 4, beeWing = '#fff', creases = true } = {}) {
+function gesture({ ink = '#2A1F17', skin = '#F4A62A', nail, gap, withBee = true, sw = 4, beeWing = '#fff', creases = true, rot = 0, thumbLine = true } = {}) {
   // Index fingertip, behind the hand (its right end hides under the thumb).
   const index = `
     <path d="M44 17 C35 11.5 25 8.5 18 11.5 C11.5 14.5 11.8 22.5 17.5 28 C23.5 34 30 39 37 44 Z"
@@ -16,12 +16,12 @@ function gesture({ ink = '#2A1F17', skin = '#F4A62A', nail, gap, withBee = true,
              C91 91.5 83.5 98.5 73 98.5 L54 98.2 C42 97.8 31.5 93.5 26.5 84.5
              C21 74 20.5 60 23.8 46.5 C27 33.5 35.5 20.5 46.5 8 Z"
       fill="${skin}" stroke="${ink}" stroke-width="${sw}" stroke-linejoin="round"/>
-    ${creases ? `<path d="M54.5 39.8 C49 45.5 46.8 52 46.8 59.5 M66 43.5 C66 50.5 65 56.5 64 62.5 M79.5 48.5 C79.5 55 78.7 60.5 77.8 66"
+    ${creases ? `<path d="${thumbLine ? "M54.5 39.8 C49 45.5 46.8 52 46.8 59.5 " : ""}M66 43.5 C66 50.5 65 56.5 64 62.5 M79.5 48.5 C79.5 55 78.7 60.5 77.8 66"
       fill="none" stroke="${ink}" stroke-width="${sw * 0.75}" stroke-linecap="round"/>` : ''}`
   const b = withBee ? `
-    <path d="M63 11 C66 6 70 5 73 6" fill="none" stroke="${ink}" stroke-width="${sw * 0.6}" stroke-dasharray="0.1 ${sw * 1.4}" stroke-linecap="round"/>
-    ${bee(81, 8, 0.62, { ink, rot: -12, wing: beeWing })}` : ''
-  return index + hand + b
+    <path d="M${63 + rot * 0.8} 11 C${66 + rot * 0.8} 6 ${70 + rot * 0.8} 5 ${73 + rot * 0.8} 6" fill="none" stroke="${ink}" stroke-width="${sw * 0.6}" stroke-dasharray="0.1 ${sw * 1.4}" stroke-linecap="round"/>
+    ${bee(81 + rot * 0.8, 8, 0.62, { ink, rot: -12, wing: beeWing })}` : ''
+  return (rot ? `<g transform="rotate(${rot} 55 60)">${index + hand}</g>` : index + hand) + b
 }
 
 // A loose, hand-drawn honeycomb used behind the logo.

@@ -6,6 +6,7 @@ Exploration only — nothing in the app uses these yet.
 | --- | --- |
 | `07-logo-primary.png` | **Logo slide** — primary: finger-heart hand with a bee + "BeLikeLocal", honeycomb behind; dark, one-colour, app icon, header |
 | `08-logo-inline.png` | **Logo slide** — inline "Be 🫰 Local" (the hand between the words), same variants |
+| `09-logo-inline-tilted.png` | **Logo slide** — inline "Be 🫰 Local", hand turned ~10° clockwise, no line on the thumb |
 | `06-logo-v2.png` | Logo working sheet (lock-ups, close-up, sizes) |
 | `01-logo-directions.png` | Round 1 (superseded): six directions around be → bee / hive and like → heart |
 | `02-finger-heart-study.png` | Round 1 (superseded): the 🫰 finger heart with a heart |

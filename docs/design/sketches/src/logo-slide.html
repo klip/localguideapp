@@ -28,7 +28,14 @@
 <div class="stage" id="stage"></div>
 <div class="row" id="row"></div>
 <script>
-const inline = location.hash === '#inline'
+const inline = location.hash.startsWith('#inline')
+// #inline-tilt: the hand turned ~10° clockwise, no crease on the thumb.
+const tilt = location.hash === '#inline-tilt'
+if (tilt) {
+  const g0 = gesture, s0 = svg
+  gesture = (o = {}) => g0({ rot: 10, thumbLine: false, ...o })
+  svg = (inner, size, vb) => s0(inner, size, vb || '-5 -5 110 110')
+}
 const W = (s) => `<span class="word" style="font-size:${s}px"><span class="be">Be</span><span class="like">Like</span><span class="loc">Local</span></span>`
 const I = (s, dark = false) => `<span class="word" style="font-size:${s}px"><span class="be">Be</span></span>${svg(gesture(dark ? D : { sw: 4.2 }), s * 1.45)}<span class="word" style="font-size:${s}px"><span class="loc">Local</span></span>`
 const D = { ink: '#FFF7EC', skin: '#F4A62A', beeWing: '#2A1F17', sw: 4.2 }
