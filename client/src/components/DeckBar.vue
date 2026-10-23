@@ -43,9 +43,10 @@ const slots = useSlots()
   margin-inline-start: auto;
 }
 
-@media (max-width: 640px) {
+// Below `lg` the pills ride in the filters bar itself (DeckFilters.vue).
+@media (max-width: 1023.98px) {
   .deck-bar {
-    flex-wrap: wrap;
+    display: none;
   }
 }
 </style>

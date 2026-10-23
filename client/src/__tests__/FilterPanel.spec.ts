@@ -363,15 +363,15 @@ describe('DeckFilters', () => {
     return wrapper
   }
 
-  it('counts the filters in force on its button and opens as a sheet that “Show N” closes', async () => {
+  it('shows the filters in force in its bar, and drops a pane down that “Show N” closes', async () => {
     const wrapper = await mountDeckFilters()
     const details = wrapper.get<HTMLDetailsElement>('details')
     expect(details.element.open).toBe(false)
-    expect(wrapper.find('[data-test="filters-count"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="filters-pills"] li').exists()).toBe(false)
 
     useFiltersStore().setGender('female')
     await flushPromises()
-    expect(wrapper.get('[data-test="filters-count"]').text()).toBe('1')
+    expect(wrapper.get('[data-test="filters-pills"]').text()).toContain('Female')
 
     details.element.open = true
     await details.trigger('toggle')
@@ -384,6 +384,13 @@ describe('DeckFilters', () => {
     expect(details.element.open).toBe(false)
     expect(wrapper.find('[data-test="filters-backdrop"]').exists()).toBe(false)
     expect(document.body.style.overflow).toBe('')
+
+    // A pill's × in the bar removes that filter without opening the pane.
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+    wrapper.get('[data-test="filters-pills"] .filter-pill-remove').element.dispatchEvent(click)
+    await flushPromises()
+    expect(click.defaultPrevented).toBe(true)
+    expect(useFiltersStore().filters.gender).toBe(null)
     wrapper.unmount()
   })
 })

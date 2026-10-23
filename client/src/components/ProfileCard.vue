@@ -115,6 +115,7 @@ const emit = defineEmits<{
   border-radius: var(--rg-radius-card);
   background: #fff;
   box-shadow: var(--rg-shadow);
+  animation: rg-rise 0.28s ease;
 }
 
 .profile-card--decided {

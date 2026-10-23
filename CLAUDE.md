@@ -191,6 +191,15 @@ Built from the approved sketches in `docs/design/sketches/` (03 the system,
   **Pico's colour variables must be overridden on `:root:not([data-theme=dark]),
   [data-theme=light]`** (its own selector) — a plain `:root` loses, which is
   why the buttons used to stay Pico-blue.
+- **Motion** (`_base.scss`): short fades with a few pixels of travel in
+  the direction a thing comes from — `rg-rise`, `rg-drop`, `rg-fade`,
+  `rg-pop` keyframes, animating `translate` (not `transform`, so they never
+  fight an element's own positioning). Dialogs pop in over a fading
+  backdrop, toasts drop in, buttons sink 1 px when pressed, the next deck
+  card rises in, filter pills pop in from the left, accordion rows drop
+  open, the filters pane and the language popover drop down, the drawer
+  slides and fades, counters pop. All of it is cut to nothing under
+  `prefers-reduced-motion`.
 - `_base.scss` also fixes two Pico leftovers globally: a `<small>` hint right
   under a field gets a 6 px gap (Pico's negative pull-up overlapped wherever
   the field's margin had been removed), and search fields aren't pills.
@@ -426,9 +435,14 @@ own — every one just takes props/emits):
   emphasis.
 - `DeckFilters.vue` — both decks' filters: from `lg` an always-open side
   rail (its heading a plain title, "clear ×" still clickable); below, a
-  "Filters · N" button whose `<details>` content becomes a fixed bottom
-  sheet over a backdrop (body scroll locked, Escape closes) ending in
-  "Clear filters" and "Show 24 guides" (`showLabel`, counted by the page).
+  white bar — "Filters", **the filters in force as one horizontally
+  scrolling line of pills** (`ActiveFilters` inside the `<summary>`, its end
+  faded out under "clear ×"; a pill's × doesn't open the pane), no chevron —
+  that **drops a pane down from itself** (the page's side padding keeps it
+  off the screen edges; height up to the tab bar; over a backdrop; body
+  scroll locked, Escape closes) ending in "Clear filters" and "Show 24
+  guides" (`showLabel`, counted by the page). On mobile `DeckBar` is hidden
+  — the pills live in this bar.
   Don't give its body `role="group"`: Pico styles that as a button group
   and it broke the sliders' absolute positioning.
 - `RangePicker.vue` — one slider with two handles (`DualRangeSlider`), the
@@ -815,23 +829,32 @@ longer behind a paywall — what's gated is "Interested":
 
 ### Header & mobile menu (`AppHeader.vue`)
 
-**Desktop (from `xl`, 1280px — `DESKTOP_QUERY` must match `breakpoints.$xl`).**
-From 1440 (`$xxl`) it's **one row** (docs/design/sketches/04): the logo with
-the honeycomb behind it, the menu links, then on the right the picks pill,
+**Desktop (from `lg`, 1024px — `DESKTOP_QUERY` must match `breakpoints.$lg`)
+is always one row** (docs/design/sketches/04): the logo with the honeycomb
+behind it, the menu links, then on the right the picks pill,
 "🌐 EN · €" (language and currency in one small popover — `locale-toggle`,
 closed by a click outside, Escape or navigation), the role switch, the
 **profile circle** (the user's photo, else their initial, linking to
 `/profile` — there's no "Profile" menu item) and an icon-only Log out (its
-label stays for screen readers; signed out: Log in + Get started). From
-1280 to 1439 the links drop to a second row. The links — How it works
+label stays for screen readers; signed out: Log in + Get started). **When
+the links don't fit on one line, each label moves under its icon**
+(`nav--compact`): `fitLinks()` watches the list with a `ResizeObserver`,
+switches when it overflows, remembers the width the one-line row needed and
+switches back once that much room is free; a change of role, sign-in or
+language re-measures. From 1024 to 1279 the language button is just the
+globe (the label is its tooltip). The links — How it works
 (signed out), Discover, Trip planner (traveller), Calendar (guide),
 Matches, My trips, Payments, Messages — each have a line icon (`NavIcon.vue`:
 bulb, compass, map, calendar, **handshake** for Matches, suitcase, wallet,
-speech bubble; give a new link one too), 14 px, the active one on a soft
-honey pill; counters are coral bubbles after the label. The header is
-inside `.topbar-inner` (1400 px, `--rg-header-width`), wider than `.shell`.
+speech bubble; give a new link one too), 14 px, **opaque white** (the
+honeycomb must not show through), the active one on a soft honey pill;
+counters are coral bubbles after the label. The header is inside
+`.topbar-inner` (1400 px, `--rg-header-width`), wider than `.shell`. **The
+honeycomb** is its own layer, `.topbar-comb` (`utils/honeycomb.ts`), clipped
+to the header's box (`overflow: hidden`) and under everything in the bar —
+it never spills onto the page.
 
-**Mobile (below `xl`) is a bottom tab bar** (`.tabbar`, `data-test="tabbar"`,
+**Mobile (below `lg`) is a bottom tab bar** (`.tabbar`, `data-test="tabbar"`,
 fixed to the foot; `.app-shell` gets matching bottom padding and the cookie
 notice sits above it): signed in Discover · Matches · My trips · Messages ·
 Menu, signed out Discover · How it works · Log in · Menu, with the same
@@ -851,10 +874,10 @@ picks pill and the profile circle.
   `stores/avatar.ts` fetches `myProfile` once per signed-in user, and
   `ProfilePage` calls `avatar.set()` after saving a new photo.
 - **It's one `.drawer` element styled two ways, not two copies of the
-  menu.** Below `xl` it's a `position: fixed` off-canvas panel (opened by
-  the tab bar's Menu); from `xl` it's `display: contents`, so its parts sit
-  directly on the `nav`'s grid (`'logo links . picks lang role me account'`
-  from `xxl`). Add a link once, inside `.drawer > ul.nav` — and to the tab
+  menu.** Below `lg` it's a `position: fixed` off-canvas panel (opened by
+  the tab bar's Menu); from `lg` it's `display: contents`, so its parts sit
+  directly on the `nav`'s grid (`'logo links picks lang role me account'`,
+  the links column `minmax(0, 1fr)` so `fitLinks()` can see it overflow). Add a link once, inside `.drawer > ul.nav` — and to the tab
   bar only if it's a main section.
 - **Mobile drawer, top to bottom**: logo + ✕, the language and currency
   selects side by side, the links, the role switch, then "Signed in as …"

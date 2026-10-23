@@ -53,6 +53,9 @@
 // single column below `lg`, which is the mobile-first swipe view.
 .discovery-layout {
   display: grid;
+  // minmax(0, …): a long line of filter pills scrolls inside its bar
+  // instead of widening the column past the screen.
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 
   @include bp.lg {
@@ -83,11 +86,11 @@
   }
 }
 
-// Below `xl` the header's tab bar is fixed to the foot of the screen
+// Below `lg` the header's tab bar is fixed to the foot of the screen
 // (AppHeader.vue); keep the page's end clear of it.
 $tabbar-clearance: calc(4rem + env(safe-area-inset-bottom));
 
-@media (max-width: 1279.98px) {
+@media (max-width: 1023.98px) {
   .app-shell {
     padding-bottom: $tabbar-clearance;
   }

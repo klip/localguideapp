@@ -303,6 +303,7 @@ defineExpose({ reload })
     align-items: center;
     gap: 0.6rem;
     padding: 0.5rem 0;
+    animation: rg-rise 0.22s ease;
     border-bottom: 1px solid var(--rg-line);
 
     &:last-child {

@@ -265,6 +265,10 @@ const gender = computed<Gender | 'any'>({
   &[open] > summary {
     margin-bottom: 0;
   }
+
+  &[open] > :not(summary) {
+    animation: rg-drop 0.18s ease;
+  }
 }
 
 .span-head {

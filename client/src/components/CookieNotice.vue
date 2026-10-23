@@ -59,11 +59,11 @@ function dismiss() {
 .cookie-notice {
   position: fixed;
   inset-inline: 1rem;
-  // Above the mobile tab bar (AppHeader.vue); at the foot from `xl`.
+  // Above the mobile tab bar (AppHeader.vue); at the foot from `lg`.
   bottom: calc(4.75rem + env(safe-area-inset-bottom));
   z-index: 50;
 
-  @include bp.xl {
+  @include bp.lg {
     bottom: 1rem;
   }
   margin-inline: auto;

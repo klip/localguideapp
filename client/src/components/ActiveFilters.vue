@@ -121,6 +121,21 @@ const pills = computed<Pill[]>(() => {
   font-weight: 600;
   line-height: 1.3;
   list-style: none;
+  // A new filter pops in from the left.
+  animation: pill-in 0.2s ease;
+}
+
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    transform: translateX(-0.4rem) scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filter-pill {
+    animation: none;
+  }
 }
 
 .filter-pill-remove {

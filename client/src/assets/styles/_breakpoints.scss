@@ -24,11 +24,3 @@ $xl: 1280px;
   }
 }
 
-// The header on one row (AppHeader.vue).
-$xxl: 1440px;
-
-@mixin xxl {
-  @media (min-width: $xxl) {
-    @content;
-  }
-}

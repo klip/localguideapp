@@ -14,6 +14,10 @@ import { useAvatarStore } from '@/stores/avatar'
 import { useBadgesStore } from '@/stores/badges'
 import { useMessagesStore } from '@/stores/messages'
 import { activeCurrency } from '@/utils/money'
+import { honeycombPath } from '@/utils/honeycomb'
+
+/** The hand-drawn honeycomb behind the logo — same drawing every load (fixed seed). */
+const COMB = honeycombPath(360, 120, 15)
 
 const api = useApi()
 const auth = useAuthStore()
@@ -133,7 +137,7 @@ function onLocaleKeydown(event: KeyboardEvent) {
  * within the drawer, Escape / the backdrop / the close button / following
  * any link closes it.
  */
-const DESKTOP_QUERY = '(min-width: 1280px)' // keep in sync with `bp.$xl`
+const DESKTOP_QUERY = '(min-width: 1024px)' // keep in sync with `bp.$lg`
 
 const menuOpen = ref(false)
 const burgerRef = ref<HTMLButtonElement | null>(null)
@@ -200,9 +204,45 @@ watch(menuOpen, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
 })
 
+/**
+ * Desktop links: icon and label on one line while they fit; when the row
+ * runs out of room (narrower windows, longer languages, more links) the
+ * labels move under the icons. Measured, not guessed per breakpoint: the
+ * width the one-line row needed is remembered, and it goes back to one line
+ * once that much room is free again.
+ */
+const linksRef = ref<HTMLElement | null>(null)
+const linksCompact = ref(false)
+let oneLineWidth = 0
+let linksObserver: ResizeObserver | null = null
+
+function fitLinks() {
+  const list = linksRef.value
+  if (!list || !desktopQuery?.matches) {
+    linksCompact.value = false
+    return
+  }
+  if (!linksCompact.value) {
+    if (list.scrollWidth > list.clientWidth + 1) {
+      oneLineWidth = list.scrollWidth
+      linksCompact.value = true
+    }
+  } else if (list.clientWidth >= oneLineWidth) {
+    linksCompact.value = false
+  }
+}
+
+/** The links themselves changed (role, sign-in, language): measure the one-line row afresh. */
+function remeasureLinks() {
+  linksCompact.value = false
+  void nextTick(fitLinks)
+}
+watch([isAuthenticated, activeRole, currentLanguage], remeasureLinks)
+
 let desktopQuery: MediaQueryList | null = null
 function onViewportChange(event: MediaQueryListEvent) {
   if (event.matches) closeMenu()
+  remeasureLinks()
 }
 
 onMounted(() => {
@@ -211,20 +251,32 @@ onMounted(() => {
   if (typeof window.matchMedia !== 'function') return
   desktopQuery = window.matchMedia(DESKTOP_QUERY)
   desktopQuery.addEventListener('change', onViewportChange)
+  if (typeof ResizeObserver === 'function' && linksRef.value) {
+    linksObserver = new ResizeObserver(fitLinks)
+    linksObserver.observe(linksRef.value)
+  }
+  fitLinks()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocumentPointer)
   desktopQuery?.removeEventListener('change', onViewportChange)
+  linksObserver?.disconnect()
   document.body.style.overflow = ''
 })
 </script>
 
 <template>
   <header class="topbar">
+    <!-- The honeycomb behind the logo, clipped to the header. -->
+    <div class="topbar-comb" aria-hidden="true">
+      <div class="topbar-comb-inner">
+        <svg viewBox="0 0 360 120" focusable="false"><path :d="COMB" /></svg>
+      </div>
+    </div>
     <div class="topbar-inner">
       <nav :aria-label="t('common.app_header.nav_label')">
-        <BrandMark class="logo" comb />
+        <BrandMark class="logo" />
 
         <!-- A traveller's picks counter, right of the links on desktop. -->
         <PicksButton class="picks" />
@@ -291,7 +343,7 @@ onBeforeUnmount(() => {
                 class="locale-toggle"
                 aria-controls="locale-panel"
                 :aria-expanded="localeOpen"
-                :title="t('common.app_header.locale')"
+                :title="`${t('common.app_header.locale')} · ${localeLabel}`"
                 data-test="locale-toggle"
                 @click="localeOpen = !localeOpen"
               >
@@ -309,7 +361,7 @@ onBeforeUnmount(() => {
                   <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" />
                 </svg>
                 <span class="visually-hidden">{{ t('common.app_header.locale') }}: </span
-                >{{ localeLabel }}
+                ><span class="locale-label">{{ localeLabel }}</span>
               </button>
             </span>
             <div
@@ -336,7 +388,7 @@ onBeforeUnmount(() => {
             </span>
           </RouterLink>
 
-          <ul class="nav">
+          <ul ref="linksRef" class="nav" :class="{ 'nav--compact': linksCompact }">
             <!-- Marketing copy for prospects only — a signed-in user is past it. -->
             <li v-if="!isAuthenticated">
               <RouterLink to="/about#how" class="nav-link"
@@ -601,7 +653,40 @@ $tabbar-height: 4rem;
     inset: 0;
     z-index: -1;
     backdrop-filter: blur(14px);
-    background: rgba(255, 255, 255, 0.86);
+    background: rgba(255, 255, 255, 0.9);
+  }
+}
+
+// The honeycomb behind the logo: its own layer, clipped to the header's box,
+// under everything in the bar (the links are opaque on top of it).
+.topbar-comb {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.topbar-comb-inner {
+  position: relative;
+  height: 100%;
+  max-width: var(--rg-header-width);
+  margin-inline: auto;
+
+  svg {
+    position: absolute;
+    top: 50%;
+    left: -4.5rem;
+    width: 22.5rem;
+    height: 7.5rem;
+    transform: translateY(-50%);
+    fill: none;
+    stroke: #e2ae5c;
+    stroke-width: 1.3;
+    stroke-linejoin: round;
+    opacity: 0.75;
+    // Strongest behind the mark, gone by the edges.
+    mask-image: radial-gradient(ellipse 45% 50% at 50% 50%, #000 25%, transparent 100%);
   }
 }
 
@@ -639,14 +724,20 @@ nav .nav {
   }
 }
 
+// Opaque, so the honeycomb never shows through a link.
 .nav-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  background: #fff;
   color: var(--rg-ink);
   font-size: 0.9375rem;
   font-weight: 500;
   text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 
   :deep(.nav-icon) {
     margin: 0;
@@ -681,6 +772,14 @@ nav .nav {
   font-weight: 700;
   line-height: 1;
   pointer-events: none;
+  animation: count-pop 0.3s ease;
+}
+
+@keyframes count-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
 }
 
 // --- Profile circle, role switch, account ------------------------------------
@@ -705,6 +804,7 @@ nav .nav {
   background: var(--rg-orange-100);
   color: var(--rg-orange-ink);
   font-weight: 800;
+  transition: box-shadow 0.15s ease;
 
   img {
     width: 100%;
@@ -789,6 +889,10 @@ nav .nav {
   font-weight: 500;
   white-space: nowrap;
   box-shadow: none;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
 
   &:hover,
   &:focus-visible {
@@ -848,9 +952,9 @@ nav .nav {
   height: var(--rg-control-height-sm);
   margin: 0;
   padding: 0 0.6rem;
-  border: 1px solid transparent;
+  border: 1px solid var(--rg-line);
   border-radius: var(--rg-radius-control);
-  background: transparent;
+  background: #fff;
   color: var(--rg-ink);
   font-size: 0.875rem;
   font-weight: 500;
@@ -860,7 +964,7 @@ nav .nav {
   &:focus-visible,
   &[aria-expanded='true'] {
     background: var(--rg-sunken);
-    border-color: var(--rg-line);
+    border-color: var(--rg-line-strong);
     color: var(--rg-ink);
   }
 }
@@ -934,11 +1038,13 @@ nav .nav {
   line-height: 1.1;
   text-decoration: none;
   box-shadow: none;
+  transition: color 0.15s ease;
 
   :deep(.nav-icon) {
     width: 22px;
     height: 22px;
     margin: 0;
+    transition: transform 0.2s ease;
   }
 
   &:hover,
@@ -953,6 +1059,7 @@ nav .nav {
 
     :deep(.nav-icon) {
       color: var(--rg-orange-500);
+      transform: translateY(-2px);
     }
   }
 }
@@ -979,6 +1086,7 @@ nav .nav {
   border-radius: 50%;
   background: var(--rg-coral);
   box-shadow: 0 0 0 2px #fff;
+  animation: count-pop 0.3s ease;
 }
 
 // --- Mobile: off-canvas drawer (default) -------------------------------------
@@ -1001,19 +1109,24 @@ nav .nav {
   border-left: 1px solid var(--rg-line);
   box-shadow: -18px 0 50px rgba(100, 63, 39, 0.16);
   transform: translateX(100%);
+  opacity: 0.6;
   // `visibility` keeps the off-screen links out of the tab order and the
   // accessibility tree; delaying it until the slide-out ends keeps the
   // closing animation visible.
   visibility: hidden;
   transition:
     transform $drawer-speed ease,
+    opacity $drawer-speed ease,
     visibility 0s linear $drawer-speed;
 }
 
 .drawer--open {
   transform: none;
+  opacity: 1;
   visibility: visible;
-  transition: transform $drawer-speed ease;
+  transition:
+    transform $drawer-speed ease,
+    opacity $drawer-speed ease;
 }
 
 .drawer-head {
@@ -1117,33 +1230,22 @@ nav .nav {
   pointer-events: auto;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .drawer,
-  .drawer--open,
-  .backdrop {
-    transition: none;
-  }
-}
+// --- Desktop (from `lg`, 1024px): one row ----------------------------------------
+// Logo, the links, then picks, language, role, profile and Log out. When the
+// links don't fit on one line, `nav--compact` puts each label under its icon.
 
-// --- Desktop ---------------------------------------------------------------------
-// 1280–1439: logo … picks, language, role, profile, Log out on top; links
-// below. From 1440: all of it on one row (docs/design/sketches/04-…png).
-
-@include bp.xl {
+@include bp.lg {
   nav {
     display: grid;
-    grid-template-columns: auto 1fr auto auto auto auto auto;
-    grid-template-areas:
-      'logo . picks lang role me account'
-      'links links links links links links links';
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto;
+    grid-template-areas: 'logo links picks lang role me account';
     column-gap: 0.75rem;
-    min-height: 0;
-    padding-block: 0.5rem 0;
+    min-height: 3.75rem;
   }
 
   .logo {
     grid-area: logo;
-    margin: 0;
+    margin: 0 0.5rem 0 0;
   }
 
   .picks {
@@ -1162,6 +1264,7 @@ nav .nav {
   .drawer {
     display: contents;
     visibility: visible;
+    opacity: 1;
   }
 
   .language {
@@ -1179,7 +1282,7 @@ nav .nav {
     top: calc(100% + 0.4rem);
     right: 0;
     z-index: 5;
-    display: none;
+    display: flex;
     flex-direction: column;
     width: 14rem;
     padding: 0.75rem;
@@ -1187,10 +1290,24 @@ nav .nav {
     border: 1px solid var(--rg-line);
     border-radius: var(--rg-radius-soft);
     box-shadow: var(--rg-shadow);
+    // Drops down from the button: a short fade and slide, hidden (and out
+    // of the tab order) until opened.
+    opacity: 0;
+    transform: translateY(-0.4rem);
+    visibility: hidden;
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease,
+      visibility 0s linear 0.18s;
   }
 
   .locale-panel--open {
-    display: flex;
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s ease;
   }
 
   .role-switch {
@@ -1252,13 +1369,16 @@ nav .nav {
   nav .nav {
     grid-area: links;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.4rem 0 0.5rem;
+    // Measured by fitLinks(): the one-line row overflowing this box is what
+    // switches to compact.
+    overflow: hidden;
 
     li {
-      display: inline-block;
+      display: block;
+      flex: 0 0 auto;
     }
 
     .nav-link {
@@ -1266,25 +1386,53 @@ nav .nav {
       padding: 0 0.7rem;
       border-radius: 0.5rem;
       font-size: 0.875rem;
+      white-space: nowrap;
+    }
+  }
+
+  // Not enough room for one line: the label goes under its icon.
+  nav .nav.nav--compact {
+    gap: 0.125rem;
+
+    .nav-link {
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.15rem;
+      min-height: 3rem;
+      padding: 0.25rem 0.35rem;
+      font-size: 0.6875rem;
+      line-height: 1.1;
+    }
+
+    .nav-count {
+      position: absolute;
+      top: 0.15rem;
+      left: calc(50% + 0.3rem);
     }
   }
 }
 
-@include bp.xxl {
-  nav {
-    grid-template-columns: auto auto 1fr auto auto auto auto auto;
-    grid-template-areas: 'logo links . picks lang role me account';
-    min-height: 3.75rem;
-    padding-block: 0;
+// 1024–1279: the language button is just the globe (its label is the
+// tooltip and screen-reader text), to leave the links their room.
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .locale-label {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawer--open,
+  .backdrop,
+  .locale-panel,
+  .locale-panel--open {
+    transition: none;
   }
 
-  .logo {
-    margin-inline-end: 1rem;
-  }
-
-  nav .nav {
-    padding: 0;
-    flex-wrap: nowrap;
+  .nav-count,
+  .tab-count,
+  .burger-dot {
+    animation: none;
   }
 }
 </style>

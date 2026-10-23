@@ -270,6 +270,7 @@ function reject(id: string) {
   border: 1px solid var(--rg-line);
   border-radius: var(--rg-radius-card);
   background: #fff;
+  animation: rg-rise 0.28s ease;
 
   h3 {
     margin-bottom: 0.5rem;

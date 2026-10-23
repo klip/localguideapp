@@ -94,3 +94,74 @@ input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'])[type
   margin-top: 0.375rem;
   font-size: 0.75rem;
 }
+
+// --- Motion ---------------------------------------------------------------
+// Short and small: a fade plus a few pixels of travel in the direction the
+// thing comes from. The keyframes move `translate` (not `transform`), so they
+// never fight an element's own positioning transform. Components reference
+// these names from their scoped styles.
+
+@keyframes rg-rise {
+  from {
+    opacity: 0;
+    translate: 0 0.5rem;
+  }
+}
+
+@keyframes rg-drop {
+  from {
+    opacity: 0;
+    translate: 0 -0.5rem;
+  }
+}
+
+@keyframes rg-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rg-pop {
+  from {
+    opacity: 0;
+    translate: 0 0.5rem;
+    scale: 0.97;
+  }
+}
+
+// Dialogs rise into place over a fading backdrop; toasts drop in from the top.
+dialog[open] > article {
+  animation: rg-pop 0.22s ease;
+}
+
+dialog[open]::backdrop {
+  animation: rg-fade 0.2s ease;
+}
+
+.toast {
+  animation: rg-drop 0.22s ease;
+}
+
+// A press sinks a pixel.
+:is(button, [role='button']):not(:disabled) {
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    translate 0.08s ease;
+
+  &:active {
+    translate: 0 1px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  dialog::backdrop {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
