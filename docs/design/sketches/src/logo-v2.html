@@ -1,0 +1,74 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Logo v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="marks.js"></script><script src="gesture.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 48px; background: #f3ede6; font-family: Inter, sans-serif; color: #2A1F17; width: 1600px; }
+  h1 { font: 800 34px Nunito, sans-serif; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .lead { margin: 0 0 26px; color: #6f5f54; font-size: 16px; max-width: 1050px; line-height: 1.5; }
+  .top { display: grid; grid-template-columns: 1.55fr 1fr; gap: 22px; }
+  .card { background: #fff; border-radius: 18px; overflow: hidden; box-shadow: 0 6px 24px rgba(60,40,20,.08); position: relative; }
+  .hero { height: 420px; background: #FFF7EC; display: flex; align-items: center; justify-content: center; gap: 18px; position: relative; overflow: hidden; }
+  .hero .bg { position: absolute; inset: 0; }
+  .hero > *:not(.bg) { position: relative; }
+  .word { font: 900 64px Nunito, sans-serif; letter-spacing: -0.035em; line-height: 1; }
+  .word .be, .word .loc { color: #2A1F17; } .word .like { color: #E08A12; }
+  .label { position: absolute; top: 14px; left: 18px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8a5a10; background: #FDEBC8; padding: 3px 8px; border-radius: 99px; z-index: 2; }
+  .close { height: 420px; display: grid; grid-template-columns: 1fr 1fr; align-items: center; justify-items: center; background: #fff; }
+  .close .cap { font-size: 13px; color: #7c6b61; text-align: center; margin-top: 6px; max-width: 220px; line-height: 1.4; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; margin-top: 22px; }
+  .tile { height: 200px; display: flex; align-items: center; justify-content: center; gap: 10px; position: relative; }
+  .tile.dark { background: #2A1F17; } .tile.dark .word .be, .tile.dark .word .loc { color: #FFF7EC; } .tile.dark .word .like { color: #F4A62A; }
+  .tile.honey { background: #F4A62A; } .tile.honey .word .like { color: #FFF7EC; }
+  .tile.cream { background: #FFF7EC; }
+  .meta { padding: 12px 16px 16px; font-size: 13.5px; color: #5d4f45; line-height: 1.45; }
+  .meta b { color: #2A1F17; }
+  .icons { display: flex; align-items: end; gap: 18px; }
+  .ic { border-radius: 22%; background: #F4A62A; display: grid; place-items: center; overflow: hidden; position: relative; }
+  .hdr { width: 92%; height: 52px; background: #fff; border-radius: 12px; display: flex; align-items: center; gap: 8px; padding: 0 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .hdr .word { font-size: 22px; }
+  .hdr .nav { margin-left: auto; display: flex; gap: 14px; font-size: 12px; color: #7c6b61; }
+</style></head>
+<body>
+<h1>BeLikeLocal — logo v2</h1>
+<p class="lead">No hearts. The crossed-fingers gesture stays (it says “nice / like” in a friendly way) and a small bee flies off it, so “Be” becomes the bee.
+A hand-drawn honeycomb sits behind it as the brand’s texture. The fist and index finger are now one shape, so the finger grows out of the hand; the thumb crosses over it near the tip. Wordmark in CamelCase.</p>
+
+<div class="top">
+  <div class="card"><span class="label">Main lock-up</span>
+    <div class="hero"><svg class="bg" id="bg1" viewBox="0 0 900 420" preserveAspectRatio="xMidYMid slice"></svg>
+      <span id="m1"></span><span class="word"><span class="be">Be</span><span class="like">Like</span><span class="loc">Local</span></span></div>
+  </div>
+  <div class="card"><span class="label">The mark, close up</span>
+    <div class="close">
+      <div><div id="c1"></div><div class="cap">Colour: honey hand, ink outline, cream thumbnail; bee in honey and white</div></div>
+      <div><div id="c2"></div><div class="cap">One colour (ink line only) — stamps, receipts, embossing</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card"><div class="tile cream"><span class="word" style="font-size:44px"><span class="be">Be</span></span><span id="inl"></span><span class="word" style="font-size:44px"><span class="loc">Local</span></span></div>
+    <div class="meta"><b>Inline “Be [gesture] Local”</b> — reads “Be Like Local” the way the current thumb logo does. Good for the header on small screens.</div></div>
+  <div class="card"><div class="tile dark"><span id="dk"></span><span class="word" style="font-size:40px"><span class="be">Be</span><span class="like">Like</span><span class="loc">Local</span></span></div>
+    <div class="meta"><b>On dark</b> — cream outline, honey hand, the honeycomb as faint lines.</div></div>
+  <div class="card"><div class="tile honey"><div class="icons" id="icons"></div></div>
+    <div class="meta"><b>App icon</b> 96 / 64 / 40 / 24 / 16 px: cream hand on honey with a bit of comb; under 32 px the bee drops out and only the hand stays.</div></div>
+  <div class="card"><div class="tile cream"><div class="hdr"><span id="hd"></span><span class="word"><span class="be">Be</span><span class="like">Like</span><span class="loc">Local</span></span><span class="nav"><span>Discover</span><span>Matches</span><span>Trips</span></span></div></div>
+    <div class="meta"><b>In the app header</b> — 30 px mark + 22 px wordmark. The comb texture is kept for big surfaces only (home hero, emails, splash).</div></div>
+</div>
+
+<script>
+document.getElementById('bg1').innerHTML = honeySketch(900, 420, 34, { color: '#E2AE5C', opacity: 0.9 })
+document.getElementById('m1').innerHTML = svg(gesture({ sw: 3.4 }), 210)
+document.getElementById('c1').innerHTML = svg(gesture(), 260)
+document.getElementById('c2').innerHTML = svg(gesture({ skin: '#fff', nail: '#fff', beeWing: '#fff', sw: 3.6 }).replaceAll('#F4A62A', '#fff'), 260)
+document.getElementById('inl').innerHTML = svg(gesture({ sw: 4.5 }), 84)
+document.getElementById('dk').innerHTML = `<span style="position:relative;display:inline-block">${svg(honeySketch(100, 100, 14, { color: '#F4A62A', opacity: 0.35 }), 110)}<span style="position:absolute;inset:0">${svg(gesture({ ink: '#FFF7EC', gap: '#2A1F17', nail: '#2A1F17', beeWing: '#2A1F17' }), 110)}</span></span>`
+document.getElementById('icons').innerHTML = [96, 64, 40, 24, 16].map((s) =>
+  `<div class="ic" style="width:${s}px;height:${s}px;background:#2A1F17">${s >= 40 ? `<span style="position:absolute;inset:0">${svg(honeySketch(100, 100, 16, { color: '#F4A62A', opacity: 0.5, seed: 7 }), s)}</span>` : ''}<span style="position:relative">${svg(gesture({ skin: '#F4A62A', ink: '#FFF7EC', gap: '#2A1F17', nail: '#2A1F17', beeWing: '#2A1F17', withBee: s >= 32, sw: s < 32 ? 6.5 : 4 }), s * 0.9)}</span></div>`).join('')
+document.getElementById('hd').innerHTML = svg(gesture({ sw: 5.5 }), 34)
+</script>
+</body></html>

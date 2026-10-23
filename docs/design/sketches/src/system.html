@@ -3,7 +3,7 @@
 <title>UI system</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Inter:wght@400;500;600;700&family=Caveat:wght@700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="ui.css">
-<script src="marks.js"></script><script src="fingerheart.js"></script>
+<script src="marks.js"></script><script src="gesture.js"></script>
 <style>
   body { width: 1600px; padding: 44px; }
   .head h1 { font-size: 34px; } .head p { color: var(--ink-2); margin: 6px 0 26px; max-width: 1000px; }
@@ -110,7 +110,7 @@
       <div class="sw">
         <div style="background:var(--honey)">Honey · primary</div>
         <div style="background:var(--honey-50);border:1px solid var(--line)">Honey 50 · selected</div>
-        <div style="background:var(--coral);color:#fff">Coral · likes, alerts</div>
+        <div style="background:var(--coral);color:#fff">Coral · alerts, counts</div>
         <div style="background:var(--leaf);color:#fff">Leaf · success, verified</div>
         <div style="background:var(--ink);color:#fff">Ink · text, dark buttons</div>
         <div style="background:var(--cream);border:1px solid var(--line)">Cream · page</div>
@@ -118,5 +118,5 @@
     </div>
   </div>
 </div>
-<script>document.getElementById('fh').innerHTML = svg(fh2({ skin: '#FFF8EF', gap: '#F4A62A', sw: 6 }), 20)</script>
+<script>document.getElementById('fh').innerHTML = svg(gesture({ skin: "#FFF8EF", gap: "#F4A62A", withBee: false, sw: 6 }), 20)</script>
 </body></html>
