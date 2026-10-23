@@ -37,7 +37,7 @@ if (tilt) {
   svg = (inner, size, vb) => s0(inner, size, vb || '-5 -5 110 110')
 }
 const W = (s) => `<span class="word" style="font-size:${s}px"><span class="be">Be</span><span class="like">Like</span><span class="loc">Local</span></span>`
-const I = (s, dark = false) => `<span class="word" style="font-size:${s}px"><span class="be">Be</span></span>${svg(gesture(dark ? D : { sw: 4.2 }), s * 1.45)}<span class="word" style="font-size:${s}px"><span class="loc">Local</span></span>`
+const I = (s, dark = false) => `<span class="word" style="font-size:${s}px"><span class="be">Be</span></span><span style="display:block;margin:0 -0.18em 0 -0.12em;font-size:${s}px">${svg(gesture(dark ? D : { sw: 4.2 }), s * 1.45)}</span><span class="word" style="font-size:${s}px"><span class="loc">Local</span></span>`
 const D = { ink: '#FFF7EC', skin: '#F4A62A', beeWing: '#2A1F17', sw: 4.2 }
 
 // honeycomb, strongest behind the mark
@@ -46,9 +46,9 @@ document.getElementById('bg').innerHTML = `<g transform="translate(${inline ? 41
 document.getElementById('title').innerHTML = inline
   ? `Inline logo — “Be <span style="display:inline-block;vertical-align:-8px">${svg(gesture({ sw: 6, withBee: false }), 34)}</span> Local”`
   : 'Primary logo'
-if (inline) document.getElementById('stage').style.gap = '10px'
+if (inline) document.getElementById('stage').style.gap = '0'
 document.getElementById('stage').innerHTML = inline
-  ? `<span class="word"><span class="be">Be</span></span><span style="display:block;transform:translateY(-26px)">${svg(gesture({ sw: 3.8 }), 240)}</span><span class="word"><span class="loc">Local</span></span>`
+  ? `<span class="word"><span class="be">Be</span></span><span style="display:block;transform:translateY(-26px);margin:0 -18px 0 -10px">${svg(gesture({ sw: 3.8 }), 240)}</span><span class="word"><span class="loc">Local</span></span>`
   : `${svg(gesture({ sw: 3.6 }), 330)}${W(150)}`
 
 const icon = (s) => `<div class="ic" style="width:${s}px;height:${s}px">${s >= 40 ? `<span style="position:absolute;inset:0">${svg(honeySketch(100, 100, 16, { color: '#F4A62A', opacity: 0.45, seed: 7 }), s)}</span>` : ''}<span style="position:relative">${svg(gesture({ ...D, withBee: s >= 40, sw: s < 40 ? 6.5 : 4.2 }), s * 0.86)}</span></div>`
