@@ -52,7 +52,13 @@ function measurePane() {
 }
 
 function onToggle(event: Event) {
-  open.value = (event.target as HTMLDetailsElement).open
+  const details = event.target as HTMLDetailsElement
+  // On desktop the rail is always open: anything that closes it is undone.
+  if (isDesktop.value && !details.open) {
+    details.open = true
+    return
+  }
+  open.value = details.open
   if (open.value && !isDesktop.value) void nextTick(measurePane)
 }
 

@@ -42,18 +42,32 @@ function onKmInput(event: Event) {
 
 <template>
   <fieldset class="location" data-test="location-filter">
-    <legend class="tiny">{{ t('common.filter_panel.location') }}</legend>
+    <legend class="visually-hidden">{{ t('common.filter_panel.location') }}</legend>
 
-    <div v-if="!editing" class="near">
-      <span v-if="near" class="near-label" data-test="near-label">📍 {{ near.label }}</span>
-      <span v-else class="near-label muted">{{ t('common.filter_panel.anywhere') }}</span>
-      <button type="button" class="link-btn tiny" data-test="near-change" @click="editing = true">
-        {{
+    <!-- "Location" and the place on one line; the place itself opens the search. -->
+    <div class="near">
+      <span class="near-title" aria-hidden="true">{{ t('common.filter_panel.location') }}</span>
+      <button
+        v-if="!editing"
+        type="button"
+        class="near-button"
+        :title="
           near ? t('common.filter_panel.change_location') : t('common.filter_panel.set_location')
-        }}
+        "
+        :aria-label="`${t('common.filter_panel.location')}: ${near?.label ?? t('common.filter_panel.anywhere')} — ${
+          near ? t('common.filter_panel.change_location') : t('common.filter_panel.set_location')
+        }`"
+        data-test="near-change"
+        @click="editing = true"
+      >
+        <span aria-hidden="true">📍</span>
+        <span v-if="near" class="near-label" data-test="near-label">{{ near.label }}</span>
+        <span v-else class="near-label near-label--anywhere">{{
+          t('common.filter_panel.anywhere')
+        }}</span>
       </button>
     </div>
-    <div v-else class="near-edit">
+    <div v-if="editing" class="near-edit">
       <PlaceSearch :model-value="near" :near="near" autofocus @update:model-value="choose" />
       <button type="button" class="link-btn tiny" @click="editing = false">
         {{ t('common.filter_panel.cancel') }}
@@ -100,15 +114,52 @@ function onKmInput(event: Event) {
 
 .near {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.25rem 0.5rem;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
+  min-width: 0;
+}
+
+.near-title {
+  flex: 0 0 auto;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+// The place, as a quiet button: tap it to search for another.
+.near-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+  padding: 0.2rem 0.4rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: none;
+  color: var(--rg-ink);
+  font-size: 0.875rem;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--rg-orange-50);
+    color: var(--rg-ink);
+  }
 }
 
 .near-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
+}
+
+.near-label--anywhere {
+  color: var(--rg-muted);
 }
 
 .near-edit {

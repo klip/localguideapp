@@ -240,6 +240,11 @@ describe('FilterPanel', () => {
     })
     await flushPromises()
     expect(location.find('[data-test="near-label"]').text()).toContain('Lisbon, Portugal')
+    // "Location" and the place share a line; the place itself opens the search.
+    expect(location.find('.near').text()).toContain('Location')
+    expect(location.find('.near-edit').exists()).toBe(false)
+    await location.get('[data-test="near-change"]').trigger('click')
+    expect(location.find('.near-edit').exists()).toBe(true)
     // A place ranks, it doesn't filter — and the default distance isn't a choice either.
     expect(store.isPristine).toBe(true)
 
