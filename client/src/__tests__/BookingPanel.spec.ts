@@ -428,7 +428,9 @@ describe('BookingPanel — starting the trip', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="start-trip"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="meetup"]').text()).toContain('can’t confirm from your locations')
+    expect(wrapper.find('[data-test="meetup"]').text()).toContain(
+      'can’t confirm from your locations',
+    )
     await wrapper.find('[data-test="confirm-meetup"]').trigger('click')
     await flushPromises()
     expect(api.tripPresence).toHaveBeenLastCalledWith({ targetId: 7, meetup: true })
@@ -495,7 +497,11 @@ describe('BookingPanel — starting the trip', () => {
   it('shows a dispute in review, with nothing left to press', () => {
     const wrapper = mountPanel(
       fakeApi(),
-      { ...startedTrip, cancel_requested_at: '2030-01-02 10:30:00', disputed_at: '2030-01-03 10:30:00' },
+      {
+        ...startedTrip,
+        cancel_requested_at: '2030-01-02 10:30:00',
+        disputed_at: '2030-01-03 10:30:00',
+      },
       true,
     )
     expect(wrapper.find('[data-test="dispute-open"]').exists()).toBe(true)
@@ -565,13 +571,16 @@ describe('BookingPanel — finishing the trip', () => {
 })
 
 describe('BookingPanel — meeting place', () => {
-  it('sends the meeting place along with the payment', async () => {
+  it('sends the meeting place and who is coming along with the payment', async () => {
     const api = fakeApi()
     const wrapper = mountPanel(api, {}, true)
 
     await button(wrapper, 'Pay £50.00').trigger('click')
     await wrapper.find('input[type="datetime-local"]').setValue('2030-01-02T10:00')
-    await wrapper.find('input[type="text"]').setValue('  Casemates Square  ')
+    await wrapper.find('[data-test="booking-party"]').setValue('  2 adults ')
+    await wrapper
+      .find('input[type="text"]:not([data-test="booking-party"])')
+      .setValue('  Casemates Square  ')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -579,6 +588,7 @@ describe('BookingPanel — meeting place', () => {
       targetId: 7,
       meetingAt: new Date('2030-01-02T10:00').toISOString(),
       location: 'Casemates Square',
+      party: '2 adults',
     })
   })
 

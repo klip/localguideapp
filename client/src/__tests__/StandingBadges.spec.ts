@@ -45,7 +45,9 @@ describe('StandingBadges', () => {
       props: { name: 'Gina', age: 34, photo: 'none', standing },
       global: { stubs: { RouterLink: true } },
     })
-    expect(card.find('.card-badges [data-test="standing-verified"]').exists()).toBe(true)
+    // On the card, "verified" is a tick by the name, not a badge in the row.
+    expect(card.find('[data-test="card-verified"]').exists()).toBe(true)
+    expect(card.find('.card-badges [data-test="standing-verified"]').exists()).toBe(false)
     expect(card.find('[data-test="standing-trips"]').text()).toContain('2 trips')
   })
 

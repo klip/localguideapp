@@ -168,3 +168,37 @@ dialog[open]::backdrop {
     transition-duration: 0.01ms !important;
   }
 }
+
+// --- Field labels -----------------------------------------------------------
+// A label's text stays on one line: shortened where it can be, the longer
+// explanation behind a `HelpTip` ("?"), and an ellipsis if it still doesn't
+// fit. Markup: <label><span class="field-label"><span class="field-label-text">
+// Length</span><HelpTip text="…" /></span><input …></label>.
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+}
+
+.field-label-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// "(optional)" after a label's text: quieter, and the first thing to go.
+.field-label-optional {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--rg-muted);
+  font-weight: 400;
+}
+
+// Grid and flex children must be allowed to shrink for the ellipsis to show.
+label {
+  min-width: 0;
+}

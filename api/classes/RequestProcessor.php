@@ -694,7 +694,8 @@ class RequestProcessor
             $input['durationHours'] ?? null,
             (string) ($input['location'] ?? ''),
             $input['latitude'] ?? null,
-            $input['longitude'] ?? null
+            $input['longitude'] ?? null,
+            (string) ($input['party'] ?? '')
         );
     }
 

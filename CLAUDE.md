@@ -418,6 +418,13 @@ own — every one just takes props/emits):
   `--fh-ink` / `--fh-skin` / `--fh-wing`; `weight` thickens the outline
   for small sizes. No hearts anywhere in the brand: it's a friendly trip
   service, not dating.
+- `HelpTip.vue` — a small circled "?" beside a short field label, opening
+  the explanation the label left out (hover/focus shows it, a click toggles
+  it, Escape or a click elsewhere closes; safe inside a `<label>`). Field
+  labels stay on one line: `<span class="field-label"><span
+  class="field-label-text">…</span><HelpTip …/></span>` (`_base.scss` —
+  ellipsis if still too long; `field-label-optional` for "optional").
+  Shorten a label rather than let it wrap, and put the rest in a HelpTip.
 - `SegmentedControl.vue` — two or three options as one row of segments
   (real radios underneath, `v-model`, a legend): gender in the filters.
 - `TagList.vue` — a wrapping row of soft tag chips.
@@ -426,9 +433,10 @@ own — every one just takes props/emits):
   heart (no bee) — no cost text on it (the picks counter is in the header).
   `DiscoverPage.vue`, `GuideDiscoverPage.vue` and `GuideProfilePage.vue`
   all use the default labels.
-- `ProfileCard.vue` — the discovery card: a tall photo with **the badges
-  (level, verified, trips), name/age and rating floating over its bottom
-  edge** on a scrim, like the profile page's hero (`photoNote` — "3 km
+- `ProfileCard.vue` — the discovery card: a tall photo with, over its
+  bottom edge on a scrim, **the name/age with a green ✓ when verified
+  (`card-verified`), then the rating and reviews, then the level and trips
+  badges** (`StandingBadges hide-verified`), like the profile page's hero (`photoNote` — "3 km
   away" — at its top left); then price (guide side only), bio (clamped),
   `TagList`, optional `includes`, a slot, and its own `DecisionRow`. The
   photo links to the full profile (plus a visually hidden name link,
@@ -447,9 +455,10 @@ own — every one just takes props/emits):
   chevron — that **drops a pane down from itself** (the page's side padding
   keeps it off the screen edges; height up to the tab bar; over a backdrop;
   body scroll locked, Escape closes) ending in "Clear filters" and "Show 24
-  guides" (`showLabel`, counted by the page). Don't give its body
-  `role="group"`: Pico styles that as a button group and it broke the
-  sliders' absolute positioning.
+  guides" in a solid footer — only the filters above it scroll
+  (`.filters-scroll`), so nothing shows through around the buttons. Don't
+  use `role="group"` for layout anywhere: Pico styles it as a horizontal
+  button group (it broke the sliders here, and SlotPicker's month).
 - `RangePicker.vue` — one slider with two handles (`DualRangeSlider`), the
   chosen span above it ("09:00–13:00"), an Add button and the spans collected
   so far as removable chips: the input for a `range` category with several
@@ -834,20 +843,24 @@ longer behind a paywall — what's gated is "Interested":
 
 ### Header & mobile menu (`AppHeader.vue`)
 
-**Desktop (from `lg`, 1024px — `DESKTOP_QUERY` must match `breakpoints.$lg`)
-is always one row** (docs/design/sketches/04): the logo with the honeycomb
-behind it, the menu links, then on the right the picks pill,
+**The layout is measured, not set by a breakpoint** (`fit()` / `mode`:
+`wide` → `compact` → `mobile`): one row while the links fit — the logo with
+the honeycomb behind it, **the links centred in the room between the logo
+and the controls** (`justify-content: safe center`), then on the right the picks pill,
 "🌐 EN · €" (language and currency in one small popover — `locale-toggle`,
 closed by a click outside, Escape or navigation), the role switch, the
 **profile circle** (the user's photo, else their initial, linking to
 `/profile` — there's no "Profile" menu item) and an icon-only Log out (its
 label stays for screen readers; signed out: Log in + Get started). **When
 the links don't fit on one line, each label moves under its icon**
-(`nav--compact`): `fitLinks()` watches the list with a `ResizeObserver`,
-switches when it overflows, remembers the width the one-line row needed and
-switches back once that much room is free; a change of role, sign-in or
-language re-measures. From 1024 to 1279 the language button is just the
-globe (the label is its tooltip). The links — How it works
+(`compact`, `nav--compact`; the language button is then just the globe);
+**when even that doesn't fit, it's `mobile`** — the tab bar at the foot and
+the menu button. Each step down records the window width it needed and
+steps back up once the window is that wide again (window `resize`); a
+change of role, sign-in or language, and the web fonts arriving, measure
+afresh from `wide`. Desktop styles hang off `.topbar--desktop`, not a media
+query; `:root.has-tabbar` (set by the header) is what the page, the cookie
+notice and the profile's save bar use to keep clear of the tab bar. The links — How it works
 (signed out), Discover, Trip planner (traveller), Calendar (guide),
 Matches, My trips, Payments, Messages — each have a line icon (`NavIcon.vue`:
 bulb, compass, map, calendar, **handshake** for Matches, suitcase, wallet,
@@ -859,7 +872,7 @@ honeycomb** is its own layer, `.topbar-comb` (`utils/honeycomb.ts`), clipped
 to the header's box (`overflow: hidden`) and under everything in the bar —
 it never spills onto the page.
 
-**Mobile (below `lg`) is a bottom tab bar** (`.tabbar`, `data-test="tabbar"`,
+**Mobile (`mode === 'mobile'`) is a bottom tab bar** (`.tabbar`, `data-test="tabbar"`,
 fixed to the foot; `.app-shell` gets matching bottom padding and the cookie
 notice sits above it): signed in Discover · Matches · My trips · **Chat**
 (`common.app_header.chat`, the design's plain bubble — `NavIcon` `chat`;
@@ -881,8 +894,8 @@ the other role's news — the counted sections have tabs of their own.
   `stores/avatar.ts` fetches `myProfile` once per signed-in user, and
   `ProfilePage` calls `avatar.set()` after saving a new photo.
 - **It's one `.drawer` element styled two ways, not two copies of the
-  menu.** Below `lg` it's a `position: fixed` off-canvas panel (opened by
-  the top bar's menu button); from `lg` it's `display: contents`, so its parts sit
+  menu.** In mobile mode it's a `position: fixed` off-canvas panel (opened
+  by the top bar's menu button); in the desktop modes it's `display: contents`, so its parts sit
   directly on the `nav`'s grid (`'logo links picks lang role me account'`,
   the links column `minmax(0, 1fr)` so `fitLinks()` can see it overflow). Add a link once, inside `.drawer > ul.nav` — and to the tab
   bar only if it's a main section.
@@ -1016,11 +1029,18 @@ calendar, and a visitor paying them can only pick a free time.
   up (six weeks). Actions `myCalendar`, `saveCalendar`, `addDayOff`,
   `removeDayOff` (guide mode only).
 - **Visitor side**: `BookingPanel`'s pay form asks `guideCalendar`; with a
-  calendar it shows `SlotPicker` — the trip length (the guide's usual by
-  default), a month where only days with a free start can be picked
-  (`guideCalendar` → `days`), then that day's free starts (`guideStartTimes`),
-  in the viewer's time with the guide's beside it when the zones differ. Without
-  one, the old date-time input. Both actions need an active match.
+  calendar its **"When" field opens `SlotPicker` in a modal over
+  everything** (`slot-open`; the field then reads "26 Oct, 08:00 · 3 h";
+  `slot-done` closes it) — "‹ October 2026 ›" on top, the month's days below
+  (only days with a free start can be picked — `guideCalendar` → `days`),
+  then that day's free starts (`guideStartTimes`), in the viewer's time with
+  the guide's beside it when the zones differ, and the trip length last (the
+  guide's usual by default). The picker stays mounted inside the closed
+  dialog, so it can still report "no calendar" — then a plain "When"
+  date-time field and "Length". Both actions need an active match. The form
+  also asks **"Group"** (who's coming — `bookings.party`, 105, ≤ 80, masked
+  like the meeting place, shown to the guide as `booking_party` on the
+  Matches / trip rows); it moved here from the profile.
 - **`Bookings::pay()`** with a calendar: the length defaults to the usual
   one, and the time is checked again (`isFree()`) under
   `GET_LOCK('guide_calendar_<id>')` held until the booking is written — so two
@@ -1578,9 +1598,11 @@ not just via a seeded API call.
     birth date, gender, headline, bio, a category pick, and a guide's fee or
     base / a traveller's party), birth date and gender (F / M / – segments)
     side by side, headline and bio — **both roles**; a card with the role's
-    own fields (a guide's base and radius, fee, label, note, includes; a
-    traveller's party and trip length); "Interests & languages" (the
-    category picker below, and a guide's hours via `RangePicker`); two list
+    own fields (a guide's base and radius, fee, label, note, includes —
+    guides only); "Interests & languages" (the
+    category picker below, and a guide's hours via `RangePicker`) — **a
+    traveller's group and trip length aren't here any more: they're asked
+    when paying a guide** (`BookingPanel`); two list
     rows to the sub-views; and **one "Save changes" pinned to the foot**
     (above the tab bar on mobile) → `api.updateProfile()` → `Profiles::
     setProfile()` / `setAttributeValues()` / `setRanges()`, plus
@@ -2782,7 +2804,7 @@ is a `503` from the gateway.
 | `myCalendar` / `saveCalendar` / `addDayOff` / `removeDayOff` | **yes** (guide mode) | `api.myCalendar(range?)`, `api.saveCalendar(settings)`, `api.addDayOff(exception)`, `api.removeDayOff(id)` | `from?, to?` (local dates, ≤2 months) / `timeZone, slotMinutes, bufferMinutes, defaultTripHours, minNoticeHours, maxDaysAhead, weekly: [{ weekday, start, end }]` / `day, kind: off\|extra, start?, end?, note?` / `id` | `MyCalendar` (`calendar` or null, `suggestedHours`, `bookings`) | `Availability::viewFor()/save()/addException()/removeException()` |
 | `guideCalendar` / `guideStartTimes` | **yes** (guest, matched) | `api.guideCalendar(guideId, month?, hours?)`, `api.guideStartTimes(guideId, day, hours)` | `guideId, month?` (`YYYY-MM`), `durationHours?` / `guideId, day, durationHours` | `{ hasCalendar: false }` or `{ hasCalendar, timeZone, defaultTripHours, slotMinutes, durationHours, month, days }` / `{ …, starts }` (ISO UTC) | `Availability::daysWithTime()/startTimes()` |
 | `tripPresence` | **yes** (either side of a confirmed trip) | `api.tripPresence(payload)` | `targetId, latitude?, longitude?, accuracy?` (m) — or `meetup: true` to confirm the meetup | `TripPresence` (`start_ready` — guide only, `needs_meetup`, `meetup: 'me' \| 'them' \| 'both' \| null`) | `Bookings::presence()` / `confirmMeetup()` |
-| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year — **a free time** when the guide has a calendar), `durationHours?` (0.5–24; the guide's usual length by default with a calendar), `location?` (≤160 chars), `latitude?`/`longitude?` (a pin — both numbers or neither) | `Booking` (`status: 'pending'` — waits for the guide; `location_pin`) | `actionPayGuideFee()` → `Bookings::pay()` |
+| `payGuideFee` | **yes** (guest only) | `api.payGuideFee(payload)` | `targetId` (guide), `meetingAt` (ISO date-time, future, ≤1 year — **a free time** when the guide has a calendar), `durationHours?` (0.5–24; the guide's usual length by default with a calendar), `location?` (≤160 chars), `latitude?`/`longitude?` (a pin — both numbers or neither), `party?` (who's coming, ≤80) | `Booking` (`status: 'pending'` — waits for the guide; `location_pin`) | `actionPayGuideFee()` → `Bookings::pay()` |
 | `bookingAction` | **yes** (role per `op`) | `api.bookingAction(payload)` | `targetId` (the other person), `op` (see "Guide fees & bookings"), `reason?` (decline, requestCancellation — required there — refuseCancellation), `location?`, `latitude?`/`longitude?` (setLocation: replaces text and pin; neither clears) | `Booking` | `actionBooking()` → `Bookings::accept()/decline()/withdraw()/requestCancellation()/setLocation()/…` |
 | `cancelBooking` | **yes** (guide only) | `api.cancelBooking(payload)` | `targetId` (guest), `reason?` | `Booking` (`status: 'cancelled'`, `refund_amount` set if it was paid) | `actionCancelBooking()` → `Bookings::cancelByGuide()` |
 | `conversations` | **yes** | `api.conversations()` | — | `{ conversations: Conversation[] }` (`counterpart_id, name, image, role, can_send, unread, last_message`) | `Messages::conversationsFor()` |
@@ -3348,6 +3370,13 @@ API service (`api/classes/`):
   "Me", and the redesigned profile page's text (role segments, the photo
   line, section titles, the sub-view links, "Save changes"), 15 languages.
   Applied 2026-10-24. Re-runnable.
+- `api/sql/105_booking_party.sql` — `bookings.party` (who's coming, asked
+  when paying; `user_profiles.party`/`duration_hours` are no longer written).
+  Applied 2026-10-24. Not re-runnable.
+- `api/sql/106_translations_labels_booking.sql` — HelpTip's label, the pay
+  form's "When" / "Length" / "Group" / "Done", the profile's "Price (£)" /
+  "Radius (km)", 15 languages, and `common.help_tip`'s page blocks. Applied
+  2026-10-24. Re-runnable.
 - `api/sql/033_translations_locations.sql` — "Share my location" text.
   Applied 2026-10-15. Re-runnable.
 - `api/sql/029_translations_contact_filter.sql` — `common.api.contact_details`,

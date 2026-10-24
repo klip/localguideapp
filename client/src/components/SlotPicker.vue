@@ -170,15 +170,6 @@ watch(hours, async (next, before) => {
   <div class="slot-picker" data-test="slot-picker">
     <p v-if="!ready" aria-busy="true" class="muted">{{ t('common.slot_picker.loading') }}</p>
     <template v-else>
-      <label class="length">
-        {{ t('common.slot_picker.trip_length') }}
-        <select v-model.number="hours" data-test="slot-length">
-          <option v-for="h in LENGTHS" :key="h" :value="h">
-            {{ t('common.slot_picker.hours', { hours: h }) }}
-          </option>
-        </select>
-      </label>
-
       <div class="month" role="group" :aria-label="t('common.slot_picker.pick_day')">
         <div class="month-head">
           <button
@@ -190,7 +181,7 @@ watch(hours, async (next, before) => {
           >
             <span class="rtl-flip" aria-hidden="true">‹</span>
           </button>
-          <strong aria-live="polite">{{ monthLabel }}</strong>
+          <strong class="month-label" aria-live="polite">{{ monthLabel }}</strong>
           <button
             type="button"
             class="nav"
@@ -255,6 +246,17 @@ watch(hours, async (next, before) => {
           </button>
         </div>
       </div>
+      <!-- The length last: the month (with its year) and its days come first. -->
+      <label class="length">
+        <span class="field-label"
+          ><span class="field-label-text">{{ t('common.slot_picker.trip_length') }}</span></span
+        >
+        <select v-model.number="hours" data-test="slot-length">
+          <option v-for="h in LENGTHS" :key="h" :value="h">
+            {{ t('common.slot_picker.hours', { hours: h }) }}
+          </option>
+        </select>
+      </label>
     </template>
   </div>
 </template>
@@ -265,8 +267,27 @@ watch(hours, async (next, before) => {
   gap: 0.75rem;
 }
 
-.length select {
-  max-width: 12rem;
+// Pico lays out any [role=group] as a row of buttons; these stack: the
+// month and year above the days, the day's name above its times.
+.month,
+.times {
+  display: block;
+}
+
+.length {
+  margin: 0;
+
+  select {
+    max-width: 12rem;
+    margin: 0;
+  }
+}
+
+// Month and year, large, above the days.
+.month-label {
+  font-family: var(--rg-font-display);
+  font-size: 1.125rem;
+  text-transform: capitalize;
 }
 
 .month-head {

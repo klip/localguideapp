@@ -658,6 +658,8 @@ export interface MatchOverviewRow {
   refund_if_guest_cancels: number | null
   /** The booking's own trip length (not the visitor's profile `duration_hours`). */
   booking_duration_hours: number | null
+  /** Who's coming ("2 adults"), from the payment form — shown to the guide. */
+  booking_party?: string | null
   /** Where the trip meets — short free text, either side can set it while the booking is open. */
   location: string | null
   /** …and/or a map pin, shared from a device (`useCurrentPosition`). */
@@ -703,6 +705,7 @@ export type BookingView = Pick<
   | 'booking_amount'
   | 'meeting_at'
   | 'booking_duration_hours'
+  | 'booking_party'
   | 'location'
   | 'location_pin'
   | 'trip_status'
@@ -1387,6 +1390,8 @@ export const api = {
     location?: string
     latitude?: number
     longitude?: number
+    /** Who's coming, e.g. "2 adults" — optional, shown to the guide. */
+    party?: string
   }) => call<Booking>('payGuideFee', payload),
   /** Every other booking step — accept/decline, withdraw, cancellation requests, finishing the trip, the meeting place (`setLocation` + `location`). */
   bookingAction: (payload: {

@@ -59,12 +59,12 @@ function dismiss() {
 .cookie-notice {
   position: fixed;
   inset-inline: 1rem;
-  // Above the mobile tab bar (AppHeader.vue); at the foot from `lg`.
-  bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  // At the foot; above the tab bar while there is one (AppHeader.vue).
+  bottom: 1rem;
   z-index: 50;
 
-  @include bp.lg {
-    bottom: 1rem;
+  :global(.has-tabbar) & {
+    bottom: calc(4.75rem + env(safe-area-inset-bottom));
   }
   margin-inline: auto;
   max-width: 40rem;

@@ -2,11 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import MapPinLinks from '@/components/MapPinLinks.vue'
 import SlotPicker from '@/components/SlotPicker.vue'
+import HelpTip from '@/components/HelpTip.vue'
+import ModalDialog from '@/components/ModalDialog.vue'
 import MeetingPinField from '@/components/MeetingPinField.vue'
 import PillBadge from '@/components/PillBadge.vue'
 import ProtectedNotice from '@/components/ProtectedNotice.vue'
 import { useCurrentPosition, type DevicePosition } from '@/composables/useCurrentPosition'
-import { t } from '@/i18n'
+import { currentLanguage, t } from '@/i18n'
 import {
   useApi,
   type BookingOp,
@@ -74,6 +76,21 @@ type FormKind = 'pay' | 'guideCancel' | 'decline' | 'requestCancel' | 'freeCance
 const openForm = ref<FormKind | null>(null)
 const meetingAt = ref('')
 const durationHours = ref<number | ''>('')
+/** Who's coming ("2 adults") — asked here, not on the profile; shown to the guide. */
+const party = ref('')
+/** The guide's calendar opens in a modal over everything (`SlotPicker`). */
+const calendarOpen = ref(false)
+/** "Sat 3 May, 10:00 · 3 h" — the slot picked in the modal, on the form's "When" field. */
+const slotSummary = computed(() => {
+  if (!slotStart.value) return ''
+  const when = new Intl.DateTimeFormat(currentLanguage.value, {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(slotStart.value))
+  return `${when} · ${t('common.slot_picker.hours', { hours: slotHours.value })}`
+})
 /** With a guide's calendar: the start picked from their free times, and the trip length (`SlotPicker`). */
 const slotStart = ref('')
 const slotHours = ref(2)
@@ -224,6 +241,8 @@ function show(kind: FormKind) {
   durationHours.value = ''
   slotStart.value = ''
   noCalendar.value = false
+  party.value = ''
+  calendarOpen.value = false
   location.value = kind === 'location' ? (props.row.location ?? '') : ''
   pin.value = kind === 'location' ? (props.row.location_pin ?? null) : null
   reason.value = ''
@@ -314,6 +333,7 @@ function pay() {
       ? undefined
       : Number(durationHours.value)
   const place = location.value.trim()
+  const group = party.value.trim()
   return run(
     () =>
       api.payGuideFee({
@@ -321,6 +341,7 @@ function pay() {
         meetingAt: when.toISOString(),
         ...(hours !== undefined ? { durationHours: hours } : {}),
         ...(place ? { location: place } : {}),
+        ...(group ? { party: group } : {}),
         ...pinFields(),
       }),
     t('common.booking_panel.paid', {
@@ -411,6 +432,7 @@ function guideCancel() {
               when: meetingLabel,
             })
           }}<template v-if="durationLabel"> · {{ durationLabel }}</template
+          ><template v-if="row.booking_party"> · {{ row.booking_party }}</template
           ><template v-if="row.location"> · {{ row.location }}</template>
         </span>
         <MapPinLinks
@@ -428,7 +450,8 @@ function guideCancel() {
           t('common.booking_panel.in_progress')
         }}</PillBadge>
         <span v-if="meetingLabel" class="tiny muted">
-          {{ meetingLabel }}<template v-if="durationLabel"> · {{ durationLabel }}</template>
+          {{ meetingLabel }}<template v-if="durationLabel"> · {{ durationLabel }}</template
+          ><template v-if="row.booking_party"> · {{ row.booking_party }}</template>
         </span>
       </p>
       <p v-else-if="confirmed" class="booking-line">
@@ -753,22 +776,63 @@ function guideCancel() {
       :aria-label="t('common.booking_panel.pay_form_label', { name })"
       @submit.prevent="pay"
     >
-      <SlotPicker
-        v-if="!noCalendar"
-        v-model="slotStart"
-        v-model:hours="slotHours"
-        :guide-id="row.counterpart_id"
-        :name="name"
-        @unavailable="noCalendar = true"
-      />
-      <div v-else class="fields">
-        <label>
-          {{ t('common.booking_panel.meeting_question') }}
-          <input v-model="meetingAt" type="datetime-local" :min="minMeeting" required />
-        </label>
-        <label>
-          {{ t('common.booking_panel.trip_length') }}
-          <span class="muted">{{ t('common.booking_panel.optional') }}</span>
+      <!-- With a calendar: "When" opens it in a modal, over everything. -->
+      <template v-if="!noCalendar">
+        <div class="field">
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('common.booking_panel.when') }}</span></span
+          >
+          <button
+            type="button"
+            class="slot-field"
+            :class="{ 'slot-field--empty': !slotStart }"
+            data-test="slot-open"
+            @click="calendarOpen = true"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <rect x="3.5" y="5" width="17" height="15" rx="2" />
+              <path d="M3.5 10h17M8 3v4M16 3v4" />
+            </svg>
+            <span>{{ slotSummary || t('common.booking_panel.choose_slot') }}</span>
+          </button>
+        </div>
+        <ModalDialog
+          :open="calendarOpen"
+          :title="t('common.slot_picker.pick_time')"
+          @close="calendarOpen = false"
+        >
+          <SlotPicker
+            v-model="slotStart"
+            v-model:hours="slotHours"
+            :guide-id="row.counterpart_id"
+            :name="name"
+            @unavailable="noCalendar = true"
+          />
+          <template #footer>
+            <button
+              type="button"
+              :disabled="!slotStart"
+              data-test="slot-done"
+              @click="calendarOpen = false"
+            >
+              {{ t('common.slot_picker.done') }}
+            </button>
+          </template>
+        </ModalDialog>
+      </template>
+      <label v-else>
+        <span class="field-label"
+          ><span class="field-label-text">{{ t('common.booking_panel.when') }}</span
+          ><HelpTip :text="t('common.booking_panel.meeting_question')"
+        /></span>
+        <input v-model="meetingAt" type="datetime-local" :min="minMeeting" required />
+      </label>
+      <div class="fields">
+        <label v-if="noCalendar">
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('common.booking_panel.length') }}</span
+            ><HelpTip :text="t('common.booking_panel.length_hint')"
+          /></span>
           <input
             v-model.number="durationHours"
             type="number"
@@ -778,10 +842,25 @@ function guideCancel() {
             inputmode="decimal"
           />
         </label>
+        <label>
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('common.booking_panel.party') }}</span
+            ><HelpTip :text="t('common.booking_panel.party_hint')"
+          /></span>
+          <input
+            v-model="party"
+            type="text"
+            maxlength="80"
+            :placeholder="t('common.booking_panel.party_placeholder')"
+            data-test="booking-party"
+          />
+        </label>
       </div>
       <label>
-        {{ t('common.booking_panel.where_to_meet') }}
-        <span class="muted">{{ t('common.booking_panel.optional') }}</span>
+        <span class="field-label"
+          ><span class="field-label-text">{{ t('common.booking_panel.where_to_meet') }}</span
+          ><span class="field-label-optional">{{ t('common.booking_panel.optional') }}</span></span
+        >
         <input
           v-model="location"
           type="text"
@@ -1040,7 +1119,60 @@ function guideCancel() {
 .fields {
   display: grid;
   gap: 0 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+// "When": looks like a field, opens the guide's calendar in a modal.
+.field {
+  margin-bottom: var(--pico-spacing);
+
+  // Not a <label> (it labels a button), so it borrows a label's look.
+  > .field-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+}
+
+.slot-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: var(--rg-control-height);
+  margin: 0;
+  padding: 0 0.75rem;
+  border: 1px solid var(--rg-line-strong);
+  border-radius: var(--rg-radius-control);
+  background: #fff;
+  color: var(--rg-ink);
+  font-weight: 500;
+  text-align: start;
+
+  svg {
+    flex: 0 0 auto;
+    fill: none;
+    stroke: var(--rg-orange-500);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: #fff;
+    border-color: var(--rg-orange-500);
+    color: var(--rg-ink);
+  }
+}
+
+.slot-field--empty span {
+  color: var(--rg-muted);
 }
 
 .cancel-summary {

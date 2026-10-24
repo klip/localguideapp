@@ -1,5 +1,5 @@
 {
-  "version": "2ea9f0fb34b3",
+  "version": "97475c87bc64",
   "routes": [
     {
       "name": "root",
@@ -362,6 +362,7 @@
       "common.level",
       "common.map_links",
       "common.protected_notice",
+      "common.help_tip",
       "common.slot_picker"
     ],
     "trips": [
@@ -378,6 +379,7 @@
       "common.level",
       "common.map_links",
       "common.protected_notice",
+      "common.help_tip",
       "common.slot_picker"
     ],
     "messages": [
@@ -444,7 +446,8 @@
       "common.range_picker",
       "common.rating",
       "common.standing",
-      "common.time_ago"
+      "common.time_ago",
+      "common.help_tip"
     ],
     "not-found": [
       "not_found.panel"

@@ -103,12 +103,12 @@
   }
 }
 
-// Below `lg` the header's tab bar is fixed to the foot of the screen
+// While the header shows its tab bar, fixed to the foot of the screen
 // (AppHeader.vue); keep the page's end clear of it.
 $tabbar-clearance: calc(4rem + env(safe-area-inset-bottom));
 
-@media (max-width: 1023.98px) {
-  .app-shell {
-    padding-bottom: $tabbar-clearance;
-  }
+// `has-tabbar` is set by AppHeader while it shows the tab bar (it measures
+// whether the menu fits in the header — no fixed breakpoint).
+:root.has-tabbar .app-shell {
+  padding-bottom: $tabbar-clearance;
 }

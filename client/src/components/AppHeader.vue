@@ -137,7 +137,6 @@ function onLocaleKeydown(event: KeyboardEvent) {
  * within the drawer, Escape / the backdrop / the close button / following
  * any link closes it.
  */
-const DESKTOP_QUERY = '(min-width: 1024px)' // keep in sync with `bp.$lg`
 
 const menuOpen = ref(false)
 const burgerRef = ref<HTMLButtonElement | null>(null)
@@ -205,69 +204,101 @@ watch(menuOpen, (open) => {
 })
 
 /**
- * Desktop links: icon and label on one line while they fit; when the row
- * runs out of room (narrower windows, longer languages, more links) the
- * labels move under the icons. Measured, not guessed per breakpoint: the
- * width the one-line row needed is remembered, and it goes back to one line
- * once that much room is free again.
+ * The header's layout is measured, not set by a breakpoint:
+ *   - `wide`    — one row: logo, the links (icon + label) centred, the controls;
+ *   - `compact` — the same row with each label under its icon;
+ *   - `mobile`  — the links move to the tab bar at the foot, the menu button
+ *                 and the drawer take the rest.
+ * It steps down when the links overflow their room and back up once the
+ * window is as wide as the step needed (remembered when it stepped down).
+ * A change of role, sign-in or language changes the links, so it measures
+ * afresh from `wide`. Before mounting it guesses from the window.
  */
+type HeaderMode = 'wide' | 'compact' | 'mobile'
+const mode = ref<HeaderMode>(
+  typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'wide' : 'mobile',
+)
+const isDesktop = computed(() => mode.value !== 'mobile')
 const linksRef = ref<HTMLElement | null>(null)
-const linksCompact = ref(false)
-let oneLineWidth = 0
-let linksObserver: ResizeObserver | null = null
+/** Window widths at which `wide` / `compact` were last seen to fit. */
+let wideNeeds = 0
+let compactNeeds = 0
+let fitting = false
 
-function fitLinks() {
+function overflow(): number {
   const list = linksRef.value
-  if (!list || !desktopQuery?.matches) {
-    linksCompact.value = false
-    return
-  }
-  if (!linksCompact.value) {
-    if (list.scrollWidth > list.clientWidth + 1) {
-      oneLineWidth = list.scrollWidth
-      linksCompact.value = true
+  return list ? list.scrollWidth - list.clientWidth : 0
+}
+
+async function fit() {
+  if (fitting || typeof window === 'undefined') return
+  fitting = true
+  try {
+    const width = window.innerWidth
+    // Step up while there's room for the next mode…
+    if (mode.value === 'mobile' && compactNeeds && width >= compactNeeds) mode.value = 'compact'
+    if (mode.value === 'compact' && width >= wideNeeds) mode.value = 'wide'
+    await nextTick()
+    // …and down while the links don't fit.
+    if (mode.value === 'wide' && overflow() > 1) {
+      wideNeeds = width + overflow()
+      mode.value = 'compact'
+      await nextTick()
     }
-  } else if (list.clientWidth >= oneLineWidth) {
-    linksCompact.value = false
+    if (mode.value === 'compact' && overflow() > 1) {
+      compactNeeds = width + overflow()
+      mode.value = 'mobile'
+    }
+  } finally {
+    fitting = false
   }
 }
 
-/** The links themselves changed (role, sign-in, language): measure the one-line row afresh. */
-function remeasureLinks() {
-  linksCompact.value = false
-  void nextTick(fitLinks)
+/** The links themselves changed: measure from the top again. */
+function remeasure() {
+  wideNeeds = 0
+  compactNeeds = 0
+  mode.value = 'wide'
+  void nextTick(fit)
 }
-watch([isAuthenticated, activeRole, currentLanguage], remeasureLinks)
+watch([isAuthenticated, activeRole, currentLanguage], remeasure)
 
-let desktopQuery: MediaQueryList | null = null
-function onViewportChange(event: MediaQueryListEvent) {
-  if (event.matches) closeMenu()
-  remeasureLinks()
+watch(isDesktop, (desktop) => {
+  if (desktop) closeMenu()
+  // The page keeps clear of the tab bar only while there is one (_layout.scss).
+  document.documentElement.classList.toggle('has-tabbar', !desktop)
+})
+
+function onResize() {
+  void fit()
 }
 
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointer)
-  // Absent in jsdom (unit tests) — nothing to react to there anyway.
-  if (typeof window.matchMedia !== 'function') return
-  desktopQuery = window.matchMedia(DESKTOP_QUERY)
-  desktopQuery.addEventListener('change', onViewportChange)
-  if (typeof ResizeObserver === 'function' && linksRef.value) {
-    linksObserver = new ResizeObserver(fitLinks)
-    linksObserver.observe(linksRef.value)
-  }
-  fitLinks()
+  document.documentElement.classList.toggle('has-tabbar', !isDesktop.value)
+  window.addEventListener('resize', onResize)
+  remeasure()
+  // Web fonts change the links' widths once they arrive.
+  void document.fonts?.ready.then(remeasure)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocumentPointer)
-  desktopQuery?.removeEventListener('change', onViewportChange)
-  linksObserver?.disconnect()
+  window.removeEventListener('resize', onResize)
+  document.documentElement.classList.remove('has-tabbar')
   document.body.style.overflow = ''
 })
 </script>
 
 <template>
-  <header class="topbar">
+  <header
+    class="topbar"
+    :class="{
+      'topbar--desktop': isDesktop,
+      'topbar--compact': mode === 'compact',
+    }"
+    :data-mode="mode"
+  >
     <!-- The honeycomb behind the logo, clipped to the header. -->
     <div class="topbar-comb" aria-hidden="true">
       <div class="topbar-comb-inner">
@@ -388,7 +419,7 @@ onBeforeUnmount(() => {
             </span>
           </RouterLink>
 
-          <ul ref="linksRef" class="nav" :class="{ 'nav--compact': linksCompact }">
+          <ul ref="linksRef" class="nav" :class="{ 'nav--compact': mode === 'compact' }">
             <!-- Marketing copy for prospects only — a signed-in user is past it. -->
             <li v-if="!isAuthenticated">
               <RouterLink to="/about#how" class="nav-link"
@@ -1275,11 +1306,12 @@ nav .nav {
   pointer-events: auto;
 }
 
-// --- Desktop (from `lg`, 1024px): one row ----------------------------------------
-// Logo, the links, then picks, language, role, profile and Log out. When the
-// links don't fit on one line, `nav--compact` puts each label under its icon.
+// --- Desktop (`topbar--desktop`, measured — see `fit()`): one row ----------------
+// Logo, the links centred in the room left, then picks, language, role,
+// profile and Log out. When the links don't fit on one line, `nav--compact`
+// puts each label under its icon; when even that doesn't fit, it's mobile.
 
-@include bp.lg {
+.topbar--desktop {
   nav {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto auto auto auto auto;
@@ -1416,9 +1448,10 @@ nav .nav {
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
+    // Centred between the logo and the controls; `safe` keeps an overflowing
+    // row starting at its left, so its overflow can be measured (`fit()`).
+    justify-content: safe center;
     gap: 0.25rem;
-    // Measured by fitLinks(): the one-line row overflowing this box is what
-    // switches to compact.
     overflow: hidden;
 
     li {
@@ -1457,12 +1490,10 @@ nav .nav {
   }
 }
 
-// 1024–1279: the language button is just the globe (its label is the
-// tooltip and screen-reader text), to leave the links their room.
-@media (min-width: 1024px) and (max-width: 1279.98px) {
-  .locale-label {
-    display: none;
-  }
+// Tight on room: the language button is just the globe (its label is the
+// tooltip and screen-reader text), to leave the links theirs.
+.topbar--compact .locale-label {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

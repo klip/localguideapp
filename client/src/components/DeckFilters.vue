@@ -126,8 +126,11 @@ defineExpose({ close })
         <ClearFilters class="rail-clear" />
       </summary>
       <div class="filters-body" :style="{ '--pane-max-height': paneMaxHeight }">
-        <p class="tiny muted hint">{{ hint }}</p>
-        <FilterPanel :compact="compact" :target-role="targetRole" />
+        <!-- Only the filters scroll; the buttons are a solid footer under them. -->
+        <div class="filters-scroll">
+          <p class="tiny muted hint">{{ hint }}</p>
+          <FilterPanel :compact="compact" :target-role="targetRole" />
+        </div>
         <div class="pane-actions">
           <button type="button" class="secondary" @click="filtersStore.reset()">
             {{ t('common.filter_panel.clear') }}
@@ -180,17 +183,14 @@ defineExpose({ close })
 }
 
 .pane-actions {
-  position: sticky;
-  bottom: 0;
+  flex: 0 0 auto;
   display: grid;
   // Clear sizes to its words (long in some languages); Show takes the rest.
   grid-template-columns: auto 1fr;
   gap: 0.625rem;
-  margin: 0.5rem -1rem -1rem;
   padding: 0.75rem 1rem;
   background: #fff;
   border-top: 1px solid var(--rg-line);
-  border-radius: 0 0 var(--rg-radius-panel) var(--rg-radius-panel);
 
   button {
     height: 3rem;
@@ -270,20 +270,31 @@ defineExpose({ close })
     margin-bottom: 0;
   }
 
+  // A column: the filters scroll, the footer with the buttons stays put
+  // (no gap under it for the list to show through).
   .filters-disclosure[open] > .filters-body {
     position: absolute;
     top: calc(100% + 0.5rem);
     // The page's own side padding keeps it off the screen's edges.
     inset-inline: 0;
     z-index: 2;
+    display: flex;
+    flex-direction: column;
     max-height: var(--pane-max-height, 70dvh);
-    overflow-y: auto;
-    padding: 0.75rem 1rem 1rem;
+    overflow: hidden;
     background: #fff;
     border: 1px solid var(--rg-line);
     border-radius: var(--rg-radius-panel);
     box-shadow: 0 16px 40px rgba(42, 31, 23, 0.18);
     animation: pane-down 0.22s ease;
+  }
+
+  .filters-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.75rem 1rem;
   }
 
   .pane-backdrop {

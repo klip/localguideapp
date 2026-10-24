@@ -238,7 +238,7 @@ class Bookings
      * map pin shared from the guest's device. The booking waits for the guide
      * to accept it. Returns the new booking.
      */
-    public function pay(int $guestId, int $guideId, string $meetingAt, $durationHours = null, string $location = '', $latitude = null, $longitude = null): array
+    public function pay(int $guestId, int $guideId, string $meetingAt, $durationHours = null, string $location = '', $latitude = null, $longitude = null, string $party = ''): array
     {
         $selection = $this->activeSelection($guestId, $guideId);
         if (Freezes::activeFor($this->db, $guideId) !== null) {
@@ -257,6 +257,7 @@ class Bookings
         $duration = self::parseDuration($durationHours);
         $location = self::parseLocation($location);
         $pin = self::parsePin($latitude, $longitude);
+        $party = self::parseParty($party);
 
         // A guide with a calendar (`Availability`) is booked only at a free
         // time — checked again here under the guide's lock, so two guests
@@ -277,7 +278,7 @@ class Bookings
             }
         }
         try {
-            return $this->recordPayment($selection, $guestId, $guideId, $fee, $meeting, $duration, $location, $pin);
+            return $this->recordPayment($selection, $guestId, $guideId, $fee, $meeting, $duration, $location, $pin, $party);
         } finally {
             if ($lock !== null) {
                 $this->db->db_Execute('DO RELEASE_LOCK("' . $lock . '")');
@@ -286,7 +287,7 @@ class Bookings
     }
 
     /** The payment row and the guide's notification — `pay()` after its checks. */
-    private function recordPayment(array $selection, int $guestId, int $guideId, float $fee, int $meeting, ?float $duration, ?string $location, ?array $pin): array
+    private function recordPayment(array $selection, int $guestId, int $guideId, float $fee, int $meeting, ?float $duration, ?string $location, ?array $pin, ?string $party = null): array
     {
         $fields = [
             'selection_id' => (int) $selection['id'],
@@ -305,6 +306,9 @@ class Bookings
         }
         if ($pin !== null) {
             [$fields['location_lat'], $fields['location_lng']] = $pin;
+        }
+        if ($party !== null) {
+            $fields['party'] = $party;
         }
         // The platform fee, fixed now: by the guide's level, or none during a
         // no-fee bonus (`Levels`). What the guide receives is the rest.
@@ -1455,7 +1459,7 @@ BeLikeLocal",
         $rows = $this->db->db_GetArray(
             'SELECT b.`id`, b.`selection_id`, b.`' . $their . '_id` AS `counterpart_id`,
                     b.`status` AS `booking_status`, b.`payment_status`, b.`amount` AS `booking_amount`,
-                    b.`meeting_at`, b.`duration_hours` AS `booking_duration_hours`, b.`location`,
+                    b.`meeting_at`, b.`duration_hours` AS `booking_duration_hours`, b.`party` AS `booking_party`, b.`location`,
                     b.`location_lat`, b.`location_lng`,
                     b.`refund_amount`, b.`trip_status`, b.`accepted_at`,
                     b.`cancel_reason`, b.`cancelled_at`, b.`cancel_requested_at`, b.`cancel_request_reason`,
@@ -1735,6 +1739,23 @@ BeLikeLocal",
     }
 
     /** Trimmed, single-spaced, at most `MAX_LOCATION_LENGTH` characters; `null` when empty. */
+    /**
+     * Who's coming ("2 adults"), from the payment form — optional, at most 80
+     * characters, shown to the guide. Masked like the meeting place: the
+     * guide reads it, and contact details are never shared.
+     */
+    private static function parseParty(string $value): ?string
+    {
+        $value = trim((string) preg_replace('/\s+/u', ' ', $value));
+        if ($value === '') {
+            return null;
+        }
+        if (mb_strlen($value) > 80) {
+            throw new RuntimeException('Keep who’s coming short — 80 characters at most.');
+        }
+        return mb_substr(ContactFilter::mask($value, 'party'), 0, 80);
+    }
+
     private static function parseLocation(string $value): ?string
     {
         $value = trim((string) preg_replace('/\s+/u', ' ', $value));

@@ -113,7 +113,12 @@ describe('paying a guide who keeps a calendar', () => {
     await wrapper.find('[data-day="2030-01-15"]').trigger('click')
     await flushPromises()
     expect(api.guideStartTimes).toHaveBeenCalledWith(7, '2030-01-15', 3)
+    // The calendar is in a modal; the form's "When" field shows what was picked.
+    expect(wrapper.find('dialog [data-test="slot-picker"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="slot-done"]').attributes('disabled')).toBeDefined()
     await wrapper.find(`[data-start="${START}"]`).trigger('click')
+    expect(wrapper.get('[data-test="slot-done"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('[data-test="slot-open"]').text()).toContain('3 h')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 

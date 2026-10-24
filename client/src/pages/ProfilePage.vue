@@ -8,6 +8,7 @@ import LevelPanel from '@/components/LevelPanel.vue'
 import PanelCard from '@/components/PanelCard.vue'
 import PlaceSearch from '@/components/PlaceSearch.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
+import HelpTip from '@/components/HelpTip.vue'
 import TermsDialog from '@/components/TermsDialog.vue'
 import { t, tn } from '@/i18n'
 import { COUNTRY_CODES, countryForDialCode } from '@/data/countryCodes'
@@ -227,7 +228,7 @@ const completeness = computed(() => {
     Boolean(headline.value.trim()),
     Boolean(bio.value.trim()),
     Object.values(selectedAttributes).some((values) => values.length > 0),
-    isGuide.value ? priceAmount.value !== null || Boolean(guideBase.value) : Boolean(party.value),
+    ...(isGuide.value ? [priceAmount.value !== null || Boolean(guideBase.value)] : []),
   ]
   return Math.round((checks.filter(Boolean).length / checks.length) * 100)
 })
@@ -237,8 +238,6 @@ const priceAmount = ref<number | null>(null)
 const priceLabel = ref('')
 const priceNote = ref('')
 const includes = ref('')
-const party = ref('')
-const durationHours = ref<number | null>(null)
 // Where a guide works, and how far they'll travel (empty = flexible).
 const guideBase = ref<PlacePoint | null>(null)
 const radiusKm = ref<number | ''>('')
@@ -446,8 +445,6 @@ function applyProfile(data: MyProfile) {
   priceLabel.value = data.price_label ?? ''
   priceNote.value = data.price_note ?? ''
   includes.value = data.includes ?? ''
-  party.value = data.party ?? ''
-  durationHours.value = data.duration_hours
   const base = data.guide_base ?? null
   guideBase.value = base
     ? {
@@ -637,8 +634,6 @@ async function saveProfile() {
       priceLabel: priceLabel.value.trim(),
       priceNote: priceNote.value.trim(),
       includes: includes.value.trim(),
-      party: party.value.trim(),
-      ...(durationHours.value !== null ? { durationHours: durationHours.value } : {}),
       attributes: { ...selectedAttributes },
       newCategoryLabels: { ...newCategoryLabels },
       ranges: { ...selectedRanges },
@@ -849,7 +844,9 @@ async function changePassword() {
 
         <div class="two-up">
           <label>
-            {{ t('profile.details.date_of_birth') }}
+            <span class="field-label"
+              ><span class="field-label-text">{{ t('profile.details.date_of_birth') }}</span></span
+            >
             <input v-model="dateOfBirth" type="date" :max="todayIso" />
           </label>
           <SegmentedControl
@@ -862,7 +859,9 @@ async function changePassword() {
         </div>
 
         <label>
-          {{ t('profile.details.headline') }}
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('profile.details.headline') }}</span></span
+          >
           <input
             v-model="headline"
             type="text"
@@ -874,7 +873,9 @@ async function changePassword() {
         </label>
 
         <label class="last">
-          {{ t('profile.details.bio') }}
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('profile.details.bio') }}</span></span
+          >
           <textarea
             v-model="bio"
             rows="3"
@@ -887,16 +888,18 @@ async function changePassword() {
         </label>
       </div>
 
-      <!-- The role's own fields: a guide's area and fee, a traveller's group and trip. -->
-      <div class="profile-card">
-        <h2 class="card-title">
-          {{ isGuide ? t('profile.details.guide_section') : t('profile.details.trip_section') }}
-        </h2>
+      <!-- A guide's own fields: where they guide and their fee. (A traveller's
+           group and trip length are asked when they pay a guide — BookingPanel.) -->
+      <div v-if="isGuide" class="profile-card">
+        <h2 class="card-title">{{ t('profile.details.guide_section') }}</h2>
         <template v-if="isGuide">
           <fieldset class="guide-base" data-test="guide-base">
-            <legend>{{ t('profile.details.base_title') }}</legend>
-            <label for="guide-base-place" class="tiny muted">{{
-              t('profile.details.base_hint')
+            <legend class="field-label">
+              <span class="field-label-text">{{ t('profile.details.base_title') }}</span>
+              <HelpTip :text="t('profile.details.base_hint')" />
+            </legend>
+            <label for="guide-base-place" class="visually-hidden">{{
+              t('profile.details.base_title')
             }}</label>
             <PlaceSearch v-model="guideBase" input-id="guide-base-place" />
             <p v-if="guideBase" class="tiny base-chosen">
@@ -911,7 +914,11 @@ async function changePassword() {
               </button>
             </p>
             <label>
-              {{ t('profile.details.radius_label') }}
+              <span class="field-label"
+                ><span class="field-label-text">{{ t('profile.details.radius') }}</span
+                ><HelpTip
+                  :text="`${t('profile.details.radius_label')}. ${t('profile.details.radius_hint')}`"
+              /></span>
               <input
                 v-model.number="radiusKm"
                 type="number"
@@ -919,28 +926,22 @@ async function changePassword() {
                 max="1000"
                 step="1"
                 :disabled="!guideBase"
-                aria-describedby="radius-hint"
                 data-test="guide-radius"
               />
-              <small id="radius-hint" class="muted">{{ t('profile.details.radius_hint') }}</small>
             </label>
           </fieldset>
           <div class="two-up">
             <label>
-              {{ t('profile.details.price_amount') }}
-              <input
-                v-model.number="priceAmount"
-                type="number"
-                min="0"
-                step="0.01"
-                aria-describedby="price-amount-hint"
-              />
-              <small id="price-amount-hint" class="muted">
-                {{ t('profile.details.price_amount_hint') }}
-              </small>
+              <span class="field-label"
+                ><span class="field-label-text">{{ t('profile.details.price') }}</span
+                ><HelpTip :text="t('profile.details.price_amount_hint')"
+              /></span>
+              <input v-model.number="priceAmount" type="number" min="0" step="0.01" />
             </label>
             <label>
-              {{ t('profile.details.price_label') }}
+              <span class="field-label"
+                ><span class="field-label-text">{{ t('profile.details.price_label') }}</span></span
+              >
               <input
                 v-model="priceLabel"
                 type="text"
@@ -952,7 +953,9 @@ async function changePassword() {
             </label>
           </div>
           <label>
-            {{ t('profile.details.price_note') }}
+            <span class="field-label"
+              ><span class="field-label-text">{{ t('profile.details.price_note') }}</span></span
+            >
             <input
               v-model="priceNote"
               type="text"
@@ -962,7 +965,9 @@ async function changePassword() {
             />
           </label>
           <label class="last">
-            {{ t('profile.details.includes') }}
+            <span class="field-label"
+              ><span class="field-label-text">{{ t('profile.details.includes') }}</span></span
+            >
             <textarea
               v-model="includes"
               rows="2"
@@ -972,23 +977,6 @@ async function changePassword() {
             />
           </label>
         </template>
-        <div v-else class="two-up last">
-          <label>
-            {{ t('profile.details.party') }}
-            <input
-              v-model="party"
-              type="text"
-              :placeholder="t('profile.details.party_placeholder')"
-              data-field="party"
-              :aria-invalid="invalidField === 'party' || undefined"
-              @input="clearInvalid('party')"
-            />
-          </label>
-          <label>
-            {{ t('profile.details.duration') }}
-            <input v-model.number="durationHours" type="number" min="1" max="24" />
-          </label>
-        </div>
       </div>
 
       <div class="profile-card attributes-editor" data-field="attribute" tabindex="-1">
@@ -1052,7 +1040,9 @@ async function changePassword() {
         </div>
 
         <label class="tiny add-category">
-          {{ t('profile.details.add_category') }}
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('profile.details.add_category') }}</span></span
+          >
           <AttributeCombobox
             v-model="categoryQuery"
             :suggestions="categorySuggestions"
@@ -1091,7 +1081,9 @@ async function changePassword() {
     <div v-else-if="section === 'contact'" ref="accountPanelRef" class="profile-form">
       <form class="profile-card" data-test="form-account" @submit.prevent="saveAccount">
         <label>
-          {{ t('profile.contact.name') }}
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('profile.contact.name') }}</span></span
+          >
           <input
             v-model="name"
             type="text"
@@ -1102,13 +1094,17 @@ async function changePassword() {
           />
         </label>
         <label>
-          {{ t('common.contact.email') }}
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('common.contact.email') }}</span></span
+          >
           <input v-model="email" type="email" autocomplete="email" required />
         </label>
 
         <div class="phone-row">
           <label class="phone-code">
-            {{ t('profile.contact.country_code') }}
+            <span class="field-label"
+              ><span class="field-label-text">{{ t('profile.contact.country_code') }}</span></span
+            >
             <AttributeCombobox
               v-model="phoneCountryQuery"
               :suggestions="countryCodeSuggestions"
@@ -1118,13 +1114,18 @@ async function changePassword() {
             />
           </label>
           <label class="phone-number">
-            {{ t('common.contact.phone') }}
+            <span class="field-label"
+              ><span class="field-label-text">{{ t('common.contact.phone') }}</span></span
+            >
             <input v-model="phoneNumber" type="tel" autocomplete="tel" placeholder="56002731" />
           </label>
         </div>
 
         <label>
-          {{ t('profile.contact.two_factor') }}
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('profile.contact.two_factor') }}</span
+            ><HelpTip :text="t('profile.contact.two_factor_hint')"
+          /></span>
           <select v-model="twoFactorMethod" required>
             <option value="" disabled>{{ t('profile.contact.two_factor_choose') }}</option>
             <option value="email">{{ t('common.contact.email') }}</option>
@@ -1134,9 +1135,6 @@ async function changePassword() {
               {{ t('profile.contact.two_factor_whatsapp') }}
             </option>
           </select>
-          <small class="tiny muted">
-            {{ t('profile.contact.two_factor_hint') }}
-          </small>
         </label>
 
         <!-- Set by the identity check, not editable here (see Ranking.php). -->
@@ -1176,7 +1174,9 @@ async function changePassword() {
       >
         <h2 class="card-title">{{ t('profile.password.title') }}</h2>
         <label>
-          {{ t('profile.password.current') }}
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('profile.password.current') }}</span></span
+          >
           <input
             v-model="currentPassword"
             type="password"
@@ -1185,11 +1185,15 @@ async function changePassword() {
           />
         </label>
         <label>
-          {{ t('profile.password.new') }}
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('profile.password.new') }}</span></span
+          >
           <input v-model="newPassword" type="password" autocomplete="new-password" required />
         </label>
         <label>
-          {{ t('profile.password.confirm') }}
+          <span class="field-label"
+            ><span class="field-label-text">{{ t('profile.password.confirm') }}</span></span
+          >
           <input v-model="confirmPassword" type="password" autocomplete="new-password" required />
         </label>
         <button
@@ -1478,7 +1482,7 @@ label {
 // One Save, pinned to the foot: above the tab bar on mobile.
 .save-bar {
   position: sticky;
-  bottom: calc(4rem + env(safe-area-inset-bottom));
+  bottom: 0;
   z-index: 5;
   margin: 0.25rem -1rem 0;
   padding: 0.75rem 1rem;
@@ -1493,8 +1497,9 @@ label {
     font-weight: 600;
   }
 
-  @include bp.lg {
-    bottom: 0;
+  // Above the tab bar while there is one (AppHeader.vue).
+  :global(.has-tabbar) & {
+    bottom: calc(4rem + env(safe-area-inset-bottom));
   }
 }
 
@@ -1556,7 +1561,14 @@ label {
 .phone-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  align-items: end;
   gap: 0.75rem;
+
+  // The combobox wraps its input; line both fields up on one baseline.
+  :deep(.combobox input),
+  input {
+    margin-bottom: 0;
+  }
 }
 
 .verification {

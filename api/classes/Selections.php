@@ -165,7 +165,7 @@ class Selections
                     gb.`label` AS `guide_place`,
                     b.`id` AS `booking_id`, b.`status` AS `booking_status`, b.`payment_status`,
                     b.`amount` AS `booking_amount`, b.`meeting_at`, b.`refund_amount`, b.`trip_status`,
-                    b.`duration_hours` AS `booking_duration_hours`, b.`location`, b.`accepted_at`,
+                    b.`duration_hours` AS `booking_duration_hours`, b.`party` AS `booking_party`, b.`location`, b.`accepted_at`,
                     b.`location_lat`, b.`location_lng`,
                     b.`cancel_requested_at`, b.`cancel_request_reason`,
                     b.`finish_requested_by`, b.`finished_at`, b.`started_at`, b.`disputed_at`,

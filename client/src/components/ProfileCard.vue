@@ -63,9 +63,26 @@ const emit = defineEmits<{
         <span v-if="photoNote" class="photo-note">{{ photoNote }}</span>
         <!-- Level, name and rating over the photo's bottom edge, as on the profile page. -->
         <span class="photo-copy">
-          <StandingBadges v-if="standing" :standing="standing" on-photo class="card-badges" />
-          <strong class="photo-name">{{ name }}, {{ age }}</strong>
+          <!-- Name (with a verified tick), rating and reviews, then level and trips. -->
+          <strong class="photo-name"
+            >{{ name }}, {{ age
+            }}<span
+              v-if="standing?.verified"
+              class="photo-verified"
+              :title="t('common.standing.verified_title')"
+              data-test="card-verified"
+              ><span aria-hidden="true">✓</span
+              ><span class="visually-hidden">{{ t('common.standing.verified') }}</span></span
+            ></strong
+          >
           <span v-if="meta" class="photo-meta">{{ meta }}</span>
+          <StandingBadges
+            v-if="standing"
+            :standing="standing"
+            on-photo
+            hide-verified
+            class="card-badges"
+          />
         </span>
       </component>
 
@@ -159,6 +176,26 @@ const emit = defineEmits<{
   font-family: var(--rg-font-display);
   font-size: 1.625rem;
   line-height: 1.1;
+}
+
+.photo-verified {
+  display: inline-grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-inline-start: 0.4rem;
+  vertical-align: 0.15em;
+  border-radius: 50%;
+  background: var(--rg-green);
+  color: #fff;
+  font-family: var(--pico-font-family);
+  font-size: 0.75rem;
+  font-weight: 800;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.card-badges {
+  margin-top: 0.3rem;
 }
 
 .photo-meta {

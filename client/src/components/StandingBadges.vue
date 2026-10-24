@@ -12,9 +12,15 @@ import { levelLabel } from '@/utils/levels'
  * so a visitor can see *why* someone is near the top. Presentational: renders
  * nothing when there's nothing to show.
  */
-const props = withDefaults(defineProps<{ standing: Standing; onPhoto?: boolean }>(), {
-  onPhoto: false,
-})
+const props = withDefaults(
+  defineProps<{
+    standing: Standing
+    onPhoto?: boolean
+    /** The deck card shows "verified" as an icon by the name instead. */
+    hideVerified?: boolean
+  }>(),
+  { onPhoto: false, hideVerified: false },
+)
 
 const badges = computed(() => {
   const list: { key: string; icon: string; label: string; title: string }[] = []
@@ -35,7 +41,7 @@ const badges = computed(() => {
       title: t('common.standing.level_title'),
     })
   }
-  if (props.standing.verified) {
+  if (props.standing.verified && !props.hideVerified) {
     list.push({
       key: 'verified',
       icon: '✓',
