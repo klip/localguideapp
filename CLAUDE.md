@@ -434,7 +434,7 @@ own — every one just takes props/emits):
   `DiscoverPage.vue`, `GuideDiscoverPage.vue` and `GuideProfilePage.vue`
   all use the default labels.
 - `ProfileCard.vue` — the discovery card: a tall photo with, over its
-  bottom edge on a scrim, **the name/age with a green ✓ when verified
+  bottom edge on a scrim, **the name/age with a small honey ✓ when verified
   (`card-verified`), then the rating and reviews, then the level and trips
   badges** (`StandingBadges hide-verified`), like the profile page's hero (`photoNote` — "3 km
   away" — at its top left); then price (guide side only), bio (clamped),

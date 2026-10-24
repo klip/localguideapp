@@ -181,15 +181,15 @@ const emit = defineEmits<{
 .photo-verified {
   display: inline-grid;
   place-items: center;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1rem;
+  height: 1rem;
   margin-inline-start: 0.4rem;
-  vertical-align: 0.15em;
+  vertical-align: 0.55em;
   border-radius: 50%;
-  background: var(--rg-green);
+  background: var(--pico-primary-background);
   color: #fff;
   font-family: var(--pico-font-family);
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   font-weight: 800;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
 }
