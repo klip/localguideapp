@@ -2737,6 +2737,20 @@ way they will in production — so the `Secure` cookies work in every browser
   through `WS_EXTRA_ORIGINS` in the env file, so the app connects and
   browsing works — but signing in doesn't: the `__Host-` cookies need HTTPS.
   Use `https://www.belikelocal.club`.
+- **On a phone on the same Wi-Fi**: `docker exec -d -w
+  /var/www/localguideapp/client lemp-node yarn phone`, then open
+  `https://<the Mac's Wi-Fi address>:3002` (e.g. `https://192.168.1.132:3002`,
+  `ipconfig getifaddr en0`) and accept the certificate warning once.
+  browser-sync (`client/browser-sync.config.cjs`, baked into the lemp-node
+  image — `docker-lemp/node/Dockerfile`) serves HTTPS with its own
+  certificate and proxies the Vite dev server; port 3002 is published. The
+  phone can't look up `api.belikelocal.club`, so in development a page on
+  any other address uses `/ws` on its own address (`plugins/socket.ts`),
+  which Vite forwards to the gateway; `/auth/` likewise — both proxies send
+  `Origin: http://localhost:5173`, which lib/Origins.php already allows, so
+  no server setting depends on the Wi-Fi address. Sign-in works (HTTPS, and
+  `cookies.stripDomain: false` keeps the cookies' `Secure`); browser-sync
+  reloads the phone on source changes (Vite's hot reload can't reach it).
 
 ### Email
 

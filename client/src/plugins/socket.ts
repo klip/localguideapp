@@ -181,10 +181,26 @@ export class ApiSocket {
   }
 }
 
-/** `ws(s)://<api host>/ws`, from `VITE_API_BASE_URL` unless `VITE_WS_URL` says otherwise. */
+/**
+ * `ws(s)://<api host>/ws`, from `VITE_API_BASE_URL` unless `VITE_WS_URL` says
+ * otherwise. In development, a page opened on some other address — a phone
+ * on the Wi-Fi through browser-sync (`yarn phone`), which can't look up
+ * `api.belikelocal.club` — uses `/ws` on its own address instead, which the
+ * dev server forwards to the gateway (vite.config.ts).
+ */
 function socketUrl(): string {
   if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL
-  const base = (import.meta.env.VITE_API_BASE_URL ?? 'https://api.belikelocal.club').replace(/\/+$/, '')
+  if (
+    import.meta.env.DEV &&
+    typeof location !== 'undefined' &&
+    !/(^|\.)belikelocal\.club$|^localhost$/.test(location.hostname)
+  ) {
+    return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
+  }
+  const base = (import.meta.env.VITE_API_BASE_URL ?? 'https://api.belikelocal.club').replace(
+    /\/+$/,
+    '',
+  )
   return base.replace(/^http/, 'ws') + '/ws'
 }
 

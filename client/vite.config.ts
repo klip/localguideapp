@@ -5,13 +5,12 @@ import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
+/** An origin the auth service and the gateway accept (lib/Origins.php). */
+const DEV_ORIGIN = 'http://localhost:5173'
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    vue(),
-    vueJsx(),
-    vueDevTools(),
-  ],
+  plugins: [vue(), vueJsx(), vueDevTools()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -45,6 +44,22 @@ export default defineConfig({
       '/auth/': {
         target: process.env.AUTH_PROXY_TARGET ?? 'http://nginx:8083',
         xfwd: true,
+        // A page on another address (a phone through browser-sync) sends its
+        // own Origin, which the auth service doesn't know; through this dev
+        // proxy it's the dev server's, which it does (lib/Origins.php).
+        configure: (proxy) => {
+          proxy.on('proxyReq', (req) => req.setHeader('origin', DEV_ORIGIN))
+        },
+      },
+      // The API socket, for a page that can't reach api.belikelocal.club
+      // (src/plugins/socket.ts) — straight to the gateway.
+      '/ws': {
+        target: process.env.WS_PROXY_TARGET ?? 'http://ws:8090',
+        ws: true,
+        xfwd: true,
+        configure: (proxy) => {
+          proxy.on('proxyReqWs', (req) => req.setHeader('origin', DEV_ORIGIN))
+        },
       },
     },
   },
