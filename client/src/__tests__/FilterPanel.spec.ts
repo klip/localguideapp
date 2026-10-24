@@ -240,14 +240,15 @@ describe('FilterPanel', () => {
     })
     await flushPromises()
     expect(location.find('[data-test="near-label"]').text()).toContain('Lisbon, Portugal')
-    // "Location" and the place share a line; the place itself opens the search.
-    expect(location.find('.near').text()).toContain('Location')
+    // The row is the place itself, which opens the search (and hides meanwhile).
     expect(location.find('.near-edit').exists()).toBe(false)
     await location.get('[data-test="near-change"]').trigger('click')
     expect(location.find('.near-edit').exists()).toBe(true)
+    expect(location.find('.near').exists()).toBe(false)
     // PlaceSearch's own Cancel, beside "Use my current location", ends editing.
     await location.get('[data-test="place-cancel"]').trigger('click')
     expect(location.find('.near-edit').exists()).toBe(false)
+    expect(location.find('.near').exists()).toBe(true)
     // A place ranks, it doesn't filter — and the default distance isn't a choice either.
     expect(store.isPristine).toBe(true)
 
