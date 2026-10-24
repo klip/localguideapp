@@ -622,11 +622,6 @@ onBeforeUnmount(() => {
 
     <!-- Mobile: the main sections as a tab bar at the foot of the screen; Menu opens the drawer. -->
     <nav class="tabbar" :aria-label="t('common.app_header.nav_label')" data-test="tabbar">
-      <RouterLink :to="discoverTo" class="tab"
-        ><NavIcon name="discover" /><span class="tab-label">{{
-          t('common.app_header.discover')
-        }}</span></RouterLink
-      >
       <template v-if="isAuthenticated">
         <RouterLink to="/matches" class="tab"
           ><NavIcon name="matches" /><span class="tab-label">{{
@@ -649,6 +644,12 @@ onBeforeUnmount(() => {
               t('common.app_header.new_count', { count: newTrips })
             }}</span></span
           ></RouterLink
+        >
+        <!-- Discover: the middle tab, raised in honey. -->
+        <RouterLink :to="discoverTo" class="tab tab--discover" data-test="tab-discover"
+          ><NavIcon name="discover" /><span class="tab-label">{{
+            t('common.app_header.discover')
+          }}</span></RouterLink
         >
         <RouterLink to="/messages" class="tab"
           ><NavIcon name="chat" /><span class="tab-label">{{ t('common.app_header.chat') }}</span
@@ -677,6 +678,12 @@ onBeforeUnmount(() => {
         <RouterLink to="/about#how" class="tab"
           ><NavIcon name="how" /><span class="tab-label">{{
             t('common.app_header.how_it_works')
+          }}</span></RouterLink
+        >
+        <!-- Discover: the middle tab, raised in honey. -->
+        <RouterLink :to="discoverTo" class="tab tab--discover" data-test="tab-discover"
+          ><NavIcon name="discover" /><span class="tab-label">{{
+            t('common.app_header.discover')
           }}</span></RouterLink
         >
         <RouterLink to="/login" class="tab"
@@ -1181,6 +1188,43 @@ nav .nav {
     :deep(.nav-icon) {
       color: var(--rg-orange-500);
       transform: translateY(-2px);
+    }
+  }
+}
+
+// Discover, in the middle: honey with a border, a little raised above the bar.
+.tab--discover {
+  justify-self: center;
+  width: 100%;
+  max-width: 4.75rem;
+  margin-top: -0.85rem;
+  padding: 0.45rem 0.25rem;
+  border: 1px solid var(--rg-orange-500);
+  border-radius: 1rem;
+  background: var(--rg-honey);
+  color: var(--rg-ink);
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(224, 138, 18, 0.35);
+
+  :deep(.nav-icon) {
+    color: var(--rg-ink);
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: var(--rg-honey-hover);
+    color: var(--rg-ink);
+  }
+
+  &.router-link-active {
+    color: var(--rg-ink);
+    box-shadow:
+      0 0 0 3px #fff,
+      0 4px 12px rgba(224, 138, 18, 0.45);
+
+    :deep(.nav-icon) {
+      color: var(--rg-ink);
+      transform: none;
     }
   }
 }

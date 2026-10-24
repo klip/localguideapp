@@ -107,13 +107,15 @@ describe('AppHeader mobile menu', () => {
     const tabbar = wrapper.get('[data-test="tabbar"]')
     expect(tabbar.find('.burger').exists()).toBe(false)
     // Signed in, the tabs are the main sections and "Me"; signed out, Discover / How it works / Log in.
+    // Discover in the middle, standing out.
     expect(tabbar.findAll('a').map((a) => a.attributes('href'))).toEqual([
-      '/guide/discover',
       '/matches',
       '/trips',
+      '/guide/discover',
       '/messages',
       '/profile',
     ])
+    expect(tabbar.get('[data-test="tab-discover"]').classes()).toContain('tab--discover')
     expect(tabbar.get('a[href="/messages"]').text()).toBe('Chat')
     expect(tabbar.get('[data-test="tab-me"]').text()).toContain('Me')
     const account = wrapper.get('.drawer > .account')

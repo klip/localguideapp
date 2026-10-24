@@ -882,11 +882,22 @@ it never spills onto the page.
 
 **Mobile (`mode === 'mobile'`) is a bottom tab bar** (`.tabbar`, `data-test="tabbar"`,
 fixed to the foot; `.app-shell` gets matching bottom padding and the cookie
-notice sits above it): signed in Discover · Matches · My trips · **Chat**
+notice sits above it): signed in Matches · My trips · **Discover** · **Chat**
 (`common.app_header.chat`, the design's plain bubble — `NavIcon` `chat`;
 the desktop link still says Messages) · **Me** (the user's photo, else
-their initial, → `/profile`, `data-test="tab-me"`); signed out Discover ·
-How it works · Log in — with the same counters (`tab-*-count`). The top bar
+their initial, → `/profile`, `data-test="tab-me"`); signed out How it
+works · **Discover** · Log in — with the same counters (`tab-*-count`).
+**Discover is always the middle tab and stands out** (`.tab--discover`,
+`data-test="tab-discover"`): honey background, an orange border, raised a
+little above the bar. On both decks the title and "Near {place}"
+(`.deck-head`) are visually hidden while the tab bar shows (still read by
+screen readers).
+
+- **Hooking a scoped style on `.has-tabbar`**: write `.has-tabbar &` /
+  `.has-tabbar .x` — Vue scopes only the last part of a selector. **Never
+  `:global(.has-tabbar) …`**: Vue turns it into a bare `.has-tabbar` and
+  drops the rest, so the rule lands on `<html>` (once it shrank the whole
+  page to 1 px). The top bar
 is the logo, the picks pill and **the menu button (`.burger`) in the
 top-right corner**, which opens the drawer holding everything (planner,
 calendar, payments, language, currency, role, log out); its dot means only

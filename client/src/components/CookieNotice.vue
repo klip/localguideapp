@@ -63,7 +63,7 @@ function dismiss() {
   bottom: 1rem;
   z-index: 50;
 
-  :global(.has-tabbar) & {
+  .has-tabbar & {
     bottom: calc(4.75rem + env(safe-area-inset-bottom));
   }
   margin-inline: auto;

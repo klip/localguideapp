@@ -1487,7 +1487,7 @@ label {
   }
 
   // Above the tab bar while there is one (AppHeader.vue).
-  :global(.has-tabbar) & {
+  .has-tabbar & {
     bottom: calc(4rem + env(safe-area-inset-bottom));
   }
 }

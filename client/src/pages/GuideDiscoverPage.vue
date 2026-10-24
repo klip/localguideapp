@@ -238,6 +238,20 @@ function reject(id: string) {
   min-width: 0;
 }
 
+// On mobile (the tab bar showing) the title and where take room for
+// nothing new: hidden there, still read by screen readers.
+.has-tabbar .deck-head {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .deck-head {
   display: flex;
   align-items: baseline;
