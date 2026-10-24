@@ -10,7 +10,9 @@ import { currentPlace } from '@/utils/currentPlace'
  * "Use my current location" (the device, once, then `api.reverseGeocode()`
  * for its name). A combobox: arrows move through the list, Enter picks,
  * Escape closes. `v-model` is the chosen place (`null` while none) — typing
- * alone doesn't change it, only picking does.
+ * alone doesn't change it, only picking does; with `clearable`, emptying the
+ * box and leaving it clears the place. With `cancelable`, a "Cancel" beside
+ * "Use my current location" emits `cancel` (end editing without a change).
  */
 const props = withDefaults(
   defineProps<{
@@ -22,11 +24,26 @@ const props = withDefaults(
     inputId?: string
     /** Focus the input on mount — when it opens in place of a "Change" button. */
     autofocus?: boolean
+    /** Show "Cancel" (emits `cancel`) beside "Use my current location". */
+    cancelable?: boolean
+    /** Emptying the box and leaving it clears the place (`null`). */
+    clearable?: boolean
   }>(),
-  { placeholder: undefined, near: null, allowCurrent: true, inputId: undefined, autofocus: false },
+  {
+    placeholder: undefined,
+    near: null,
+    allowCurrent: true,
+    inputId: undefined,
+    autofocus: false,
+    cancelable: false,
+    clearable: false,
+  },
 )
 
-const emit = defineEmits<{ 'update:modelValue': [place: PlacePoint] }>()
+const emit = defineEmits<{
+  'update:modelValue': [place: PlacePoint | null]
+  cancel: []
+}>()
 
 const api = useApi()
 const position = useCurrentPosition()
@@ -123,6 +140,11 @@ function onBlur() {
   // Let a click on a suggestion land first (it uses mousedown.prevent too).
   setTimeout(() => {
     open.value = false
+    // Emptied on purpose: no place (when that's allowed).
+    if (props.clearable && !query.value.trim() && props.modelValue) {
+      emit('update:modelValue', null)
+      return
+    }
     // Typed but never picked: show the chosen place again.
     query.value = props.modelValue?.label ?? query.value
   }, 120)
@@ -193,26 +215,52 @@ onBeforeUnmount(() => {
         {{ place.label }}
       </li>
     </ul>
-    <button
-      v-if="allowCurrent"
-      type="button"
-      class="link-btn tiny"
-      :aria-busy="position.locating.value || undefined"
-      :disabled="position.locating.value"
-      data-test="place-current"
-      @click="useCurrent"
-    >
-      {{
-        position.locating.value
-          ? t('common.place_search.locating')
-          : t('common.place_search.use_current')
-      }}
-    </button>
+    <!-- "Use my current location" and "Cancel" on one line under the box. -->
+    <div v-if="allowCurrent || cancelable" class="place-actions">
+      <button
+        v-if="allowCurrent"
+        type="button"
+        class="link-btn tiny"
+        :aria-busy="position.locating.value || undefined"
+        :disabled="position.locating.value"
+        data-test="place-current"
+        @click="useCurrent"
+      >
+        {{
+          position.locating.value
+            ? t('common.place_search.locating')
+            : t('common.place_search.use_current')
+        }}
+      </button>
+      <button
+        v-if="cancelable"
+        type="button"
+        class="link-btn tiny place-cancel"
+        data-test="place-cancel"
+        @click="emit('cancel')"
+      >
+        {{ t('common.place_search.cancel') }}
+      </button>
+    </div>
     <p v-if="locationError" class="tiny muted" role="status">{{ locationError }}</p>
   </div>
 </template>
 
 <style scoped lang="scss">
+.place-actions {
+  // Full width (the column shrink-wraps its children), so Cancel can sit at the end.
+  align-self: stretch;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+}
+
+.place-cancel {
+  margin-inline-start: auto;
+}
+
 .place-search {
   display: flex;
   flex-direction: column;

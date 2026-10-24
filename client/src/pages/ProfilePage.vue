@@ -9,6 +9,7 @@ import PanelCard from '@/components/PanelCard.vue'
 import PlaceSearch from '@/components/PlaceSearch.vue'
 import SegmentedControl from '@/components/SegmentedControl.vue'
 import HelpTip from '@/components/HelpTip.vue'
+import DistanceSlider from '@/components/DistanceSlider.vue'
 import TermsDialog from '@/components/TermsDialog.vue'
 import { t, tn } from '@/i18n'
 import { COUNTRY_CODES, countryForDialCode } from '@/data/countryCodes'
@@ -241,6 +242,13 @@ const includes = ref('')
 // Where a guide works, and how far they'll travel (empty = flexible).
 const guideBase = ref<PlacePoint | null>(null)
 const radiusKm = ref<number | ''>('')
+/** The radius slider: 0 / `null` is flexible (empty `radiusKm`). */
+const radius = computed<number | null>({
+  get: () => (radiusKm.value === '' ? null : radiusKm.value),
+  set: (km) => {
+    radiusKm.value = km ?? ''
+  },
+})
 const savingProfile = ref(false)
 const profilePanelRef = ref<HTMLElement | null>(null)
 
@@ -901,34 +909,15 @@ async function changePassword() {
             <label for="guide-base-place" class="visually-hidden">{{
               t('profile.details.base_title')
             }}</label>
-            <PlaceSearch v-model="guideBase" input-id="guide-base-place" />
-            <p v-if="guideBase" class="tiny base-chosen">
-              📍 {{ guideBase.label }}
-              <button
-                type="button"
-                class="link-btn"
-                data-test="guide-base-remove"
-                @click="guideBase = null"
-              >
-                {{ t('profile.details.base_remove') }}
-              </button>
-            </p>
-            <label>
-              <span class="field-label"
-                ><span class="field-label-text">{{ t('profile.details.radius') }}</span
-                ><HelpTip
-                  :text="`${t('profile.details.radius_label')}. ${t('profile.details.radius_hint')}`"
-              /></span>
-              <input
-                v-model.number="radiusKm"
-                type="number"
-                min="1"
-                max="1000"
-                step="1"
-                :disabled="!guideBase"
-                data-test="guide-radius"
-              />
-            </label>
+            <PlaceSearch v-model="guideBase" input-id="guide-base-place" clearable />
+            <!-- How far they'll travel from there: 0 = flexible (no limit). -->
+            <DistanceSlider
+              v-model="radius"
+              class="guide-radius"
+              :label="t('profile.details.radius')"
+              :disabled="!guideBase"
+              data-test="guide-radius"
+            />
           </fieldset>
           <div class="two-up">
             <label>
@@ -1437,8 +1426,8 @@ label {
   }
 }
 
-.base-chosen {
-  margin: 0 0 0.75rem;
+.guide-radius {
+  margin-top: 0.75rem;
 }
 
 // The two sub-views, as list rows.

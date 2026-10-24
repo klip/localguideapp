@@ -245,6 +245,9 @@ describe('FilterPanel', () => {
     expect(location.find('.near-edit').exists()).toBe(false)
     await location.get('[data-test="near-change"]').trigger('click')
     expect(location.find('.near-edit').exists()).toBe(true)
+    // PlaceSearch's own Cancel, beside "Use my current location", ends editing.
+    await location.get('[data-test="place-cancel"]').trigger('click')
+    expect(location.find('.near-edit').exists()).toBe(false)
     // A place ranks, it doesn't filter — and the default distance isn't a choice either.
     expect(store.isPristine).toBe(true)
 

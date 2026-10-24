@@ -141,7 +141,7 @@ watch(
       :model-value="null"
       :allow-current="false"
       autofocus
-      @update:model-value="settle"
+      @update:model-value="(place) => place && settle(place)"
     />
     <p v-if="error" class="tiny muted" role="status">{{ error }}</p>
 

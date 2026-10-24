@@ -457,7 +457,7 @@ async function interested(guideId: number) {
               <PlaceSearch
                 :model-value="stop.place"
                 :near="stops[index - 1]?.place ?? null"
-                @update:model-value="setPlace(stop, $event)"
+                @update:model-value="(place) => place && setPlace(stop, place)"
               />
               <div class="dates">
                 <label>

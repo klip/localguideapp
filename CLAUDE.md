@@ -425,6 +425,10 @@ own — every one just takes props/emits):
   class="field-label-text">…</span><HelpTip …/></span>` (`_base.scss` —
   ellipsis if still too long; `field-label-optional` for "optional").
   Shorten a label rather than let it wrap, and put the rest in a HelpTip.
+- `DistanceSlider.vue` — a distance in km as one slider: label and value
+  ("Within 25 km") on one line, orange track, orange-ringed handle, 0–200
+  (`max`); 0 is `null` and reads "Unlimited". The filters' distance and a
+  guide's travel radius on the profile.
 - `SegmentedControl.vue` — two or three options as one row of segments
   (real radios underneath, `v-model`, a legend): gender in the filters.
 - `TagList.vue` — a wrapping row of soft tag chips.
@@ -2173,14 +2177,20 @@ the plumbing, is in:
 - **A guide's base** (058, `guide_bases`): a place label, country, a point
   (SRID 4326, rounded to 2 decimals ≈ 1 km — never an address) and
   `radius_km`, how far they'll travel; **empty = flexible** (any distance).
-  Set on the profile page in guide mode ("Where you guide": `PlaceSearch` +
-  a km field) through `updateProfile`'s `base` (`null` removes it) and
+  Set on the profile page in guide mode ("Where you guide": `PlaceSearch
+  clearable` — the box itself shows the place, nothing repeats it under it;
+  emptying the box removes it — and the radius as a `DistanceSlider`, 0 =
+  flexible) through `updateProfile`'s `base` (`null` removes it) and
   `radiusKm`; `myProfile` returns `guide_base`. Only the guide role may send
   `base`; its label goes through `ContactFilter::assertClean()`.
 - **Place search** (`PlaceSearch.vue`): a combobox over `api.geocode()`
   (≥ 2 characters, 300 ms debounce, arrows/Enter/Escape) plus "Use my current
   location" (`useCurrentPosition` → `api.reverseGeocode()`, which names the
-  town, not the street). `v-model` changes only when a place is picked.
+  town, not the street). `v-model` changes only when a place is picked —
+  or, with `clearable`, when the box is emptied and left (`null`). With
+  `cancelable` a "Cancel" sits at the end of the "Use my current location"
+  line and emits `cancel` (the filters' location row uses it to stop
+  editing).
 - **`Geocoder.php`** proxies Photon's public server (OpenStreetMap,
   free — a development stand-in, see `docs/production-memo.md`): towns and
   areas only (no streets), labels like "Lisbon, Portugal", `lang` for
@@ -3375,6 +3385,10 @@ API service (`api/classes/`):
 - `api/sql/105_booking_party.sql` — `bookings.party` (who's coming, asked
   when paying; `user_profiles.party`/`duration_hours` are no longer written).
   Applied 2026-10-24. Not re-runnable.
+- `api/sql/107_place_search_cancel.sql` — `common.place_search.cancel`
+  (copied from the filters' "Cancel" in every language) and the filters'
+  text block on the profile page (its radius slider). Applied 2026-10-24.
+  Re-runnable.
 - `api/sql/106_translations_labels_booking.sql` — HelpTip's label, the pay
   form's "When" / "Length" / "Group" / "Done", the profile's "Price (£)" /
   "Radius (km)", 15 languages, and `common.help_tip`'s page blocks. Applied

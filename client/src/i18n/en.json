@@ -537,6 +537,7 @@
   "common.picks_button.free_until": "Free picks until {date}",
   "common.picks_button.get": "Get picks",
   "common.picks_button.left": "{left}/{capacity} left",
+  "common.place_search.cancel": "Cancel",
   "common.place_search.current_location": "Current location",
   "common.place_search.failed": "Place search isn’t available right now.",
   "common.place_search.locating": "Finding you…",

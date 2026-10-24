@@ -1,5 +1,5 @@
 {
-  "version": "97475c87bc64",
+  "version": "0641c481d2d8",
   "routes": [
     {
       "name": "root",
@@ -447,6 +447,7 @@
       "common.rating",
       "common.standing",
       "common.time_ago",
+      "common.filter_panel",
       "common.help_tip"
     ],
     "not-found": [

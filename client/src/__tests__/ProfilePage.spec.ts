@@ -646,7 +646,7 @@ describe('ProfilePage', () => {
     expect(payload.newCategoryLabels?.dietary_needs).toBe('Dietary needs')
   })
 
-  it('lets a guide pick where they guide and how far they travel, empty meaning flexible', async () => {
+  it('lets a guide pick where they guide and how far they travel on a slider, 0 meaning flexible', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const updateProfile = vi.fn<Api['updateProfile']>().mockResolvedValue({ ok: true })
     const lisbon = {
@@ -670,13 +670,18 @@ describe('ProfilePage', () => {
     )
 
     const base = wrapper.find('[data-test="guide-base"]')
-    expect(base.find<HTMLInputElement>('[data-test="guide-radius"]').element.disabled).toBe(true)
+    const radius = () =>
+      base.find<HTMLInputElement>('[data-test="guide-radius"] input[type="range"]')
+    expect(radius().element.disabled).toBe(true)
     await base.find('[data-test="place-input"]').setValue('lisb')
     await vi.advanceTimersByTimeAsync(350)
     await flushPromises()
     expect(geocode).toHaveBeenCalledWith('lisb', 'en', undefined)
     await base.find('[data-test="place-option-0"]').trigger('mousedown')
-    await base.find('[data-test="guide-radius"]').setValue(30)
+    await radius().setValue(30)
+    expect(base.find('[data-test="guide-radius"] [data-test="distance-value"]').text()).toBe(
+      'Within 30 km',
+    )
 
     await forms(wrapper).details.trigger('submit.prevent')
     await flushPromises()
@@ -687,12 +692,20 @@ describe('ProfilePage', () => {
       }),
     )
 
-    await base.find('[data-test="guide-radius"]').setValue('')
+    await radius().setValue(0)
+    expect(base.find('[data-test="guide-radius"] [data-test="distance-value"]').text()).toBe(
+      'Unlimited',
+    )
     await forms(wrapper).details.trigger('submit.prevent')
     await flushPromises()
     expect(updateProfile).toHaveBeenLastCalledWith(expect.objectContaining({ radiusKm: null }))
 
-    await base.find('[data-test="guide-base-remove"]').trigger('click')
+    // No separate line repeats the place under the box; emptying the box removes it.
+    const input = base.find('[data-test="place-input"]')
+    await input.setValue('')
+    await input.trigger('blur')
+    await vi.advanceTimersByTimeAsync(150)
+    await flushPromises()
     await forms(wrapper).details.trigger('submit.prevent')
     await flushPromises()
     expect(updateProfile).toHaveBeenLastCalledWith(expect.objectContaining({ base: null }))
@@ -719,8 +732,15 @@ describe('ProfilePage', () => {
         updateProfile,
       }),
     )
-    expect(wrapper.find('.base-chosen').text()).toContain('Kyoto, Japan')
-    expect(wrapper.find<HTMLInputElement>('[data-test="guide-radius"]').element.value).toBe('')
+    expect(
+      wrapper.find<HTMLInputElement>('[data-test="guide-base"] [data-test="place-input"]').element
+        .value,
+    ).toBe('Kyoto, Japan')
+    expect(wrapper.find('.base-chosen').exists()).toBe(false)
+    expect(
+      wrapper.find<HTMLInputElement>('[data-test="guide-radius"] input[type="range"]').element
+        .value,
+    ).toBe('0')
 
     const auth = useAuthStore()
     auth.setUser({ ...auth.user!, roles: ['guide', 'guest'] })
