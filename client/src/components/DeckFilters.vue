@@ -134,7 +134,6 @@ defineExpose({ close })
       <div class="filters-body" :style="{ '--pane-max-height': paneMaxHeight }">
         <!-- Only the filters scroll; the buttons are a solid footer under them. -->
         <div class="filters-scroll">
-          <p class="tiny muted hint">{{ hint }}</p>
           <FilterPanel :compact="compact" :target-role="targetRole" />
         </div>
         <div class="pane-actions">

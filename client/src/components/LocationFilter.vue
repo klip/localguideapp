@@ -35,10 +35,9 @@ function choose(place: PlacePoint | null) {
     <legend class="visually-hidden">{{ t('common.filter_panel.location') }}</legend>
 
     <!-- "Location" and the place on one line; the place itself opens the search. -->
-    <div class="near">
-      <span class="near-title" aria-hidden="true">{{ t('common.filter_panel.location') }}</span>
+    <div class="near"
+        v-if="!editing">
       <button
-        v-if="!editing"
         type="button"
         class="near-button"
         :title="
@@ -93,7 +92,7 @@ function choose(place: PlacePoint | null) {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1.2rem;
   min-width: 0;
 }
 
@@ -111,7 +110,7 @@ function choose(place: PlacePoint | null) {
   min-width: 0;
   width: auto;
   margin: 0;
-  padding: 0.2rem 0.4rem;
+  padding: 0.2rem 0rem;
   border: 0;
   border-radius: 0.4rem;
   background: none;
