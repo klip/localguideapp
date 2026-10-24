@@ -37,3 +37,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Yarn 4 install cache (machine-specific, rewritten on every install)
+.yarn/install-state.gz
