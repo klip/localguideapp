@@ -12,7 +12,6 @@ import PillBadge from '@/components/PillBadge.vue'
 import PriceBox from '@/components/PriceBox.vue'
 import ProfileCard from '@/components/ProfileCard.vue'
 import ProtectedNotice from '@/components/ProtectedNotice.vue'
-import SelectionCounter from '@/components/SelectionCounter.vue'
 import { t, tn } from '@/i18n'
 import { useApi } from '@/plugins/api'
 import { useAuthStore } from '@/stores/auth'
@@ -23,7 +22,6 @@ import { useGuidesStore } from '@/stores/guides'
 import { useMatchesStore } from '@/stores/matches'
 import { debounce } from '@/utils/debounce'
 import { addPendingReject } from '@/utils/pendingRejects'
-import { browseIntroSeen, markBrowseIntroSeen } from '@/utils/browseIntro'
 import { formatRating } from '@/utils/reviews'
 import { formatDistance } from '@/utils/distance'
 import { anchorTo } from '@/stores/messages'
@@ -125,10 +123,6 @@ async function persistDecision(guideId: string, decision: 'interested' | 'pass')
  */
 const isGuest = computed(() => auth.activeRole === 'guest')
 
-// "Browse freely": once, to a first-time signed-out visitor (utils/browseIntro.ts).
-// Decided when the page opens, so it stays for this visit and not the next.
-const showBrowseIntro = !auth.isAuthenticated && !browseIntroSeen()
-if (showBrowseIntro) markBrowseIntroSeen()
 const authPromptOpen = ref(false)
 // The add-picks dialog: opened here, or by the header's counter (`PicksButton`).
 const { addPicksOpen: payOpen } = storeToRefs(matchesStore)
@@ -228,14 +222,6 @@ function reject(id: string) {
           The deck is open to everyone; "Interested" is what's gated — by an
           account for a signed-out visitor, by a pack for a guest without one.
         -->
-        <SelectionCounter
-          v-if="!auth.isAuthenticated && showBrowseIntro"
-          :headline="t('discover.counter.browse_freely')"
-          :caption="t('discover.counter.browse_caption')"
-          :action-label="t('discover.counter.sign_up')"
-          @action="router.push('/register')"
-        />
-
         <LocationPrompt />
 
         <ProfileCard

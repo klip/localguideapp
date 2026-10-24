@@ -761,8 +761,8 @@ failed registration closes it, toasts as before, and drops the cached terms.
 - **Cookie notice** (`CookieNotice.vue`, in App.vue): fixed at the foot of
   the page until "OK"; "Privacy notice" opens the dialog at 9.8. The app
   stores only strictly necessary things (localStorage: session, language,
-  trusted-device tokens, pending rejects, this notice, whether the Discover
-  intro was shown), which under
+  trusted-device tokens, pending rejects, this notice, whether anyone has
+  signed in on this browser), which under
   ePrivacy needs telling, not consent — so there's deliberately no
   Accept/Reject. **Adding analytics or anything optional means turning it
   into a real consent choice** (nothing set before yes, Reject as easy as
@@ -815,11 +815,14 @@ failed registration closes it, toasts as before, and drops the cached terms.
 `/` redirects to `/discover`, so the deck is the landing page, and it's no
 longer behind a paywall — what's gated is "Interested":
 
-- **"Browse freely" intro** (the counter panel's signed-out form): shown
-  **once**, on a first signed-out visit — not on later visits, and never on a
-  browser where anyone has signed in or registered (`utils/browseIntro.ts`,
-  `localStorage` `belikelocal.browseIntro`; DiscoverPage marks it when shown,
-  App.vue on every sign-in). Signed out without it, no counter panel shows.
+- **No sign-up panel on the deck** (the old "Browse freely" one and
+  `SelectionCounter` are gone): signed out, the header offers **Log in**,
+  and **Get started** only on a browser where nobody has signed in yet
+  (`utils/signedInHere.ts`, `localStorage` `belikelocal.signedInHere`, set
+  by App.vue on every sign-in — the one key; the old
+  `belikelocal.browseIntro` is removed from browsers still holding it). On
+  mobile both sit in the top bar beside the menu button (`bar-login`,
+  `bar-signup`).
 - **Signed out**: the first suggested card shows; Interested opens a modal
   (`ModalDialog.vue`) with "Create account" / "Log in". Reject moves on and
   queues the guide id in `localStorage` (`belikelocal.pendingRejects`,

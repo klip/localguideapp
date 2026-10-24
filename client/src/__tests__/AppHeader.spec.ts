@@ -185,6 +185,29 @@ describe('AppHeader mobile menu', () => {
   })
 })
 
+describe('AppHeader signed out', () => {
+  it('puts Log in and Get started in the mobile bar, Get started only where nobody has signed in', async () => {
+    const first = await mountHeader(false)
+    expect(first.wrapper.get('.bar-end [data-test="bar-login"]').attributes('href')).toBe('/login')
+    expect(first.wrapper.get('.bar-end [data-test="bar-signup"]').attributes('href')).toBe(
+      '/register',
+    )
+    first.wrapper.unmount()
+
+    // Someone signed in on this browser before (App.vue marks it): Log in only.
+    localStorage.setItem('belikelocal.signedInHere', '1')
+    const again = await mountHeader(false)
+    expect(again.wrapper.find('[data-test="bar-login"]').exists()).toBe(true)
+    expect(again.wrapper.find('[data-test="bar-signup"]').exists()).toBe(false)
+    expect(again.wrapper.find('a[href="/register"]').exists()).toBe(false)
+    again.wrapper.unmount()
+
+    const signedIn = await mountHeader(true)
+    expect(signedIn.wrapper.find('[data-test="bar-login"]').exists()).toBe(false)
+    signedIn.wrapper.unmount()
+  })
+})
+
 describe('AppHeader roles', () => {
   it('offers the missing role to a one-role account, linking to the profile page', async () => {
     const { wrapper } = await mountHeader(true)

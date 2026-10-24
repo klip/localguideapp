@@ -15,7 +15,7 @@ import { useMessagesStore } from '@/stores/messages'
 import { useMatchesStore } from '@/stores/matches'
 import { notificationLink, withRole } from '@/utils/notificationLink'
 import { syncPendingRejects } from '@/utils/pendingRejects'
-import { markBrowseIntroSeen } from '@/utils/browseIntro'
+import { markSignedInHere } from '@/utils/signedInHere'
 import { t } from '@/i18n'
 import { useRoute } from 'vue-router'
 
@@ -108,12 +108,12 @@ watch(
   },
 )
 
-// Someone has an account on this browser: no "Browse freely" intro on
-// Discover again (utils/browseIntro.ts).
+// Someone has an account on this browser: signed out, the header then
+// offers "Log in" without "Get started" (utils/signedInHere.ts).
 watch(
   () => auth.user?.id,
   (id) => {
-    if (id) markBrowseIntroSeen()
+    if (id) markSignedInHere()
   },
   { immediate: true },
 )

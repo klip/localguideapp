@@ -140,25 +140,10 @@ describe('DiscoverPage', () => {
     wrapper.unmount()
   })
 
-  it('shows the "Browse freely" intro once, on a first signed-out visit only', async () => {
-    const first = await mountDiscover(fakeApi())
-    expect(first.wrapper.text()).toContain('Browse freely')
-    first.wrapper.unmount()
-
-    // The next visit (a reload, another day) doesn't show it again.
-    const second = await mountDiscover(fakeApi())
-    expect(second.wrapper.text()).not.toContain('Browse freely')
-    // …and nothing else stands in for it while signed out.
-    expect(second.wrapper.text()).not.toContain('Get +')
-    second.wrapper.unmount()
-  })
-
-  it('never shows the intro on a browser where someone has had an account', async () => {
-    localStorage.clear()
-    const { markBrowseIntroSeen } = await import('@/utils/browseIntro')
-    markBrowseIntroSeen() // what App.vue does on any sign-in or registration
+  it('shows a signed-out visitor no "Browse freely" sign-up block — the header has Log in', async () => {
     const { wrapper } = await mountDiscover(fakeApi())
     expect(wrapper.text()).not.toContain('Browse freely')
+    expect(wrapper.text()).not.toContain('create an account to pick your guides')
     wrapper.unmount()
   })
 

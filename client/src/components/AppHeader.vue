@@ -15,6 +15,7 @@ import { useBadgesStore } from '@/stores/badges'
 import { useMessagesStore } from '@/stores/messages'
 import { activeCurrency } from '@/utils/money'
 import { honeycombPath } from '@/utils/honeycomb'
+import { signedInHere } from '@/utils/signedInHere'
 
 /** The hand-drawn honeycomb behind the logo — same drawing every load (fixed seed). */
 const COMB = honeycombPath(360, 120, 15)
@@ -40,6 +41,13 @@ const hasMenuNews = computed(() => isAuthenticated.value && otherRoleNews.value)
 function badgeText(count: number) {
   return count > 99 ? '99+' : String(count)
 }
+
+/**
+ * Signed out: "Get started" (sign up) only on a browser where nobody has
+ * signed in yet — anyone else here most likely has an account, and gets
+ * "Log in" alone. Read once; signing in changes the header anyway.
+ */
+const offerSignUp = computed(() => !isAuthenticated.value && !signedInHere())
 
 /** Guides never browse guides — their deck is /guide/discover (see DiscoverPage.vue's redirect guard). */
 const discoverTo = computed(() => (auth.activeRole === 'guide' ? '/guide/discover' : '/discover'))
@@ -227,8 +235,7 @@ let fitting = false
 
 /**
  * How far the links run past their room: their own widths plus the gaps,
- * against the list's width. (Not `scrollWidth`: the row is spread with
- * `space-evenly`, so an overflowing one spills off both ends.)
+ * against the list's width (independent of how the row is justified).
  */
 function overflow(): number {
   const list = linksRef.value
@@ -325,6 +332,19 @@ onBeforeUnmount(() => {
 
         <!-- Mobile: the menu button in the bar's top-right corner; the profile is the tab bar's "Me". -->
         <div class="bar-end">
+          <template v-if="!isAuthenticated">
+            <RouterLink to="/login" role="button" class="secondary bar-btn" data-test="bar-login">{{
+              t('common.app_header.log_in')
+            }}</RouterLink>
+            <RouterLink
+              v-if="offerSignUp"
+              to="/register"
+              role="button"
+              class="bar-btn"
+              data-test="bar-signup"
+              >{{ t('common.app_header.get_started') }}</RouterLink
+            >
+          </template>
           <button
             ref="burgerRef"
             type="button"
@@ -584,7 +604,7 @@ onBeforeUnmount(() => {
               <RouterLink to="/login" class="login-link">{{
                 t('common.app_header.log_in')
               }}</RouterLink>
-              <RouterLink to="/register" role="button" class="get-started">{{
+              <RouterLink v-if="offerSignUp" to="/register" role="button" class="get-started">{{
                 t('common.app_header.get_started')
               }}</RouterLink>
             </template>
@@ -860,6 +880,20 @@ nav .nav {
 .bar-end {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+}
+
+// Signed out, on mobile: Log in and (first visit) Get started, small.
+.bar-btn {
+  display: inline-flex;
+  align-items: center;
+  height: var(--rg-control-height-sm);
+  margin: 0;
+  padding: 0 0.75rem;
+  border-radius: var(--rg-radius-control);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 // The menu button: the bar's top-right corner on mobile.
@@ -1430,11 +1464,17 @@ nav .nav {
     padding: 0;
     background: none;
 
+    // "Get started": the text centred in its 32 px (Pico's own padding and
+    // line height put it low).
     [role='button'] {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: auto;
       height: var(--rg-control-height-sm);
       padding: 0 0.9rem;
       font-size: 0.875rem;
+      line-height: 1;
     }
 
     // Icon only on desktop; the label stays for screen readers.
@@ -1459,9 +1499,10 @@ nav .nav {
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
-    // Spread evenly in the room between the logo and the controls.
-    justify-content: space-evenly;
-    gap: 0.25rem;
+    // Centred between the logo and the controls; `safe` keeps an overflowing
+    // row starting at its left.
+    justify-content: safe center;
+    gap: 0.45rem;
     overflow: hidden;
 
     li {
