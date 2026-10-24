@@ -2203,8 +2203,9 @@ the plumbing, is in:
   purpose, so moving the point reorders the deck.
 - `near` ranks, it doesn't filter: it isn't counted by `isPristine`/
   `activeCount`, and Clear filters (`reset()`) keeps it. `LocationFilter.vue`
-  tops the filter bar ("📍 Lisbon · Change" / "Anywhere · Set a location",
-  then **Distance: one slider, always on — no switch** — orange track,
+  tops the filter bar ("Location" and "📍 Lisbon" / "📍 Anywhere" on one
+  line — the place itself is the button that opens the place search, no
+  Change link; on desktop the rail can't be closed even by script), then **Distance: one slider, always on — no switch** — orange track,
   orange-ringed handle, 0–200 km, **10 km by default** (`DEFAULT_MAX_KM` in
   `stores/filters.ts`, also what `reset()` and a role switch go back to);
   dragged to 0 it reads "Unlimited" and `maxKm` is `null`). The limit is
