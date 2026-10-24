@@ -888,8 +888,8 @@ the desktop link still says Messages) · **Me** (the user's photo, else
 their initial, → `/profile`, `data-test="tab-me"`); signed out How it
 works · **Discover** · Log in — with the same counters (`tab-*-count`).
 **Discover is always the middle tab and stands out** (`.tab--discover`,
-`data-test="tab-discover"`): honey background, an orange border, raised a
-little above the bar. On both decks the title and "Near {place}"
+`data-test="tab-discover"`): honey background and an orange border, level
+with the other tabs. On both decks the title and "Near {place}"
 (`.deck-head`) are visually hidden while the tab bar shows (still read by
 screen readers).
 

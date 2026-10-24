@@ -1197,7 +1197,6 @@ nav .nav {
   justify-self: center;
   width: 100%;
   max-width: 4.75rem;
-  margin-top: -0.85rem;
   padding: 0.45rem 0.25rem;
   border: 1px solid var(--rg-orange-500);
   border-radius: 1rem;
@@ -1218,9 +1217,6 @@ nav .nav {
 
   &.router-link-active {
     color: var(--rg-ink);
-    box-shadow:
-      0 0 0 3px #fff,
-      0 4px 12px rgba(224, 138, 18, 0.45);
 
     :deep(.nav-icon) {
       color: var(--rg-ink);
