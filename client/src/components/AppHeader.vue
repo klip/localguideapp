@@ -225,9 +225,20 @@ let wideNeeds = 0
 let compactNeeds = 0
 let fitting = false
 
+/**
+ * How far the links run past their room: their own widths plus the gaps,
+ * against the list's width. (Not `scrollWidth`: the row is spread with
+ * `space-evenly`, so an overflowing one spills off both ends.)
+ */
 function overflow(): number {
   const list = linksRef.value
-  return list ? list.scrollWidth - list.clientWidth : 0
+  if (!list) return 0
+  const items = Array.from(list.children) as HTMLElement[]
+  const gap = parseFloat(getComputedStyle(list).columnGap) || 0
+  const content =
+    items.reduce((sum, item) => sum + item.getBoundingClientRect().width, 0) +
+    gap * Math.max(0, items.length - 1)
+  return content - list.clientWidth
 }
 
 async function fit() {
@@ -1448,9 +1459,8 @@ nav .nav {
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
-    // Centred between the logo and the controls; `safe` keeps an overflowing
-    // row starting at its left, so its overflow can be measured (`fit()`).
-    justify-content: safe center;
+    // Spread evenly in the room between the logo and the controls.
+    justify-content: space-evenly;
     gap: 0.25rem;
     overflow: hidden;
 

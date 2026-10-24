@@ -845,8 +845,9 @@ longer behind a paywall — what's gated is "Interested":
 
 **The layout is measured, not set by a breakpoint** (`fit()` / `mode`:
 `wide` → `compact` → `mobile`): one row while the links fit — the logo with
-the honeycomb behind it, **the links centred in the room between the logo
-and the controls** (`justify-content: safe center`), then on the right the picks pill,
+the honeycomb behind it, **the links spread evenly in the room between the
+logo and the controls** (`justify-content: space-evenly`; `overflow()` adds
+up the links' widths, since an overflowing row spills off both ends), then on the right the picks pill,
 "🌐 EN · €" (language and currency in one small popover — `locale-toggle`,
 closed by a click outside, Escape or navigation), the role switch, the
 **profile circle** (the user's photo, else their initial, linking to
